@@ -57,15 +57,14 @@ export const ALLOWLIST = {
   // canonical contract. Resolving = a DELIBERATE API-contract decision (one-way door:
   // changing a documented response shape), NOT a quick delete. Not a live bug (FE-unused).
   'GET /api/admin/domains': 'review',
-  // Two GET / handlers in index.ts: :747 (system-service landings, WINS) shadows :976
-  // (superset — adds llm + platform-service landings). VERIFIED (iter 33 prod curls):
-  // :976 is moot — logs/webhooks/links/analytics roots already serve 200 (via containers,
-  // NOT :976), llm root is container-served, billing 404s regardless. So the fix is DELETE
-  // :976 (a merge into :747 would HIJACK the 4 working platform hosts). But :976's helpers
-  // (llmLandingPage + resolvePlatformService + platformServiceLanding) are used ONLY by :976
-  // AND llm_landing_page has its own test → the clean delete has a 2-module + 1-test tail;
-  // a focused host-routing slice, not a loop step. Not a live bug.
-  'GET /': 'review',
+  // RESOLVED iter 47 — the duplicate `GET /` in index.ts was CONSOLIDATED into a
+  // single handler, so it no longer appears here. ⚠️ The prior iter-33 analysis
+  // ("2nd handler is moot, DELETE it") was WRONG: prod curls (iter 47) proved the
+  // 2nd handler UNIQUELY serves the llm/logs/webhooks/links roots (all live 200s) —
+  // deleting it would have 404'd four hosts. The safe fix was a behavior-preserving
+  // MERGE (2nd handler's superset logic moved into the 1st's position), guarded by
+  // platform_root_landings.test.ts. Lesson: a source-grep "moot" verdict must be
+  // confirmed against prod ground truth before any route deletion.
 };
 
 /**
@@ -151,13 +150,17 @@ function main() {
   }
 
   if (unlisted.length > 0) {
-    console.log(`⚠️  check-duplicate-routes: ${unlisted.length} NEW duplicate route registration(s) — one silently shadows the other:`);
+    console.log(
+      `⚠️  check-duplicate-routes: ${unlisted.length} NEW duplicate route registration(s) — one silently shadows the other:`,
+    );
     for (const k of unlisted) {
       const where = dups[k].map((s) => `${s.file}:${s.line}`).join('  +  ');
       console.log(`   FAIL ${k}  →  ${where}`);
     }
     console.log('   The first-registered handler wins; the rest are dead. Remove the duplicate,');
-    console.log('   or (if it is a deliberate override) grandfather it in ALLOWLIST with a reason.');
+    console.log(
+      '   or (if it is a deliberate override) grandfather it in ALLOWLIST with a reason.',
+    );
     process.exit(ci ? 1 : 0);
   }
 

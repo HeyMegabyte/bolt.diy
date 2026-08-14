@@ -744,9 +744,26 @@ app.route('/', browserService); // POST /v1/browser/* — product browser-automa
 // so `jobs.projectsites.dev/` returns the branded 200 status page instead of the
 // Inngest inert 503. Only matches exact path `/`, so `/api/inngest` (and every
 // other `/api/*`, `/v1/*` path on these hosts) still routes to its real handler.
+// Root landing for platform subdomains — consolidated (iter 47) from TWO
+// separate `app.get('/')` handlers into one. The 2nd handler was NOT moot: it
+// uniquely served the llm/logs/webhooks/links roots (deleting it 404s them —
+// prod-verified iter 47). Order: llm gateway → system-service registry
+// (api/auth/analytics/notify/…) → platform-service SaaS (logs/webhooks/links) →
+// fall through to the marketing/site-serving catch-all. Only matches GET `/`.
 app.get('/', async (c, next) => {
-  const svc = resolveSystemService((c.req.header('host') ?? '').toLowerCase());
-  return svc ? c.html(systemServiceLanding(svc)) : next();
+  const hostname = (c.req.header('host') ?? '').toLowerCase();
+  if (hostname === `llm.${DOMAINS.SITES_BASE}`) {
+    return c.html(llmLandingPage());
+  }
+  const svc = resolveSystemService(hostname);
+  if (svc) {
+    return c.html(systemServiceLanding(svc));
+  }
+  const ps = resolvePlatformService(hostname);
+  if (ps) {
+    return c.html(platformServiceLanding(ps));
+  }
+  return next();
 });
 app.route('/', inngestApp); // jobs./events.projectsites.dev → InngestContainer DO + /api/inngest serve handler (§13); degrades to 503 until the watched deploy binds INNGEST_CONTAINER — must precede the catch-all
 // Formbricks REMOVED (2026-06-27): survey.* host route, FormbricksContainer DO
@@ -967,37 +984,6 @@ function renderAppShellHtml(
   const title = titles[state];
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · ProjectSites</title><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Fira+Code:wght@400&display=swap" rel="stylesheet"><style>*{margin:0;padding:0;box-sizing:border-box}body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a0a0f;color:#e0e0e0;font-family:'Space Grotesk',sans-serif;padding:2rem}.box{max-width:560px;text-align:center}h1{font-size:2.2rem;background:linear-gradient(135deg,#00ffc8,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:1rem}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#00ffc8;animation:pulse 1.4s ease-in-out infinite;margin-right:.5rem;vertical-align:middle}@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}p{color:#8892a4;font-size:1.05rem;line-height:1.5;margin-bottom:2rem}.btn{display:inline-block;padding:12px 28px;background:linear-gradient(135deg,#00ffc8,#7c3aed);color:#0a0a0f;font-weight:600;border-radius:50px;text-decoration:none}.meta{margin-top:2rem;font-family:'Fira Code',monospace;font-size:.75rem;color:#4a9;background:rgba(0,255,200,.05);border:1px solid rgba(0,255,200,.1);padding:1rem;border-radius:8px;text-align:left}</style></head><body><div class="box"><h1>${state === 'booting' ? '<span class="dot"></span>' : ''}${title}</h1><p>${bodies[state]}</p>${cta}<div class="meta">app: ${safeSlug}<br>subdomain: ${safeSub}<br>state: ${state}</div></div></body></html>`;
 }
-
-// ─── LLM Gateway landing ─────────────────────────────────────
-// `llm.projectsites.dev/` exposes the OpenAI-compatible `/v1/*` API, but the
-// bare root used to fall through to the site-serving catch-all and 404. Serve a
-// "what is this + how to use it" landing for the gateway host; every other host
-// falls through unchanged to the marketing/site-serving catch-all below.
-app.get('/', async (c, next) => {
-  const hostname = (c.req.header('host') ?? '').toLowerCase();
-  if (hostname === `llm.${DOMAINS.SITES_BASE}`) {
-    return c.html(llmLandingPage());
-  }
-  // System-service subdomains (api/auth/billing/analytics/notify/browser/traces/
-  // jobs/app) are registry labels for bindings/SaaS/internal services — they have
-  // no root page and otherwise fall through to the site-serving 404. Serve an
-  // honest branded 200 status page at their root; real surfaces (/api/*, vendor
-  // dashboards, bindings) are unaffected since this only matches GET `/`.
-  const svc = resolveSystemService(hostname);
-  if (svc) {
-    return c.html(systemServiceLanding(svc));
-  }
-  // Platform-service subdomains (analytics/logs/billing/webhooks/links.projectsites.dev)
-  // are cloud-hosted SaaS destinations (PostHog Cloud, Axiom, Stripe Dashboard,
-  // Hookdeck, Dub). The bare root used to 404. Serve a branded landing page with a
-  // CTA linking to the SaaS login; other paths still fall through to the site-serving
-  // catch-all below. Only matches GET `/`.
-  const ps = resolvePlatformService(hostname);
-  if (ps) {
-    return c.html(platformServiceLanding(ps));
-  }
-  return next();
-});
 
 // ─── appsmith.projectsites.dev — proxy to Railway ────────────
 app.all('*', async (c, next) => {
