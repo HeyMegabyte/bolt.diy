@@ -17,7 +17,7 @@
 import { Hono } from 'hono';
 import type { Env, Variables } from '../../../src/types/env.js';
 import { isFlagOn } from '../../../src/modules/feature_flags/services.js';
-import { dbQueryOne } from '../../../src/services/db.js';
+import { isSuperAdmin } from '../../../src/services/sysadmin.js';
 import { FLAG_KEY, getOrgMeter, getAllOrgMeters } from './service.js';
 import {
   OrgBudgetResponseSchema,
@@ -27,9 +27,6 @@ import {
 type AppContext = { Bindings: Env; Variables: Variables };
 
 export const tokenBurnMeter = new Hono<AppContext>();
-
-/** Platform-owner email allowed to view the all-orgs admin meter. */
-const PLATFORM_ADMIN_EMAIL = 'brian@megabyte.space';
 
 const unauthorized = (c: import('hono').Context<AppContext>) =>
   c.json({ error: { code: 'UNAUTHORIZED', message: 'Auth required' } }, 401);
@@ -44,18 +41,6 @@ async function guard(c: import('hono').Context<AppContext>): Promise<Response | 
   const on = await isFlagOn(c.env, FLAG_KEY, { userId, orgId: c.get('orgId') });
   if (!on) return notFound(c);
   return null;
-}
-
-/** Whether the authenticated user is the platform owner. */
-async function isPlatformAdmin(c: import('hono').Context<AppContext>): Promise<boolean> {
-  const userId = c.get('userId');
-  if (!userId) return false;
-  const row = await dbQueryOne<{ email: string }>(
-    c.env.DB,
-    'SELECT email FROM users WHERE id = ? LIMIT 1',
-    [userId],
-  ).catch(() => null);
-  return row?.email === PLATFORM_ADMIN_EMAIL;
 }
 
 /** Current caller-org budget meter. */
@@ -74,7 +59,8 @@ tokenBurnMeter.get('/api/usage/budget', async (c) => {
 tokenBurnMeter.get('/api/admin/usage/budget', async (c) => {
   const blocked = await guard(c);
   if (blocked) return blocked;
-  if (!(await isPlatformAdmin(c))) return notFound(c);
+  const userId = c.get('userId');
+  if (!userId || !(await isSuperAdmin(c.env, userId))) return notFound(c);
 
   const orgs = await getAllOrgMeters(c.env);
   return c.json(AdminBudgetResponseSchema.parse({ count: orgs.length, orgs }));
