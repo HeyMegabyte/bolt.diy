@@ -206,7 +206,8 @@ mediaRoutes.get('/api/media/assets/:id/raw', async (c) => {
   // and force any non-inline-safe type to download rather than render.
   const rawMime = (asset.mime || 'application/octet-stream').split(';')[0].trim().toLowerCase();
   const inlineSafe = INLINE_SAFE_TYPES.has(rawMime);
-  const safeName = (asset.name || 'download').replace(/[^\w.\- ]+/g, '_').slice(0, 200) || 'download';
+  const safeName =
+    (asset.name || 'download').replace(/[^\w.\- ]+/g, '_').slice(0, 200) || 'download';
   const headers: Record<string, string> = {
     'Content-Type': asset.mime || 'application/octet-stream',
     'Content-Length': String(asset.size_bytes || obj.size),
