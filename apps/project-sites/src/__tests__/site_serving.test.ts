@@ -3,6 +3,7 @@ import {
   serveSiteFromR2,
   asyncifyRenderBlockingFonts,
   absolutizeSocialImages,
+  parseSitemapRoutes,
   injectAppShellHero,
   isServedSiteCookieless,
   generateNoCookiesBadge,
@@ -188,6 +189,36 @@ describe('absolutizeSocialImages', () => {
   });
 });
 
+describe('parseSitemapRoutes', () => {
+  it('extracts normalized pathnames from <loc> entries', () => {
+    const xml = `<urlset>
+      <url><loc>https://x.com/</loc></url>
+      <url><loc>https://x.com/about</loc></url>
+      <url><loc>https://x.com/blog/post-1</loc></url>
+    </urlset>`;
+    const routes = parseSitemapRoutes(xml);
+    expect(routes.has('/')).toBe(true);
+    expect(routes.has('/about')).toBe(true);
+    expect(routes.has('/blog/post-1')).toBe(true);
+    expect(routes.size).toBe(3);
+  });
+
+  it('normalizes trailing slashes (except root)', () => {
+    const routes = parseSitemapRoutes('<loc>https://x.com/services/</loc>');
+    expect(routes.has('/services')).toBe(true);
+    expect(routes.has('/services/')).toBe(false);
+  });
+
+  it('returns an empty set for XML with no <loc> entries', () => {
+    expect(parseSitemapRoutes('<urlset></urlset>').size).toBe(0);
+  });
+
+  it('ignores malformed loc values without throwing', () => {
+    const routes = parseSitemapRoutes('<loc>not a url</loc><loc>https://x.com/ok</loc>');
+    expect(routes.has('/ok')).toBe(true);
+  });
+});
+
 describe('generateTopBar', () => {
   it('generates valid HTML with CTA', () => {
     const html = generateTopBar('my-biz');
@@ -349,6 +380,55 @@ describe('serveSiteFromR2', () => {
     const response = await serveSiteFromR2(env, baseSite, '/about');
     expect(response.status).toBe(200);
     expect(response.headers.get('Content-Type')).toBe('text/html; charset=utf-8');
+  });
+
+  // ── Soft-404 guard: SPA fallback returns 404 for paths not in the sitemap ──
+  // Generated sites are pure SPAs — the SAME index.html is served for every
+  // extensionless path. Without this, junk URLs return 200 and get indexed.
+  describe('soft-404 (SPA fallback status from sitemap)', () => {
+    const SITEMAP = `<?xml version="1.0"?><urlset>
+      <url><loc>https://my-biz.example/</loc></url>
+      <url><loc>https://my-biz.example/about</loc></url>
+      <url><loc>https://my-biz.example/services</loc></url>
+    </urlset>`;
+
+    it('returns 404 for an extensionless path NOT in the sitemap (still serves the shell)', async () => {
+      const env = createMockEnv({
+        'sites/my-biz/v1/index.html': '<html><body>SPA</body></html>',
+        'sites/my-biz/v1/sitemap.xml': SITEMAP,
+      });
+      const response = await serveSiteFromR2(env, baseSite, '/this-does-not-exist-xyz');
+      expect(response.status).toBe(404);
+      // shell still served so the SPA's own 404 view can render
+      expect(response.headers.get('Content-Type')).toBe('text/html; charset=utf-8');
+      expect(await response.text()).toContain('SPA');
+    });
+
+    it('returns 200 for a real route that IS in the sitemap', async () => {
+      const env = createMockEnv({
+        'sites/my-biz/v1/index.html': '<html><body>SPA</body></html>',
+        'sites/my-biz/v1/sitemap.xml': SITEMAP,
+      });
+      const response = await serveSiteFromR2(env, baseSite, '/about');
+      expect(response.status).toBe(200);
+    });
+
+    it('matches a sitemap route regardless of trailing slash', async () => {
+      const env = createMockEnv({
+        'sites/my-biz/v1/index.html': '<html><body>SPA</body></html>',
+        'sites/my-biz/v1/sitemap.xml': SITEMAP,
+      });
+      const response = await serveSiteFromR2(env, baseSite, '/services/');
+      expect(response.status).toBe(200);
+    });
+
+    it('fails OPEN (200) when the site has no sitemap — never wrongly 404 a real route', async () => {
+      const env = createMockEnv({
+        'sites/my-biz/v1/index.html': '<html><body>SPA</body></html>',
+      });
+      const response = await serveSiteFromR2(env, baseSite, '/anything');
+      expect(response.status).toBe(200);
+    });
   });
 
   it('injects top bar for free plan HTML', async () => {

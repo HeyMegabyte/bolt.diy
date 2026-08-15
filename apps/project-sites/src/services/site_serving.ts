@@ -793,8 +793,20 @@ export async function serveSiteFromR2(
       const fallback = await env.SITES_BUCKET.get(fallbackPath);
 
       if (fallback) {
-        serveLog.debug('serve_spa_fallback', { slug: site.slug, requestPath });
-        return buildSiteResponse(fallback, site, 'text/html; charset=utf-8', env);
+        // Soft-404 guard: a pure SPA serves the SAME index.html for every
+        // extensionless path. Return 404 (not 200) for a path the site's own
+        // sitemap.xml doesn't list, so search engines never index junk URLs —
+        // while still shipping the shell so the SPA's 404 view can render.
+        // Fail-open (200) when no sitemap exists, so a real route is never
+        // wrongly 404'd.
+        const known = await getKnownRoutes(
+          env,
+          versionedPath('/sitemap.xml'),
+          `routes:${site.slug}:${version}`,
+        );
+        const status = known && !known.has(normalizeRoute(requestPath)) ? 404 : 200;
+        serveLog.debug('serve_spa_fallback', { slug: site.slug, requestPath, status });
+        return buildSiteResponse(fallback, site, 'text/html; charset=utf-8', env, status);
       }
     }
 
@@ -998,6 +1010,87 @@ export function absolutizeSocialImages(html: string): string {
         return `${pre}${origin}${path}${post}`;
       }),
   );
+}
+
+/**
+ * Normalize a URL path for route-set membership: collapse trailing slashes so
+ * `/services` and `/services/` compare equal; the root stays `/`.
+ *
+ * @param p - A URL pathname.
+ * @returns The canonical form used as a known-route key.
+ */
+function normalizeRoute(p: string): string {
+  if (!p || p === '/') return '/';
+  return p.replace(/\/+$/, '') || '/';
+}
+
+/**
+ * Parse a `sitemap.xml` into the set of real client-route pathnames it declares.
+ *
+ * The site's own sitemap is the single source of truth for which extensionless
+ * paths are real routes (vs junk) — used by {@link serveSiteFromR2} to give a
+ * pure client-side SPA a correct 404 status instead of a soft-404 200.
+ *
+ * @param xml - The raw sitemap.xml contents.
+ * @returns Normalized pathnames (e.g. `/`, `/about`, `/blog/post-1`).
+ *
+ * @example
+ * ```ts
+ * parseSitemapRoutes('<loc>https://x.com/about</loc>'); // → Set { '/about' }
+ * ```
+ */
+export function parseSitemapRoutes(xml: string): Set<string> {
+  const routes = new Set<string>();
+  const locRe = /<loc>\s*([^<\s]+)\s*<\/loc>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = locRe.exec(xml)) !== null) {
+    const raw = m[1];
+    try {
+      routes.add(normalizeRoute(new URL(raw).pathname));
+    } catch {
+      if (raw.startsWith('/')) routes.add(normalizeRoute(raw)); // relative <loc>
+    }
+  }
+  return routes;
+}
+
+/**
+ * Resolve the site's known-route set from its `sitemap.xml` in R2, cached in KV
+ * keyed by the immutable build version.
+ *
+ * @param env - Worker env (SITES_BUCKET + optional CACHE_KV).
+ * @param sitemapKey - Versioned R2 key of the site's sitemap.xml.
+ * @param cacheKey - KV cache key (includes slug + immutable version).
+ * @returns The route set, or `null` when no usable sitemap exists (caller
+ * fails OPEN — serves 200 — so a real route is never wrongly 404'd).
+ */
+async function getKnownRoutes(
+  env: Env,
+  sitemapKey: string,
+  cacheKey: string,
+): Promise<Set<string> | null> {
+  if (env.CACHE_KV) {
+    const cached = await env.CACHE_KV.get(cacheKey);
+    if (cached) {
+      try {
+        const arr = JSON.parse(cached) as string[];
+        if (Array.isArray(arr) && arr.length) return new Set(arr);
+      } catch {
+        /* corrupt cache entry → re-derive below */
+      }
+    }
+  }
+
+  const obj = await env.SITES_BUCKET.get(sitemapKey);
+  if (!obj) return null; // no sitemap → cannot determine → fail-open
+  const routes = parseSitemapRoutes(await obj.text());
+  if (routes.size === 0) return null; // empty/unparseable → fail-open
+
+  if (env.CACHE_KV) {
+    // Version is immutable, so this set never goes stale within a version.
+    await env.CACHE_KV.put(cacheKey, JSON.stringify([...routes]), { expirationTtl: 86400 });
+  }
+  return routes;
 }
 
 /**
@@ -1219,12 +1312,20 @@ async function buildSiteResponse(
   site: { slug: string; plan: string },
   contentType: string,
   env?: Env,
+  htmlStatus = 200,
 ): Promise<Response> {
   const headers = new Headers({
     'Content-Type': contentType,
     'Cache-Control': 'public, max-age=300, s-maxage=3600',
     'X-Site-Slug': site.slug,
   });
+  // Soft-404 shell: the SPA index.html is served with a 404 status for an
+  // unknown route so crawlers don't index junk URLs. Still ship the shell so
+  // the SPA renders its own 404 view; belt-and-suspenders noindex on top.
+  if (htmlStatus !== 200) {
+    headers.set('X-Robots-Tag', 'noindex, nofollow');
+    headers.set('Cache-Control', 'no-cache, no-store');
+  }
 
   // For HTML responses, inject tracking snippets and top bar
   if (contentType.startsWith('text/html')) {
@@ -1319,7 +1420,7 @@ async function buildSiteResponse(
     // killswitch = `wrangler rollback`. Mirrors the marketing app-shell pattern.
     html = injectAppShellHero(html);
 
-    return new Response(html, { status: 200, headers });
+    return new Response(html, { status: htmlStatus, headers });
   }
 
   // CSS minify-on-serve via lightningcss-wasm with KV cache. Falls through to

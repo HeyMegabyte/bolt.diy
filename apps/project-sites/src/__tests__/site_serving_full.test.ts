@@ -318,7 +318,9 @@ describe('serveSiteFromR2', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('Content-Type')).toBe('text/html; charset=utf-8');
-    expect(env.SITES_BUCKET.get).toHaveBeenLastCalledWith(`sites/my-site/v1/index.html`);
+    // The SPA catch-all fetches index.html (a later sitemap.xml lookup for the
+    // soft-404 route check may be the final call, so assert "was called", not "last").
+    expect(env.SITES_BUCKET.get).toHaveBeenCalledWith(`sites/my-site/v1/index.html`);
   });
 
   it('returns 404 when file not found', async () => {
