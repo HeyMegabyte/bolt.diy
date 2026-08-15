@@ -321,6 +321,32 @@ describe('serveSiteFromR2', () => {
     expect(body).not.toContain('ps-bar');
   });
 
+  // ── Building placeholder (no build artifact yet) — MUST NOT be indexed ──
+  // A site with current_build_version === null serves a branded "Building..."
+  // page for its entire ~40-min build window. Without noindex, Googlebot
+  // crawling that window indexes "Building your website" as the site's content.
+  describe('building placeholder (current_build_version === null)', () => {
+    const buildingSite = { ...baseSite, current_build_version: null };
+
+    it('serves the branded building page with a 200 (keeps the auto-refresh UX)', async () => {
+      const response = await serveSiteFromR2(createMockEnv({}), buildingSite, '/');
+      expect(response.status).toBe(200);
+      expect(response.headers.get('Content-Type')).toBe('text/html;charset=utf-8');
+      expect(await response.text()).toContain('Building your website');
+    });
+
+    it('carries a robots noindex meta tag so the placeholder is never indexed', async () => {
+      const response = await serveSiteFromR2(createMockEnv({}), buildingSite, '/');
+      const html = await response.text();
+      expect(html).toMatch(/<meta[^>]+name=["']robots["'][^>]+content=["'][^"']*noindex/i);
+    });
+
+    it('carries an X-Robots-Tag: noindex response header (belt-and-suspenders)', async () => {
+      const response = await serveSiteFromR2(createMockEnv({}), buildingSite, '/');
+      expect(response.headers.get('X-Robots-Tag')).toMatch(/noindex/i);
+    });
+  });
+
   it('blocks access to _meta/ paths', async () => {
     const env = createMockEnv({
       'sites/my-biz/v1/_meta/chat.json': '{}',
