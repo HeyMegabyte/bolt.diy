@@ -91,6 +91,21 @@ search.get('/api/search/businesses', async (c) => {
   // Bound query length to prevent abuse
   const boundedQ = q.trim().slice(0, 200);
 
+  // Honest-empty: if the Places provider isn't configured, say so with a stable
+  // code instead of silently calling Google with an empty key (which 403s and
+  // reads to the UI as "no businesses found"). The create flow still works via
+  // manual entry — the caller can surface "search unavailable, enter manually".
+  if (!c.env.GOOGLE_PLACES_API_KEY) {
+    return c.json({
+      data: [],
+      _error: {
+        code: 'SEARCH_PROVIDER_NOT_CONFIGURED',
+        status: 0,
+        message: 'Business search is not configured',
+      },
+    });
+  }
+
   // Build request body with optional location bias from browser geolocation
   const requestBody: Record<string, unknown> = { textQuery: boundedQ };
 
@@ -132,10 +147,14 @@ search.get('/api/search/businesses', async (c) => {
         query: q,
       }),
     );
-    // Return empty results with error info so the UI still works but we can debug
+    // Honest-empty: keep 200 (the create flow degrades to manual entry + a 5xx
+    // would fire the frontend's rethrowing error handler → console noise), but
+    // carry a STABLE code so the failure is diagnosable and the caller can show
+    // "search temporarily unavailable" instead of a misleading "no businesses found".
     return c.json({
       data: [],
       _error: {
+        code: 'SEARCH_PROVIDER_UNAVAILABLE',
         status: response.status,
         message: errorText.slice(0, 200),
       },

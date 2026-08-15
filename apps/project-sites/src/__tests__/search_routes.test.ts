@@ -199,6 +199,30 @@ describe('GET /api/search/businesses', () => {
     const body = await res.json();
     expect(body.data).toEqual([]);
   });
+
+  it('carries a stable SEARCH_PROVIDER_UNAVAILABLE code on an upstream failure (not a silent empty)', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response('You must enable Billing on the Google Cloud Project', { status: 403 }),
+    );
+    const res = await makeRequest('/api/search/businesses?q=pizza');
+    expect(res.status).toBe(200); // 5xx would fire the frontend's rethrowing error handler → console noise
+    const body = await res.json();
+    expect(body.data).toEqual([]);
+    expect(body._error.code).toBe('SEARCH_PROVIDER_UNAVAILABLE');
+    expect(body._error.status).toBe(403);
+  });
+
+  it('short-circuits with SEARCH_PROVIDER_NOT_CONFIGURED when the Places key is unset (no fetch)', async () => {
+    const noKeyApp = new Hono<{ Bindings: Env; Variables: Variables }>();
+    noKeyApp.route('/', search);
+    const noKeyEnv = { ...mockEnv, GOOGLE_PLACES_API_KEY: undefined } as unknown as Env;
+    const res = await noKeyApp.request('/api/search/businesses?q=pizza', undefined, noKeyEnv);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data).toEqual([]);
+    expect(body._error.code).toBe('SEARCH_PROVIDER_NOT_CONFIGURED');
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
