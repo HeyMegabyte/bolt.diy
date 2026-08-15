@@ -24,12 +24,19 @@ describe('better_auth /api/auth/* passthrough allowlist (index.ts)', () => {
 
   // The two login endpoints the frontend actually calls — the iter-81 fix.
   const LOGIN_PATHS = ['/api/auth/magic-link', '/api/auth/magic-link/verify'];
-  // The pre-existing passthroughs that must not regress either.
+  // The pre-existing passthroughs that must not regress either. The OAuth
+  // CALLBACK variants are listed explicitly: the iter-82 bug was a registered
+  // legacy callback (`/api/auth/google-drive/callback`) missing from the
+  // allowlist → swallowed by Better Auth → 404 → Drive-import connect broken.
+  // Every registered legacy `/api/auth/*` callback must stay allowlisted.
   const OTHER_LEGACY = [
     '/api/auth/magic-link/peek',
     '/api/auth/me',
     '/api/auth/google',
+    '/api/auth/google/callback',
+    '/api/auth/google-drive/callback',
     '/api/auth/github',
+    '/api/auth/github/callback',
     '/api/auth/list-sessions',
   ];
 

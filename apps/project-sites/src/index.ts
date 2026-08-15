@@ -440,6 +440,12 @@ app.use('/api/auth/*', async (c, next) => {
     '/api/auth/test-login',
     '/api/auth/google',
     '/api/auth/google/callback',
+    // Per-site Google DRIVE OAuth callback (routes/api.ts:10049) — the asset-import
+    // connect flow (admin → connect Drive → import media into a build). Its handler
+    // ONLY 302-redirects (never 404s), so a live 404 here is proof of the BA swallow:
+    // without this entry the connect flow silently fails when the flag is on. Distinct
+    // from /google/callback (that's LOGIN; this is the Drive-source integration).
+    '/api/auth/google-drive/callback',
     '/api/auth/github',
     '/api/auth/github/callback',
     // Legacy magic-link REQUEST + VERIFY (routes/api.ts) — the LIVE passwordless
