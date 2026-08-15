@@ -503,16 +503,38 @@ features.post('/api/site-features/:key', async (c) => {
 
   const value = JSON.stringify({ enabled: !!body.enabled, preview: !!body.preview });
   try {
+    // `id` is an explicit UUID — `flag_overrides.id` is a TEXT PRIMARY KEY, so
+    // omitting it inserts NULL PKs that accumulate. The unique index
+    // `idx_flag_overrides_unique` is PARTIAL (WHERE deleted_at IS NULL), so the
+    // ON CONFLICT target MUST repeat that predicate — WITHOUT it SQLite raises
+    // "ON CONFLICT clause does not match any … UNIQUE constraint" on EVERY
+    // execution (matching super_admin.ts's canonical writer). The empty catch
+    // that used to swallow this turned a broken toggle into a lying-success.
     await c.env.DB.prepare(
-      `INSERT INTO flag_overrides (scope, scope_id, flag_key, value_json, updated_at)
-         VALUES ('tenant', ?, ?, ?, CURRENT_TIMESTAMP)
-       ON CONFLICT(scope, scope_id, flag_key) DO UPDATE SET
+      `INSERT INTO flag_overrides (id, scope, scope_id, flag_key, value_json, updated_at)
+         VALUES (?, 'tenant', ?, ?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(scope, scope_id, flag_key) WHERE deleted_at IS NULL DO UPDATE SET
          value_json = excluded.value_json, updated_at = CURRENT_TIMESTAMP, deleted_at = NULL`,
     )
-      .bind(body.site_id, key, value)
+      .bind(crypto.randomUUID(), body.site_id, key, value)
       .run();
-  } catch {
-    /* best-effort during rollout; the override table is created by migration 0500 */
+  } catch (err) {
+    // The override MUST persist for the toggle to take effect — never a
+    // lying-success. Surface a real failure instead of returning { ok: true }.
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'site-features',
+        message: 'flag_override_write_failed',
+        site_id: body.site_id,
+        key,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+    return c.json(
+      { error: 'toggle_failed', message: 'Could not save the feature toggle. Please try again.' },
+      500,
+    );
   }
   // Bust the 60s KV cache `resolveFlag` keeps per `flag:<key>:<siteId>:<orgId>`,
   // or the just-written tenant override stays invisible to `isFlagOn` for up to
