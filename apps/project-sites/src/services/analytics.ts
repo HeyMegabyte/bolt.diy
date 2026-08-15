@@ -1,4 +1,5 @@
 import type { Env } from '../types/env.js';
+import { captureLangfuseGeneration } from '../lib/langfuse.js';
 
 /** PostHog event properties */
 interface EventProperties {
@@ -220,4 +221,9 @@ export async function captureLLMCall(
     $ai_gateway: params.gatewayUsed ?? false,
     $ai_status: params.status,
   });
+
+  // Tee the same generation into Langfuse (token/cost/model observability).
+  // Fire-and-forget + fail-soft: a no-op when LANGFUSE_* is unset, never blocks
+  // or breaks the LLM call. Same params shape → no re-marshaling.
+  await captureLangfuseGeneration(env, params);
 }
