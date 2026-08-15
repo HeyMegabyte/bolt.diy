@@ -12,8 +12,11 @@
  * standards-track. Domainr's RapidAPI proxy was $20/mo per 10k queries
  * and depended on an opaque third-party scraper. This module replaces
  * the entire Domainr two-step (`/v2/search` + `/v2/status`) with a
- * deterministic RDAP fan-out, KV-cached at 1h TTL with a 20-deep
- * concurrency window so we stay polite to public RDAP endpoints.
+ * deterministic RDAP fan-out, KV-cached with a 20-deep concurrency window so
+ * we stay polite to public RDAP endpoints. Cache TTL is split by verdict
+ * confidence: definitive `available`/`taken` cache for 1h, but a transient
+ * `unknown` caches for only 60s so a momentary registry/egress hiccup never
+ * poisons a domain as "couldn't check" for a full hour.
  */
 
 import type { Env } from '../types/env.js';
@@ -27,7 +30,23 @@ const REAL_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 const RDAP_BASE = 'https://rdap.org/domain';
+/**
+ * Cache TTL for a DEFINITIVE verdict (`available` / `taken`) — 1h. These answers
+ * don't change minute-to-minute, so a long TTL keeps us polite to registries.
+ */
 const CACHE_TTL_S = 3600;
+/**
+ * Cache TTL for a NON-DEFINITIVE verdict (`unknown` from rate-limit / timeout /
+ * registry hiccup) — 60s. A transient failure must NOT poison a domain as
+ * "couldn't check" for a full hour: some registries (e.g. `.io`, `.xyz`) or the
+ * shared Worker egress IP throttle intermittently, and a 1h TTL on that stale
+ * `unknown` makes the picker render "? couldn't check" long after the registry
+ * recovered. A short TTL lets the next probe re-resolve to a real answer within
+ * a minute while still absorbing a retry storm. (Incident: `/api/domains/search`
+ * returned all-`unknown` for a candidate set that was actually resolvable — the
+ * verdicts were stale poisoned cache from a momentary probe failure.)
+ */
+const CACHE_TTL_UNKNOWN_S = 60;
 const CONCURRENCY = 20;
 
 export type RdapStatus = 'available' | 'taken' | 'unknown';
@@ -110,10 +129,12 @@ export async function checkAvailability(env: Env, domain: string): Promise<RdapR
     result = { domain: normalized, available: false, status: 'unknown', source: 'rdap-error' };
   }
 
-  // Cache happy + sad paths so we don't hammer registries on retry storms.
+  // Cache happy + sad paths so we don't hammer registries on retry storms — but
+  // a non-definitive `unknown` gets a SHORT TTL so a transient failure self-heals
+  // in ~60s instead of poisoning the domain as "couldn't check" for a full hour.
   try {
     await env.CACHE_KV.put(cacheKey, JSON.stringify(result), {
-      expirationTtl: CACHE_TTL_S,
+      expirationTtl: result.status === 'unknown' ? CACHE_TTL_UNKNOWN_S : CACHE_TTL_S,
     });
   } catch {
     // KV write failure is non-fatal.

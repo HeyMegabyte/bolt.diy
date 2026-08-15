@@ -237,6 +237,39 @@ describe('checkAvailability — cache', () => {
     expect(putSpy.mock.calls[0][1]).toContain('"status":"unknown"');
   });
 
+  it('a DEFINITIVE verdict (available/taken) caches with the long 1h TTL', async () => {
+    const { kv, putSpy } = makeKv();
+    fetchMock().mockResolvedValue(resp(404));
+
+    await checkAvailability(makeEnv(kv), 'fresh.com');
+
+    expect(putSpy.mock.calls[0][2]).toMatchObject({ expirationTtl: 3600 });
+  });
+
+  it('a NON-DEFINITIVE "unknown" caches with a SHORT 60s TTL — a transient failure must not poison for 1h', async () => {
+    // Regression: /api/domains/search once returned all-`unknown` for a candidate
+    // set that was actually resolvable — the verdicts were stale poisoned cache
+    // from a momentary probe failure that had been cached at the full 1h TTL.
+    const { kv, putSpy } = makeKv();
+    fetchMock().mockResolvedValue(resp(429)); // rate-limited → unknown
+
+    await checkAvailability(makeEnv(kv), 'busy.io');
+
+    expect(putSpy.mock.calls[0][1]).toContain('"status":"unknown"');
+    expect(putSpy.mock.calls[0][2]).toMatchObject({ expirationTtl: 60 });
+    // Explicitly NOT the definitive 1h TTL.
+    expect((putSpy.mock.calls[0][2] as { expirationTtl: number }).expirationTtl).toBeLessThan(3600);
+  });
+
+  it('a network-throw "unknown" also caches with the SHORT 60s TTL', async () => {
+    const { kv, putSpy } = makeKv();
+    fetchMock().mockRejectedValue(new Error('egress throttled'));
+
+    await checkAvailability(makeEnv(kv), 'oops.xyz');
+
+    expect(putSpy.mock.calls[0][2]).toMatchObject({ expirationTtl: 60 });
+  });
+
   it('KV get throwing is non-fatal → falls through to live probe', async () => {
     const { kv, getSpy } = makeKv();
     getSpy.mockRejectedValueOnce(new Error('kv read boom'));
