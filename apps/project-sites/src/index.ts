@@ -442,6 +442,14 @@ app.use('/api/auth/*', async (c, next) => {
     '/api/auth/google/callback',
     '/api/auth/github',
     '/api/auth/github/callback',
+    // Legacy magic-link REQUEST + VERIFY (routes/api.ts) — the LIVE passwordless
+    // login the sign-in page (POST /api/auth/magic-link) + the emailed link
+    // (GET /api/auth/magic-link/verify) actually use. WITHOUT these two the BA
+    // handler swallows them when the flag is on and returns its own 404 → the
+    // primary passwordless login is BROKEN in prod. Only the `/peek` test seam
+    // below had been allowlisted; the real login endpoints were missed.
+    '/api/auth/magic-link',
+    '/api/auth/magic-link/verify',
     // E2E peek seam — OUR secret-gated route, not a Better Auth one. Without
     // this passthrough the BA handler swallows the path and returns its own
     // 404, killing the real-roundtrip suite whenever the flag is on.

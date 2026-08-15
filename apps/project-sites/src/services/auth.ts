@@ -345,11 +345,28 @@ export async function createMagicLink(
   const baseUrl = `https://${DOMAINS.SITES_BASE}`;
   const verifyUrl = `${baseUrl}/api/auth/magic-link/verify?token=${encodeURIComponent(token)}`;
 
-  await sendEmail(env, {
-    to: validated.email,
-    subject: 'Sign in to Project Sites',
-    html: buildMagicLinkEmail(verifyUrl),
-  });
+  // Email is BEST-EFFORT (fail open) — the route + this fn's contract say so, but the
+  // await was UNCAUGHT, so any provider error (SES sandbox reject, transient 5xx, an
+  // unverified recipient) surfaced as a 500 on the login request. The magic_links row
+  // is already persisted (it IS the credential), so on a send failure we log + fall
+  // open: the caller still gets a 200 and can retry / the E2E peek seam still works.
+  try {
+    await sendEmail(env, {
+      to: validated.email,
+      subject: 'Sign in to Project Sites',
+      html: buildMagicLinkEmail(verifyUrl),
+    });
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'auth',
+        message: 'magic_link_email_send_failed',
+        email: validated.email,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+  }
 
   console.warn(
     JSON.stringify({

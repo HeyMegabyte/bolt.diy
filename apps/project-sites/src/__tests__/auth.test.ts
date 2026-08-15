@@ -224,7 +224,7 @@ describe('sendEmail fallback (Resend → SendGrid)', () => {
     expect(mockFetch.mock.calls[0][0]).toBe('https://api.resend.com/emails');
   });
 
-  it('throws when Resend fails and SendGrid is not configured', async () => {
+  it('is BEST-EFFORT on email failure — resolves (never 500s the login) when the provider errors', async () => {
     const envResendOnly = {
       ...mockEnv,
       RESEND_API_KEY: 'test-resend-key',
@@ -232,9 +232,12 @@ describe('sendEmail fallback (Resend → SendGrid)', () => {
 
     global.fetch = jest.fn().mockResolvedValueOnce(new Response('Unauthorized', { status: 401 }));
 
-    await expect(createMagicLink(mockDb, envResendOnly, input)).rejects.toThrow(
-      'Failed to send email (status 401)',
-    );
+    // The magic_links row IS the credential and is persisted BEFORE the send, so a
+    // provider error must NOT throw — the route's documented fail-open contract.
+    // (Previously the uncaught await surfaced a mail error as a 500 on login.)
+    const result = await createMagicLink(mockDb, envResendOnly, input);
+    expect(typeof result.token).toBe('string');
+    expect(() => new Date(result.expires_at).toISOString()).not.toThrow();
   });
 });
 
