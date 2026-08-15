@@ -1,8 +1,10 @@
 /**
  * @module libs/features/site_analytics/service
  * @description Aggregation logic for Site Analytics. Reads existing per-site
- * tables (`contacts`, `form_submissions`, `newsletter_subscribers`,
- * `donations`/`donation_campaigns`) and rolls them into one owner summary.
+ * tables (`contacts`, `form_submissions`, `newsletter_subscribers`) and rolls
+ * them into one owner summary. (The donations tile was dropped when the
+ * child-site `donations_engine` feature was removed in 46184588 — the
+ * `donations`/`donation_campaigns` tables have no live writer.)
  *
  * Every query is defensive: `dbQuery` swallows D1 errors into `{ error }`, so a
  * missing/renamed source table degrades that metric to 0 rather than throwing.
@@ -136,7 +138,10 @@ export async function getConversionsBySection(
     [siteId, `-${n} days`],
   );
 
-  const bySection = new Map<string, { count: number; calls: number; directions: number; emails: number }>();
+  const bySection = new Map<
+    string,
+    { count: number; calls: number; directions: number; emails: number }
+  >();
   let totalConversions = 0;
   if (!error) {
     for (const r of data) {
@@ -222,9 +227,24 @@ export async function getVisitorFunnel(
     siteId,
     windowDays: n,
     stages: [
-      { key: 'landing', label: 'Landed', sessions: landing, percentOfLanding: landing > 0 ? 100 : 0 },
-      { key: 'engaged', label: 'Engaged (2+ pages)', sessions: engaged, percentOfLanding: pct(engaged) },
-      { key: 'converted', label: 'Converted', sessions: converted, percentOfLanding: pct(converted) },
+      {
+        key: 'landing',
+        label: 'Landed',
+        sessions: landing,
+        percentOfLanding: landing > 0 ? 100 : 0,
+      },
+      {
+        key: 'engaged',
+        label: 'Engaged (2+ pages)',
+        sessions: engaged,
+        percentOfLanding: pct(engaged),
+      },
+      {
+        key: 'converted',
+        label: 'Converted',
+        sessions: converted,
+        percentOfLanding: pct(converted),
+      },
     ],
     generatedAt: new Date().toISOString(),
   });
@@ -259,8 +279,6 @@ export function summaryToCsv(summary: SiteAnalyticsSummary): string {
     ['form_submissions.new_in_window', summary.formSubmissions.newInWindow],
     ['newsletter.confirmed', summary.newsletter.confirmed],
     ['newsletter.total', summary.newsletter.total],
-    ['donations.raised_cents', summary.donations.raisedCents],
-    ['donations.count', summary.donations.count],
     ['traffic.pageviews', summary.traffic.pageviews],
     ['traffic.unique_sessions', summary.traffic.uniqueSessions],
     ['traffic.conversions', summary.traffic.conversions],
@@ -368,8 +386,6 @@ export async function getSiteAnalyticsSummary(
     formNew,
     newsConfirmed,
     newsTotal,
-    donationsRaised,
-    donationsCount,
     bySourceRows,
     traffic,
   ] = await Promise.all([
@@ -398,16 +414,6 @@ export async function getSiteAnalyticsSummary(
       [siteId],
     ),
     scalar(env, 'SELECT COUNT(*) AS n FROM newsletter_subscribers WHERE site_id = ?', [siteId]),
-    scalar(
-      env,
-      'SELECT COALESCE(SUM(d.amount_cents), 0) AS n FROM donations d JOIN donation_campaigns c ON c.id = d.campaign_id WHERE c.site_id = ?',
-      [siteId],
-    ),
-    scalar(
-      env,
-      'SELECT COUNT(*) AS n FROM donations d JOIN donation_campaigns c ON c.id = d.campaign_id WHERE c.site_id = ?',
-      [siteId],
-    ),
     dbQuery<{ source: string; n: number }>(
       env.DB,
       'SELECT source, COUNT(*) AS n FROM contacts WHERE org_id = ? AND site_id = ? AND deleted_at IS NULL GROUP BY source ORDER BY n DESC',
@@ -428,7 +434,6 @@ export async function getSiteAnalyticsSummary(
     contacts: { total: contactsTotal, newInWindow: contactsNew, bySource },
     formSubmissions: { total: formTotal, newInWindow: formNew },
     newsletter: { confirmed: newsConfirmed, total: newsTotal },
-    donations: { raisedCents: donationsRaised, count: donationsCount },
     traffic,
     generatedAt: new Date().toISOString(),
   });

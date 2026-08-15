@@ -1,7 +1,7 @@
 /**
  * Unit tests for Site Analytics aggregation.
  *
- * Covers: correct rollup across contacts/forms/newsletter/donations, the
+ * Covers: correct rollup across contacts/forms/newsletter, the
  * contacts bySource breakdown, org-ownership resolution, and the defensive
  * degrade-to-0 when a source table errors (missing/renamed).
  */
@@ -41,8 +41,6 @@ function makeEnv(cfg: DbConfig): Env {
           if (sql.includes('newsletter_subscribers') && sql.includes('confirmed = 1'))
             return 'newsConfirmed';
           if (sql.includes('newsletter_subscribers')) return 'newsTotal';
-          if (sql.includes('SUM(d.amount_cents)')) return 'donationsRaised';
-          if (sql.includes('FROM donations')) return 'donationsCount';
           return 'unknown';
         })();
         void bound;
@@ -68,8 +66,6 @@ describe('site_analytics service', () => {
         formNew: 5,
         newsConfirmed: 12,
         newsTotal: 20,
-        donationsRaised: 150000,
-        donationsCount: 9,
       },
       bySource: [
         { source: 'inbox', n: 30 },
@@ -86,7 +82,6 @@ describe('site_analytics service', () => {
     ]);
     expect(s.formSubmissions).toEqual({ total: 30, newInWindow: 5 });
     expect(s.newsletter).toEqual({ confirmed: 12, total: 20 });
-    expect(s.donations).toEqual({ raisedCents: 150000, count: 9 });
     expect(s.windowDays).toBe(30);
     // Traffic block is present (visitor_events not seeded here → zeros, schema-valid).
     expect(s.traffic).toMatchObject({

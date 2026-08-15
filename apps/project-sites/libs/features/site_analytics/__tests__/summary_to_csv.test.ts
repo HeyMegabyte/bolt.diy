@@ -14,7 +14,6 @@ const SUMMARY: SiteAnalyticsSummary = {
   },
   formSubmissions: { total: 8, newInWindow: 2 },
   newsletter: { confirmed: 30, total: 33 },
-  donations: { raisedCents: 25000, count: 5 },
   traffic: {
     pageviews: 1234,
     uniqueSessions: 567,
@@ -38,7 +37,6 @@ describe('summaryToCsv (AN42 owner data export)', () => {
     expect(lines).toContain('contacts.total,12');
     expect(lines).toContain('traffic.pageviews,1234');
     expect(lines).toContain('traffic.unique_sessions,567');
-    expect(lines).toContain('donations.raised_cents,25000');
     expect(lines).toContain('contacts.bySource.google,7');
   });
 
