@@ -45,6 +45,7 @@ import { dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
 import { gatewayFetch } from '../services/ai_gateway.js';
 import { writeAuditLog } from '../services/audit.js';
 import { getEmailProvider } from '../platform/email-router.js';
+import { runObservedWorkersAI } from '../lib/workers_ai.js';
 
 /**
  * Authorize a build-container request against the shared secret
@@ -847,8 +848,9 @@ search.post('/api/sites/improve-prompt', async (c) => {
       return c.json({ data: { improved_text: fallbackText } });
     }
 
-    const result = await ai.run(
-      '@cf/meta/llama-3.1-8b-instruct-fp8' as Parameters<typeof ai.run>[0],
+    const result = await runObservedWorkersAI(
+      c.env,
+      '@cf/meta/llama-3.1-8b-instruct-fp8',
       {
         messages: [
           { role: 'system', content: systemPrompt },
@@ -856,6 +858,11 @@ search.post('/api/sites/improve-prompt', async (c) => {
         ],
         max_tokens: 2048,
         temperature: 0.3,
+      },
+      {
+        distinctId: c.get('orgId') ?? c.get('userId') ?? 'anon',
+        promptId: 'ai_improve_prompt',
+        traceId: c.get('requestId'),
       },
     );
 
@@ -1114,11 +1121,20 @@ Categories: ${categories.join(', ')}
 
 Category:`;
 
-    const result = (await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8' as any, {
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 30,
-      temperature: 0,
-    })) as { response?: string };
+    const result = (await runObservedWorkersAI(
+      c.env,
+      '@cf/meta/llama-3.1-8b-instruct-fp8',
+      {
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 30,
+        temperature: 0,
+      },
+      {
+        distinctId: c.get('orgId') ?? c.get('userId') ?? 'anon',
+        promptId: 'ai_categorize',
+        traceId: c.get('requestId'),
+      },
+    )) as { response?: string };
 
     const raw = (result.response || '').trim();
     // Find the best matching category from the response
