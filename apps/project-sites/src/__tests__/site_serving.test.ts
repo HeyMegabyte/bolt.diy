@@ -2,6 +2,7 @@ import {
   generateTopBar,
   serveSiteFromR2,
   asyncifyRenderBlockingFonts,
+  absolutizeSocialImages,
   injectAppShellHero,
   isServedSiteCookieless,
   generateNoCookiesBadge,
@@ -133,6 +134,57 @@ describe('asyncifyRenderBlockingFonts', () => {
       `<link href="${a}" rel="stylesheet"><link href="${b}" rel="stylesheet">`,
     );
     expect((out.match(/media="print"/g) ?? []).length).toBe(2);
+  });
+});
+
+// og:image MUST be absolute — Facebook/LinkedIn/Slack/Discord fetch OG tags out
+// of page context and cannot resolve a root-relative content URL, so a relative
+// og:image kills link previews on every generated site. The serving layer
+// resolves it against the page's own og:url / canonical origin.
+describe('absolutizeSocialImages', () => {
+  const OGURL = '<meta property="og:url" content="https://megabyte.space/">';
+  const CANON = '<link rel="canonical" href="https://megabyte.space/">';
+
+  it('rewrites a root-relative og:image to absolute using og:url origin', () => {
+    const html = `<head>${OGURL}<meta property="og:image" content="/og-image.png"></head>`;
+    const out = absolutizeSocialImages(html);
+    expect(out).toContain('content="https://megabyte.space/og-image.png"');
+    expect(out).not.toContain('content="/og-image.png"');
+  });
+
+  it('falls back to the canonical origin when og:url is absent', () => {
+    const html = `<head>${CANON}<meta property="og:image" content="/assets/og.jpg"></head>`;
+    expect(absolutizeSocialImages(html)).toContain(
+      'content="https://megabyte.space/assets/og.jpg"',
+    );
+  });
+
+  it('also absolutizes a relative twitter:image and og:image:secure_url', () => {
+    const html = `<head>${OGURL}<meta name="twitter:image" content="/t.png"><meta property="og:image:secure_url" content="/s.png"></head>`;
+    const out = absolutizeSocialImages(html);
+    expect(out).toContain('content="https://megabyte.space/t.png"');
+    expect(out).toContain('content="https://megabyte.space/s.png"');
+  });
+
+  it('leaves an already-absolute og:image untouched', () => {
+    const abs = '<meta property="og:image" content="https://cdn.example.com/x.png">';
+    const html = `<head>${OGURL}${abs}</head>`;
+    expect(absolutizeSocialImages(html)).toContain(abs);
+  });
+
+  it('does not touch a protocol-relative (//) image URL', () => {
+    const html = `<head>${OGURL}<meta property="og:image" content="//cdn.example.com/x.png"></head>`;
+    expect(absolutizeSocialImages(html)).toContain('content="//cdn.example.com/x.png"');
+  });
+
+  it('returns HTML unchanged when no og:url or canonical base exists', () => {
+    const html = '<head><meta property="og:image" content="/og-image.png"></head>';
+    expect(absolutizeSocialImages(html)).toBe(html);
+  });
+
+  it('handles content-before-property attribute ordering', () => {
+    const html = `<head>${OGURL}<meta content="/og-image.png" property="og:image"></head>`;
+    expect(absolutizeSocialImages(html)).toContain('https://megabyte.space/og-image.png');
   });
 });
 

@@ -945,6 +945,62 @@ export function asyncifyRenderBlockingFonts(html: string): string {
 }
 
 /**
+ * Make every social-share image meta (`og:image`, `og:image:url`,
+ * `og:image:secure_url`, `twitter:image`) an ABSOLUTE URL.
+ *
+ * Facebook / LinkedIn / Slack / Discord fetch a page's Open Graph tags out of
+ * page context and CANNOT resolve a root-relative `content="/og-image.png"` — a
+ * relative og:image silently kills the link preview. Our build template has
+ * historically emitted a relative `og:image` (while `twitter:image` was
+ * absolute), so this serving-layer transform fixes every existing AND future
+ * site uniformly at serve time. The base origin is taken from the page's own
+ * `og:url` (preferred) or `<link rel="canonical">` — both already absolute — so
+ * the rewrite matches the page's declared canonical host.
+ *
+ * Purely additive + safe: only root-relative (`/path`) values are rewritten;
+ * already-absolute (`https://…`) and protocol-relative (`//host/…`) URLs are
+ * left untouched, and the HTML is returned verbatim when no absolute base can
+ * be found.
+ *
+ * @param html - The served HTML.
+ * @returns HTML with root-relative social-image metas absolutized.
+ *
+ * @example
+ * ```ts
+ * absolutizeSocialImages(
+ *   '<meta property="og:url" content="https://x.com/"><meta property="og:image" content="/og.png">',
+ * );
+ * // → '…<meta property="og:image" content="https://x.com/og.png">'
+ * ```
+ */
+export function absolutizeSocialImages(html: string): string {
+  const baseTag =
+    html.match(/<meta\b[^>]*\bproperty=["']og:url["'][^>]*>/i)?.[0] ??
+    html.match(/<link\b[^>]*\brel=["']canonical["'][^>]*>/i)?.[0];
+  if (!baseTag) return html;
+
+  const hrefMatch = baseTag.match(/(?:content|href)=["'](https?:\/\/[^"']+)["']/i);
+  if (!hrefMatch) return html;
+
+  let origin: string;
+  try {
+    origin = new URL(hrefMatch[1]).origin;
+  } catch {
+    return html;
+  }
+
+  return html.replace(
+    /<meta\b[^>]*\b(?:property|name)=["'](?:og:image(?::(?:url|secure_url))?|twitter:image)["'][^>]*>/gi,
+    (tag) =>
+      // Rewrite only a ROOT-relative content ("/x" but not "//x"); leave
+      // absolute + protocol-relative URLs alone.
+      tag.replace(/(content=["'])(\/[^"'/][^"']*)(["'])/i, (_m, pre, path, post) => {
+        return `${pre}${origin}${path}${post}`;
+      }),
+  );
+}
+
+/**
  * Auto-inject a STABLE `data-ps-section` attribute onto every top-level
  * `<section>` of a served page (AN26 #112) — the stable hook that section-level
  * conversion attribution (AN27 #63) reads. Each id is derived from the section's
@@ -1179,6 +1235,13 @@ async function buildSiteResponse(
     // preceding stylesheets load) no longer waits on a cross-origin font download.
     // font-display:swap keeps text legible meanwhile. (perf loop #14, 2026-06-23.)
     html = asyncifyRenderBlockingFonts(html);
+
+    // SEO/distribution: make relative og:image/twitter:image absolute so
+    // Facebook/LinkedIn/Slack/Discord link previews resolve the share image
+    // (they fetch OG tags out of page context — a relative URL silently breaks
+    // the preview). Runs for every site, resolved against the page's own
+    // og:url / canonical origin.
+    html = absolutizeSocialImages(html);
 
     // Inject analytics + error tracking before </head> (for all sites, paid and free)
     if (env) {
