@@ -195,8 +195,10 @@ test.describe('admin navigation — responsive modes', () => {
     const hRest = {
       item: (await dashItem.boundingBox())!.height,
       label: (await groupLabel.boundingBox())!.height,
-      picker: (await picker.boundingBox())!.height,
     };
+    // The picker is a compact single avatar chip at rest; it grows into the full
+    // avatar + name + status trigger on open (a smooth transition, not same-height).
+    const pickerRestH = (await picker.boundingBox())!.height;
     await expect(page.locator('[data-testid="nav-forms"] span').first()).toBeHidden();
 
     // Hover → expands to the full ~272px labelled sidebar.
@@ -211,11 +213,12 @@ test.describe('admin navigation — responsive modes', () => {
     const iconXHovered = (await dashIcon.boundingBox())!.x;
     expect(Math.abs(iconXHovered - iconXAtRest)).toBeLessThanOrEqual(1);
 
-    // No VERTICAL jump: the nav row, section label, and site picker are the SAME
-    // height open vs closed — only the labels reveal horizontally.
+    // No VERTICAL jump for the nav: the row + section label are the SAME height
+    // open vs closed — only the labels reveal horizontally.
     expect(Math.abs((await dashItem.boundingBox())!.height - hRest.item)).toBeLessThanOrEqual(1);
     expect(Math.abs((await groupLabel.boundingBox())!.height - hRest.label)).toBeLessThanOrEqual(1);
-    expect(Math.abs((await picker.boundingBox())!.height - hRest.picker)).toBeLessThanOrEqual(1);
+    // The picker grows from its compact avatar chip into the full trigger on open.
+    expect((await picker.boundingBox())!.height).toBeGreaterThan(pickerRestH);
 
     // CRITICAL — it OVERLAYS, it does not push: the content's left edge is
     // unchanged (no reflow) and the expanded panel paints OVER the content.
