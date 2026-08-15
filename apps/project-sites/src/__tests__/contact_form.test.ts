@@ -179,3 +179,51 @@ describe('POST /api/contact-form/:slug — HTML-injection defense', () => {
     expect(sentBody.html).toContain('line1<br>line2');
   });
 });
+
+// The durable success of a contact submission is the persisted `contacts` row +
+// the in-app bell — NOT the owner email (a best-effort delivery channel). The
+// visitor must never see a failure for a submission that was captured. Regression
+// for the two lying-FAILURE paths that returned an error AFTER persisting:
+// (1) site has no contact_email → was 400; (2) email provider throws → was 500.
+describe('POST /api/contact-form/:slug — persist-first, delivery is best-effort', () => {
+  function makeDbWithSite(row: Record<string, unknown>) {
+    return {
+      prepare: jest.fn(() => ({
+        bind: jest.fn(() => ({
+          all: jest.fn().mockResolvedValue({ results: [row] }),
+          first: jest.fn().mockResolvedValue(row),
+          run: jest.fn().mockResolvedValue({ success: true, meta: {} }),
+        })),
+      })),
+    } as unknown as D1Database;
+  }
+
+  it('returns 200 (not 400) when the site has no contact_email — the lead is still captured', async () => {
+    const fetchMock = jest.fn();
+    global.fetch = fetchMock;
+    const env = makeEnv({
+      DB: makeDbWithSite({ id: 's1', org_id: 'o1', business_name: 'Biz', contact_email: '' }),
+    });
+    const res = await submit(env, {
+      name: 'Visitor',
+      email: 'v@x.test',
+      message: 'a genuine inquiry message here',
+    });
+    // The #1 conversion action must NOT error just because the OWNER hasn't set
+    // a contact email — the lead is persisted + the bell fires.
+    expect(res.status).toBe(200);
+    expect(fetchMock).not.toHaveBeenCalled(); // no to-address → no email attempted
+  });
+
+  it('returns 200 (not 500) when the email provider throws AFTER the contact is persisted', async () => {
+    const fetchMock = jest.fn().mockRejectedValue(new Error('provider down'));
+    global.fetch = fetchMock;
+    // makeEnv → contact_email set + RESEND key → the resend fetch() branch throws.
+    const res = await submit(makeEnv(), {
+      name: 'Visitor',
+      email: 'v@x.test',
+      message: 'a genuine inquiry message here',
+    });
+    expect(res.status).toBe(200); // email is best-effort; the persisted lead is the durable success
+  });
+});

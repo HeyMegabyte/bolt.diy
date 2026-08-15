@@ -1223,11 +1223,6 @@ search.post('/api/contact-form/:slug', async (c) => {
     }
 
     const toEmail = site.contact_email || '';
-    if (!toEmail)
-      return c.json(
-        { error: { code: 'CONFIG_ERROR', message: 'No contact email configured' } },
-        400,
-      );
 
     // Escape every untrusted field BEFORE interpolation (the message keeps its
     // line breaks via <br>, applied AFTER escaping so injected markup is inert).
@@ -1238,61 +1233,92 @@ search.post('/api/contact-form/:slug', async (c) => {
     const safeBusiness = escapeHtml(site.business_name);
     const htmlBody = `<h2>New Contact Form Submission</h2><p><strong>From:</strong> ${safeName} (${safeEmail})</p>${safePhone ? `<p><strong>Phone:</strong> ${safePhone}</p>` : ''}<p><strong>Message:</strong></p><p>${safeMessage}</p><hr><p style="color:#888;font-size:12px;">Sent via ${safeBusiness} on projectsites.dev</p>`;
 
-    if (c.env.AWS_ACCESS_KEY_ID && c.env.AWS_SECRET_ACCESS_KEY && c.env.SES_FROM_EMAIL) {
-      // ADR-0019 Resend→SES: SES is the PRIMARY rail when configured. reply_to
-      // (the lead submitter) rides through so the owner can reply to the lead;
-      // the per-site friendly from-name is preserved. SendGrid/Resend stay
-      // fallback until SES is proven live.
-      await getEmailProvider(c.env).sendTransactional({
-        kind: 'transactional',
-        from: `${site.business_name} <noreply@projectsites.dev>`,
-        to: toEmail,
-        replyTo: body.email,
-        subject: `New message from ${body.name} via your website`,
-        html: htmlBody,
-      });
-    } else if (c.env.SENDGRID_API_KEY) {
-      await fetch('https://api.sendgrid.com/v3/mail/send', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${c.env.SENDGRID_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          personalizations: [{ to: [{ email: toEmail }] }],
-          from: { email: 'noreply@projectsites.dev', name: `${site.business_name} Website` },
-          reply_to: { email: body.email, name: body.name },
-          subject: `New message from ${body.name} via your website`,
-          content: [{ type: 'text/html', value: htmlBody }],
-        }),
-      });
-    } else if (c.env.RESEND_API_KEY) {
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${c.env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+    // Owner email is a BEST-EFFORT delivery channel — NEVER fail the visitor's
+    // submission on a missing to-address or a provider error. The durable success
+    // is the persisted `contacts` row (above) + the in-app bell (below). This was
+    // a lying-FAILURE class: no `contact_email` → 400 (skipping the bell) and a
+    // provider throw → 500, BOTH after the lead was already captured — so the
+    // visitor saw an error for a submission that actually reached the owner.
+    try {
+      if (!toEmail) {
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            service: 'contact-form',
+            message: 'no_contact_email_configured — lead persisted + bell only',
+            slug,
+            site_id: site.id,
+          }),
+        );
+      } else if (c.env.AWS_ACCESS_KEY_ID && c.env.AWS_SECRET_ACCESS_KEY && c.env.SES_FROM_EMAIL) {
+        // ADR-0019 Resend→SES: SES is the PRIMARY rail when configured. reply_to
+        // (the lead submitter) rides through so the owner can reply to the lead;
+        // the per-site friendly from-name is preserved. SendGrid/Resend stay
+        // fallback until SES is proven live.
+        await getEmailProvider(c.env).sendTransactional({
+          kind: 'transactional',
           from: `${site.business_name} <noreply@projectsites.dev>`,
-          to: [toEmail],
-          reply_to: body.email,
+          to: toEmail,
+          replyTo: body.email,
           subject: `New message from ${body.name} via your website`,
           html: htmlBody,
-        }),
-      });
-    } else {
-      // No email provider configured — the owner email is NOT sent (the in-app
-      // bell below is the only delivery). Surface it in logs so the operator
-      // isn't blind to silently-undelivered contact emails ("no silent failures").
+        });
+      } else if (c.env.SENDGRID_API_KEY) {
+        await fetch('https://api.sendgrid.com/v3/mail/send', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${c.env.SENDGRID_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            personalizations: [{ to: [{ email: toEmail }] }],
+            from: { email: 'noreply@projectsites.dev', name: `${site.business_name} Website` },
+            reply_to: { email: body.email, name: body.name },
+            subject: `New message from ${body.name} via your website`,
+            content: [{ type: 'text/html', value: htmlBody }],
+          }),
+        });
+      } else if (c.env.RESEND_API_KEY) {
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${c.env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: `${site.business_name} <noreply@projectsites.dev>`,
+            to: [toEmail],
+            reply_to: body.email,
+            subject: `New message from ${body.name} via your website`,
+            html: htmlBody,
+          }),
+        });
+      } else {
+        // No email provider configured — the owner email is NOT sent (the in-app
+        // bell below is the only delivery). Surface it in logs so the operator
+        // isn't blind to silently-undelivered contact emails ("no silent failures").
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            service: 'contact-form',
+            message:
+              'No email provider (SENDGRID/RESEND) configured — owner email NOT sent; bell only',
+            slug,
+            site_id: site.id,
+          }),
+        );
+      }
+    } catch (emailErr) {
+      // Delivery failure is logged, never surfaced to the visitor — the lead is
+      // already persisted + the bell still fires below.
       console.warn(
         JSON.stringify({
           level: 'warn',
           service: 'contact-form',
-          message:
-            'No email provider (SENDGRID/RESEND) configured — owner email NOT sent; bell only',
+          message: 'owner_email_send_failed',
           slug,
           site_id: site.id,
+          error: emailErr instanceof Error ? emailErr.message : String(emailErr),
         }),
       );
     }
