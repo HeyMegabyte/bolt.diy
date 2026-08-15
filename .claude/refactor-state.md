@@ -77,6 +77,19 @@
 1. `Unexpected "^"` CSS warning ×2 in `build:prod` — a Tailwind v4 / lightningcss compilation artifact (NOT a source literal; exhaustively verified iter 4). Cosmetic, non-failing. Fix would be Tailwind/lightningcss-config level.
 2. `social.component.ts` inline styles **32.86 kB > 28 kB** budget. iter-5 proved NOT a safe cold trim (dense CSS, no dead rules; deep authed component). Resolution = god-component SPLIT behind a Browserbase 6bp visual gate (fresh context) — mirror the ag-grid→TanStack perf-wave precedent. Do NOT blind-trim.
 
+## ⚠️⚠️ AI-BUILD + FLOW PROGRAM (Brian, iter 57) ⚠️⚠️
+Brian: *"Why would it cost $15? … configure Claude Code to use DeepSeek … start the full test … Make building the site leverage the AI system we configured. Use Ollama free on CF + Langfuse/token-monitoring/prices + AI Gateway; mostly DeepSeek, important stuff → Claude/ChatGPT."*
+**REALITY CHECK (verified iter 57 via wrangler secret list — most of this is ALREADY built):**
+- ✅ **DeepSeek build routing EXISTS + key SET** — `site-generation.ts:782` injects `_deepseekKey` + `_anthropicBaseUrl:'https://api.deepseek.com/anthropic'` when `DEEPSEEK_API_KEY` set (it IS) + `BUILD_LLM_PROVIDER!=='anthropic'`. **So the build already runs on DeepSeek, NOT $15-Claude** (my estimate was wrong). To FORCE-verify DeepSeek is used, not Anthropic-fallback: confirm `BUILD_LLM_PROVIDER` unset.
+- ✅ **AI Gateway wired + on** — `ai_gateway.ts` routes `gateway.ai.cloudflare.com/v1/{acct}/projectsites/{provider}`, active when `CF_ACCOUNT_ID` set + `AI_GATEWAY_ENABLED!=='false'`.
+- ✅ **Workers AI (free, the "Ollama on CF") used for simple tasks** — `ai_workflows.ts` research phases run `@cf/meta/llama-3.3-70b-fp8-fast` + `3.1-8b-fp8`.
+- ✅ **Tiered routing** — `external_llm.chooseProviderForTier(env,'premium'|'standard'|'instant')`; ANTHROPIC/OPENAI/DEEPSEEK keys all set.
+- ⚠️ **THE ONE GAP = Langfuse**: `LANGFUSE_BASE_URL`+`LANGFUSE_PUBLIC_KEY`+`LANGFUSE_SECRET_KEY` are ALL provisioned as prod secrets, but ZERO code references Langfuse — LLM observability currently goes to PostHog (`$ai_generation`) + AI Gateway logs only. **Wire a Langfuse trace tee** into the existing `captureLLMCall`/`ai_gateway` seam (token counts + cost + model + tier per call).
+**THE PROGRAM (loop executes these, in order):**
+1. **Wire Langfuse** — a thin `src/lib/langfuse.ts` client (HTTP ingestion, no SDK needed) teed off the existing LLM-call hook; every `env.AI.run` + gateway call → a Langfuse generation with model/tier/tokens/cost. Zod env for the 3 secrets.
+2. **Run the REAL E2E flow** (`create-edit-publish-flow.spec.ts`) with `E2E_REAL_BUILD=1` — now known-cheap on DeepSeek. Fix-forward whatever the real flow breaks on. This is the whole point: prove create→build→view→edit→publish actually works.
+3. **Add one real-backend full-flow E2E per complex flow** via the loop (domains, billing, media, snapshots, social, publish, auth) — real backend, not mocked.
+
 ## ⚠️⚠️ OPERATING MODE CHANGE (Brian, iter 56) — STOP PROGRAMMING, VERIFY REAL FLOWS ⚠️⚠️
 Brian: *"delete all other things that are dead weight and address the fact that the loop is trying to program it. It should not be, instead you should focus on ensuring everything from the UI works properly with real-life test scenarios that ensure entire flows work."* See [[feedback_loop_verifies_real_flows_not_programs]].
 - **The loop's job is now REAL end-to-end product-flow verification, NOT programming** (no more regex micro-fixes / dead-code hunts / built-ahead infra). iter 56 deleted `html_ast` (Brian-confirmed dead weight) — that's the LAST such cleanup; do NOT mass-delete more (~220 uncalled services are mostly intentional built-ahead per [[dead-code-scan-baseline]]).
