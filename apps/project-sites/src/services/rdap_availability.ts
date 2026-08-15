@@ -93,8 +93,22 @@ async function probeOnce(normalized: string): Promise<RdapResult> {
     if (res.status === 200) {
       return { domain: normalized, available: false, status: 'taken', source: 'rdap' };
     }
-    // 429 (rate-limit) / 503 (maintenance) / any unexpected status — neither
-    // yes nor no; surface `unknown` rather than misleading the UI.
+    // 429 (rate-limit) / 503 (maintenance) / 403 (rdap.org's Cloudflare edge
+    // challenging this Worker→CF subrequest) / any unexpected status — neither
+    // yes nor no. LOG the actual status: this path was previously a SILENT
+    // `unknown`, so nothing distinguished a slow registry from a hard block. A
+    // persistent non-ok status here (esp. 403/429) means the aggregator is
+    // refusing the Worker's egress, which a retry can't fix (→ needs a different
+    // source). Per structured-logging: no silent unknown.
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'rdap_availability',
+        message: 'rdap probe non-ok status',
+        domain: normalized,
+        status: res.status,
+      }),
+    );
     return { domain: normalized, available: false, status: 'unknown', source: 'rdap-error' };
   } catch (err) {
     console.warn(

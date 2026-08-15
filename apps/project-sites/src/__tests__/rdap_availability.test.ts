@@ -122,6 +122,22 @@ describe('checkAvailability — RDAP status mapping', () => {
     expect(r.source).toBe('rdap-error');
   });
 
+  it('logs the ACTUAL non-ok status (e.g. 403 rdap.org edge block) — no silent unknown', async () => {
+    // Diagnosability: a persistent 403/429 from rdap.org's CF edge blocking the
+    // Worker subrequest was previously an invisible `unknown`. The status must be logged.
+    const { kv } = makeKv();
+    fetchMock().mockResolvedValue(resp(403));
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const r = await checkAvailability(makeEnv(kv), 'blocked.io');
+
+    expect(r.status).toBe('unknown');
+    const logged = warnSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(logged).toContain('rdap probe non-ok status');
+    expect(logged).toContain('"status":403');
+    warnSpy.mockRestore();
+  });
+
   it('unsupported / unknown TLD that 404s is reported available (RDAP bootstrap returns 404)', async () => {
     const { kv } = makeKv();
     fetchMock().mockResolvedValue(resp(404));
