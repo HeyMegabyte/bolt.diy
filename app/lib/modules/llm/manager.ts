@@ -32,12 +32,7 @@ export class LLMManager {
 
   private async _registerProvidersFromDirectory() {
     try {
-      /*
-       * Dynamically import all files from the providers directory
-       * const providerModules = import.meta.glob('./providers/*.ts', { eager: true });
-       */
-
-      // Look for exported classes that extend BaseProvider
+      // Register every exported class that extends BaseProvider
       for (const exportedItem of Object.values(providers)) {
         if (typeof exportedItem === 'function' && exportedItem.prototype instanceof BaseProvider) {
           const provider = new exportedItem();
