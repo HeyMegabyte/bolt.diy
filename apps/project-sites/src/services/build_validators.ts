@@ -14,7 +14,6 @@
  * @see ~/.agentskills/06-build-and-slice-loop/web-manifest-system.md
  */
 
-
 export type Severity = 'error' | 'warn' | 'info';
 
 export interface Violation {
