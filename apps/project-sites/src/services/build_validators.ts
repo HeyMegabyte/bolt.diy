@@ -14,7 +14,6 @@
  * @see ~/.agentskills/06-build-and-slice-loop/web-manifest-system.md
  */
 
-import { countH1, extractAttributeRefs, findBannedWords } from './html_ast.js';
 
 export type Severity = 'error' | 'warn' | 'info';
 
@@ -685,123 +684,6 @@ export const validateRouteCount = (files: BuildFile[], sourceRouteCount: number)
   ];
 };
 
-/* ─── AST-aware validators (tree-sitter-html) ──────────────────────────── */
-
-/**
- * Exactly one `<h1>` per HTML page — AST variant. Eliminates false positives
- * from `<h1>` strings inside `<script>` tags and JS template literals that
- * the regex `validateH1InShell` accidentally counts.
- */
-export const validateH1InShellAst = async (files: BuildFile[]): Promise<Violation[]> => {
-  const out: Violation[] = [];
-  for (const file of files) {
-    if (!isHtml(file.path) || !file.text) continue;
-    try {
-      const count = await countH1(file.text);
-      if (count !== 1) {
-        out.push({
-          code: 'html.h1_count',
-          severity: 'error',
-          message: `Exactly 1 <h1> required in HTML shell (got ${count}) [ast]`,
-          file: file.path,
-        });
-      }
-    } catch (err) {
-      out.push({
-        code: 'html.ast_parse_failed',
-        severity: 'warn',
-        message: `Tree-sitter parse failed for ${file.path}: ${err instanceof Error ? err.message : String(err)}`,
-        file: file.path,
-      });
-    }
-  }
-  return out;
-};
-
-/**
- * Banned slop words — AST variant. Skips `<script>` and `<style>` contents so
- * `leverage` appearing in a minified JS bundle string literal no longer trips
- * the gate.
- */
-export const validateBannedWordsAst = async (files: BuildFile[]): Promise<Violation[]> => {
-  const out: Violation[] = [];
-  for (const file of files) {
-    if (!isHtml(file.path) || !file.text) continue;
-    try {
-      const hits = await findBannedWords(file.text, BANNED_WORDS);
-      for (const { word, count } of hits) {
-        out.push({
-          code: 'copy.banned_word',
-          severity: 'warn',
-          message: `Banned slop word "${word}" appears ${count}× in visible text — replace with concrete language [ast]`,
-          file: file.path,
-        });
-      }
-    } catch (err) {
-      out.push({
-        code: 'html.ast_parse_failed',
-        severity: 'warn',
-        message: `Tree-sitter parse failed for ${file.path}: ${err instanceof Error ? err.message : String(err)}`,
-        file: file.path,
-      });
-    }
-  }
-  return out;
-};
-
-/**
- * Asset existence — AST variant. Walks real `src=`/`href=` attributes instead
- * of regex matching, so refs that appear inside JS string literals no longer
- * generate spurious `asset.missing` errors.
- */
-export const validateAssetExistenceAst = async (files: BuildFile[]): Promise<Violation[]> => {
-  const out: Violation[] = [];
-  const fileSet = new Set(files.map((f) => f.path));
-  for (const file of files) {
-    if (!isHtml(file.path) || !file.text) continue;
-    let refs: string[];
-    try {
-      refs = await extractAttributeRefs(file.text);
-    } catch (err) {
-      out.push({
-        code: 'html.ast_parse_failed',
-        severity: 'warn',
-        message: `Tree-sitter parse failed for ${file.path}: ${err instanceof Error ? err.message : String(err)}`,
-        file: file.path,
-      });
-      continue;
-    }
-    for (const ref of refs) {
-      const host = externalHost(ref);
-      if (host) {
-        if (!ALLOWED_EXTERNAL_HOSTS.has(host) && !host.endsWith('.projectsites.dev')) {
-          out.push({
-            code: 'asset.external_host_not_allowed',
-            severity: 'warn',
-            message: `External host not in allowlist: ${host}`,
-            file: file.path,
-            detail: ref,
-          });
-        }
-        continue;
-      }
-      if (!isInternalRef(ref)) continue;
-      const norm = normalizeRef(ref);
-      if (!norm) continue;
-      if (!fileSet.has(norm)) {
-        out.push({
-          code: 'asset.missing',
-          severity: 'error',
-          message: `Referenced asset not in build output: /${norm}`,
-          file: file.path,
-          detail: ref,
-        });
-      }
-    }
-  }
-  return out;
-};
-
 /**
  * High-confidence, SERVER-ONLY secret patterns. Deliberately conservative
  * (false-negative over false-positive per validator-precision-discipline):
@@ -851,54 +733,6 @@ export const validateNoClientSecrets = (files: BuildFile[]): Violation[] => {
     }
   }
   return out;
-};
-
-/**
- * Async sibling of `validateBuild` that uses AST-aware variants where they
- * exist. Drop-in replacement for the workflow's `validate-build` step.
- */
-export const validateBuildAst = async (
-  files: BuildFile[],
-  opts: { sourceRouteCount?: number } = {},
-): Promise<ValidationReport> => {
-  const [astH1, astBanned, astAssets] = await Promise.all([
-    validateH1InShellAst(files),
-    validateBannedWordsAst(files),
-    validateAssetExistenceAst(files),
-  ]);
-  const all: Violation[] = [
-    ...validateRequiredFiles(files),
-    ...astAssets,
-    ...validateImageFormat(files),
-    ...validateOgImage(files),
-    ...validateAppleTouchIcon(files),
-    ...validateMetaLengths(files),
-    ...validateJsonLdCount(files),
-    ...validateJsonLdStructure(files),
-    ...astH1,
-    ...validateColorScheme(files),
-    ...validateCanonical(files),
-    ...validateSitemapLastmod(files),
-    ...astBanned,
-    ...validateJsBundleSize(files),
-    ...validateLightboxPresence(files),
-    ...validateNoClientSecrets(files),
-    ...validateContactPath(files),
-    ...validateImageWeightBudget(files),
-    ...(typeof opts.sourceRouteCount === 'number'
-      ? validateRouteCount(files, opts.sourceRouteCount)
-      : []),
-  ];
-  const errors = all.filter((v) => v.severity === 'error');
-  const warnings = all.filter((v) => v.severity === 'warn');
-  const infos = all.filter((v) => v.severity === 'info');
-  return {
-    ok: errors.length === 0,
-    errors,
-    warnings,
-    infos,
-    summary: `${errors.length} error(s), ${warnings.length} warning(s), ${infos.length} info [ast]`,
-  };
 };
 
 /** Run every gate and return a structured report. */

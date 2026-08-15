@@ -55,7 +55,7 @@ function gradeFor(score: number): ReadinessGrade {
 /**
  * Score a validation report for production readiness.
  *
- * @param report - The {@link ValidationReport} from `validateBuild`/`validateBuildAst`.
+ * @param report - The {@link ValidationReport} from `validateBuild`.
  * @returns A {@link ReadinessScore} with grade, passing flag, and per-category breakdown.
  * @example
  * scoreReadiness(validateBuild(files)); // → { score: 85, grade: 'B', passing: true, … }
