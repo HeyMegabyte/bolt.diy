@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildObservabilityQuery,
   computeWindow,
+  isRedundantRequestMirror,
   mapEventToLogLine,
   sortLinesAscending,
   toLogLevel,
@@ -28,6 +29,26 @@ describe('toLogLevel', () => {
     expect(toLogLevel(undefined)).toBe('info');
     expect(toLogLevel(42)).toBe('info');
     expect(toLogLevel(null)).toBe('info');
+  });
+});
+
+describe('isRedundantRequestMirror', () => {
+  it('drops the bare CF request-mirror (request-shaped message, no structured fields)', () => {
+    expect(isRedundantRequestMirror({ level: 'info', message: 'GET https://projectsites.dev/chunk-X.js' })).toBe(true);
+    expect(isRedundantRequestMirror({ level: 'info', message: 'POST https://projectsites.dev/api/analytics/track' })).toBe(true);
+    expect(isRedundantRequestMirror({ message: 'delete https://x/y' })).toBe(true); // case-insensitive method
+  });
+
+  it('keeps the structured http_request log (has method/msg — the rich duplicate we want)', () => {
+    expect(isRedundantRequestMirror({ msg: 'http_request', method: 'GET', path: '/chunk-X.js', status: 200 })).toBe(false);
+    expect(isRedundantRequestMirror({ method: 'GET', path: '/x' })).toBe(false);
+    expect(isRedundantRequestMirror({ msg: 'boot ok' })).toBe(false);
+  });
+
+  it('keeps a genuine plain-string app log (not request-shaped)', () => {
+    expect(isRedundantRequestMirror({ level: 'error', message: 'payment failed for order 42' })).toBe(false);
+    expect(isRedundantRequestMirror({ level: 'info', message: 'GET /relative-not-a-url' })).toBe(false); // no scheme → not a mirror
+    expect(isRedundantRequestMirror({})).toBe(false);
   });
 });
 

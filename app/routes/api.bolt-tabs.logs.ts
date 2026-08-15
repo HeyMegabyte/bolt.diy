@@ -115,6 +115,31 @@ export function toLogLevel(value: unknown): LogLine['level'] {
 }
 
 /**
+ * CF automatically emits a bare per-request event (`{ level, message: 'GET
+ * https://host/path' }`, `$metadata.type === 'cf-worker-event'`) for EVERY fetch,
+ * which the app's own structured `http_request` log (`cf-worker`, carrying method
+ * + path + status + durationMs) already covers — measured ~48% of the raw stream
+ * is these mirrors, so the tab showed every request twice. Drop ONLY the bare
+ * mirror: a request-shaped `message` with NO structured `method`/`msg`. Any
+ * genuine plain-string app log (e.g. `console.error('payment failed')`) is kept.
+ *
+ * @param source - the `event.source` structured-fields object
+ * @returns true if the event is a redundant CF request-mirror safe to drop
+ * @example
+ * isRedundantRequestMirror({ level: 'info', message: 'GET https://x/y' }) // true
+ * isRedundantRequestMirror({ msg: 'http_request', method: 'GET', path: '/y' }) // false
+ */
+export function isRedundantRequestMirror(source: Record<string, unknown>): boolean {
+  if (typeof source.method === 'string' || typeof source.msg === 'string') {
+    return false;
+  }
+
+  const message = typeof source.message === 'string' ? source.message : '';
+
+  return /^(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+https?:\/\//i.test(message);
+}
+
+/**
  * Map one Workers-Observability event to a `LogLine`. Pure + total: never
  * throws, always returns a renderable line. Prefers an HTTP-request summary
  * (`GET /path → 200 (12ms)`) when the event looks like a request log, else the
@@ -239,7 +264,9 @@ export async function loader({ request, context }: LoaderFunctionArgs): Promise<
 
   try {
     const result = await cfFetch<ObservabilityQueryResult>(queryUrl, { method: 'POST', body }, token);
-    const events = result?.events?.events ?? [];
+    const events = (result?.events?.events ?? []).filter(
+      (e) => !isRedundantRequestMirror((e.source ?? {}) as Record<string, unknown>),
+    );
     const lines = sortLinesAscending(events.map(mapEventToLogLine));
 
     return json({ project, lines });
