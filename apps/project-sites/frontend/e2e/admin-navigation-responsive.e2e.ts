@@ -188,6 +188,15 @@ test.describe('admin navigation — responsive modes', () => {
     const contentLeftAtRest = (await content.boundingBox())!.x;
     const dashIcon = page.locator('[data-testid="nav-dashboard"] app-nav-icon').first();
     const iconXAtRest = (await dashIcon.boundingBox())!.x;
+    // Heights that must NOT change when the rail opens (no vertical jump).
+    const dashItem = page.locator('[data-testid="nav-dashboard"]');
+    const groupLabel = page.locator('.nav-group-label').first();
+    const picker = page.locator('.admin-site-selector > button');
+    const hRest = {
+      item: (await dashItem.boundingBox())!.height,
+      label: (await groupLabel.boundingBox())!.height,
+      picker: (await picker.boundingBox())!.height,
+    };
     await expect(page.locator('[data-testid="nav-forms"] span').first()).toBeHidden();
 
     // Hover → expands to the full ~272px labelled sidebar.
@@ -201,6 +210,12 @@ test.describe('admin navigation — responsive modes', () => {
     // its exact rail position, only the label appears beside it.
     const iconXHovered = (await dashIcon.boundingBox())!.x;
     expect(Math.abs(iconXHovered - iconXAtRest)).toBeLessThanOrEqual(1);
+
+    // No VERTICAL jump: the nav row, section label, and site picker are the SAME
+    // height open vs closed — only the labels reveal horizontally.
+    expect(Math.abs((await dashItem.boundingBox())!.height - hRest.item)).toBeLessThanOrEqual(1);
+    expect(Math.abs((await groupLabel.boundingBox())!.height - hRest.label)).toBeLessThanOrEqual(1);
+    expect(Math.abs((await picker.boundingBox())!.height - hRest.picker)).toBeLessThanOrEqual(1);
 
     // CRITICAL — it OVERLAYS, it does not push: the content's left edge is
     // unchanged (no reflow) and the expanded panel paints OVER the content.

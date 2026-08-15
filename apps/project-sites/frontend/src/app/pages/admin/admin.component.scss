@@ -282,6 +282,10 @@ aside::before {
   border-radius: var(--ps-radius-sm, 8px);
   font-size: 0.86rem;
 }
+// Site-selector trigger keeps a fixed min-height so the collapsed (monogram-only)
+// and open (avatar + name + status) states are the SAME height — the picker never
+// grows when the rail expands. 62px clears the 2-line open content.
+.admin-site-selector > button { min-height: 62px; }
 .site-option-active {
   background: rgba(0, 229, 255, 0.10);
   color: #fff !important;
@@ -303,8 +307,14 @@ aside::before {
   font-family: var(--ps-font-code, 'Fira Code', ui-monospace, monospace);
   font-size: 0.6rem;
   font-weight: 600;
+  // Fixed line-height (not `normal`) so the rail's smaller font renders in the
+  // SAME line box → the heading is identical height open vs closed (no jump).
+  line-height: 12px;
   letter-spacing: 0.13em;
   text-transform: uppercase;
+  // nowrap only (no overflow:hidden) — the labels fit in both modes, and clipping
+  // here would also clip the rail divider's pseudo-rule that sits in the margin.
+  white-space: nowrap;
   color: color-mix(in oklch, var(--ps-accent, #00e5ff) 62%, #7aa7b3);
   user-select: none;
   &:first-child { margin-top: 2px; }
@@ -312,7 +322,7 @@ aside::before {
 
 .nav-item {
   display: flex; align-items: center; gap: 9px; width: 100%;
-  padding: 7px 12px; border: none; background: transparent;
+  padding: 7px 12px; min-height: 32px; border: none; background: transparent;
   color: #94a3b8; font-size: 0.795rem; font-weight: 500; font-family: inherit;
   cursor: pointer; border-radius: 9px;
   transition: background 200ms cubic-bezier(0.2,0,0,1),
@@ -322,7 +332,19 @@ aside::before {
   text-align: left; position: relative;
   text-decoration: none;
   svg { flex-shrink: 0; opacity: 0.72; transition: opacity 160ms ease, transform 220ms ease; }
-  span { flex: 1; letter-spacing: 0.01em; }
+  // The label NEVER wraps: a wrapped label at the narrow intermediate widths
+  // during the expand animation would balloon the row height → vertical jump.
+  // `min-width:0` lets the flex child shrink so it clips (never wraps); the fixed
+  // line-height keeps it the same height whether shown (open) or hidden (closed).
+  span {
+    flex: 1;
+    min-width: 0;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   &:hover {
     background: linear-gradient(90deg, rgba(0,229,255,0.10), rgba(124,58,237,0.04));
     color: #fff;
@@ -683,38 +705,38 @@ aside::before {
   .nav-item > span,
   .site-dropdown-row { display: none; }
 
-  // Section headings persist as compact, centered "labeled dividers": a hairline
-  // rule spanning the full rail width (the −12px margin cancels the nav's px-3)
-  // with the group name beneath it. The nav padding is untouched, so the icons
-  // never shift. On hover the guard drops this and the full left-aligned label
-  // returns.
+  // Section headings stay "labeled dividers" — but with the SAME vertical box as
+  // the expanded label (base margin 14/4 + line-height 12px are NOT overridden),
+  // so nothing moves vertically when the rail opens. Only the HORIZONTAL
+  // presentation changes: full-rail width (negative side margins cancel the nav
+  // px-3), centered, smaller font, and a hairline rule drawn in the top margin
+  // via a pseudo-element (adds NO height).
   .nav-group-label {
-    margin: 12px -12px 5px;
-    padding: 8px 3px 0;
-    // Monospace ⇒ predictable width. 0.46rem keeps the longest label
-    // ("CAPABILITIES", 12 chars) on one line inside the ~66px rail text column.
+    margin-left: -12px;
+    margin-right: -12px;
+    padding-left: 3px;
+    padding-right: 3px;
+    // 0.46rem keeps the longest label ("CAPABILITIES", 12 chars) on one line in
+    // the full-width rail; the base line-height:12px keeps its box height fixed.
     font-size: 0.46rem;
     letter-spacing: 0.02em;
     text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    border-top: 1px solid var(--ck-border, rgba(0, 229, 255, 0.14));
+    position: relative;
 
-    &:first-child {
-      margin-top: 2px;
-      padding-top: 0;
-      border-top: none;
+    &::before {
+      content: '';
+      position: absolute;
+      inset: -7px 0 auto 0;
+      height: 1px;
+      background: var(--ck-border, rgba(0, 229, 255, 0.14));
     }
+    &:first-child::before { display: none; }
   }
 
-  // Site selector → centered monogram only (no cramped text/badge/caret).
+  // Site selector → monogram only, but KEEP the base padding + left alignment so
+  // the trigger is the SAME height as its expanded state and the avatar never
+  // moves — only the name/status/badge/caret appear beside it when it opens.
   .admin-site-selector {
-    > button {
-      justify-content: center;
-      padding: 0.5rem 0;
-      gap: 0;
-    }
     > button > .flex-1,
     > button > .nav-badge,
     > button > svg,
