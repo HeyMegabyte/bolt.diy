@@ -95,7 +95,10 @@ export async function buildRetrospective(args: {
       user: prompt,
       maxTokens: 1200,
       provider: 'anthropic',
-      model: 'claude-haiku-4-5-20251001',
+      // Evergreen alias (not the dated `-20251001` snapshot) per model-routing —
+      // auto-tracks the latest Haiku 4.5 build; a pinned snapshot eventually retires
+      // and 400s, an evergreen alias survives the bump.
+      model: 'claude-haiku-4-5',
     });
     llmFindings = llm.output;
   } catch (err) {
