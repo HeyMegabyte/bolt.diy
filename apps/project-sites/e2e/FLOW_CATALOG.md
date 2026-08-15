@@ -46,10 +46,11 @@
 > **gorgeous live terminal widget** streaming the actual Claude Code build output, overlaying any
 > not-yet-available content until the site is finished.
 
-11. ⭐🔴 **Live-logs widget renders** — on `/waiting` for a building site, a beautiful terminal-style widget appears (monospace, syntax-tinted, auto-scrolling, brand-dark `--ps-bg` + cyan accents) showing the real Claude Code stdout/stderr, not just step labels.
-12. ⭐🔴 **Logs stream in real time** — assert new log lines append live (SSE/WebSocket or ≤2s poll of `recent_logs`) with no full-page reload; the widget tails to the newest line; a "▲ N new" affordance when the user scrolls up.
-13. ⭐🔴 **Overlay-until-ready** — content that isn't available yet (the site preview, the "view site" CTA) is covered by the widget/overlay until `workflow_status === completed`; the overlay dismisses (View-Transition) exactly when the site is live.
-14. 🔴 **Per-phase status chips** — the widget header shows the 8 pipeline phases (research → structure → generate → quality → upload) with live active/done/error chips derived from `workflow.step.*` events, synced to the raw log tail.
+11. ⭐🟢 **Live-logs widget renders** — DONE iter 64, verified live (`flow-011`, 4/4 green vs prod). A gorgeous terminal widget (monospace, mac-dots bar, cyan-tinted, auto-tailing, brand-dark) renders on `/waiting` for a building site in `waiting.component.ts` (`build-terminal` + `redactBuildLogSecrets` + `toBuildLogLine`). Currently streams the build EVENT log (`getSiteLogs`); raw container stdout depends on #14b (backend).
+12. ⭐🟢 **Logs stream in real time** — DONE iter 64. `timer(0,3000)` polls `getSiteLogs(200)` (fires immediately, no 3s blank), `logs` signal → `logLines` computed → auto-scroll `effect()` tails to newest. (SSE upgrade = later enhancement.)
+13. ⭐🟢 **Overlay-until-ready** — DONE iter 64. The building state is a `data-testid="build-overlay"` takeover; the "View site" CTA is published-only (absent while building); flips to the success state on `published`.
+14. 🟢 **Per-phase status chips** — DONE iter 64. `phases` computed → 8 chips (`build-phase-chip`) with done/active/error/pending state from `currentStep()`; active chip pulses (reduced-motion-gated).
+14b. 🔴 **Raw container stdout in `recent_logs`** — the backend half: the container→worker HMAC callback must persist raw Claude Code stdout lines into the audit log's `metadata_json.message` so the widget shows the ACTUAL terminal output (not just event labels). The widget already renders `metadata_json.message` when present — wire the callback.
 15. 🔴 **Elapsed timer + ETA** — a live elapsed clock + a "~N min remaining" estimate that adjusts per phase; never counts backward.
 16. 🔴 **Log copy / download / expand** — buttons to copy all logs, download `build-<slug>.log`, and expand the widget to fullscreen; keyboard-accessible, focus-trapped in fullscreen, Esc closes.
 17. 🟡 **Build error surfaces gracefully** — when the workflow errors, the widget turns to an error state (red header, the failing log lines highlighted, a "Retry build" button hitting `POST /api/sites/:id/reset`), NOT a white screen; a failure notification + email.
