@@ -487,6 +487,7 @@ const LOW_BALANCE_CENTS = 500;
       }
       .dp-avail--ok { color: #34d399; }
       .dp-avail--no { color: #f87171; }
+      .dp-avail--unknown { color: #9ca3af; }
       .dp-pill {
         display: inline-block;
         padding: 1px 6px;
@@ -568,6 +569,10 @@ const LOW_BALANCE_CENTS = 500;
       .dp-status--load {
         color: #f59e0b;
         background: rgba(245, 158, 11, 0.12);
+      }
+      .dp-status--unknown {
+        color: #9ca3af;
+        background: rgba(156, 163, 175, 0.12);
       }
       /* Taken domains: a single compact, calmly-grayed line (no reason/pitch/CTA,
          no hover-lift — it isn't actionable). Keeps the dropdown tight. */
@@ -1039,6 +1044,8 @@ const LOW_BALANCE_CENTS = 500;
                 <span class="dp-avail dp-avail--ok" title="Available" aria-hidden="true">●</span>
               } @else if (s.status === 'taken') {
                 <span class="dp-avail dp-avail--no" title="Taken" aria-hidden="true">●</span>
+              } @else if (s.status === 'unknown') {
+                <span class="dp-avail dp-avail--unknown" title="Availability couldn't be checked" aria-hidden="true">●</span>
               }
             }
             <span class="dp-mono" [class.dp-mono--accent]="s.status === 'available' && !purchasedDomains().has(s.domain)">{{ s.domain }}</span>
@@ -1056,6 +1063,13 @@ const LOW_BALANCE_CENTS = 500;
               <span class="dp-status dp-status--ok">✓ available</span>
             } @else if (s.status === 'taken') {
               <span class="dp-status dp-status--no">✗ taken</span>
+            } @else if (s.status === 'unknown') {
+              <span
+                class="dp-status dp-status--unknown"
+                data-testid="domain-status-unknown"
+                title="The availability lookup (RDAP) didn't respond — verify on the registrar"
+                >? couldn't check</span
+              >
             }
             @if (s.price_usd_yr && !purchasedDomains().has(s.domain)) {
               <span class="dp-price">\${{ s.price_usd_yr }}/yr</span>
