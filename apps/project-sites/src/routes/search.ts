@@ -1371,6 +1371,81 @@ search.post('/api/contact-form/:slug', async (c) => {
 });
 
 /**
+ * Newsletter subscribe — the dedicated native-subscriber ingest that feeds the
+ * `newsletter_subscribers` table (and the /admin analytics "Newsletter" tile).
+ *
+ * @remarks
+ * Closes a triple-drift gap: the generated-site signup widget
+ * (`services/archive_signup.ts`) POSTs here, `services/big_bets.ts` owns
+ * `newsletterSubscribe()`, and the analytics tile READS `newsletter_subscribers`
+ * — but the ROUTE joining them was never mounted, so this path 404'd and the tile
+ * had no live writer (structurally 0). Distinct from `/api/v1/forms/submit`
+ * (generic form → external ESP): this is the double-opt-in native subscriber
+ * (`confirmed=0` until the opt-in email is clicked). Persist-first + error-checked
+ * (never a lying-success). Public + guest-reachable — validated with Zod.
+ */
+const newsletterSubscribeSchema = z.object({
+  email: z.string().trim().email('A valid email is required.').max(320),
+  siteId: z.string().trim().min(1, 'siteId is required.').max(200),
+  segment: z.string().trim().max(64).optional(),
+});
+
+search.post('/api/newsletter/subscribe', async (c) => {
+  const parsed = newsletterSubscribeSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) {
+    return c.json(
+      {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: parsed.error.issues[0]?.message ?? 'Invalid subscription',
+        },
+      },
+      400,
+    );
+  }
+  const { email, siteId, segment } = parsed.data;
+
+  try {
+    const { dbQueryOne } = await import('../services/db.js');
+    const site = await dbQueryOne<{ id: string }>(
+      c.env.DB,
+      'SELECT id FROM sites WHERE (id = ? OR slug = ?) AND deleted_at IS NULL',
+      [siteId, siteId],
+    );
+    if (!site) return c.json({ error: { code: 'NOT_FOUND', message: 'Site not found' } }, 404);
+
+    const { newsletterSubscribe } = await import('../services/big_bets.js');
+    const res = await newsletterSubscribe(c.env, { siteId: site.id, email, segment });
+    if (res.error) {
+      // Persist failed for real (not a duplicate no-op) — surface it, never a
+      // lying-success. The subscriber's number won't reach the owner otherwise.
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'newsletter-subscribe',
+          message: 'subscribe_persist_failed',
+          site_id: site.id,
+          error: res.error,
+        }),
+      );
+      return c.json(
+        {
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: 'Could not save your subscription. Please try again.',
+          },
+        },
+        500,
+      );
+    }
+    return c.json({ data: { subscribed: true, double_opt_in_required: true } });
+  } catch (err) {
+    console.warn('[newsletter-subscribe] Error:', err);
+    return c.json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to subscribe' } }, 500);
+  }
+});
+
+/**
  * Site preview — serves the site's index.html from R2 directly.
  * Used by the admin panel to show site previews without triggering CF challenges.
  */

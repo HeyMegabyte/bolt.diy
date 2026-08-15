@@ -10,16 +10,26 @@ jest.mock('../services/audit.js', () => ({
   writeAuditLog: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('../services/big_bets.js', () => ({
+  newsletterSubscribe: jest
+    .fn()
+    .mockResolvedValue({ id: 'sub-1', confirm_email_sent: true, double_opt_in_required: true }),
+}));
+
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { search, isProxyableImageUrl } from '../routes/search.js';
 import { dbQuery, dbQueryOne, dbInsert } from '../services/db.js';
 import { writeAuditLog } from '../services/audit.js';
+import { newsletterSubscribe } from '../services/big_bets.js';
 
 const mockDbQuery = dbQuery as jest.MockedFunction<typeof dbQuery>;
 const mockDbQueryOne = dbQueryOne as jest.MockedFunction<typeof dbQueryOne>;
 const mockDbInsert = dbInsert as jest.MockedFunction<typeof dbInsert>;
+const mockNewsletterSubscribe = newsletterSubscribe as jest.MockedFunction<
+  typeof newsletterSubscribe
+>;
 
 const mockQueueSend = jest.fn().mockResolvedValue(undefined);
 
@@ -542,5 +552,72 @@ describe('isProxyableImageUrl (image-proxy SSRF guard)', () => {
     expect(isProxyableImageUrl('http://[fe80::1]/x')).toBe(false);
     expect(isProxyableImageUrl('http://[fd00::1]/x')).toBe(false);
     expect(isProxyableImageUrl('http://[::ffff:169.254.169.254]/x')).toBe(false);
+  });
+});
+
+// The dedicated native newsletter-subscriber ingest that feeds the
+// `newsletter_subscribers` table + the /admin analytics "Newsletter" tile. Before
+// this route existed, POST /api/newsletter/subscribe 404'd (the widget's endpoint
+// was never mounted) and the tile had no live writer.
+describe('POST /api/newsletter/subscribe', () => {
+  const post = (body: unknown) =>
+    makeRequest('/api/newsletter/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+  it('returns 400 on an invalid email', async () => {
+    const res = await post({ email: 'not-an-email', siteId: 'e2e-site-1' });
+    expect(res.status).toBe(400);
+    expect(mockNewsletterSubscribe).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when siteId is missing', async () => {
+    const res = await post({ email: 'sub@example.com' });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 404 when the site does not exist', async () => {
+    mockDbQueryOne.mockResolvedValueOnce(null);
+    const res = await post({ email: 'sub@example.com', siteId: 'ghost-site' });
+    expect(res.status).toBe(404);
+    expect(mockNewsletterSubscribe).not.toHaveBeenCalled();
+  });
+
+  it('persists a subscriber and returns 200 with double_opt_in_required', async () => {
+    mockDbQueryOne.mockResolvedValueOnce({ id: 'e2e-site-1' } as never);
+    mockNewsletterSubscribe.mockResolvedValueOnce({
+      id: 'sub-1',
+      siteId: 'e2e-site-1',
+      email: 'sub@example.com',
+      confirm_email_sent: true,
+      double_opt_in_required: true,
+      error: undefined,
+    } as never);
+    const res = await post({ email: 'sub@example.com', siteId: 'e2e-site-1' });
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      data: { subscribed: boolean; double_opt_in_required: boolean };
+    };
+    expect(json.data).toMatchObject({ subscribed: true, double_opt_in_required: true });
+    expect(mockNewsletterSubscribe).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ siteId: 'e2e-site-1', email: 'sub@example.com' }),
+    );
+  });
+
+  it('returns 500 (not a lying-success) when the persist reports an error', async () => {
+    mockDbQueryOne.mockResolvedValueOnce({ id: 'e2e-site-1' } as never);
+    mockNewsletterSubscribe.mockResolvedValueOnce({
+      id: 'sub-1',
+      siteId: 'e2e-site-1',
+      email: 'sub@example.com',
+      confirm_email_sent: true,
+      double_opt_in_required: true,
+      error: 'D1_ERROR: no such table',
+    } as never);
+    const res = await post({ email: 'sub@example.com', siteId: 'e2e-site-1' });
+    expect(res.status).toBe(500);
   });
 });

@@ -213,14 +213,24 @@ export async function newsletterSubscribe(
   p: { siteId: string; email: string; segment?: string },
 ) {
   const id = uuid();
-  await env.DB.prepare(
-    'INSERT OR IGNORE INTO newsletter_subscribers (id, site_id, email, segment, confirmed, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-  )
-    .bind(id, p.siteId, p.email, p.segment ?? null, 0, nowIso())
-    .run()
-    .catch(() => {});
+  // Error-AWARE (not swallowed): a genuine D1 failure returns `error` so the caller
+  // can surface a 500 instead of a lying-success. `INSERT OR IGNORE` on the
+  // UNIQUE(site_id,email) index makes a duplicate subscribe a benign no-op (not an
+  // error). The column list matches the schema exactly (no `updated_at`/`deleted_at`),
+  // so this raw insert is correct where `dbInsert` — which auto-adds `updated_at` —
+  // would silently drop the row. Non-throwing: callers get a value, never an exception.
+  let error: string | undefined;
+  try {
+    await env.DB.prepare(
+      'INSERT OR IGNORE INTO newsletter_subscribers (id, site_id, email, segment, confirmed, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    )
+      .bind(id, p.siteId, p.email, p.segment ?? null, 0, nowIso())
+      .run();
+  } catch (e) {
+    error = e instanceof Error ? e.message : String(e);
+  }
 
-  return { id, ...p, confirm_email_sent: true, double_opt_in_required: true };
+  return { id, ...p, confirm_email_sent: true, double_opt_in_required: true, error };
 }
 
 export async function membershipCreateTier(
