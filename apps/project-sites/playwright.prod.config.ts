@@ -13,7 +13,8 @@ export default defineConfig({
     'feature-journey.spec.ts',
     'health.spec.ts',
     'golden-path.spec.ts',
-    'e2e/voice.spec.ts',                   // ANCHORED: bare 'voice.spec.ts' also pulled in e2e/admin/voice.spec.ts (stale, deleted)
+    'create-edit-publish-flow.spec.ts', // THE canonical REAL flow (create→build→view→edit→publish); skipped unless E2E_REAL_BUILD=1 (paid ~40min build)
+    'e2e/voice.spec.ts', // ANCHORED: bare 'voice.spec.ts' also pulled in e2e/admin/voice.spec.ts (stale, deleted)
     'observability_gateway.spec.ts',
     'adversarial/**/*.spec.ts',
     // BLOCKING CWV gate — re-enabled 2026-06-23 (perf loop #14) after the homepage
@@ -24,44 +25,44 @@ export default defineConfig({
     // LCP=9.4s (CSR-only SPA, fire 3) → app-shell static hero (fire 5) → async
     // fonts (fire 5b) → critical-CSS inline (fire 8). Tracked in _PERFECTION_BACKLOG.md Dim I.
     'perf/ttfr.spec.ts',
-    'auth-oauth-buttons.spec.ts',          // F001 — Google + GitHub OAuth buttons (Pass 1)
-    'auth-and-signin.spec.ts',             // Full auth flow (all 6 methods + 2FA)
-    'admin-journey.spec.ts',               // Admin shell journey (Pass 6)
-    'admin-sections-smoke.spec.ts',        // 15 admin section redirect checks + API health (Pass 7)
-    'marketing-seo.spec.ts',               // 9 route SEO metadata + critical files (Pass 7)
-    'security-headers-extended.spec.ts',   // HSTS, CSP, CORS, security posture (Pass 7)
-    'auth-signup-oauth.spec.ts',           // Sign-up Google + GitHub OAuth buttons (Pass 8/14)
-    'auth-full-flow.spec.ts',              // P2 203 — homepage → sign-up → sign-in → admin nav (enrolled Pass 19 after green verify)
-    'auth-full-oauth-flow.spec.ts',        // P0 90 — OAuth callback token→session→admin + sign-in/up Google buttons (enrolled Pass 19)
-    'admin-social.spec.ts',                // Social + 8 admin section redirects (Pass 11)
-    'admin-sysadmin.spec.ts',              // Sysadmin + system-services + subdomain probes (Pass 17)
-    'admin-site-detail.spec.ts',           // Site detail routes + subdomain landing pages (Pass 18)
-    'integration-health.spec.ts',          // 8 probes across all services (Pass 9)
-    'e2e/feature-flags.spec.ts',           // ANCHORED (bare basename also pulled in e2e/admin/feature-flags.spec.ts, stale, deleted) — Public API + admin auth gates (Pass 9)
-    'accessibility.spec.ts',               // 8 routes × 6bp axe-core WCAG 2.2 AA (Pass 9)
-    'admin-voice-billing.spec.ts',         // Voice + billing auth gates + API smoke (Pass 21)
-    'ai-actions/*.spec.ts',                // P10 — money-endpoint family (payment-safety) + code-export (export-safety) unauth leak-free gates (Pass 25)
-    'api-safety/*.spec.ts',                // P10 — backend API unauth safety-gate sweep: destructive/billing/route-family/auth-session/webhook-token (Pass 26; dir is api-safety not coverage — coverage/ is gitignored)
-    'admin-verify/*.spec.ts',              // P0-ADMIN — every admin feature WORKS + POPULATED with real data (authed, real-browser technical+visual)
-    'browserbase/*.spec.ts',               // P0-ADMIN — managed real-Chrome DEEP-component visual (skips unless RUN_BROWSERBASE=1 + creds; Browserbase bills per session)
-    'admin-dashboard.spec.ts',             // First authenticated dashboard journey (Convergence Pass 1)
+    'auth-oauth-buttons.spec.ts', // F001 — Google + GitHub OAuth buttons (Pass 1)
+    'auth-and-signin.spec.ts', // Full auth flow (all 6 methods + 2FA)
+    'admin-journey.spec.ts', // Admin shell journey (Pass 6)
+    'admin-sections-smoke.spec.ts', // 15 admin section redirect checks + API health (Pass 7)
+    'marketing-seo.spec.ts', // 9 route SEO metadata + critical files (Pass 7)
+    'security-headers-extended.spec.ts', // HSTS, CSP, CORS, security posture (Pass 7)
+    'auth-signup-oauth.spec.ts', // Sign-up Google + GitHub OAuth buttons (Pass 8/14)
+    'auth-full-flow.spec.ts', // P2 203 — homepage → sign-up → sign-in → admin nav (enrolled Pass 19 after green verify)
+    'auth-full-oauth-flow.spec.ts', // P0 90 — OAuth callback token→session→admin + sign-in/up Google buttons (enrolled Pass 19)
+    'admin-social.spec.ts', // Social + 8 admin section redirects (Pass 11)
+    'admin-sysadmin.spec.ts', // Sysadmin + system-services + subdomain probes (Pass 17)
+    'admin-site-detail.spec.ts', // Site detail routes + subdomain landing pages (Pass 18)
+    'integration-health.spec.ts', // 8 probes across all services (Pass 9)
+    'e2e/feature-flags.spec.ts', // ANCHORED (bare basename also pulled in e2e/admin/feature-flags.spec.ts, stale, deleted) — Public API + admin auth gates (Pass 9)
+    'accessibility.spec.ts', // 8 routes × 6bp axe-core WCAG 2.2 AA (Pass 9)
+    'admin-voice-billing.spec.ts', // Voice + billing auth gates + API smoke (Pass 21)
+    'ai-actions/*.spec.ts', // P10 — money-endpoint family (payment-safety) + code-export (export-safety) unauth leak-free gates (Pass 25)
+    'api-safety/*.spec.ts', // P10 — backend API unauth safety-gate sweep: destructive/billing/route-family/auth-session/webhook-token (Pass 26; dir is api-safety not coverage — coverage/ is gitignored)
+    'admin-verify/*.spec.ts', // P0-ADMIN — every admin feature WORKS + POPULATED with real data (authed, real-browser technical+visual)
+    'browserbase/*.spec.ts', // P0-ADMIN — managed real-Chrome DEEP-component visual (skips unless RUN_BROWSERBASE=1 + creds; Browserbase bills per session)
+    'admin-dashboard.spec.ts', // First authenticated dashboard journey (Convergence Pass 1)
     // NOTE (#91, Pass 20): admin-and-billing/docs/modals/upgrades-30 got checkA11y
     // WIRED but are deliberately NOT enrolled — they hang against prod (pre-existing
     // unbounded-wait staleness, why they were never in the cert). Their surfaces
     // (billing/docs/modals/palette) are already axe-critical-verified by the enrolled
     // admin-*-journey specs. Enrollment is a separate stale-spec-repair task.
-    'admin-*-journey.spec.ts',             // 12 authenticated section journeys (Convergence Pass 2)
-    'admin-logs-journey.spec.ts',          // Logs dashboard tabs journey — audit + explorer + filter + pagination (also matched by the glob above)
-    'admin-api-tokens-journey.spec.ts',    // API tokens one-time-reveal + value-domains + revoke journey (also matched by the glob above)
-    'admin-feature-flags.spec.ts',         // sysAdmin feature-flags journey (Convergence Pass 2)
-    'value-domains-*.spec.ts',             // TDD Contract #10 value-domain suites (Convergence Pass 3)
-    'auth-session-lifecycle.spec.ts',      // Sign-out / expiry / 429 / reload (Convergence Pass 8)
-    'auth-surface-journey.spec.ts',        // P2 — authed /admin shell renders + sign-out clears session (Pass 18)
+    'admin-*-journey.spec.ts', // 12 authenticated section journeys (Convergence Pass 2)
+    'admin-logs-journey.spec.ts', // Logs dashboard tabs journey — audit + explorer + filter + pagination (also matched by the glob above)
+    'admin-api-tokens-journey.spec.ts', // API tokens one-time-reveal + value-domains + revoke journey (also matched by the glob above)
+    'admin-feature-flags.spec.ts', // sysAdmin feature-flags journey (Convergence Pass 2)
+    'value-domains-*.spec.ts', // TDD Contract #10 value-domain suites (Convergence Pass 3)
+    'auth-session-lifecycle.spec.ts', // Sign-out / expiry / 429 / reload (Convergence Pass 8)
+    'auth-surface-journey.spec.ts', // P2 — authed /admin shell renders + sign-out clears session (Pass 18)
     // auth-magic-link-roundtrip.spec.ts is EXCLUDED on purpose: it sends 2 REAL
     // emails per run — run manually with E2E_PEEK_SECRET + --workers=1 only.
     'admin-user-settings-journey.spec.ts', // /admin/user profile + display-name value domains (settings-security wave; also matched by the admin-*-journey glob)
     'admin-auth-security-journey.spec.ts', // /admin/auth-security sessions + revoke + 2FA entry (settings-security wave; also matched by the admin-*-journey glob)
-    'admin/review-links.spec.ts',          // ANCHORED subdir path (→ '**/admin/review-links.spec.ts') — Share-link dialog journey, modernized from the removed /admin/review-links page (stale-7 triage 2026-07-31). The other 6 stale e2e/admin twins (bulk-ops, recipes, ai-chat-extras, email, seo, mcp) were DELETED: surfaces removed or relocated into Settings tabs already covered by admin-settings-journey + ai-chat-context.
+    'admin/review-links.spec.ts', // ANCHORED subdir path (→ '**/admin/review-links.spec.ts') — Share-link dialog journey, modernized from the removed /admin/review-links page (stale-7 triage 2026-07-31). The other 6 stale e2e/admin twins (bulk-ops, recipes, ai-chat-extras, email, seo, mcp) were DELETED: surfaces removed or relocated into Settings tabs already covered by admin-settings-journey + ai-chat-context.
     // ── Flag-verification suites (modernized Pass-14) — evidence behind the
     //    experimental→beta bumps that LANDED: pwa_manifest_full,
     //    outbound_webhooks, unified_inbox. The other five evidence specs
@@ -71,15 +72,15 @@ export default defineConfig({
     //    KEY probe finding: the media SECTION never mounts at /admin/media
     //    under the stub session (zero testids, no component) — route/guard
     //    investigation first.
-    'pwa.spec.ts',                          // pwa_manifest_full (root file — basename ok, no twin)
-    'webhook/webhooks.spec.ts',             // outbound_webhooks
-    '_fortress/unified_inbox/happy-path.spec.ts',   // unified_inbox
-    '_fortress/unified_inbox/adversarial.spec.ts',  // unified_inbox
-    'admin/analytics.spec.ts',              // site_analytics evidence (Pass-15 tails fixed)
-    'admin/deliverability.spec.ts',         // email_deliverability_wizard evidence
-    'site-mcp/site-mcp.spec.ts',            // site_mcp_server evidence
-    'pseo/pseo-matrix.spec.ts',             // pseo_matrix_v2 evidence
-    'media-video-studio.spec.ts',           // site_video_gen evidence (editor-overlay path)
+    'pwa.spec.ts', // pwa_manifest_full (root file — basename ok, no twin)
+    'webhook/webhooks.spec.ts', // outbound_webhooks
+    '_fortress/unified_inbox/happy-path.spec.ts', // unified_inbox
+    '_fortress/unified_inbox/adversarial.spec.ts', // unified_inbox
+    'admin/analytics.spec.ts', // site_analytics evidence (Pass-15 tails fixed)
+    'admin/deliverability.spec.ts', // email_deliverability_wizard evidence
+    'site-mcp/site-mcp.spec.ts', // site_mcp_server evidence
+    'pseo/pseo-matrix.spec.ts', // pseo_matrix_v2 evidence
+    'media-video-studio.spec.ts', // site_video_gen evidence (editor-overlay path)
     // ── Residual-admin triage (2026-07-31) — the remaining 19 unexecuting
     //    e2e/admin twins were audited against frontend routes: 14 DELETED
     //    (covered by admin-*-journey / admin-dashboard / webhook + site-mcp
@@ -90,11 +91,11 @@ export default defineConfig({
     //    after helper, ?** glob twins, hard asserts, value domains,
     //    screenshots) — each owns a surface with no other executing coverage.
     //    All 5 are ANCHORED subdir paths (→ '**/admin/<name>.spec.ts').
-    'admin/accept-invite.spec.ts',          // /admin/accept-invite?token= invite landing (4 tests incl. token value-domains)
-    'admin/admin-shell.spec.ts',            // SPA no-reload sentinel + network-status banner + toast dedupe (4 tests)
-    'admin/apps.spec.ts',                   // apps/:id deploy panel + subdomain value-domains + apps/instances (4 tests)
-    'admin/domain-stack.spec.ts',           // domains/:id/stack wizard board / flag-gate / no-hostname (3 tests)
-    'admin/social.spec.ts',                 // social/analytics aggregate + windows + empty + error-retry (4 tests)
+    'admin/accept-invite.spec.ts', // /admin/accept-invite?token= invite landing (4 tests incl. token value-domains)
+    'admin/admin-shell.spec.ts', // SPA no-reload sentinel + network-status banner + toast dedupe (4 tests)
+    'admin/apps.spec.ts', // apps/:id deploy panel + subdomain value-domains + apps/instances (4 tests)
+    'admin/domain-stack.spec.ts', // domains/:id/stack wizard board / flag-gate / no-hostname (3 tests)
+    'admin/social.spec.ts', // social/analytics aggregate + windows + empty + error-retry (4 tests)
   ],
   // (Pass 5: former wave-4 TDD-RED exclusions all greened and re-included.)
   fullyParallel: true,
@@ -125,7 +126,5 @@ export default defineConfig({
     baseURL: process.env.PROD_URL ?? 'https://projectsites.dev',
     trace: 'retain-on-failure',
   },
-  projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-  ],
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 });
