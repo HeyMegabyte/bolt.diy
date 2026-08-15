@@ -157,3 +157,89 @@ describe('CreateComponent — search-unavailable nudge', () => {
     expect(notice).withContext('no nudge on an honest empty result').toBeNull();
   }));
 });
+
+/**
+ * Address-search honesty nudge — the parallel of the business one. The worker's
+ * `/api/search/address` proxy degrades the SAME way (Google Places down →
+ * `{ data: [], _error }`). Without surfacing `_error`, the address autocomplete
+ * renders a silent empty dropdown that reads as "no such address". The nudge tells
+ * the guest to type the full address manually. An honest 0-match (no `_error`) must
+ * NOT trip it.
+ */
+describe('CreateComponent — address-search-unavailable nudge', () => {
+  afterEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    TestBed.resetTestingModule();
+  });
+
+  function renderAddr(addrReturn: unknown): ComponentFixture<CreateComponent> {
+    const api = {
+      searchBusinesses: jasmine.createSpy('searchBusinesses').and.returnValue(of({ data: [] })),
+      searchAddress: jasmine.createSpy('searchAddress').and.returnValue(of(addrReturn)),
+    };
+    const auth = {
+      isLoggedIn: jasmine.createSpy('isLoggedIn').and.returnValue(false),
+      getAutoCreate: jasmine.createSpy('getAutoCreate').and.returnValue(false),
+      setAutoCreate: jasmine.createSpy('setAutoCreate'),
+      getPendingBuild: jasmine.createSpy('getPendingBuild').and.returnValue(false),
+      setPendingBuild: jasmine.createSpy('setPendingBuild'),
+      getSelectedBusiness: jasmine.createSpy('getSelectedBusiness').and.returnValue(null),
+      getMode: jasmine.createSpy('getMode').and.returnValue('build'),
+    };
+    TestBed.configureTestingModule({
+      imports: [CreateComponent],
+      providers: [
+        provideRouter([]),
+        { provide: ApiService, useValue: api },
+        { provide: AuthService, useValue: auth },
+        { provide: GeolocationService, useValue: { lat: () => null, lng: () => null } },
+        {
+          provide: ToastService,
+          useValue: { error: () => undefined, success: () => undefined, info: () => undefined },
+        },
+        { provide: TelemetryService, useValue: { track: () => undefined } },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { queryParams: {}, queryParamMap: { get: () => null } } },
+        },
+      ],
+    });
+    const fx = TestBed.createComponent(CreateComponent);
+    fx.detectChanges();
+    return fx;
+  }
+
+  it('shows the address nudge when the address search returns a provider _error', fakeAsync(() => {
+    const fx = renderAddr({
+      data: [],
+      _error: { code: 'SEARCH_PROVIDER_UNAVAILABLE', status: 503, message: 'down' },
+    });
+    const c = fx.componentInstance;
+    c.businessAddress = '74 N Beverwyck';
+    c.onAddressInput();
+    tick(350); // clear the 300ms debounce
+    fx.detectChanges();
+    expect(c.addressUnavailable()).withContext('provider _error must set the signal').toBe(true);
+    const notice = (fx.nativeElement as HTMLElement).querySelector(
+      '[data-testid="address-search-unavailable"]',
+    );
+    expect(notice)
+      .withContext('the address "type it manually" nudge must render on provider error')
+      .not.toBeNull();
+  }));
+
+  it('does NOT show the address nudge on an honest empty result', fakeAsync(() => {
+    const fx = renderAddr({ data: [] });
+    const c = fx.componentInstance;
+    c.businessAddress = '74 N Beverwyck';
+    c.onAddressInput();
+    tick(350);
+    fx.detectChanges();
+    expect(c.addressUnavailable()).withContext('no _error means honest-empty').toBe(false);
+    const notice = (fx.nativeElement as HTMLElement).querySelector(
+      '[data-testid="address-search-unavailable"]',
+    );
+    expect(notice).withContext('no nudge on an honest empty result').toBeNull();
+  }));
+});

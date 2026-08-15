@@ -648,7 +648,7 @@ export class ApiService {
   }
 
   /** Search address */
-  searchAddress(query: string, lat?: number, lng?: number): Observable<{ data: AddressResult[] }> {
+  searchAddress(query: string, lat?: number, lng?: number): Observable<{ data: AddressResult[]; _error?: SearchProviderError }> {
     const params: Record<string, string> = { q: query };
     if (lat != null) params['lat'] = lat.toString();
     if (lng != null) params['lng'] = lng.toString();

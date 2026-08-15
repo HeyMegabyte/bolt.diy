@@ -285,6 +285,10 @@ export class CreateComponent implements OnInit, OnDestroy {
   // Address autocomplete
   addressSuggestions = signal<AddressSuggestion[]>([]);
   addressDropdownOpen = signal(false);
+  /** True when the ADDRESS-search proxy is down (provider `_error`) — surface an
+   * honest "address lookup unavailable, type it manually" nudge instead of a
+   * silently-empty dropdown (parity with {@link searchUnavailable} for business). */
+  addressUnavailable = signal(false);
   private addressSubject = new Subject<string>();
 
   // Business name autocomplete
@@ -561,6 +565,7 @@ export class CreateComponent implements OnInit, OnDestroy {
         switchMap((q) => {
           if (q.length < 3) {
             this.addressSuggestions.set([]);
+            this.addressUnavailable.set(false);
             this.addressDropdownOpen.set(false);
             return of(null);
           }
@@ -573,10 +578,14 @@ export class CreateComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (res) => {
           if (!res) return;
+          // Provider `_error` → address lookup is down; surface the honest nudge
+          // rather than a blank dropdown (parity with the business-search handling).
+          this.addressUnavailable.set(res._error != null);
           this.addressSuggestions.set(res.data || []);
           this.addressDropdownOpen.set((res.data || []).length > 0);
         },
         error: () => {
+          this.addressUnavailable.set(true);
           this.addressSuggestions.set([]);
           this.addressDropdownOpen.set(false);
         },
