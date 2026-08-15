@@ -97,10 +97,13 @@ test.describe('admin navigation — responsive modes', () => {
     expect(box && box.width).toBeGreaterThan(58);
     expect(box && box.width).toBeLessThan(96);
 
-    // Labels + group headings are hidden; icons remain.
-    await expect(page.locator('.nav-group-label').first()).toBeHidden();
+    // Item labels are hidden; icons remain. Section headings persist as compact
+    // "labeled dividers" (Workspace / Capabilities / …), NOT blank lines.
     await expect(page.locator('[data-testid="nav-forms"] app-nav-icon').first()).toBeVisible();
     await expect(page.locator('[data-testid="nav-forms"] span').first()).toBeHidden();
+    const railLabel = page.locator('.nav-group-label').first();
+    await expect(railLabel).toBeVisible();
+    await expect(railLabel).toHaveText('Workspace');
   });
 
   test('desktop (1440px): full labelled sidebar, no hamburger', async ({ page }) => {
@@ -129,10 +132,12 @@ test.describe('admin navigation — responsive modes', () => {
     await gotoAdmin(page);
     const sidebar = page.locator('#admin-primary-nav');
 
-    // 1296px — one below the threshold — stays the compact icon rail.
+    // 1296px — one below the threshold — stays the compact icon rail (item labels
+    // hidden, section headings persist as compact labeled dividers).
     await page.setViewportSize({ width: 1296, height: 900 });
     await expect(sidebar).toHaveClass(/admin-sidebar--rail/);
-    await expect(page.locator('.nav-group-label').first()).toBeHidden();
+    await expect(page.locator('[data-testid="nav-forms"] span').first()).toBeHidden();
+    await expect(page.locator('.nav-group-label').first()).toBeVisible();
 
     // 1297px — the full labelled sidebar takes over.
     await page.setViewportSize({ width: 1297, height: 900 });
@@ -176,9 +181,13 @@ test.describe('admin navigation — responsive modes', () => {
     const content = page.locator('.admin-topbar');
     await expect(sidebar).toHaveClass(/admin-sidebar--rail/);
 
-    // At rest: ~72px icon rail, labels hidden.
+    // At rest: ~72px icon rail, item labels hidden. Capture the top (Dashboard)
+    // icon's x — the centered sidebar.hover() below never lands on it, so it
+    // isolates the rail→full transition from any per-item hover nudge.
     expect((await sidebar.boundingBox())!.width).toBeLessThan(96);
     const contentLeftAtRest = (await content.boundingBox())!.x;
+    const dashIcon = page.locator('[data-testid="nav-dashboard"] app-nav-icon').first();
+    const iconXAtRest = (await dashIcon.boundingBox())!.x;
     await expect(page.locator('[data-testid="nav-forms"] span').first()).toBeHidden();
 
     // Hover → expands to the full ~272px labelled sidebar.
@@ -187,6 +196,11 @@ test.describe('admin navigation — responsive modes', () => {
     await expect.poll(async () => (await sidebar.boundingBox())!.width).toBeGreaterThan(255);
     const expanded = (await sidebar.boundingBox())!;
     expect(expanded.width).toBeLessThan(300);
+
+    // The ICON must not move when the rail grows to full width — the icon keeps
+    // its exact rail position, only the label appears beside it.
+    const iconXHovered = (await dashIcon.boundingBox())!.x;
+    expect(Math.abs(iconXHovered - iconXAtRest)).toBeLessThanOrEqual(1);
 
     // CRITICAL — it OVERLAYS, it does not push: the content's left edge is
     // unchanged (no reflow) and the expanded panel paints OVER the content.

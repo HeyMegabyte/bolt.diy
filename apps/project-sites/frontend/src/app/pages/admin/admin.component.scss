@@ -662,10 +662,7 @@ aside::before {
     border-color 200ms ease;
 }
 
-// Honor reduced-motion — expand instantly, no width/margin animation.
-@media (prefers-reduced-motion: reduce) {
-  .admin-sidebar { transition: none; }
-}
+// (reduced-motion for .admin-sidebar is handled by the block near the drawer styles)
 
 // ── Mode 2: compact icon rail (72px) ──────────────────────────────
 // The rail ALWAYS reserves 72px of the flex row (its footprint). Hovering (mouse)
@@ -677,24 +674,39 @@ aside::before {
   min-width: var(--admin-rail-w);
 }
 
-// Compact visuals — icons only, centered, tooltips carry the labels. Applied
-// only AT REST; on hover / focus the `:not()` guard drops these overrides so the
-// base labelled-sidebar styles show through and the rail reads as fully open.
+// Compact visuals — AT REST only. On hover / focus the `:not()` guard drops
+// these overrides so the base labelled-sidebar styles show through.
 .admin-sidebar--rail:not(:hover):not(:focus-within) {
-  // Hide every text affordance; icons carry the meaning, tooltips carry the label.
+  // Hide only the item LABELS + the site-selector detail. The icon keeps its
+  // exact expanded position (same nav + item padding — NOT re-centered), so it
+  // never moves left or right when the rail expands; only the label appears.
   .nav-item > span,
-  .nav-group-label,
   .site-dropdown-row { display: none; }
 
-  // Center each control; keep a comfortable ≥44px touch target.
-  .nav-item {
-    justify-content: center;
-    gap: 0;
-    padding-left: 0;
-    padding-right: 0;
-    min-height: 44px;
+  // Section headings persist as compact, centered "labeled dividers": a hairline
+  // rule spanning the full rail width (the −12px margin cancels the nav's px-3)
+  // with the group name beneath it. The nav padding is untouched, so the icons
+  // never shift. On hover the guard drops this and the full left-aligned label
+  // returns.
+  .nav-group-label {
+    margin: 12px -12px 5px;
+    padding: 8px 3px 0;
+    // Monospace ⇒ predictable width. 0.46rem keeps the longest label
+    // ("CAPABILITIES", 12 chars) on one line inside the ~66px rail text column.
+    font-size: 0.46rem;
+    letter-spacing: 0.02em;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-top: 1px solid var(--ck-border, rgba(0, 229, 255, 0.14));
+
+    &:first-child {
+      margin-top: 2px;
+      padding-top: 0;
+      border-top: none;
+    }
   }
-  .nav-item:hover { transform: none; } // no horizontal nudge when centered
 
   // Site selector → centered monogram only (no cramped text/badge/caret).
   .admin-site-selector {
@@ -718,9 +730,6 @@ aside::before {
       max-width: calc(100vw - var(--admin-rail-w) - 16px);
     }
   }
-
-  // Group separators replace the (hidden) text group labels.
-  .nav-rail-divider { display: block; }
 }
 
 // Hover / focus → expand the rail to the full 272px sidebar AS AN OVERLAY.
@@ -825,14 +834,6 @@ body.drawer-scroll-lock { overflow: hidden; }
   flex-shrink: 0;
   line-height: 0;
 }
-.nav-rail-divider {
-  display: none; // shown only in rail mode
-  height: 1px;
-  width: 60%;
-  margin: 10px auto 6px;
-  background: var(--ck-border, rgba(0, 229, 255, 0.14));
-}
-
 // Reduced motion → transitions snap. The mode still changes; it just doesn't animate.
 @media (prefers-reduced-motion: reduce) {
   .admin-sidebar,

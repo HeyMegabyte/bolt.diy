@@ -339,13 +339,11 @@
         (mouseover)="onSidebarNavHover($event)"
       >
         @for (group of navGroups(); track group.id) {
-          @if (railCollapsed()) {
-            @if (!$first) {
-              <div class="nav-rail-divider" role="separator" aria-hidden="true"></div>
-            }
-          } @else {
-            <p class="nav-group-label" aria-hidden="true">{{ group.label }}</p>
-          }
+          <!-- Section heading — full left-aligned label when expanded; a compact
+               centered "labeled divider" in the icon rail (styled in
+               admin.component.scss). Always in the DOM so hover-expanding the
+               rail reveals the full label purely via CSS. -->
+          <p class="nav-group-label" aria-hidden="true">{{ group.label }}</p>
           @for (item of group.items; track item.id) {
             <a
               class="nav-item"
@@ -355,9 +353,6 @@
               ariaCurrentWhenActive="page"
               [routerLinkActiveOptions]="{ exact: !!item.exact }"
               [attr.data-testid]="navTestId(item)"
-              [brnTooltip]="railCollapsed() ? item.label : null"
-              position="right"
-              [tooltipDisabled]="!railCollapsed()"
               (click)="onNavItemClick()"
             >
               <app-nav-icon [name]="item.icon" />
