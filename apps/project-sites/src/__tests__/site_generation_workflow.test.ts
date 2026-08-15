@@ -23,7 +23,7 @@ jest.mock(
   { virtual: true },
 );
 
-import { SiteGenerationWorkflow } from '../workflows/site-generation.js';
+import { SiteGenerationWorkflow, buildPrompt } from '../workflows/site-generation.js';
 import type { Env } from '../types/env.js';
 import type { WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 
@@ -90,5 +90,45 @@ describe('SiteGenerationWorkflow.run — entry guard + minimal mode', () => {
     await expect(run(withBuilder(), step, params({ minimalMode: true }))).rejects.toThrow(
       /minimal build failed: boom/,
     );
+  });
+});
+
+// The build must fit under the Cloudflare Container ~15-min wall-clock — the
+// orchestrator prompt is TEMPLATE-FIRST minor-edits, NOT a from-scratch rebuild
+// or a multi-subagent audit swarm (which took ~40 min). (Brian directive 2026-08-15.)
+describe('buildPrompt — template-first, ≤14-min', () => {
+  const p = {
+    slug: 'vitos',
+    businessName: "Vito's Salon",
+    businessCategory: 'salon',
+    businessAddress: '74 N Beverwyck Rd',
+    additionalContext: 'warm premium feel',
+  } as unknown as Parameters<typeof buildPrompt>[0];
+
+  it('is template-first — customize the pre-built template, do not regenerate', () => {
+    const out = buildPrompt(p);
+    expect(out).toMatch(/TEMPLATE-FIRST/i);
+    expect(out).toContain('~/template/');
+    expect(out).toMatch(/customize/i);
+    expect(out).toMatch(/do NOT (regenerate|run the)/i);
+  });
+
+  it('enforces the under-14-minute container budget', () => {
+    expect(buildPrompt(p)).toMatch(/under 14 minutes/i);
+  });
+
+  it('drops the slow audit swarm + loop-until-perfect (single validator pass is the gate)', () => {
+    const out = buildPrompt(p);
+    // The old flow spawned a 5-7 agent PARALLEL FAN-OUT and looped until perfect.
+    expect(out).not.toMatch(/PARALLEL FAN-OUT/i);
+    expect(out).not.toMatch(/loop back to step/i);
+    expect(out).toMatch(/ONE validation pass/i);
+    expect(out).toMatch(/blockers === 0/);
+  });
+
+  it('still carries the business data + user context', () => {
+    const out = buildPrompt(p);
+    expect(out).toContain("Vito's Salon");
+    expect(out).toContain('warm premium feel');
   });
 });

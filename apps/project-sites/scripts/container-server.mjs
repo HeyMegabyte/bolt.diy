@@ -244,7 +244,7 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
   fs.writeFileSync(sf, envLines.join('\n'));
   try { x(`chmod +x ${sf}`, { stdio: 'pipe' }); } catch {}
 
-  const to = (timeoutMin || 45) * 60000;
+  const to = (timeoutMin || 14) * 60000;
   console.warn(`[${jobId}] Starting Claude Code (${Math.round(prompt.length / 1024)}KB prompt, ${timeoutMin}min timeout)`);
 
   // Heartbeat every 30s for the ENTIRE job (claude -p + npm install + npm build + R2 upload).
@@ -600,7 +600,7 @@ http.createServer((q, r) => {
         const callbackUrl = P.callbackUrl || envVars.CALLBACK_URL || null;
         const callbackSecret = P.callbackSecret || envVars.CALLBACK_SECRET || null;
 
-        runJob(jobId, dir, P.prompt || '', envVars, P.timeoutMin || 45, callbackUrl, callbackSecret, P.skipBuild === true);
+        runJob(jobId, dir, P.prompt || '', envVars, P.timeoutMin || 14, callbackUrl, callbackSecret, P.skipBuild === true);
         r.writeHead(200);
         r.end(JSON.stringify({ jobId, status: 'started' }));
       } catch (e) {
