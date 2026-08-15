@@ -33,6 +33,32 @@
       }
     </div>
 
+    @if (searchUnavailable()) {
+      <p
+        data-testid="business-search-unavailable"
+        class="flex items-start gap-1.5 text-amber-300/90 text-sm mt-2.5 px-1 text-left"
+        aria-live="polite"
+      >
+        <svg
+          class="flex-shrink-0 mt-0.5"
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          aria-hidden="true"
+        >
+          <path d="M12 9v4M12 17h.01" />
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        </svg>
+        <span
+          >Business lookup is temporarily unavailable — choose “Build a custom website” below to
+          enter your details manually.</span
+        >
+      </p>
+    }
+
     <!-- Dropdown -->
     @if (dropdownOpen() && results().length > 0) {
       <div class="absolute top-full -mt-3.5 left-0 right-0 bg-dark-card border border-primary/25 border-t-0 rounded-b-xl max-h-[400px] overflow-y-auto z-[1000] shadow-[0_8px_40px_rgba(0,0,0,0.6)] animate-fade-in-up">

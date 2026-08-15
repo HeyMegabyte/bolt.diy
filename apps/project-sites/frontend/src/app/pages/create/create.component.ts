@@ -290,6 +290,9 @@ export class CreateComponent implements OnInit, OnDestroy {
   // Business name autocomplete
   businessSuggestions = signal<BusinessSuggestion[]>([]);
   businessDropdownOpen = signal(false);
+  /** True when the business-search proxy is down (provider `_error`) — the UI
+   * nudges the guest to enter details manually instead of showing "no results". */
+  searchUnavailable = signal(false);
   private businessSubject = new Subject<string>();
 
   // Auto-populate AI
@@ -525,6 +528,7 @@ export class CreateComponent implements OnInit, OnDestroy {
           if (q.length < 2) {
             this.businessSuggestions.set([]);
             this.businessDropdownOpen.set(false);
+            this.searchUnavailable.set(false);
             return of(null);
           }
           const lat = this.geo.lat() ?? undefined;
@@ -536,10 +540,14 @@ export class CreateComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (res) => {
           if (!res) return;
+          // A provider `_error` means the search backend is down — nudge manual entry.
+          this.searchUnavailable.set(res._error != null);
           this.businessSuggestions.set(res.data || []);
           this.businessDropdownOpen.set((res.data || []).length > 0);
         },
         error: () => {
+          // A hard failure (network / 5xx) is equally "search is unavailable".
+          this.searchUnavailable.set(true);
           this.businessSuggestions.set([]);
           this.businessDropdownOpen.set(false);
         },
@@ -612,6 +620,7 @@ export class CreateComponent implements OnInit, OnDestroy {
    * @param biz - The selected business suggestion from Google Places
    */
   selectBusiness(biz: BusinessSuggestion): void {
+    this.searchUnavailable.set(false);
     this.businessName = biz.name;
     if (biz.address && !this.businessAddress.trim()) this.businessAddress = biz.address;
     if (biz.address) this.businessAddress = biz.address;

@@ -45,6 +45,9 @@ export class SearchComponent implements OnInit, OnDestroy {
   loading = signal(false);
   dropdownOpen = signal(false);
   showLocationPrompt = signal(false);
+  /** True when the Google Places proxy returns a provider `_error` — the UI nudges
+   * the guest to pick "Build a custom website" and enter details manually. */
+  searchUnavailable = signal(false);
 
   // FAQ
   openFaqIndex = signal<number | null>(null);
@@ -72,6 +75,7 @@ export class SearchComponent implements OnInit, OnDestroy {
           if (q.length < 2) {
             this.results.set([]);
             this.dropdownOpen.set(false);
+            this.searchUnavailable.set(false);
             return of(null);
           }
           this.loading.set(true);
@@ -88,6 +92,9 @@ export class SearchComponent implements OnInit, OnDestroy {
         next: (res) => {
         this.loading.set(false);
         if (!res) return;
+
+        // A provider `_error` on the businesses proxy means Google lookup is down.
+        this.searchUnavailable.set(res.businesses._error != null);
 
         const items: SearchItem[] = [];
         const seen = new Set<string>();
@@ -172,7 +179,10 @@ export class SearchComponent implements OnInit, OnDestroy {
         this.results.set(items);
         this.dropdownOpen.set(true);
         },
-        error: () => { this.loading.set(false); },
+        error: () => {
+          this.loading.set(false);
+          this.searchUnavailable.set(true);
+        },
       });
 
     // Request geolocation after delay

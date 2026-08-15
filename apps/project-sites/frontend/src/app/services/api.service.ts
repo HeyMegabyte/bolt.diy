@@ -313,7 +313,7 @@ export class ApiService {
     query: string,
     lat?: number,
     lng?: number,
-  ): Observable<{ data: BusinessResult[] }> {
+  ): Observable<{ data: BusinessResult[]; _error?: SearchProviderError }> {
     const params: Record<string, string> = { q: query };
     if (lat != null && lng != null) {
       params['lat'] = lat.toString();
@@ -1026,6 +1026,19 @@ export interface BusinessResult {
   types?: string[];
   phone?: string;
   website?: string;
+}
+
+/**
+ * Non-throwing provider-failure marker on a `200 { data: [] }` search response.
+ * The worker emits it when the Google Places proxy is unusable so the client can
+ * distinguish an honest 0-match result from "search is down — enter manually".
+ * - `SEARCH_PROVIDER_NOT_CONFIGURED` — no `GOOGLE_PLACES_API_KEY` set
+ * - `SEARCH_PROVIDER_UNAVAILABLE` — provider returned 403/error (e.g. billing off)
+ */
+export interface SearchProviderError {
+  code: 'SEARCH_PROVIDER_NOT_CONFIGURED' | 'SEARCH_PROVIDER_UNAVAILABLE';
+  status: number;
+  message: string;
 }
 
 export interface PreBuiltSite {
