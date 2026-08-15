@@ -164,4 +164,60 @@ test.describe('admin navigation — responsive modes', () => {
     await expect(page.locator('#admin-primary-nav')).not.toHaveClass(/admin-sidebar--open/);
     await expect(hamburger).toBeFocused();
   });
+
+  test('compact rail: hover expands to the full sidebar as an OVERLAY (content does not shift)', async ({
+    page,
+  }) => {
+    test.setTimeout(60000);
+    await page.setViewportSize({ width: 834, height: 1112 });
+    await gotoAdmin(page);
+
+    const sidebar = page.locator('#admin-primary-nav');
+    const content = page.locator('.admin-topbar');
+    await expect(sidebar).toHaveClass(/admin-sidebar--rail/);
+
+    // At rest: ~72px icon rail, labels hidden.
+    expect((await sidebar.boundingBox())!.width).toBeLessThan(96);
+    const contentLeftAtRest = (await content.boundingBox())!.x;
+    await expect(page.locator('[data-testid="nav-forms"] span').first()).toBeHidden();
+
+    // Hover → expands to the full ~272px labelled sidebar.
+    await sidebar.hover();
+    await expect(page.locator('[data-testid="nav-forms"] span').first()).toBeVisible();
+    await expect.poll(async () => (await sidebar.boundingBox())!.width).toBeGreaterThan(255);
+    const expanded = (await sidebar.boundingBox())!;
+    expect(expanded.width).toBeLessThan(300);
+
+    // CRITICAL — it OVERLAYS, it does not push: the content's left edge is
+    // unchanged (no reflow) and the expanded panel paints OVER the content.
+    const contentLeftHovered = (await content.boundingBox())!.x;
+    expect(Math.abs(contentLeftHovered - contentLeftAtRest)).toBeLessThanOrEqual(1);
+    expect(expanded.x + expanded.width).toBeGreaterThan(contentLeftHovered + 100);
+
+    // Mouse-leave → collapses back to the 72px rail.
+    await page.mouse.move(640, 620);
+    await expect.poll(async () => (await sidebar.boundingBox())!.width).toBeLessThan(96);
+    await expect(page.locator('[data-testid="nav-forms"] span').first()).toBeHidden();
+  });
+
+  test('compact rail: keyboard focus expands it too (focus-within), no content shift', async ({
+    page,
+  }) => {
+    test.setTimeout(60000);
+    await page.setViewportSize({ width: 834, height: 1112 });
+    await gotoAdmin(page);
+
+    const sidebar = page.locator('#admin-primary-nav');
+    const content = page.locator('.admin-topbar');
+    await expect(sidebar).toHaveClass(/admin-sidebar--rail/);
+    const contentLeftAtRest = (await content.boundingBox())!.x;
+
+    // Move keyboard focus into the rail → it expands via :focus-within.
+    await page.locator('[data-testid="nav-forms"]').focus();
+    await expect.poll(async () => (await sidebar.boundingBox())!.width).toBeGreaterThan(255);
+    await expect(page.locator('[data-testid="nav-forms"] span').first()).toBeVisible();
+
+    // Still an overlay — content did not move.
+    expect(Math.abs((await content.boundingBox())!.x - contentLeftAtRest)).toBeLessThanOrEqual(1);
+  });
 });

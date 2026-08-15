@@ -629,8 +629,8 @@ aside::before {
 // Responsive application shell — THREE intentional navigation modes.
 // Mode is decided ONCE by NavigationModeService (CDK BreakpointObserver)
 // and expressed as classes on <aside.admin-sidebar>:
-//   (base)                 → expanded 272px labelled sidebar   (>= 1200px)
-//   .admin-sidebar--rail   → 72px icon rail + right tooltips    (768–1199 OR desktop full-width)
+//   (base)                 → expanded 272px labelled sidebar   (>= 1297px)
+//   .admin-sidebar--rail   → 72px icon rail + right tooltips    (768–1296 OR desktop full-width collapse)
 //   .admin-sidebar--drawer → fixed overlay drawer               (< 768px)
 // Widths are tokens so content (a flex sibling) reflows smoothly as the
 // sidebar changes width — no margin math, no duplicated markup.
@@ -651,19 +651,36 @@ aside::before {
   overflow-y: auto;
   background: var(--ck-bg-alt, #060610);
   border-right: 1px solid var(--ck-border, rgba(0, 229, 255, 0.14));
-  // 200ms sits inside the 160–240ms band; content resizes in lockstep via flex.
+  // 200ms sits inside the 160–240ms band. Hover-to-expand animates margin +
+  // width together so the overlay grows smoothly over the content.
   transition:
     width 200ms cubic-bezier(0.4, 0, 0.2, 1),
     min-width 200ms cubic-bezier(0.4, 0, 0.2, 1),
+    margin-right 200ms cubic-bezier(0.4, 0, 0.2, 1),
     transform 220ms cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 220ms ease;
+    box-shadow 220ms ease,
+    border-color 200ms ease;
+}
+
+// Honor reduced-motion — expand instantly, no width/margin animation.
+@media (prefers-reduced-motion: reduce) {
+  .admin-sidebar { transition: none; }
 }
 
 // ── Mode 2: compact icon rail (72px) ──────────────────────────────
+// The rail ALWAYS reserves 72px of the flex row (its footprint). Hovering (mouse)
+// or keyboard-focusing it expands the VISIBLE panel to the full 272px sidebar as
+// an OVERLAY — a negative right margin holds the flex footprint at 72px so the
+// page content never reflows; the extra width simply paints over the content.
 .admin-sidebar--rail {
   width: var(--admin-rail-w);
   min-width: var(--admin-rail-w);
+}
 
+// Compact visuals — icons only, centered, tooltips carry the labels. Applied
+// only AT REST; on hover / focus the `:not()` guard drops these overrides so the
+// base labelled-sidebar styles show through and the rail reads as fully open.
+.admin-sidebar--rail:not(:hover):not(:focus-within) {
   // Hide every text affordance; icons carry the meaning, tooltips carry the label.
   .nav-item > span,
   .nav-group-label,
@@ -704,6 +721,28 @@ aside::before {
 
   // Group separators replace the (hidden) text group labels.
   .nav-rail-divider { display: block; }
+}
+
+// Hover / focus → expand the rail to the full 272px sidebar AS AN OVERLAY.
+// margin-right: (72 − 272) = −200px keeps the flex footprint at 72px, so the
+// page content never shifts; the panel overlaps the content with a lift shadow
+// (its z-index:100 already sits above the content column). Pointer-hover is gated
+// to fine pointers so a tap on touch can't leave the rail stuck-open; keyboard
+// focus-within expands on every device.
+@mixin admin-rail-expanded {
+  width: var(--admin-sidebar-w);
+  min-width: var(--admin-sidebar-w);
+  margin-right: calc(var(--admin-rail-w) - var(--admin-sidebar-w));
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.72);
+  border-right-color: var(--ck-border-strong, rgba(0, 229, 255, 0.4));
+}
+.admin-sidebar--rail:focus-within {
+  @include admin-rail-expanded;
+}
+@media (hover: hover) and (pointer: fine) {
+  .admin-sidebar--rail:hover {
+    @include admin-rail-expanded;
+  }
 }
 
 // ── Mode 3: mobile overlay drawer (< 768px) ───────────────────────
