@@ -17,7 +17,8 @@
  * Ground truth (org-brian-001 / site-megabytespace-001, measured 2026-08-06):
  *   sites 1 · visitor_events 109pv · analytics_daily 9 · media_assets 2 ·
  *   site_snapshots 4 · audit_logs 1129 · voice_numbers 1 · mcp_connections 2 ·
- *   api_tokens 1 · (form_submissions/leads/social/subscriptions/app_instances = 0 = honest-empty)
+ *   memberships 1 · ai_env_vars 3 · (api_tokens/hostnames/form_submissions/leads/
+ *   social/app_instances = 0 = honest-empty; api_tokens was 1 on 2026-08-06, now 0)
  *
  * Creds (get-secret): BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID, E2E_TEST_PASSWORD.
  * Exits 0 (skip) if any unset. Usage: node e2e/admin-verify/reconcile-surfaces.mjs
@@ -59,6 +60,11 @@ const SURFACES = [
   { name: 'audit (org audit-logs)', endpoint: '/api/audit-logs?limit=50', gt: 50, extract: (d) => arr(d, 'data', 'logs').length },
   { name: 'voice numbers', endpoint: `/api/voice/numbers?siteId=${SITE}`, gt: 1, extract: (d) => arr(d, 'numbers', 'data').length },
   { name: 'mcp connections', endpoint: '/api/mcp/connections', gt: 2, extract: (d) => arr(d, 'data', 'connections').length },
+  // team: brian is always ≥1 member (the owner) — a `{data:{members:[]}}` display is
+  // lying-empty. env-vars: brian has 3 encrypted org vars (`{vars:[]}` envelope); mutable,
+  // so verify POPULATED (>0), not an exact count (avoids stale-gt false PARTIALs).
+  { name: 'team members', endpoint: '/api/team', gt: 1, extract: (d) => arr(d?.data, 'members').length },
+  { name: 'env vars', endpoint: '/api/env-vars', gt: 3, mode: 'populated', extract: (d) => arr(d, 'vars').length },
 ];
 
 // --- tiny envelope helpers (kept inline; no external deps) ---
