@@ -99,10 +99,16 @@ async function probeOnce(normalized: string): Promise<ProbeAttempt> {
     });
 
     if (res.status === 404) {
-      return { result: { domain: normalized, available: true, status: 'available', source: 'rdap' }, retryable: false };
+      return {
+        result: { domain: normalized, available: true, status: 'available', source: 'rdap' },
+        retryable: false,
+      };
     }
     if (res.status === 200) {
-      return { result: { domain: normalized, available: false, status: 'taken', source: 'rdap' }, retryable: false };
+      return {
+        result: { domain: normalized, available: false, status: 'taken', source: 'rdap' },
+        retryable: false,
+      };
     }
     // 429 (rate-limit) / 503 (maintenance) / 403 (rdap.org's Cloudflare edge
     // challenging this Worker→CF subrequest) / any unexpected status — neither
@@ -121,7 +127,10 @@ async function probeOnce(normalized: string): Promise<ProbeAttempt> {
         status: res.status,
       }),
     );
-    return { result: { domain: normalized, available: false, status: 'unknown', source: 'rdap-error' }, retryable: false };
+    return {
+      result: { domain: normalized, available: false, status: 'unknown', source: 'rdap-error' },
+      retryable: false,
+    };
   } catch (err) {
     console.warn(
       JSON.stringify({
@@ -134,7 +143,10 @@ async function probeOnce(normalized: string): Promise<ProbeAttempt> {
     );
     // Timeout / network throw — the genuinely transient, per-request-variable
     // case → retryable (an independent second draw often lands fast).
-    return { result: { domain: normalized, available: false, status: 'unknown', source: 'rdap-error' }, retryable: true };
+    return {
+      result: { domain: normalized, available: false, status: 'unknown', source: 'rdap-error' },
+      retryable: true,
+    };
   }
 }
 
