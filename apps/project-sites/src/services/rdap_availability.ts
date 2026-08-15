@@ -62,17 +62,28 @@ export interface RdapResult {
 /** Per-attempt abort budget for one rdap.org probe (ms). */
 const RDAP_TIMEOUT_MS = 5000;
 
+/** One probe's verdict plus whether the caller should retry it (transient only). */
+interface ProbeAttempt {
+  result: RdapResult;
+  /** True ONLY for a timeout/network failure — the genuinely transient case. A
+   *  status-refusal (429 rate-limit / 403 block / 5xx) is NOT retryable: an
+   *  immediate re-request just adds load to an endpoint already refusing us. */
+  retryable: boolean;
+}
+
 /**
  * One RDAP probe attempt against the `rdap.org` bootstrap aggregator.
  *
  * @param normalized - Already trimmed + lowercased domain.
- * @returns The verdict for THIS attempt — `available` (404), `taken` (200), or
- *   `unknown` on any other status / timeout / network throw.
+ * @returns `{ result, retryable }` — the verdict plus whether a retry is warranted.
+ *   `available` (404) / `taken` (200) are definitive (not retryable); a non-ok
+ *   status is `unknown` + NOT retryable (the server refused); a timeout/network
+ *   throw is `unknown` + retryable (per-request-variable, worth a second draw).
  * @remarks Impure — one `fetch` to `rdap.org`. Split out from
  *   {@link checkAvailability} so a transient `unknown` can be retried once
  *   without duplicating the request/parse/catch shape.
  */
-async function probeOnce(normalized: string): Promise<RdapResult> {
+async function probeOnce(normalized: string): Promise<ProbeAttempt> {
   try {
     const res = await fetch(`${RDAP_BASE}/${encodeURIComponent(normalized)}`, {
       method: 'GET',
@@ -88,18 +99,19 @@ async function probeOnce(normalized: string): Promise<RdapResult> {
     });
 
     if (res.status === 404) {
-      return { domain: normalized, available: true, status: 'available', source: 'rdap' };
+      return { result: { domain: normalized, available: true, status: 'available', source: 'rdap' }, retryable: false };
     }
     if (res.status === 200) {
-      return { domain: normalized, available: false, status: 'taken', source: 'rdap' };
+      return { result: { domain: normalized, available: false, status: 'taken', source: 'rdap' }, retryable: false };
     }
     // 429 (rate-limit) / 503 (maintenance) / 403 (rdap.org's Cloudflare edge
     // challenging this Worker→CF subrequest) / any unexpected status — neither
-    // yes nor no. LOG the actual status: this path was previously a SILENT
-    // `unknown`, so nothing distinguished a slow registry from a hard block. A
-    // persistent non-ok status here (esp. 403/429) means the aggregator is
-    // refusing the Worker's egress, which a retry can't fix (→ needs a different
-    // source). Per structured-logging: no silent unknown.
+    // yes nor no, and NOT retryable: the server RESPONDED with a refusal, so an
+    // immediate re-request just deepens a rate-limit. LOG the actual status —
+    // this path was previously a SILENT `unknown`, so nothing distinguished a
+    // slow registry from a hard block. A persistent 403/429 means the aggregator
+    // is refusing the Worker's egress (→ needs a different source, per
+    // structured-logging: no silent unknown).
     console.warn(
       JSON.stringify({
         level: 'warn',
@@ -109,7 +121,7 @@ async function probeOnce(normalized: string): Promise<RdapResult> {
         status: res.status,
       }),
     );
-    return { domain: normalized, available: false, status: 'unknown', source: 'rdap-error' };
+    return { result: { domain: normalized, available: false, status: 'unknown', source: 'rdap-error' }, retryable: false };
   } catch (err) {
     console.warn(
       JSON.stringify({
@@ -120,7 +132,9 @@ async function probeOnce(normalized: string): Promise<RdapResult> {
         error: String(err),
       }),
     );
-    return { domain: normalized, available: false, status: 'unknown', source: 'rdap-error' };
+    // Timeout / network throw — the genuinely transient, per-request-variable
+    // case → retryable (an independent second draw often lands fast).
+    return { result: { domain: normalized, available: false, status: 'unknown', source: 'rdap-error' }, retryable: true };
   }
 }
 
@@ -139,8 +153,9 @@ async function probeOnce(normalized: string): Promise<RdapResult> {
  *   UI can render a neutral "checking…" pill instead of a misleading
  *   "available" tick.
  * - Network errors collapse to `unknown` + `source: 'rdap-error'`.
- * - A transient `unknown` is retried ONCE (an independent second draw) before
- *   the sad verdict is cached — rdap.org's timeouts are per-request-variable.
+ * - A TIMEOUT/network `unknown` is retried ONCE (an independent second draw) —
+ *   rdap.org's timeouts are per-request-variable. A STATUS refusal (429/403) is
+ *   NOT retried (an immediate re-request just deepens the rate-limit).
  *
  * Results are cached in `CACHE_KV` keyed `rdap:{domain}` (definitive 1h,
  * `unknown` 60s) so a user paging through suggestions doesn't re-hit the
@@ -160,16 +175,18 @@ export async function checkAvailability(env: Env, domain: string): Promise<RdapR
     // KV miss is non-fatal — fall through to the live probe.
   }
 
-  // Probe once; retry a NON-DEFINITIVE `unknown` exactly ONCE. rdap.org's failures
-  // here are per-request-variable timeouts (the aggregator has slow spells where the
-  // SAME TLD aborts on one draw and answers in <1s on the next), NOT a hard block —
-  // so an independent second attempt frequently resolves it. A definitive
-  // `available`/`taken` never retries (the answer is already authoritative), and the
-  // retry runs sequentially inside this worker slot so it never widens batch concurrency.
-  let result = await probeOnce(normalized);
-  if (result.status === 'unknown') {
+  // Probe once; retry ONLY a RETRYABLE unknown (a timeout/network throw) exactly
+  // once. rdap.org's transient failures are per-request-variable timeouts (the same
+  // TLD aborts on one draw, answers in <1s on the next) → an independent second draw
+  // resolves them. A status-refusal (429 rate-limit / 403 edge-block, observed live)
+  // is NOT retried — the aggregator RESPONDED "no", so an immediate re-request just
+  // deepens the rate-limit. Definitive answers never retry. The retry runs
+  // sequentially inside this worker slot so it never widens batch concurrency.
+  const first = await probeOnce(normalized);
+  let result = first.result;
+  if (result.status === 'unknown' && first.retryable) {
     const retry = await probeOnce(normalized);
-    if (retry.status !== 'unknown') result = retry;
+    if (retry.result.status !== 'unknown') result = retry.result;
   }
 
   // Cache happy + sad paths so we don't hammer registries on retry storms — but

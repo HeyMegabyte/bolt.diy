@@ -199,24 +199,36 @@ describe('checkAvailability — retry-once on transient unknown', () => {
     expect(fetchMock()).toHaveBeenCalledTimes(2);
   });
 
-  it('a first-draw 429 that resolves to `taken` (200) on retry returns taken', async () => {
+  it('a STATUS-refusal (429 rate-limit) is NOT retried — an immediate re-request deepens the limit', async () => {
+    // rdap.org returned a 429 to the Worker live (observed iter-91). Retrying a
+    // rate-limit hammers it → the retry is gated to timeout/network only.
     const { kv } = makeKv();
-    fetchMock().mockResolvedValueOnce(resp(429)).mockResolvedValueOnce(resp(200));
+    fetchMock().mockResolvedValue(resp(429));
 
-    const r = await checkAvailability(makeEnv(kv), 'flaky2.xyz');
+    const r = await checkAvailability(makeEnv(kv), 'ratelimited.io');
 
-    expect(r.status).toBe('taken');
-    expect(fetchMock()).toHaveBeenCalledTimes(2);
+    expect(r.status).toBe('unknown');
+    expect(fetchMock()).toHaveBeenCalledTimes(1); // NO retry on a status refusal
   });
 
-  it('unknown on BOTH draws stays `unknown` (retried exactly once, not a storm)', async () => {
+  it('a STATUS-refusal (503) is NOT retried either (only timeout/network is transient)', async () => {
+    const { kv } = makeKv();
+    fetchMock().mockResolvedValue(resp(503));
+
+    const r = await checkAvailability(makeEnv(kv), 'maint.dev');
+
+    expect(r.status).toBe('unknown');
+    expect(fetchMock()).toHaveBeenCalledTimes(1);
+  });
+
+  it('a TIMEOUT unknown on BOTH draws → retried exactly once (2 fetches), still unknown + 60s TTL', async () => {
     const { kv, putSpy } = makeKv();
-    fetchMock().mockResolvedValue(resp(503)); // every draw fails
+    fetchMock().mockRejectedValue(new DOMException('timed out', 'TimeoutError')); // every draw times out
 
     const r = await checkAvailability(makeEnv(kv), 'down.ai');
 
     expect(r.status).toBe('unknown');
-    expect(fetchMock()).toHaveBeenCalledTimes(2); // ONE retry, never more
+    expect(fetchMock()).toHaveBeenCalledTimes(2); // ONE retry (retryable), never more
     // Still cached with the short 60s TTL (iter-90 split-TTL holds through the retry).
     expect(putSpy.mock.calls[0][2]).toMatchObject({ expirationTtl: 60 });
   });
