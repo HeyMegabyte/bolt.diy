@@ -795,7 +795,12 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           prompt,
           contextFiles,
           envVars,
-          timeoutMin: 45,
+          // Cloudflare Workers Containers cap wall-clock at ~15 min — a 45-min
+          // budget can never complete (the container is killed first). The build
+          // is TEMPLATE-FIRST (the Dockerfile pre-bakes template.projectsites.dev
+          // + deps), so the orchestrator does minor customization, not from-scratch
+          // generation, and must finish under the cap. (Brian directive 2026-08-15.)
+          timeoutMin: 14,
           callbackUrl,
           callbackSecret,
         };
