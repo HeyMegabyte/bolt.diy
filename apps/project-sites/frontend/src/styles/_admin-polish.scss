@@ -249,26 +249,40 @@ main > div > h2 + p + button.btn-accent {
 // ── 5. Bento + cards — hairline + radius + hover lift ─────────────
 // Augments the existing .card upgrade in styles.scss (which uses
 // rgba). This layer pulls those rgba values into OKLCH tokens.
+// Per Brian (2026-08-14): generic `[class*="-card"]` cards render FLAT —
+// no radius/border/shadow. Only the explicit .card/.seo-card/.mcp-card
+// and the excluded density-card/card-light/site-favicon-tile keep chrome.
 .card,
 .seo-card,
-.mcp-card,
-[class*="-card"]:not(.density-card):not(.card-light):not(.site-favicon-tile) {
+.mcp-card {
   border-radius: var(--ps-radius-xl, 22px) !important;
   border: 1px solid var(--ps-hairline) !important;
   box-shadow:
     var(--ps-shadow-modal, 0 24px 64px rgba(0, 0, 0, 0.55)),
     0 1px 0 color-mix(in oklch, var(--ps-ink, #f4f4ff) 4%, transparent) inset;
 }
+// Flat generic cards — strip border-radius, border, box-shadow. Higher
+// specificity (+!important) beats the _polish.scss hover shadow too.
+[class*="-card"]:not(.density-card):not(.card-light):not(.site-favicon-tile) {
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+}
 @media (prefers-reduced-motion: no-preference) {
   .card:hover,
   .seo-card:hover,
-  .mcp-card:hover,
-  [class*="-card"]:not(.density-card):not(.card-light):not(.site-favicon-tile):hover {
+  .mcp-card:hover {
     transform: translateY(-2px);
     border-color: var(--ps-hairline-hi) !important;
     box-shadow:
       var(--ps-shadow-lg, 0 16px 40px -16px rgba(0, 0, 0, 0.55)),
       0 0 0 1px var(--ps-accent-line) inset !important;
+  }
+  // Flat generic cards keep only the lift on hover — no shadow/border re-added.
+  [class*="-card"]:not(.density-card):not(.card-light):not(.site-favicon-tile):hover {
+    transform: translateY(-2px);
+    border: none !important;
+    box-shadow: none !important;
   }
 }
 
