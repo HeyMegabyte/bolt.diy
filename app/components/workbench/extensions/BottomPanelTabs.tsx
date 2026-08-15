@@ -3,7 +3,7 @@
  *
  * @remarks
  * Icon-only tab strip with hover/focus tooltips. Tab order:
- * Terminal | Problems | Logs | SQLite | Postgres | Redis | KV | Search.
+ * Terminal | Problems | Logs.
  *
  * Each non-terminal tab is lazy-imported so the editor LCP stays
  * unaffected — the chunk only ships when the user clicks the tab.
@@ -31,11 +31,6 @@ export const DEFAULT_BOTTOM_PANEL_SIZE = 30;
 
 const ProblemsTab = lazy(() => import('./tabs/ProblemsTab'));
 const LogsTab = lazy(() => import('./tabs/LogsTab'));
-const SqlTab = lazy(() => import('./tabs/SqlTab'));
-const PostgresTab = lazy(() => import('./tabs/PostgresTab'));
-const RedisTab = lazy(() => import('./tabs/RedisTab'));
-const KvTab = lazy(() => import('./tabs/KvTab'));
-const SearchTab = lazy(() => import('./tabs/SearchTab'));
 
 /**
  * Icon-only extension tabs. Order = tab-strip order after Terminal slot.
@@ -55,35 +50,6 @@ const EXTENSION_TABS: readonly ExtensionTabDescriptor[] = [
     icon: 'i-ph:list-bullets-duotone',
     component: LogsTab,
     hint: 'Worker, preview, build, and deploy logs',
-  },
-  {
-    id: 'sqlite',
-    label: 'SQLite',
-    icon: 'i-ph:database-duotone',
-    component: SqlTab,
-    hint: 'SQLite / D1 schema browser + query console',
-  },
-  {
-    id: 'postgres',
-    label: 'Postgres',
-    icon: 'i-ph:cylinder-duotone',
-    component: PostgresTab,
-    hint: 'Postgres connection profiles + query tool',
-  },
-  {
-    id: 'redis',
-    label: 'Redis',
-    icon: 'i-ph:stack-duotone',
-    component: RedisTab,
-    hint: 'Redis key browser + type-aware editors',
-  },
-  { id: 'kv', label: 'KV', icon: 'i-ph:cube-duotone', component: KvTab, hint: 'Cloudflare KV namespace manager' },
-  {
-    id: 'search',
-    label: 'Search',
-    icon: 'i-ph:magnifying-glass-duotone',
-    component: SearchTab,
-    hint: 'Search code, routes, bindings, schemas',
   },
 ];
 

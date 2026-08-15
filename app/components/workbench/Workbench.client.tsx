@@ -42,7 +42,6 @@ import { DataPanel } from './DataPanel';
 import { EditorPanel } from './EditorPanel';
 import { FunctionsPanel } from './FunctionsPanel';
 import { Preview } from './Preview';
-import { SettingsPanel } from './SettingsPanel';
 import { StatusBar } from './StatusBar.client';
 import { QuickJumpPalette, ShortcutsOverlay, openInStackBlitz, useEditorHotkeys } from './EditorOverlays.client';
 import useViewport from '~/lib/hooks';
@@ -72,7 +71,6 @@ const TOP_TABS: { value: WorkbenchViewType; text: string; icon: string }[] = [
   { value: 'preview', text: 'Preview', icon: 'i-ph:eye-duotone' },
   { value: 'functions', text: 'Functions', icon: 'i-ph:lightning-duotone' },
   { value: 'data', text: 'Data', icon: 'i-ph:chart-bar-duotone' },
-  { value: 'settings', text: 'Settings', icon: 'i-ph:gear-duotone' },
 ];
 
 const VIEW_ORDER: WorkbenchViewType[] = TOP_TABS.map((t) => t.value);
@@ -240,7 +238,7 @@ export const Workbench = memo(
                         }
                       }}
                     />
-                    {/* Top tab strip — Code | Preview | Media | Functions | Data | Settings */}
+                    {/* Top tab strip — Code | Preview | Functions | Data */}
                     <div className="flex items-center gap-0.5 flex-1 overflow-x-auto">
                       {TOP_TABS.map((tab) => {
                         const active = selectedView === tab.value;
@@ -402,10 +400,6 @@ export const Workbench = memo(
                     {/* Data — resource health overview */}
                     <View initial={{ x: '100%' }} animate={{ x: getViewX('data', selectedView) }}>
                       <DataPanel />
-                    </View>
-                    {/* Settings — site configuration */}
-                    <View initial={{ x: '100%' }} animate={{ x: getViewX('settings', selectedView) }}>
-                      <SettingsPanel />
                     </View>
                   </div>
                   {/* Item 36 — StatusBar pinned to the bottom of the workbench */}
