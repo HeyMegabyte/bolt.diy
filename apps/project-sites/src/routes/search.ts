@@ -293,7 +293,30 @@ search.get('/api/search/address', async (c) => {
     });
 
     if (!fallbackResponse.ok) {
-      return c.json({ data: [] });
+      const errorText = await fallbackResponse.text().catch(() => '');
+      console.warn(
+        JSON.stringify({
+          level: 'error',
+          service: 'search',
+          message: 'Address search — Autocomplete AND Text Search fallback both failed',
+          status: fallbackResponse.status,
+          body: errorText.slice(0, 500),
+          query: q,
+        }),
+      );
+      // Provider is down on BOTH paths → carry the honest `_error` (parity with
+      // business search) so the caller shows "address lookup unavailable" instead of
+      // a silent empty dropdown that reads as "no such address". NOTE: a genuine
+      // 0-match (both APIs returned 200 with no results) still falls through to the
+      // no-`_error` empty return below — honest-empty is preserved.
+      return c.json({
+        data: [],
+        _error: {
+          code: 'SEARCH_PROVIDER_UNAVAILABLE',
+          status: fallbackResponse.status,
+          message: errorText.slice(0, 200),
+        },
+      });
     }
 
     const fallbackJson = (await fallbackResponse.json()) as GooglePlacesResponse;
@@ -306,8 +329,26 @@ search.get('/api/search/address', async (c) => {
     }));
 
     return c.json({ data });
-  } catch {
-    return c.json({ data: [] });
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: 'error',
+        service: 'search',
+        message: 'Address search — Text Search fallback threw',
+        error: String(err),
+        query: q,
+      }),
+    );
+    // Fetch threw (network/DNS/timeout) on the last path → honest `_error`, not a
+    // silent empty (parity with the `!fallbackResponse.ok` branch above).
+    return c.json({
+      data: [],
+      _error: {
+        code: 'SEARCH_PROVIDER_UNAVAILABLE',
+        status: 502,
+        message: err instanceof Error ? err.message.slice(0, 200) : 'address lookup failed',
+      },
+    });
   }
 });
 

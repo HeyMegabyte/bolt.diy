@@ -236,6 +236,58 @@ describe('GET /api/search/businesses', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+// GET /api/search/address  (Autocomplete → Text-Search fallback)
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe('GET /api/search/address', () => {
+  it('carries SEARCH_PROVIDER_UNAVAILABLE when BOTH Autocomplete and the Text-Search fallback fail (not a silent empty)', async () => {
+    // Autocomplete 403 → falls back to Text Search → also 403 → must surface _error
+    // (the caller renders "address lookup unavailable" instead of a blank dropdown).
+    mockFetch
+      .mockResolvedValueOnce(new Response('autocomplete denied', { status: 403 }))
+      .mockResolvedValueOnce(
+        new Response('You must enable Billing on the Google Cloud Project', { status: 403 }),
+      );
+    const res = await makeRequest('/api/search/address?q=350+Fifth+Avenue+New+York');
+    expect(res.status).toBe(200); // 5xx would trip the frontend's rethrowing error handler
+    const body = await res.json();
+    expect(body.data).toEqual([]);
+    expect(body._error.code).toBe('SEARCH_PROVIDER_UNAVAILABLE');
+    expect(body._error.status).toBe(403);
+    expect(mockFetch).toHaveBeenCalledTimes(2); // autocomplete + fallback
+  });
+
+  it('stays honest-empty (NO _error) when both APIs return 200 with zero matches', async () => {
+    mockFetch
+      .mockResolvedValueOnce(new Response(JSON.stringify({ suggestions: [] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ places: [] }), { status: 200 }));
+    const res = await makeRequest('/api/search/address?q=zzqx+nowhere+place');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data).toEqual([]);
+    expect(body._error).toBeUndefined();
+  });
+
+  it('returns Autocomplete suggestions without hitting the fallback when it succeeds', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          suggestions: [{ placePrediction: { placeId: 'p1', text: { text: '350 5th Ave, New York, NY' } } }],
+        }),
+        { status: 200 },
+      ),
+    );
+    const res = await makeRequest('/api/search/address?q=350+Fifth');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.length).toBe(1);
+    expect(body.data[0].description).toBe('350 5th Ave, New York, NY');
+    expect(body._error).toBeUndefined();
+    expect(mockFetch).toHaveBeenCalledTimes(1); // fallback not needed
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 // GET /api/sites/lookup
 // ═══════════════════════════════════════════════════════════════════════════
 
