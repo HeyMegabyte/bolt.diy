@@ -157,6 +157,40 @@ describe('GET /api/domains/search', () => {
     expect(domains).toContain('testbusiness.net');
   });
 
+  it('surfaces status:"unknown" + a SEARCH_PROVIDER_UNAVAILABLE _error when RDAP fails for ALL candidates (not a lying "all taken")', async () => {
+    // The default beforeEach fetch mock returns { ok:false, status:500 } → every RDAP
+    // probe resolves to status:'unknown' (the total-outage case).
+    const { app, env } = createAuthenticatedApp();
+    const res = await app.request('/api/domains/search?q=testbusiness', {}, env);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.length).toBeGreaterThan(0);
+    for (const d of body.data as Array<{ status: string; available: boolean }>) {
+      expect(d.status).toBe('unknown'); // NOT collapsed into a misleading "taken"
+      expect(d.available).toBe(false);
+    }
+    expect(body._error.code).toBe('SEARCH_PROVIDER_UNAVAILABLE');
+    expect(body._error.status).toBe(503);
+  });
+
+  it('reports status:"available" with NO _error when RDAP returns 404 (unregistered)', async () => {
+    const { app, env } = createAuthenticatedApp();
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 404, // RDAP 404 → unregistered → available (not a total outage)
+      json: jest.fn().mockResolvedValue({}),
+      text: jest.fn().mockResolvedValue(''),
+    });
+    const res = await app.request('/api/domains/search?q=testbusiness', {}, env);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body._error).toBeUndefined();
+    for (const d of body.data as Array<{ status: string; available: boolean }>) {
+      expect(d.status).toBe('available');
+      expect(d.available).toBe(true);
+    }
+  });
+
   it('returns fallback results as unavailable when Cloudflare API fails', async () => {
     const { app, env } = createAuthenticatedApp();
     // fetch is already mocked to fail

@@ -5243,14 +5243,36 @@ api.get('/api/domains/search', async (c) => {
   const data = candidates.map((domain, i) => {
     const tld = domain.slice(domain.lastIndexOf('.') + 1);
     const usd = tldMap.get(tld)?.registration_price_usd_yr ?? 0;
+    const probe = rdapResults[i];
     return {
       domain,
-      available: rdapResults[i]?.available ?? false,
+      available: probe?.available ?? false,
+      // Surface the RDAP status so callers can distinguish a genuinely-registered
+      // domain (`taken`) from one whose availability check FAILED (`unknown`). Without
+      // this, both collapse to `available:false` and an RDAP outage reads as "taken" —
+      // hiding an actually-free domain (a lying result).
+      status: probe?.status ?? 'unknown',
       price: Math.round((usd || 0) * 100),
       zone: tld,
       path: '',
     };
   });
+
+  // Honest degradation (parity with /api/search/*): if EVERY candidate's check failed
+  // (RDAP fully down), carry a stable _error so callers show "domain search temporarily
+  // unavailable" instead of a misleading "all taken". A partial outage still returns the
+  // per-item `status` so consumers can grey-out just the unknown rows.
+  if (data.length > 0 && data.every((d) => d.status === 'unknown')) {
+    return c.json({
+      data,
+      _error: {
+        code: 'SEARCH_PROVIDER_UNAVAILABLE',
+        status: 503,
+        message: 'Domain availability lookup (RDAP) is temporarily unavailable',
+      },
+    });
+  }
+
   return c.json({ data });
 });
 
