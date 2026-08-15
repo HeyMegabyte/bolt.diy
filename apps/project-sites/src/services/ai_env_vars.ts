@@ -236,9 +236,10 @@ async function rowToEnvVar(env: Env, row: EnvVarRow, unmask: boolean): Promise<E
  * `(org_id, scope, site_id, mcp_provider, endpoint_id, agent_id, key)` —
  * re-setting the same tuple replaces the value + description in place.
  *
- * Per-scope unique indexes enforce uniqueness within their slot (see
- * migration 0041 + 0045). The ON CONFLICT clause here mirrors all five
- * slot columns so re-setting works at every scope.
+ * Per-scope PARTIAL unique indexes enforce uniqueness within their slot (see
+ * migration 0041 + 0045). Because each scope has its own partial index (there is
+ * no single composite unique constraint), the ON CONFLICT target is built
+ * per-scope to match the relevant index — see the `conflictTarget` map below.
  *
  * @returns The masked {@link EnvVar} representation of the stored row.
  */
@@ -254,16 +255,27 @@ export async function setEnvVar(env: Env, args: SetEnvVarArgs): Promise<EnvVar> 
   const endpointId = args.scope === 'endpoint' ? (args.endpointId ?? null) : null;
   const agentId = args.scope === 'agent' ? (args.agentId ?? null) : null;
 
+  // Each scope has its OWN partial unique index (migration 0041 + 0045):
+  //   uniq_env_vars_<scope> ON (org_id, <slot>, key) WHERE scope='<scope>' AND deleted_at IS NULL
+  // A single unified `ON CONFLICT(org_id, scope, COALESCE(...), key)` target matches
+  // NONE of them → SQLITE_ERROR "ON CONFLICT clause does not match any PRIMARY KEY or
+  // UNIQUE constraint", so EVERY create/upsert failed (surfaced as a misleading 400).
+  // The conflict target must match the ONE partial index for this row's scope — its
+  // exact columns AND its exact WHERE predicate.
+  const conflictTarget: Record<EnvVarScope, string> = {
+    org: `(org_id, key) WHERE scope = 'org' AND deleted_at IS NULL`,
+    site: `(org_id, site_id, key) WHERE scope = 'site' AND deleted_at IS NULL`,
+    mcp: `(org_id, mcp_provider, key) WHERE scope = 'mcp' AND deleted_at IS NULL`,
+    endpoint: `(org_id, endpoint_id, key) WHERE scope = 'endpoint' AND deleted_at IS NULL`,
+    agent: `(org_id, agent_id, key) WHERE scope = 'agent' AND deleted_at IS NULL`,
+  };
   const sql = `
     INSERT INTO ai_env_vars
       (id, org_id, scope, site_id, mcp_provider, endpoint_id, agent_id, key,
        value_encrypted, description, is_secret, exposed_to_ai, created_by,
        created_at, updated_at, deleted_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
-    ON CONFLICT(org_id, scope,
-                COALESCE(site_id, ''), COALESCE(mcp_provider, ''),
-                COALESCE(endpoint_id, ''), COALESCE(agent_id, ''),
-                key) DO UPDATE SET
+    ON CONFLICT ${conflictTarget[args.scope]} DO UPDATE SET
       value_encrypted = excluded.value_encrypted,
       description = excluded.description,
       is_secret = excluded.is_secret,

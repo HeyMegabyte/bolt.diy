@@ -21,6 +21,7 @@ import {
   listEnvVars,
   resolveEnvVarsForAI,
   injectIntoSystemPrompt,
+  type EnvVarScope,
 } from '../services/ai_env_vars.js';
 import { encrypt } from '../services/ai_crypto.js';
 import type { Env } from '../types/env.js';
@@ -94,6 +95,77 @@ describe('ai_crypto round-trip (via setEnvVar)', () => {
     // Plaintext should never be returned by setEnvVar.
     expect(result.value).toBeUndefined();
   });
+});
+
+// ────────────────────────────────────────────────────────────
+// setEnvVar upsert — the ON CONFLICT target MUST match the per-scope PARTIAL
+// unique index. Regression for the live bug where a single unified
+// `ON CONFLICT(org_id, scope, COALESCE(site_id,''), …, key)` matched NO index
+// → SQLITE_ERROR "does not match any PRIMARY KEY or UNIQUE constraint" → every
+// create/upsert 400ed. The D1 mock can't reproduce a real constraint error, so
+// we assert the SQL is built to target the correct partial index per scope.
+// ────────────────────────────────────────────────────────────
+describe('setEnvVar — per-scope ON CONFLICT target matches the partial index', () => {
+  const cases: Array<{ scope: EnvVarScope; extra: Record<string, string>; target: string }> = [
+    {
+      scope: 'org',
+      extra: {},
+      target: "ON CONFLICT (org_id, key) WHERE scope = 'org' AND deleted_at IS NULL",
+    },
+    {
+      scope: 'site',
+      extra: { siteId: 's1' },
+      target: "ON CONFLICT (org_id, site_id, key) WHERE scope = 'site' AND deleted_at IS NULL",
+    },
+    {
+      scope: 'mcp',
+      extra: { mcpProvider: 'stripe' },
+      target: "ON CONFLICT (org_id, mcp_provider, key) WHERE scope = 'mcp' AND deleted_at IS NULL",
+    },
+    {
+      scope: 'endpoint',
+      extra: { endpointId: 'e1' },
+      target:
+        "ON CONFLICT (org_id, endpoint_id, key) WHERE scope = 'endpoint' AND deleted_at IS NULL",
+    },
+    {
+      scope: 'agent',
+      extra: { agentId: 'a1' },
+      target: "ON CONFLICT (org_id, agent_id, key) WHERE scope = 'agent' AND deleted_at IS NULL",
+    },
+  ];
+
+  for (const { scope, extra, target } of cases) {
+    it(`scope=${scope} targets its own partial index`, async () => {
+      const env = makeEnv();
+      mockExecute.mockResolvedValueOnce({ error: null, changes: 1 });
+      const ciphertext = await encrypt(env, 'v');
+      mockQueryOne.mockResolvedValueOnce({
+        id: 'r',
+        org_id: 'org-A',
+        scope,
+        site_id: null,
+        mcp_provider: null,
+        key: 'K',
+        value_encrypted: ciphertext,
+        description: null,
+        is_secret: 1,
+        exposed_to_ai: 1,
+        created_by: null,
+        created_at: 1,
+        updated_at: 1,
+        deleted_at: null,
+      } as never);
+
+      await setEnvVar(env, { orgId: 'org-A', scope, key: 'K', value: 'v', ...extra });
+
+      const sql = ((mockExecute.mock.calls[0]?.[1] as string) ?? '').replace(/\s+/g, ' ').trim();
+      expect(sql).toContain(target);
+      // The old bug shape must be gone (matched no index).
+      expect(sql).not.toContain('COALESCE(site_id');
+      expect(sql).not.toContain('ON CONFLICT(org_id, scope,');
+    });
+  }
 });
 
 // ────────────────────────────────────────────────────────────
