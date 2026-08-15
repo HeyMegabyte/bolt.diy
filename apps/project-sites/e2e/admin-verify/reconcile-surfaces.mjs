@@ -48,7 +48,11 @@ const SITE = 'site-megabytespace-001';
 const SURFACES = [
   { name: 'sites', endpoint: '/api/sites', gt: 1, extract: (d) => arr(d, 'data', 'sites').length },
   { name: 'analytics (CORRECT /sites/:id/analytics)', endpoint: `/api/sites/${SITE}/analytics`, gt: 1, mode: 'populated', extract: (d) => num(d?.traffic ?? d, 'pageviews') },
-  { name: 'analytics (UI overview source)', endpoint: '/api/network-analytics', gt: 1, mode: 'populated', extract: (d) => firstNumberish(d) },
+  // Read the ACTUAL headline metric the overview shows (`data.total_requests`), not a
+  // walk-the-whole-object Math.max (which grabbed a garbage 104B timestamp/id and made
+  // this surface's check meaningless — it "passed" on a number the UI never displays).
+  // The envelope is `{ data: { total_requests, page_views, ... } }`, so unwrap `.data`.
+  { name: 'analytics (UI overview source)', endpoint: '/api/network-analytics', gt: 1, mode: 'populated', extract: (d) => num(d?.data ?? d, 'total_requests') },
   { name: 'media', endpoint: '/api/media/assets', gt: 2, extract: (d) => arr(d, 'data', 'assets', 'items').length },
   { name: 'snapshots', endpoint: `/api/sites/${SITE}/snapshots`, gt: 4, extract: (d) => arr(d, 'data', 'snapshots').length },
   { name: 'audit (per-site logs)', endpoint: `/api/sites/${SITE}/logs?limit=200`, gt: 1, mode: 'populated', extract: (d) => arr(d, 'data', 'logs').length },
@@ -66,16 +70,6 @@ function arr(d, ...keys) {
 function num(d, k) {
   const v = d?.[k];
   return typeof v === 'number' ? v : Number(v ?? NaN);
-}
-function firstNumberish(d) {
-  // network-analytics returns a zone summary; surface the largest count-ish number.
-  const nums = [];
-  const walk = (o) => {
-    if (o && typeof o === 'object') for (const v of Object.values(o)) walk(v);
-    else if (typeof o === 'number') nums.push(o);
-  };
-  walk(d);
-  return nums.length ? Math.max(...nums) : 0;
 }
 
 const r = await fetch('https://api.browserbase.com/v1/sessions', {
