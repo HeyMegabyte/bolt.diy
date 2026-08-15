@@ -59,6 +59,57 @@ export interface RdapResult {
   source: RdapSource;
 }
 
+/** Per-attempt abort budget for one rdap.org probe (ms). */
+const RDAP_TIMEOUT_MS = 5000;
+
+/**
+ * One RDAP probe attempt against the `rdap.org` bootstrap aggregator.
+ *
+ * @param normalized - Already trimmed + lowercased domain.
+ * @returns The verdict for THIS attempt — `available` (404), `taken` (200), or
+ *   `unknown` on any other status / timeout / network throw.
+ * @remarks Impure — one `fetch` to `rdap.org`. Split out from
+ *   {@link checkAvailability} so a transient `unknown` can be retried once
+ *   without duplicating the request/parse/catch shape.
+ */
+async function probeOnce(normalized: string): Promise<RdapResult> {
+  try {
+    const res = await fetch(`${RDAP_BASE}/${encodeURIComponent(normalized)}`, {
+      method: 'GET',
+      headers: {
+        'User-Agent': REAL_UA,
+        Accept: 'application/rdap+json, application/json;q=0.9, */*;q=0.5',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      // rdap.org has slow periods (>5s for some TLDs) — abort so one hung
+      // registry can't stall the 20-wide batch. A transient abort is retried
+      // once by the caller.
+      signal: AbortSignal.timeout(RDAP_TIMEOUT_MS),
+    });
+
+    if (res.status === 404) {
+      return { domain: normalized, available: true, status: 'available', source: 'rdap' };
+    }
+    if (res.status === 200) {
+      return { domain: normalized, available: false, status: 'taken', source: 'rdap' };
+    }
+    // 429 (rate-limit) / 503 (maintenance) / any unexpected status — neither
+    // yes nor no; surface `unknown` rather than misleading the UI.
+    return { domain: normalized, available: false, status: 'unknown', source: 'rdap-error' };
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'rdap_availability',
+        message: 'rdap probe failed',
+        domain: normalized,
+        error: String(err),
+      }),
+    );
+    return { domain: normalized, available: false, status: 'unknown', source: 'rdap-error' };
+  }
+}
+
 /**
  * Probe a single domain's availability via RDAP.
  *
@@ -74,9 +125,12 @@ export interface RdapResult {
  *   UI can render a neutral "checking…" pill instead of a misleading
  *   "available" tick.
  * - Network errors collapse to `unknown` + `source: 'rdap-error'`.
+ * - A transient `unknown` is retried ONCE (an independent second draw) before
+ *   the sad verdict is cached — rdap.org's timeouts are per-request-variable.
  *
- * Results are cached for 1h in `CACHE_KV` keyed `rdap:{domain}` so a user
- * paging through suggestions doesn't re-hit the registry on every keystroke.
+ * Results are cached in `CACHE_KV` keyed `rdap:{domain}` (definitive 1h,
+ * `unknown` 60s) so a user paging through suggestions doesn't re-hit the
+ * registry on every keystroke.
  */
 export async function checkAvailability(env: Env, domain: string): Promise<RdapResult> {
   const normalized = domain.trim().toLowerCase();
@@ -92,41 +146,16 @@ export async function checkAvailability(env: Env, domain: string): Promise<RdapR
     // KV miss is non-fatal — fall through to the live probe.
   }
 
-  let result: RdapResult;
-  try {
-    const res = await fetch(`${RDAP_BASE}/${encodeURIComponent(normalized)}`, {
-      method: 'GET',
-      headers: {
-        'User-Agent': REAL_UA,
-        Accept: 'application/rdap+json, application/json;q=0.9, */*;q=0.5',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      // RDAP queries are independent — short-circuit hung registries fast.
-      signal: AbortSignal.timeout(5000),
-    });
-
-    if (res.status === 404) {
-      result = { domain: normalized, available: true, status: 'available', source: 'rdap' };
-    } else if (res.status === 200) {
-      result = { domain: normalized, available: false, status: 'taken', source: 'rdap' };
-    } else if (res.status === 429 || res.status === 503) {
-      // Rate-limited or registry maintenance — neither yes nor no.
-      result = { domain: normalized, available: false, status: 'unknown', source: 'rdap-error' };
-    } else {
-      // Unexpected status — treat as unknown rather than misleading the UI.
-      result = { domain: normalized, available: false, status: 'unknown', source: 'rdap-error' };
-    }
-  } catch (err) {
-    console.warn(
-      JSON.stringify({
-        level: 'warn',
-        service: 'rdap_availability',
-        message: 'rdap probe failed',
-        domain: normalized,
-        error: String(err),
-      }),
-    );
-    result = { domain: normalized, available: false, status: 'unknown', source: 'rdap-error' };
+  // Probe once; retry a NON-DEFINITIVE `unknown` exactly ONCE. rdap.org's failures
+  // here are per-request-variable timeouts (the aggregator has slow spells where the
+  // SAME TLD aborts on one draw and answers in <1s on the next), NOT a hard block —
+  // so an independent second attempt frequently resolves it. A definitive
+  // `available`/`taken` never retries (the answer is already authoritative), and the
+  // retry runs sequentially inside this worker slot so it never widens batch concurrency.
+  let result = await probeOnce(normalized);
+  if (result.status === 'unknown') {
+    const retry = await probeOnce(normalized);
+    if (retry.status !== 'unknown') result = retry;
   }
 
   // Cache happy + sad paths so we don't hammer registries on retry storms — but

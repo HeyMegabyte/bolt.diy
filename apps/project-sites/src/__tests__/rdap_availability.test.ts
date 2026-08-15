@@ -155,6 +155,58 @@ describe('checkAvailability — RDAP status mapping', () => {
 });
 
 // ────────────────────────────────────────────────────────────
+// Retry-once on a transient `unknown` (rdap.org timeouts are per-request-variable)
+// ────────────────────────────────────────────────────────────
+describe('checkAvailability — retry-once on transient unknown', () => {
+  it('a DEFINITIVE first draw does NOT retry (exactly one fetch)', async () => {
+    const { kv } = makeKv();
+    fetchMock().mockResolvedValue(resp(404));
+
+    const r = await checkAvailability(makeEnv(kv), 'fast.com');
+
+    expect(r.status).toBe('available');
+    expect(fetchMock()).toHaveBeenCalledTimes(1);
+  });
+
+  it('a first-draw `unknown` (timeout) that RESOLVES on retry returns the retry verdict', async () => {
+    // rdap.org aborted the first draw (>5s) but the second landed a real 404 —
+    // the independent retry is exactly what recovers the picker resolve rate.
+    const { kv } = makeKv();
+    fetchMock()
+      .mockRejectedValueOnce(new DOMException('timed out', 'TimeoutError'))
+      .mockResolvedValueOnce(resp(404));
+
+    const r = await checkAvailability(makeEnv(kv), 'flaky.io');
+
+    expect(r.status).toBe('available');
+    expect(r.source).toBe('rdap');
+    expect(fetchMock()).toHaveBeenCalledTimes(2);
+  });
+
+  it('a first-draw 429 that resolves to `taken` (200) on retry returns taken', async () => {
+    const { kv } = makeKv();
+    fetchMock().mockResolvedValueOnce(resp(429)).mockResolvedValueOnce(resp(200));
+
+    const r = await checkAvailability(makeEnv(kv), 'flaky2.xyz');
+
+    expect(r.status).toBe('taken');
+    expect(fetchMock()).toHaveBeenCalledTimes(2);
+  });
+
+  it('unknown on BOTH draws stays `unknown` (retried exactly once, not a storm)', async () => {
+    const { kv, putSpy } = makeKv();
+    fetchMock().mockResolvedValue(resp(503)); // every draw fails
+
+    const r = await checkAvailability(makeEnv(kv), 'down.ai');
+
+    expect(r.status).toBe('unknown');
+    expect(fetchMock()).toHaveBeenCalledTimes(2); // ONE retry, never more
+    // Still cached with the short 60s TTL (iter-90 split-TTL holds through the retry).
+    expect(putSpy.mock.calls[0][2]).toMatchObject({ expirationTtl: 60 });
+  });
+});
+
+// ────────────────────────────────────────────────────────────
 // Query build + normalization
 // ────────────────────────────────────────────────────────────
 describe('checkAvailability — query build & normalization', () => {
