@@ -118,6 +118,10 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
   ctaQuery = '';
   results = signal<SearchItem[]>([]);
   loading = signal(false);
+  // Business-lookup (Google Places) proxy returned a provider `_error` → surface an
+  // honest "temporarily unavailable" nudge instead of a silent empty dropdown, so a
+  // degraded lookup never reads as "your business isn't findable" (mirrors search.component).
+  searchUnavailable = signal(false);
   heroDropdownOpen = signal(false);
   ctaDropdownOpen = signal(false);
   currentLang = signal('en');
@@ -143,6 +147,7 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
           this.activeSource.set(source);
           if (query.length < 2) {
             this.results.set([]);
+            this.searchUnavailable.set(false);
             this.heroDropdownOpen.set(false);
             this.ctaDropdownOpen.set(false);
             return of(null);
@@ -161,6 +166,10 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
         next: (res) => {
         this.loading.set(false);
         if (!res) return;
+
+        // A provider `_error` on the businesses proxy means the Google lookup is down —
+        // show the honest nudge (search.component parity) rather than a blank dropdown.
+        this.searchUnavailable.set(res.businesses._error != null);
 
         const items: SearchItem[] = [];
         const seen = new Set<string>();
@@ -243,7 +252,7 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
           this.heroDropdownOpen.set(false);
         }
         },
-        error: () => { this.loading.set(false); },
+        error: () => { this.loading.set(false); this.searchUnavailable.set(true); },
       });
 
     if (isPlatformBrowser(this.platformId)) {
