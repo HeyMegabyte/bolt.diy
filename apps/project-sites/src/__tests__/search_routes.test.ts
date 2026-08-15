@@ -272,7 +272,9 @@ describe('GET /api/search/address', () => {
     mockFetch.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          suggestions: [{ placePrediction: { placeId: 'p1', text: { text: '350 5th Ave, New York, NY' } } }],
+          suggestions: [
+            { placePrediction: { placeId: 'p1', text: { text: '350 5th Ave, New York, NY' } } },
+          ],
         }),
         { status: 200 },
       ),
