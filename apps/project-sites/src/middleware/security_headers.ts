@@ -109,7 +109,10 @@ export const securityHeadersMiddleware: MiddlewareHandler<{
 
   // ── Served sites ({slug}.projectsites.dev) ─────────────────
   if (isServedSite) {
-    // User-generated sites: permissive CSP, allow framing everywhere
+    // User-generated sites: permissive resource CSP (they load images/scripts from
+    // arbitrary CDNs), BUT frame-ancestors is scoped to the platform — a business's
+    // site must NOT be framable by an arbitrary attacker (clickjacking / phishing
+    // overlay). Only projectsites.dev (admin/editor preview) may frame it.
     c.header('Cross-Origin-Embedder-Policy', 'credentialless');
     c.header('Cross-Origin-Resource-Policy', 'cross-origin');
     c.header(
@@ -117,7 +120,7 @@ export const securityHeadersMiddleware: MiddlewareHandler<{
       [
         "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:",
         'img-src * data: blob:',
-        'frame-ancestors *',
+        `frame-ancestors 'self' https://${DOMAINS.SITES_BASE} https://*.${DOMAINS.SITES_BASE}`,
         "object-src 'none'",
       ].join('; '),
     );

@@ -376,6 +376,33 @@ describe('securityHeadersMiddleware', () => {
       expect(csp).toContain("frame-ancestors 'self' https://*.projectsites.dev");
     });
   });
+
+  // Served business sites ({slug}.projectsites.dev) must NOT be framable by
+  // arbitrary origins — `frame-ancestors *` lets any attacker iframe a business's
+  // site for a clickjacking/phishing overlay. Only the platform may frame it (for
+  // the admin/editor preview).
+  describe('served-site CSP — clickjacking protection', () => {
+    it('does NOT allow arbitrary framing on a served business site', async () => {
+      const res = await createApp().request('https://vitos.projectsites.dev/test');
+      const csp = res.headers.get('Content-Security-Policy')!;
+      expect(csp).not.toContain('frame-ancestors *');
+    });
+
+    it('scopes frame-ancestors to the platform (self + projectsites.dev family)', async () => {
+      const res = await createApp().request('https://vitos.projectsites.dev/test');
+      const csp = res.headers.get('Content-Security-Policy')!;
+      expect(csp).toContain(
+        "frame-ancestors 'self' https://projectsites.dev https://*.projectsites.dev",
+      );
+    });
+
+    it('still serves the permissive default-src the generated site needs', async () => {
+      const res = await createApp().request('https://vitos.projectsites.dev/test');
+      const csp = res.headers.get('Content-Security-Policy')!;
+      expect(csp).toContain('img-src * data: blob:');
+      expect(csp).toContain("object-src 'none'");
+    });
+  });
 });
 
 describe('securityHeadersMiddleware — admin X-Robots-Tag noindex', () => {
