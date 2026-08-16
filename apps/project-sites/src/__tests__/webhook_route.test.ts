@@ -11,6 +11,7 @@ jest.mock('../services/webhook.js', () => ({
   checkWebhookIdempotency: jest.fn(),
   storeWebhookEvent: jest.fn(),
   markWebhookProcessed: jest.fn(),
+  resetWebhookForRetry: jest.fn(),
 }));
 
 jest.mock('../services/billing.js', () => ({
@@ -40,6 +41,7 @@ import {
   checkWebhookIdempotency,
   storeWebhookEvent,
   markWebhookProcessed,
+  resetWebhookForRetry,
 } from '../services/webhook.js';
 import * as billingService from '../services/billing.js';
 import * as auditService from '../services/audit.js';
@@ -59,6 +61,7 @@ const mockIdempotency = checkWebhookIdempotency as jest.MockedFunction<
 >;
 const mockStore = storeWebhookEvent as jest.MockedFunction<typeof storeWebhookEvent>;
 const mockMark = markWebhookProcessed as jest.MockedFunction<typeof markWebhookProcessed>;
+const mockReset = resetWebhookForRetry as jest.MockedFunction<typeof resetWebhookForRetry>;
 const mockCheckoutCompleted = billingService.handleCheckoutCompleted as jest.MockedFunction<
   typeof billingService.handleCheckoutCompleted
 >;
@@ -134,6 +137,7 @@ function setupDefaultMocks() {
   mockIdempotency.mockResolvedValue({ isDuplicate: false });
   mockStore.mockResolvedValue({ id: 'wh-evt-001', error: null });
   mockMark.mockResolvedValue(undefined);
+  mockReset.mockResolvedValue({ error: null });
   mockAuditLog.mockResolvedValue(undefined);
 }
 
@@ -422,7 +426,9 @@ describe('POST /webhooks/stripe - event marking', () => {
 // ─── Error handling ────────────────────────────────────────────
 
 describe('POST /webhooks/stripe - error handling', () => {
-  it('returns 200 with error message on processing failure to prevent retries', async () => {
+  it('returns 500 on a TRANSIENT processing failure so Stripe redelivers (not a silent 200)', async () => {
+    // Payment-critical: a transient failure must NOT be acked away — returning 200 here
+    // permanently stranded paid-but-not-upgraded webhooks. 500 → Stripe's retry recovers.
     mockSubscriptionUpdated.mockRejectedValue(new Error('Unexpected failure'));
     const app = createApp();
     const event = makeStripeEvent('customer.subscription.updated', {
@@ -436,9 +442,73 @@ describe('POST /webhooks/stripe - error handling', () => {
     const res = await postWebhook(app, event);
     const body = await res.json();
 
+    expect(res.status).toBe(500);
+    expect(body.error.code).toBe('WEBHOOK_PROCESSING_ERROR');
+    // marked 'failed' (retry-eligible), NOT 'quarantined', on the first attempt
+    expect(mockMark).toHaveBeenCalledWith(
+      expect.anything(),
+      'wh-evt-001',
+      'failed',
+      'Unexpected failure',
+    );
+  });
+
+  it('QUARANTINES and acks 200 after MAX attempts (poison-pill guard — stop Stripe retrying forever)', async () => {
+    // A prior FAILED row at attempt 4 → this delivery is attempt 5 (== MAX) → quarantine + 200.
+    mockIdempotency.mockResolvedValue({
+      isDuplicate: false,
+      existingId: 'wh-evt-001',
+      existingStatus: 'failed',
+      existingAttempts: 4,
+    });
+    mockSubscriptionUpdated.mockRejectedValue(new Error('still broken'));
+    const app = createApp();
+    const event = makeStripeEvent('customer.subscription.updated', {
+      id: 'sub_poison',
+      status: 'active',
+      cancel_at_period_end: false,
+      current_period_start: 1700000000,
+      current_period_end: 1702592000,
+      metadata: {},
+    });
+    const res = await postWebhook(app, event);
+    const body = await res.json();
+
     expect(res.status).toBe(200);
     expect(body.received).toBe(true);
-    expect(body.error).toBe('Processing failed');
+    expect(mockReset).toHaveBeenCalledWith(expect.anything(), 'wh-evt-001');
+    expect(mockMark).toHaveBeenCalledWith(
+      expect.anything(),
+      'wh-evt-001',
+      'quarantined',
+      'still broken',
+    );
+  });
+
+  it('REPROCESSES a previously-failed event on redelivery (does not skip it as a duplicate)', async () => {
+    // The core recovery: idempotency reports the prior 'failed' row as retry-eligible →
+    // the route resets that row (reusing it) and reprocesses → success.
+    mockIdempotency.mockResolvedValue({
+      isDuplicate: false,
+      existingId: 'wh-evt-001',
+      existingStatus: 'failed',
+      existingAttempts: 1,
+    });
+    mockCheckoutCompleted.mockResolvedValue(undefined);
+    const app = createApp();
+    const event = makeStripeEvent('checkout.session.completed', {
+      customer: 'cus_retry',
+      subscription: 'sub_retry',
+      metadata: { org_id: 'org-retry' },
+    });
+    const res = await postWebhook(app, event);
+
+    expect(res.status).toBe(200);
+    // reused the existing row (no fresh insert — webhook_events is UNIQUE per provider+event_id)
+    expect(mockReset).toHaveBeenCalledWith(expect.anything(), 'wh-evt-001');
+    expect(mockStore).not.toHaveBeenCalled();
+    expect(mockCheckoutCompleted).toHaveBeenCalledTimes(1);
+    expect(mockMark).toHaveBeenCalledWith(expect.anything(), 'wh-evt-001', 'processed');
   });
 
   it('writes audit log when org_id exists in metadata', async () => {

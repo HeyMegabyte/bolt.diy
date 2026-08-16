@@ -45,7 +45,15 @@
  */
 
 import { type WebhookProvider, hmacSha256, timingSafeEqual } from '@project-sites/shared';
-import { dbQueryOne, dbInsert, dbUpdate } from './db.js';
+import { dbQueryOne, dbInsert, dbUpdate, dbExecute } from './db.js';
+
+/**
+ * Terminal `webhook_events.status` values — an event in one of these states must NOT be
+ * reprocessed. `processed` = successfully handled; `quarantined` = deliberately
+ * dead-lettered (a poison pill that exhausted its retry budget). Every OTHER stored
+ * status (`received` / `processing` / `failed`) is retry-eligible on redelivery.
+ */
+const TERMINAL_WEBHOOK_STATUSES = new Set(['processed', 'quarantined']);
 
 /**
  * Result of a webhook signature verification attempt.
@@ -177,45 +185,65 @@ export async function verifyHmacSignature(
 }
 
 /**
- * Check whether a webhook event has already been received (idempotency guard).
+ * Idempotency guard: is this event ALREADY TERMINALLY HANDLED, or is it retry-eligible?
  *
- * Queries the `webhook_events` table for a matching `provider + event_id` pair.
- * Callers should skip processing when `isDuplicate` is `true` and return a 200
- * to the webhook provider so it does not retry.
+ * Queries `webhook_events` for the `provider + event_id` pair and classifies by status:
+ * - No row → `{ isDuplicate: false }` (first delivery — store + process it).
+ * - Terminal row (`processed` / `quarantined`) → `{ isDuplicate: true, existingId }`
+ *   (already handled — the caller acks 200 and does NOT reprocess).
+ * - Non-terminal row (`received` / `processing` / `failed`) → `{ isDuplicate: false,
+ *   existingId, existingStatus, existingAttempts }` — a stored-but-unfinished event that
+ *   MUST reprocess on redelivery. The caller reuses `existingId` (via
+ *   {@link resetWebhookForRetry}, since `webhook_events` is UNIQUE per provider+event_id)
+ *   so a transient processing failure recovers instead of being stranded forever.
+ *
+ * @remarks A plain "any row = duplicate" check silently strands failed webhooks: a
+ *   `checkout.session.completed` that fails processing once would be skipped on every
+ *   redelivery, so the customer is charged but never upgraded.
  *
  * @param db       - The D1Database binding from `env.DB`.
  * @param provider - Webhook provider name (e.g. `'stripe'`, `'dub'`).
  * @param eventId  - Provider-specific event identifier (e.g. `evt_1abc...`).
- * @returns Object with `isDuplicate` flag and the existing row's `id` when found.
+ * @returns `isDuplicate` (terminal only), plus `existingId` / `existingStatus` /
+ *   `existingAttempts` when a row exists.
  *
  * @example
  * ```ts
- * const { isDuplicate, existingId } = await checkWebhookIdempotency(
- *   env.DB,
- *   'stripe',
- *   event.id,
- * );
- * if (isDuplicate) {
- *   return c.json({ status: 'already_processed', id: existingId }, 200);
- * }
+ * const idem = await checkWebhookIdempotency(env.DB, 'stripe', event.id);
+ * if (idem.isDuplicate) return c.json({ received: true, duplicate: true }, 200);
  * ```
  */
 export async function checkWebhookIdempotency(
   db: D1Database,
   provider: WebhookProvider,
   eventId: string,
-): Promise<{ isDuplicate: boolean; existingId?: string }> {
-  const row = await dbQueryOne<{ id: string; status: string }>(
+): Promise<{
+  isDuplicate: boolean;
+  existingId?: string;
+  existingStatus?: string;
+  existingAttempts?: number;
+}> {
+  const row = await dbQueryOne<{ id: string; status: string; attempts: number }>(
     db,
-    'SELECT id, status FROM webhook_events WHERE provider = ? AND event_id = ?',
+    'SELECT id, status, attempts FROM webhook_events WHERE provider = ? AND event_id = ?',
     [provider, eventId],
   );
 
-  if (row) {
+  if (!row) {
+    return { isDuplicate: false };
+  }
+
+  if (TERMINAL_WEBHOOK_STATUSES.has(row.status)) {
     return { isDuplicate: true, existingId: row.id };
   }
 
-  return { isDuplicate: false };
+  // Stored but not terminally handled — reprocess on redelivery.
+  return {
+    isDuplicate: false,
+    existingId: row.id,
+    existingStatus: row.status,
+    existingAttempts: row.attempts,
+  };
 }
 
 /**
@@ -270,7 +298,9 @@ export async function storeWebhookEvent(
     org_id: event.org_id ?? null,
     payload_hash: event.payload_hash ?? null,
     status: event.status ?? 'received',
-    attempts: 0,
+    // 1 = this is the first processing attempt. `resetWebhookForRetry` bumps it on each
+    // redelivery; the count drives the quarantine-after-max-attempts poison-pill guard.
+    attempts: 1,
     deleted_at: null,
   };
 
@@ -291,8 +321,9 @@ export async function storeWebhookEvent(
  *
  * @param db           - The D1Database binding from `env.DB`.
  * @param eventId      - The UUID of the `webhook_events` row (returned by {@link storeWebhookEvent}).
- * @param status       - New status: `'processed'` on success, `'failed'` on error.
- * @param errorMessage - Optional error message to persist when `status` is `'failed'`.
+ * @param status       - Terminal-ish outcome: `'processed'` on success, `'failed'` on a
+ *   retry-eligible error, `'quarantined'` when the retry budget is exhausted (poison pill).
+ * @param errorMessage - Optional error message to persist when `status` is `'failed'` / `'quarantined'`.
  *
  * @example
  * ```ts
@@ -307,7 +338,7 @@ export async function storeWebhookEvent(
 export async function markWebhookProcessed(
   db: D1Database,
   eventId: string,
-  status: 'processed' | 'failed' = 'processed',
+  status: 'processed' | 'failed' | 'quarantined' = 'processed',
   errorMessage?: string,
 ): Promise<void> {
   const { error } = await dbUpdate(
@@ -338,4 +369,36 @@ export async function markWebhookProcessed(
       }),
     );
   }
+}
+
+/**
+ * Reset a stored non-terminal webhook event back to `processing` for a redelivery,
+ * incrementing its attempt counter.
+ *
+ * @remarks
+ * `webhook_events` is `UNIQUE (provider, event_id)`, so a redelivery cannot INSERT a
+ * fresh row — the existing row is REUSED. This resets it to `processing` and bumps
+ * `attempts` (the count that drives the quarantine-after-max poison-pill guard) so a
+ * previously-`failed` (or crashed-mid-flight `processing`) event reprocesses cleanly.
+ *
+ * @param db      - The D1Database binding from `env.DB`.
+ * @param eventId - The `webhook_events` row id (from {@link checkWebhookIdempotency}).
+ * @returns `{ error }` — the D1 error string, or `null` on success. Never throws.
+ *
+ * @example
+ * ```ts
+ * const { error } = await resetWebhookForRetry(env.DB, idem.existingId!);
+ * ```
+ * @see {@link checkWebhookIdempotency}
+ */
+export async function resetWebhookForRetry(
+  db: D1Database,
+  eventId: string,
+): Promise<{ error: string | null }> {
+  const { error } = await dbExecute(
+    db,
+    `UPDATE webhook_events SET status = 'processing', attempts = attempts + 1, updated_at = ? WHERE id = ?`,
+    [new Date().toISOString(), eventId],
+  );
+  return { error };
 }

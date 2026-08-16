@@ -38,6 +38,7 @@ import {
   checkWebhookIdempotency,
   storeWebhookEvent,
   markWebhookProcessed,
+  resetWebhookForRetry,
 } from '../services/webhook.js';
 import * as billingService from '../services/billing.js';
 import * as auditService from '../services/audit.js';
@@ -50,6 +51,14 @@ import { sha256Hex, badRequest } from '@project-sites/shared';
 import { createLogger } from '../observability/index.js';
 
 const webhooks = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+/**
+ * Max processing attempts before an event is quarantined (dead-lettered). A transient
+ * failure returns 500 so Stripe redelivers with backoff; after this many attempts the
+ * event is a poison pill — quarantine + ack 200 so it can't retry forever (which would
+ * make Stripe disable the whole endpoint). 5 covers ~hours of Stripe's retry schedule.
+ */
+const MAX_WEBHOOK_ATTEMPTS = 5;
 
 /**
  * Map a Stripe `customer.subscription.*` status to the billing-bus event type to
@@ -143,21 +152,34 @@ webhooks.post('/webhooks/stripe', async (c) => {
 
   const db = c.env.DB;
 
-  // 3. Check idempotency
+  // 3. Idempotency — only a TERMINALLY-handled event (processed / quarantined) is a real
+  //    duplicate. A stored-but-unfinished row (received / processing / failed) is
+  //    retry-eligible: reprocess it so a transient failure recovers on Stripe's redelivery
+  //    instead of being stranded (charged-but-not-upgraded).
   const idempotencyCheck = await checkWebhookIdempotency(db, 'stripe', event.id);
   if (idempotencyCheck.isDuplicate) {
     return c.json({ received: true, duplicate: true }, 200);
   }
 
-  // 4. Store event
-  const payloadHash = await sha256Hex(rawBody);
-  const { id: webhookEventId } = await storeWebhookEvent(db, {
-    provider: 'stripe',
-    event_id: event.id,
-    event_type: event.type,
-    payload_hash: payloadHash,
-    status: 'processing',
-  });
+  // 4. Store (first delivery) or reset the existing non-terminal row (redelivery — the
+  //    row is REUSED because webhook_events is UNIQUE per provider+event_id). `attempt`
+  //    is this delivery's 1-based attempt number, driving the quarantine guard below.
+  const attempt = (idempotencyCheck.existingAttempts ?? 0) + 1;
+  let webhookEventId: string | undefined;
+  if (idempotencyCheck.existingId) {
+    webhookEventId = idempotencyCheck.existingId;
+    await resetWebhookForRetry(db, webhookEventId);
+  } else {
+    const payloadHash = await sha256Hex(rawBody);
+    const stored = await storeWebhookEvent(db, {
+      provider: 'stripe',
+      event_id: event.id,
+      event_type: event.type,
+      payload_hash: payloadHash,
+      status: 'processing',
+    });
+    webhookEventId = stored.id ?? undefined;
+  }
 
   // 5. Process event
   try {
@@ -394,16 +416,15 @@ webhooks.post('/webhooks/stripe', async (c) => {
       });
     }
   } catch (err) {
-    if (webhookEventId) {
-      await markWebhookProcessed(
-        db,
-        webhookEventId,
-        'failed',
-        err instanceof Error ? err.message : 'Unknown error',
-      );
-    }
-
     const errMsg = err instanceof Error ? err.message : 'Unknown error';
+    // Payment-critical recovery: a transient failure returns 500 so Stripe REDELIVERS
+    // (the idempotency guard then reprocesses this same row). Only after
+    // MAX_WEBHOOK_ATTEMPTS do we give up — quarantine (terminal) + ack 200 so a genuine
+    // poison pill can't retry forever and trip Stripe's auto-disable of the endpoint.
+    const exhausted = attempt >= MAX_WEBHOOK_ATTEMPTS;
+    if (webhookEventId) {
+      await markWebhookProcessed(db, webhookEventId, exhausted ? 'quarantined' : 'failed', errMsg);
+    }
     // #24 — this catch handles the error (marks failed + audits) instead of
     // re-throwing, so the global error-handler's capture is bypassed.
     // A Stripe webhook failure is payment-critical → log explicitly, never silent.
@@ -461,8 +482,11 @@ webhooks.post('/webhooks/stripe', async (c) => {
         .catch(() => {});
     }
 
-    // Return 200 to Stripe to prevent retries for processing errors
-    return c.json({ received: true, error: 'Processing failed' }, 200);
+    // Transient → 500 so Stripe redelivers (the idempotency guard reprocesses this row).
+    // Exhausted → 200 so the now-quarantined poison pill stops retrying.
+    return exhausted
+      ? c.json({ received: true, error: 'Processing failed (quarantined after max attempts)' }, 200)
+      : c.json({ error: { code: 'WEBHOOK_PROCESSING_ERROR', message: 'Processing failed' } }, 500);
   }
 
   return c.json({ received: true }, 200);
