@@ -31,7 +31,17 @@ jest.mock('../services/analytics.js', () => ({
   captureLLMCall: (...args: unknown[]) => mockCaptureLLMCall(...args),
 }));
 
-// Import AFTER the mock is registered.
+// researchAndFormulatePrompt now gates a per-business research cache behind the
+// dark `research_cache` flag (isFlagOn → reads env.CACHE_KV). These tests exercise
+// the RESEARCH pipeline (request shape, parsing, analytics), NOT the cache — so
+// pin the flag OFF (its prod default). The cache path has its own coverage in
+// research_cache_unit.test.ts. Without this, isFlagOn's env.CACHE_KV.get() threw
+// "Cannot read properties of undefined (reading 'get')" before any assertion ran.
+jest.mock('../modules/feature_flags/services.js', () => ({
+  isFlagOn: async () => false,
+}));
+
+// Import AFTER the mocks are registered.
 import { researchAndFormulatePrompt } from '../services/openai_research.js';
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
