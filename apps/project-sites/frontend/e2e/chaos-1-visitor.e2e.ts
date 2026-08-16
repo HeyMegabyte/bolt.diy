@@ -144,13 +144,21 @@ test.describe('CHAOS 1 — Skeptical Visitor (marketing + search)', () => {
       await page.waitForTimeout(600);
       const focusedSearch = await page.evaluate(() => {
         const a = document.activeElement as HTMLInputElement | null;
-        return !!a && a.tagName === 'INPUT' && /business|search/i.test(a.getAttribute('placeholder') || '');
+        return (
+          !!a &&
+          a.tagName === 'INPUT' &&
+          /business|search/i.test(a.getAttribute('placeholder') || '')
+        );
       });
       expect(focusedSearch, '"Get Started" did not focus the hero search (dead CTA)').toBe(true);
     }
 
     // 3) "Sign In" must route to the sign-in surface.
-    await page.getByRole('button', { name: /^sign in$/i }).first().click().catch(() => {});
+    await page
+      .getByRole('button', { name: /^sign in$/i })
+      .first()
+      .click()
+      .catch(() => {});
     await page.waitForTimeout(800);
     expect(page.url(), '"Sign In" did not route to /signin').toContain('/signin');
 
@@ -177,5 +185,90 @@ test.describe('CHAOS 1 — Skeptical Visitor (marketing + search)', () => {
       await page.goForward().catch(() => {});
     }
     await assertAlive(page);
+  });
+
+  // M1 — the served-site "Wow → Own → Buy" conversion funnel (the promotional bar
+  // injected into EVERY free published site by `site_serving.generateConversionFlow`).
+  // Its two revenue-critical seams are cross-origin fetches from `{slug}.projectsites.dev`
+  // to the apex: `GET /api/domains/availability` (the Claim-modal domain search) and
+  // `POST /api/conversion/checkout` (the "Get Started — $50/mo" Stripe redirect). Render
+  // sweeps never exercise these — a dead/challenged endpoint would silently break checkout
+  // for every free-site visitor (the funnel's `.catch` shows "Connection error"). MUST run
+  // the fetches IN THE PAGE CONTEXT (`page.evaluate`), not `page.request` — a real visitor
+  // carries a zone-wide `cf_clearance` cookie from the served-page load that passes the WAF;
+  // a fresh request context (like curl) is managed-challenged and would false-fail.
+  test('M1: served-site conversion funnel endpoints return real business results (domain list + Stripe checkout url)', async ({
+    page,
+  }) => {
+    // Land on a real served site so the browser holds the *.projectsites.dev clearance a
+    // real visitor would (the funnel's fetches go cross-origin to the apex from here).
+    const landed = await page
+      .goto('https://megabytespace.projectsites.dev/', { waitUntil: 'domcontentloaded' })
+      .then((r) => r?.status() ?? 0)
+      .catch(() => 0);
+    test.skip(landed !== 200, `served site not reachable (HTTP ${landed}) — environmental`);
+
+    const result = (await page.evaluate(async () => {
+      let domains, domainsErr, checkout, checkoutErr;
+      // 1) Domain search — the Claim modal's `#ps-dinput` calls this on input.
+      try {
+        const r = await fetch('https://projectsites.dev/api/domains/availability?name=probebiz', {
+          headers: { Accept: 'application/json' },
+        });
+        const j = await r.json().catch(() => null);
+        domains = { status: r.status, list: Array.isArray(j?.data) ? j.data : null };
+      } catch (e) {
+        domainsErr = String(e);
+      }
+      // 2) Checkout — `#ps-go-btn` posts this; a valid `checkout_url` is THE business
+      //    result (redirects the visitor to Stripe). Creates an abandoned session only.
+      try {
+        const r = await fetch('https://projectsites.dev/api/conversion/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: 'megabytespace', domain: null }),
+        });
+        const j = await r.json().catch(() => null);
+        checkout = { status: r.status, url: j?.data?.checkout_url ?? null };
+      } catch (e) {
+        checkoutErr = String(e);
+      }
+      return { domains, domainsErr, checkout, checkoutErr };
+    })) as {
+      domains?: { status: number; list: { domain: string; available: boolean }[] | null };
+      domainsErr?: string;
+      checkout?: { status: number; url: string | null };
+      checkoutErr?: string;
+    };
+    console.log('CHAOS1/funnel:', JSON.stringify(result));
+
+    // Domain search: 200 + a real availability list (each entry a {domain, available}).
+    expect(result.domainsErr, `domain search threw: ${result.domainsErr}`).toBeUndefined();
+    expect(
+      result.domains?.status,
+      'GET /api/domains/availability must be 200 (live, not challenged)',
+    ).toBe(200);
+    expect(
+      result.domains?.list?.length ?? 0,
+      'domain search returned no candidates (funnel modal would show empty)',
+    ).toBeGreaterThan(0);
+    expect(
+      result.domains?.list?.every(
+        (d) => typeof d.domain === 'string' && typeof d.available === 'boolean',
+      ),
+      'domain candidates missing {domain, available} shape',
+    ).toBe(true);
+
+    // Checkout: 200 + a Stripe checkout URL (the redirect target — proves the revenue
+    // path is live end-to-end, not a dead "Get Started" button).
+    expect(result.checkoutErr, `checkout threw: ${result.checkoutErr}`).toBeUndefined();
+    expect(
+      result.checkout?.status,
+      'POST /api/conversion/checkout must be 200 (live, not challenged)',
+    ).toBe(200);
+    expect(
+      result.checkout?.url ?? '',
+      `checkout did not return a Stripe url (dead revenue path): ${result.checkout?.url}`,
+    ).toMatch(/^https:\/\/checkout\.stripe\.com\//);
   });
 });
