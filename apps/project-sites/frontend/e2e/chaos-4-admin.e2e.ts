@@ -347,4 +347,105 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
       }
     }
   });
+
+  // M2 (third real CRUD) — Team invite → appears in pending → persists → cancel. Validates
+  // the iter-102 auth_org hardening (invite-member seat-cap + cancel-invitation) END-TO-END
+  // in a real browser. Reversible: the UI Cancel IS the cleanup (soft-deletes the invite); a
+  // finally safety-net cancels via API. Seat-aware: at capacity the invite 409s, which the UI
+  // shows as a graceful error (also a valid, asserted business result — never a silent success).
+  test('Team: invite a member → appears in pending → persists → cancel (M2, validates auth_org)', async ({
+    page,
+  }) => {
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+    const inviteEmail = `e2e-invite-${Date.now()}@example.com`;
+    let inviteId: string | null = null;
+    // The cancel/remove flows use a native confirm() — auto-accept every dialog.
+    page.on('dialog', (d) => d.accept().catch(() => {}));
+    try {
+      await page.goto('/admin/team', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(3000);
+      await expect(page.locator('[data-testid="team-page"]')).toBeVisible({ timeout: 8000 });
+
+      const row = () =>
+        page.locator('[data-testid="team-invitation-row"]').filter({ hasText: inviteEmail });
+
+      // The seat line reflects the AUTHORITATIVE cap (iter-102 surfaced the real limit,
+      // not a hardcoded default). Check capacity FIRST — at the cap the invite button is
+      // disabled by design, so we must NOT try to POST (a disabled click never fires).
+      const seatsFull = await page
+        .locator('[data-testid="team-seats-full"]')
+        .isVisible()
+        .catch(() => false);
+
+      if (seatsFull) {
+        // At capacity → the invite button MUST be disabled (no dead button that 409s), and
+        // the seat line shows the authoritative "N of N" — the graceful, non-lying state.
+        await expect(page.locator('[data-testid="team-invite-submit"]')).toBeDisabled();
+        await expect(page.locator('[data-testid="team-seats"]')).toContainText(/seats used/i);
+      } else {
+        await page.locator('[data-testid="team-invite-email"]').fill(inviteEmail);
+        const inviteResp = page.waitForResponse(
+          (r) =>
+            /\/api\/auth\/organization\/invite-member\b/.test(r.url()) &&
+            r.request().method() === 'POST',
+          { timeout: 12_000 },
+        );
+        await page.locator('[data-testid="team-invite-submit"]').click({ timeout: 5000 });
+        const ir = await inviteResp;
+
+        if (ir.status() === 409) {
+          await expect(page.locator('[data-testid="team-error"]')).toBeVisible({ timeout: 6000 });
+          await expect(row()).toHaveCount(0);
+        } else {
+          expect([200, 201], `invite status ${ir.status()}`).toContain(ir.status());
+          inviteId = ((await ir.json().catch(() => ({}))) as { id?: string }).id ?? null;
+
+          // Business result: the invite appears in the pending list.
+          await expect(row(), 'invite appears in pending').toHaveCount(1, { timeout: 8000 });
+
+          // Persist across nav + HARD reload.
+          await page.goto('/admin/analytics', { waitUntil: 'domcontentloaded' });
+          await page.waitForTimeout(1000);
+          await page.goto('/admin/team', { waitUntil: 'domcontentloaded' });
+          await page.waitForTimeout(2500);
+          await expect(row(), 'invite persists after nav-away + back').toHaveCount(1, {
+            timeout: 8000,
+          });
+          await page.reload({ waitUntil: 'domcontentloaded' });
+          await page.waitForTimeout(2500);
+          await expect(row(), 'invite persists after hard reload').toHaveCount(1, {
+            timeout: 8000,
+          });
+
+          // Cancel (the primary reversible action) — the row's Cancel button.
+          await row().locator('[data-testid="team-invitation-cancel"]').click({ timeout: 5000 });
+          await expect(row(), 'invite removed after cancel').toHaveCount(0, { timeout: 8000 });
+          inviteId = null; // cancelled via UI → finally cleanup not needed
+        }
+      }
+
+      await assertAlive(page);
+      expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+      expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+      expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+      expect(
+        e.consoleWarnings,
+        `console warnings (DoD=0): ${e.consoleWarnings.join('; ')}`,
+      ).toEqual([]);
+    } finally {
+      if (inviteId) {
+        await page
+          .evaluate(async (id) => {
+            const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
+            await fetch('/api/auth/organization/cancel-invitation', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.token}` },
+              body: JSON.stringify({ invitationId: id }),
+            }).catch(() => {});
+          }, inviteId)
+          .catch(() => {});
+      }
+    }
+  });
 });
