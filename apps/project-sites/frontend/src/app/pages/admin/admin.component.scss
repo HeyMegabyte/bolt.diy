@@ -282,17 +282,12 @@ aside::before {
   border-radius: var(--ps-radius-sm, 8px);
   font-size: 0.86rem;
 }
-// Site-selector trigger. Open (avatar + name + status) needs ~62px; the collapsed
-// rail hugs just the avatar (rail override below). min-height + padding + the box
-// (border/background) all transition so the picker grows SMOOTHLY as the rail
-// opens — a transition, not a jump.
+// Site-selector trigger. Fixed 62px in BOTH states (collapsed avatar + open full
+// trigger) so the top never grows when it opens — only the box (border/background)
+// fades in and the name/status appear. The box fade is the transition.
 .admin-site-selector > button {
   min-height: 62px;
-  transition:
-    min-height 200ms cubic-bezier(0.4, 0, 0.2, 1),
-    padding 200ms cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 200ms ease,
-    background-color 200ms ease;
+  transition: border-color 200ms ease, background-color 200ms ease;
 }
 @media (prefers-reduced-motion: reduce) {
   .admin-site-selector > button { transition-duration: 0.01ms; }
@@ -744,16 +739,13 @@ aside::before {
     &:first-child::before { display: none; }
   }
 
-  // Site selector → ONE clean avatar chip. Drop the button's outer box (border +
-  // background) so only the avatar tile's box shows — no more two nested boxes —
-  // and hug the avatar height. The avatar stays left-aligned with the icon column;
-  // on open the box fades back in, the name/status/caret appear beside it, and the
-  // min-height/padding animate so the trigger grows smoothly.
+  // Site selector → ONE clean avatar chip, perfectly centered in the 72px rail.
+  // Drop the button's outer box (border + background) so only the avatar tile's box
+  // shows (no more two nested boxes); the height stays the base 62px so the top
+  // never grows when the full site selector fades in on open — only the box appears.
   .admin-site-selector {
     > button {
-      min-height: 0;
-      padding-top: 8px;
-      padding-bottom: 8px;
+      justify-content: center;
       border-color: transparent;
       background-color: transparent;
     }

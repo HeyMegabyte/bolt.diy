@@ -195,10 +195,13 @@ test.describe('admin navigation — responsive modes', () => {
     const hRest = {
       item: (await dashItem.boundingBox())!.height,
       label: (await groupLabel.boundingBox())!.height,
+      picker: (await picker.boundingBox())!.height,
     };
-    // The picker is a compact single avatar chip at rest; it grows into the full
-    // avatar + name + status trigger on open (a smooth transition, not same-height).
-    const pickerRestH = (await picker.boundingBox())!.height;
+    // The avatar tile is perfectly centered in the 72px rail (not left-aligned).
+    const avatar = page.locator('.site-favicon-tile--lg').first();
+    const ab = (await avatar.boundingBox())!;
+    const railW = (await sidebar.boundingBox())!.width;
+    expect(Math.abs(ab.x + ab.width / 2 - railW / 2)).toBeLessThanOrEqual(3);
     await expect(page.locator('[data-testid="nav-forms"] span').first()).toBeHidden();
 
     // Hover → expands to the full ~272px labelled sidebar.
@@ -217,8 +220,9 @@ test.describe('admin navigation — responsive modes', () => {
     // open vs closed — only the labels reveal horizontally.
     expect(Math.abs((await dashItem.boundingBox())!.height - hRest.item)).toBeLessThanOrEqual(1);
     expect(Math.abs((await groupLabel.boundingBox())!.height - hRest.label)).toBeLessThanOrEqual(1);
-    // The picker grows from its compact avatar chip into the full trigger on open.
-    expect((await picker.boundingBox())!.height).toBeGreaterThan(pickerRestH);
+    // The picker does NOT grow — same height closed/open (only the box fades in +
+    // the name/status appear), so the top never looks like it is growing.
+    expect(Math.abs((await picker.boundingBox())!.height - hRest.picker)).toBeLessThanOrEqual(1);
 
     // CRITICAL — it OVERLAYS, it does not push: the content's left edge is
     // unchanged (no reflow) and the expanded panel paints OVER the content.
