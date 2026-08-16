@@ -559,16 +559,15 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
       // The dialog's first <select> is CADENCE. Capture the current value, flip it.
       const cadence = dialog.locator('select').first();
       original = await cadence.inputValue();
-      const options = await cadence.locator('option').evaluateAll((os) =>
-        (os as HTMLOptionElement[]).map((o) => o.value),
-      );
+      const options = await cadence
+        .locator('option')
+        .evaluateAll((os) => (os as HTMLOptionElement[]).map((o) => o.value));
       const target = options.find((o) => o !== original);
       expect(target, 'cadence has ≥2 options to flip between').toBeTruthy();
 
       await cadence.selectOption(target!);
       const saveResp = page.waitForResponse(
-        (r) =>
-          /\/api\/social\/auto-pilot\/config/.test(r.url()) && r.request().method() === 'POST',
+        (r) => /\/api\/social\/auto-pilot\/config/.test(r.url()) && r.request().method() === 'POST',
         { timeout: 12_000 },
       );
       await dialog.getByRole('button', { name: 'Save' }).first().click();
@@ -600,9 +599,10 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
       expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
       expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
       expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
-      expect(e.consoleWarnings, `console warnings (DoD=0): ${e.consoleWarnings.join('; ')}`).toEqual(
-        [],
-      );
+      expect(
+        e.consoleWarnings,
+        `console warnings (DoD=0): ${e.consoleWarnings.join('; ')}`,
+      ).toEqual([]);
     } finally {
       // Restore the original cadence via the API (org-scoped, bearer-authed) so the
       // shared E2E org is left exactly as found — no destructive dialog needed.
@@ -772,7 +772,8 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
       expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
     } finally {
       // Restore the original server name (or a neutral default) so the account stays clean.
-      const restore = originalName && originalName.trim() && originalName !== testName ? originalName : 'Test';
+      const restore =
+        originalName && originalName.trim() && originalName !== testName ? originalName : 'Test';
       await patchServerName(restore);
     }
   });
@@ -1018,11 +1019,17 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
           data?: Array<{ id?: string; current_build_version?: number | null }>;
         };
         const site = Array.isArray(j.data) ? j.data[0] : undefined;
-        return { hasSite: !!site, buildable: !!site?.current_build_version, siteId: site?.id ?? null };
+        return {
+          hasSite: !!site,
+          buildable: !!site?.current_build_version,
+          siteId: site?.id ?? null,
+        };
       });
 
       const createBtn = page.locator('[data-testid="snapshot-create-button"]');
-      expect(await createBtn.isVisible().catch(() => false), 'create button is rendered').toBe(true);
+      expect(await createBtn.isVisible().catch(() => false), 'create button is rendered').toBe(
+        true,
+      );
 
       if (truth.hasSite && !truth.buildable) {
         // Unbuilt → button DISABLED (can't reach the 400) + a "publish first" hint explains why.
@@ -1031,12 +1038,17 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
           'unbuilt site: create-snapshot button MUST be disabled (no 400 dead-end)',
         ).toBe(true);
         expect(
-          await page.locator('[data-testid="snapshots-build-gate"]').isVisible().catch(() => false),
+          await page
+            .locator('[data-testid="snapshots-build-gate"]')
+            .isVisible()
+            .catch(() => false),
           'unbuilt site: a "publish first" affordance MUST be shown (never a mysteriously-dead button)',
         ).toBe(true);
       } else if (truth.buildable && truth.siteId) {
         // Built → create must be enabled + the POST must succeed (200/201), never 400.
-        expect(await createBtn.isEnabled().catch(() => false), 'built site: create enabled').toBe(true);
+        expect(await createBtn.isEnabled().catch(() => false), 'built site: create enabled').toBe(
+          true,
+        );
         await createBtn.click({ timeout: 5000 });
         await page.waitForTimeout(400);
         const name = `e2e-chaos-${Date.now().toString().slice(-6)}`;
@@ -1047,9 +1059,10 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
         );
         await page.locator('[data-testid="snapshot-create-submit"]').click({ timeout: 5000 });
         const cr = await respP;
-        expect([200, 201], `built site: snapshot create status ${cr.status()} (must not 400)`).toContain(
-          cr.status(),
-        );
+        expect(
+          [200, 201],
+          `built site: snapshot create status ${cr.status()} (must not 400)`,
+        ).toContain(cr.status());
         const body = (await cr.json().catch(() => ({}))) as { data?: { id?: string } };
         if (body.data?.id) createdSnap = { siteId: truth.siteId, snapId: body.data.id };
       }
@@ -1068,6 +1081,129 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
               headers: { Authorization: `Bearer ${s.token}` },
             }).catch(() => {});
           }, createdSnap)
+          .catch(() => {});
+      }
+    }
+  });
+
+  // M2 (core CRUD create→edit→persist) + M4 (destructive delete + confirm) — the AI
+  // Endpoints authoring surface (/admin/ai-endpoints) is a rich create/edit/delete CRUD
+  // that had ZERO chaos coverage. Drive it end-to-end vs prod: create → row appears →
+  // inline-edit the slug → PUT persists across nav-away + HARD reload → UI delete (confirm
+  // dialog) → row gone → delete persists. Self-cleans via API in finally. Locks in the
+  // "FULLY WORKING" create/edit/delete claim in ai-endpoints.component.ts against regression.
+  test('AI Endpoints: create → inline-edit slug → PUT persists across reload → UI delete (M2+M4)', async ({
+    page,
+  }) => {
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+    const A = `e2e-chaos-${Date.now().toString().slice(-7)}`;
+    const B = `${A}-edited`;
+    let liveSlug = ''; // slug that currently exists on the server, for finally cleanup
+    try {
+      await page.goto('/admin/ai-endpoints', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(3500);
+
+      // ── Create ──
+      await page.locator('[data-testid="ai-endpoint-create-manual"]').click({ timeout: 6000 });
+      await page.waitForTimeout(400);
+      await page.locator('[data-testid="ai-endpoint-create-slug"]').fill(A);
+      await page.waitForTimeout(200);
+      const submit = page.locator('[data-testid="ai-endpoint-create-submit"]');
+      await expect(submit, 'create submit enables on a valid slug').toBeEnabled({ timeout: 4000 });
+      const createResp = page.waitForResponse(
+        (r) => /\/ai-endpoints$/.test(r.url()) && r.request().method() === 'POST',
+        { timeout: 15000 },
+      );
+      await submit.click();
+      const cr = await createResp;
+      expect([200, 201], `create status ${cr.status()}`).toContain(cr.status());
+      liveSlug = A;
+      await expect(
+        page.locator(`[data-testid="ai-endpoint-row-${A}"]`),
+        'created endpoint row appears',
+      ).toBeVisible({ timeout: 8000 });
+
+      // ── Inline-edit the slug A → B ──
+      await page.locator(`[data-testid="ai-endpoint-edit-url-${A}"]`).click({ timeout: 6000 });
+      const slugInput = page.locator(`[data-testid="ai-endpoint-slug-input-${A}"]`);
+      await expect(slugInput, 'inline slug editor opens').toBeVisible({ timeout: 6000 });
+      await slugInput.fill(B);
+      const putResp = page.waitForResponse(
+        (r) => /\/ai-endpoints\//.test(r.url()) && r.request().method() === 'PUT',
+        { timeout: 15000 },
+      );
+      await page.locator(`[data-testid="ai-endpoint-slug-save-${A}"]`).click();
+      const pr = await putResp;
+      expect([200, 204], `edit PUT status ${pr.status()}`).toContain(pr.status());
+      liveSlug = B;
+      await expect(
+        page.locator(`[data-testid="ai-endpoint-row-${B}"]`),
+        'row shows the edited slug',
+      ).toBeVisible({ timeout: 8000 });
+
+      // ── Persist across nav-away + HARD reload (server round-trip, not local state) ──
+      await page.goto('/admin/analytics', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1000);
+      await page.goto('/admin/ai-endpoints', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(2500);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(2500);
+      await expect(
+        page.locator(`[data-testid="ai-endpoint-row-${B}"]`),
+        'edited slug persists across hard reload (server round-trip)',
+      ).toBeVisible({ timeout: 8000 });
+
+      // ── UI delete (destructive confirm dialog) ──
+      await page.locator(`[data-testid="ai-endpoint-more-${B}"]`).click({ timeout: 6000 });
+      await page.waitForTimeout(300);
+      await page.locator(`[data-testid="ai-endpoint-delete-${B}"]`).click({ timeout: 6000 });
+      const accept = page.locator('[data-testid="confirm-accept"]');
+      await expect(accept, 'delete confirm dialog opens').toBeVisible({ timeout: 6000 });
+      const delResp = page.waitForResponse(
+        (r) => /\/ai-endpoints\//.test(r.url()) && r.request().method() === 'DELETE',
+        { timeout: 15000 },
+      );
+      await accept.click();
+      const dr = await delResp;
+      expect([200, 204], `delete status ${dr.status()}`).toContain(dr.status());
+      await expect(
+        page.locator(`[data-testid="ai-endpoint-row-${B}"]`),
+        'deleted endpoint row disappears',
+      ).toBeHidden({ timeout: 8000 });
+      liveSlug = ''; // deleted — nothing to clean up
+
+      // ── Delete persists across HARD reload ──
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(2500);
+      await expect(
+        page.locator(`[data-testid="ai-endpoint-row-${B}"]`),
+        'delete persists across hard reload',
+      ).toBeHidden({ timeout: 8000 });
+
+      await assertAlive(page);
+      expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+      expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+      expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+    } finally {
+      if (liveSlug) {
+        await page
+          .evaluate(async (slug) => {
+            const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
+            const list = await fetch('/api/sites/e2e-site-3/ai-endpoints', {
+              headers: { Authorization: `Bearer ${s.token}` },
+            })
+              .then((r) => r.json())
+              .catch(() => ({}));
+            const rows = (list?.data ?? []) as Array<{ id: string; endpoint_slug?: string }>;
+            const mine = rows.find((x) => x.endpoint_slug === slug);
+            if (mine) {
+              await fetch(`/api/sites/e2e-site-3/ai-endpoints/${mine.id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${s.token}` },
+              }).catch(() => {});
+            }
+          }, liveSlug)
           .catch(() => {});
       }
     }
