@@ -229,12 +229,22 @@ export async function recordSpend(
   const microUsd = Math.round(parsed.data.usd * MICRO_PER_USD);
   if (microUsd <= 0) return;
 
+  // usage_events has NO created_at/updated_at columns — `dbInsert` auto-prepends
+  // them, so its INSERT threw `no such column: created_at` every time → swallowed →
+  // the AI-spend billing meter recorded NOTHING ($0 forever). Use an explicit
+  // dbExecute over the 8 real columns.
+  //
+  // dbExecute NEVER throws — it swallows the D1 error internally and returns
+  // `{ error }`. A bare try/catch here was DEAD CODE for that real failure mode: a
+  // dropped spend INSERT (schema drift / D1 outage) silently under-counted the budget
+  // meter with only db.ts's generic `d1_exec_error` line — recordSpend's own
+  // billing-context warn never fired. Capture the returned `error` (belt-and-suspenders
+  // catch for a binding-level throw) and surface the drop with org/model/tokens so a
+  // spend-tracking failure is OBSERVABLE. Stays best-effort: never throws (a spend write
+  // must not break the LLM call / build).
+  let execError: string | null = null;
   try {
-    // usage_events has NO created_at/updated_at columns — `dbInsert` auto-prepends
-    // them, so its INSERT threw `no such column: created_at` every time → swallowed →
-    // the AI-spend billing meter recorded NOTHING ($0 forever). Use an explicit
-    // dbExecute over the 8 real columns.
-    await dbExecute(
+    const res = await dbExecute(
       env.DB,
       `INSERT INTO usage_events (id, org_id, site_id, metric, value, ts, billed, stripe_subscription_item_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -248,7 +258,11 @@ export async function recordSpend(
         null,
       ],
     );
+    execError = res.error;
   } catch (err) {
+    execError = err instanceof Error ? err.message : String(err);
+  }
+  if (execError) {
     console.warn(
       JSON.stringify({
         level: 'warn',
@@ -259,7 +273,8 @@ export async function recordSpend(
         model: parsed.data.model,
         tokens_in: parsed.data.tokensIn,
         tokens_out: parsed.data.tokensOut,
-        error: err instanceof Error ? err.message : String(err),
+        micro_usd: microUsd,
+        error: execError,
       }),
     );
   }

@@ -114,7 +114,7 @@ describe('recordSpend', () => {
     expect(inserts.length).toBe(0);
   });
 
-  it('swallows an insert failure (best-effort — never throws)', async () => {
+  it('logs the drop with billing context on an insert failure (best-effort — never throws)', async () => {
     const throwingDb = {
       prepare: jest.fn(() => ({
         bind: jest.fn(() => ({ run: jest.fn().mockRejectedValue(new Error('d1 down')) })),
@@ -123,6 +123,18 @@ describe('recordSpend', () => {
     await expect(
       recordSpend({ DB: throwingDb }, 'org-1', { model: 'm', usd: 1.5 }),
     ).resolves.toBeUndefined();
+    // dbExecute swallows the D1 error and returns `{ error }` (it never throws), so the
+    // old dead try/catch never surfaced the drop — only db.ts's generic d1_exec_error
+    // fired. recordSpend MUST now log its OWN billing-context warn (org/model) so an
+    // under-counted AI-spend budget meter is observable, not silent.
+    // A dropped spend write MUST log the billing-context warn (jest here rejects the
+    // 2-arg expect(value, message) form — keep the rationale in this comment).
+    const warned = (console.warn as jest.Mock).mock.calls
+      .map((c) => String(c[0]))
+      .find((s) => s.includes('failed to record spend'));
+    expect(warned).toBeTruthy();
+    expect(warned).toContain('org-1');
+    expect(warned).toContain('"model":"m"');
   });
 
   it('uses the canonical AI_SPEND_METRIC name', () => {
