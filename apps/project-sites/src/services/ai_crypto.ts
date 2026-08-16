@@ -94,3 +94,30 @@ export async function decrypt(env: Env, blob: string): Promise<string> {
     return decryptWithKey(oldKey, blob);
   }
 }
+
+/**
+ * Decrypt a stored secret to plaintext, falling back to the raw value when it is
+ * NOT a valid ciphertext.
+ *
+ * @remarks
+ * Migration-free reader for a column that historically stored plaintext and now
+ * stores {@link encrypt} ciphertext. An encrypted blob decrypts normally; a legacy
+ * plaintext value fails AES-GCM (the GCM auth tag makes accidental valid-decryption
+ * impossible) and is returned unchanged — it re-encrypts on the owner's next write.
+ * Use at every read site of a newly-encrypted column so old rows keep working with
+ * no data migration.
+ *
+ * @example
+ * ```ts
+ * const token = await decryptOrPassthrough(env, row.access_token_encrypted);
+ * ```
+ * @see {@link encrypt}
+ * @see {@link decrypt}
+ */
+export async function decryptOrPassthrough(env: Env, stored: string): Promise<string> {
+  try {
+    return await decrypt(env, stored);
+  } catch {
+    return stored; // legacy plaintext (pre-encryption row)
+  }
+}

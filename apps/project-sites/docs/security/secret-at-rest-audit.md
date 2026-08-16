@@ -2,7 +2,7 @@
 
 > Ledger item #75. Audit of the AES-GCM encryption-at-rest layer + the
 > zero-downtime rotation story for `MCP_ENCRYPTION_KEY`.
-> Last audited: 2026-06-28 (loop fire).
+> Last audited: 2026-06-28 (loop fire); re-swept 2026-08-16 (2 plaintext columns found + fixed).
 
 ## 1. What is encrypted at rest
 
@@ -14,22 +14,35 @@ Every user-supplied secret stored in D1 is AES-GCM encrypted via
 - **`google_drive.ts`** — Drive OAuth tokens.
 - **`outbound_webhooks.ts`** — webhook signing material.
 - **`social_account_ctx.ts`** — social-platform tokens.
+- **`forms.ts`** — customer newsletter-provider API keys (`newsletter_integrations.api_key_encrypted`). ⚠️ Was plaintext despite the column name until 2026-08-16 (iter-110).
+- **`api.ts` (GitHub backup)** — customer GitHub OAuth tokens (`github_integrations.access_token_encrypted`). ⚠️ Was plaintext until 2026-08-16.
 
 All route through the single `encrypt`/`decrypt` seam — no bespoke crypto.
 
+**Migration-free reader.** The two 2026-08-16 fixes read via
+`decryptOrPassthrough(env, stored)` (`ai_crypto.ts`) — it decrypts a ciphertext blob and
+returns a legacy PLAINTEXT value unchanged (AES-GCM rejects it), so pre-encryption rows keep
+working and re-encrypt on the owner's next write. No backfill migration required.
+
+**Audit method (re-runnable).** `grep -rnE "[a-z_]*_(encrypted|secret|key)['\"]?\s*[:=]" src/`
+then trace each write — the value MUST be wrapped in `encrypt(...)`. A `*_encrypted` column
+whose write stores a raw request value (the GitHub + newsletter bugs) is the class. All other
+`*_encrypted` columns verified encrypted (social_oauth `await encrypt`, mcp_oauth `encTok`,
+apps env decrypts-on-read, webhook secret decrypts-on-read).
+
 ## 2. Crypto properties (verified)
 
-| Property | Status | Evidence |
-|---|---|---|
-| Algorithm | ✅ AES-256-GCM (authenticated) | `importRawKey` → `{name:'AES-GCM'}`, 32-byte key |
-| Fresh IV per write (no nonce reuse) | ✅ | `crypto.getRandomValues(new Uint8Array(12))` per `encrypt` call; test "fresh IV per call" |
-| Blob format | ✅ `base64(iv ‖ ciphertext)`, 12-byte IV prefix | `encrypt`/`decryptWithKey` |
-| Tamper rejection | ✅ GCM auth tag | test "REJECTS a tampered ciphertext" |
-| Wrong-key rejection | ✅ | test "REJECTS decryption under a different key" |
-| Key non-extractable | ✅ `importKey(..., false, ...)` — cannot be exported from the isolate | `importRawKey` |
-| Key length validated | ✅ throws unless decodes to exactly 32 bytes | `importRawKey` |
-| Decrypt failure audited | ✅ `event: 'decrypt_failed'` | `ai_env_vars.ts` |
-| Plaintext never logged / never in blob | ✅ | test "ciphertext must not leak plaintext"; decrypted values hidden in list responses |
+| Property                               | Status                                                                | Evidence                                                                                  |
+| -------------------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Algorithm                              | ✅ AES-256-GCM (authenticated)                                        | `importRawKey` → `{name:'AES-GCM'}`, 32-byte key                                          |
+| Fresh IV per write (no nonce reuse)    | ✅                                                                    | `crypto.getRandomValues(new Uint8Array(12))` per `encrypt` call; test "fresh IV per call" |
+| Blob format                            | ✅ `base64(iv ‖ ciphertext)`, 12-byte IV prefix                       | `encrypt`/`decryptWithKey`                                                                |
+| Tamper rejection                       | ✅ GCM auth tag                                                       | test "REJECTS a tampered ciphertext"                                                      |
+| Wrong-key rejection                    | ✅                                                                    | test "REJECTS decryption under a different key"                                           |
+| Key non-extractable                    | ✅ `importKey(..., false, ...)` — cannot be exported from the isolate | `importRawKey`                                                                            |
+| Key length validated                   | ✅ throws unless decodes to exactly 32 bytes                          | `importRawKey`                                                                            |
+| Decrypt failure audited                | ✅ `event: 'decrypt_failed'`                                          | `ai_env_vars.ts`                                                                          |
+| Plaintext never logged / never in blob | ✅                                                                    | test "ciphertext must not leak plaintext"; decrypted values hidden in list responses      |
 
 The key is provided as a Worker **secret** (`MCP_ENCRYPTION_KEY`, base64 of 32
 random bytes), never committed. Per repo CLAUDE.md it is **Tier 1.5 data-at-rest**
@@ -77,7 +90,7 @@ fallback) and redeploy — both keys decrypt during the overlap, so no data is l
 ## 4. Residual risks / non-goals
 
 - **Re-keying does NOT re-IV existing blobs** until they are rewritten — that is
-  fine (each blob already has its own random IV; rotation changes the *key*, not
+  fine (each blob already has its own random IV; rotation changes the _key_, not
   the per-blob IV).
 - **No HSM / KMS** — the key lives as a Worker secret in the isolate, decrypted in
   memory per request. Acceptable for this tier; a future hardening could front it

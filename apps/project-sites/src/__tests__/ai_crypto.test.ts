@@ -13,7 +13,7 @@
  * Uses real `crypto.subtle` (Node 22 WebCrypto). No mocks — these are pure
  * crypto assertions.
  */
-import { encrypt, decrypt } from '../services/ai_crypto.js';
+import { encrypt, decrypt, decryptOrPassthrough } from '../services/ai_crypto.js';
 import type { Env } from '../types/env.js';
 
 // 32 raw bytes → base64 (getKey requires the secret to decode to exactly 32).
@@ -89,5 +89,21 @@ describe('ai_crypto AES-GCM', () => {
     // Primary KEY_B, old also wrong → both fail → surfaces the error.
     const env = envRotating(KEY_B, btoa('zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz'));
     await expect(decrypt(env, blob)).rejects.toThrow();
+  });
+
+  // ── decryptOrPassthrough: migration-free reader for a newly-encrypted column ──
+  it('decryptOrPassthrough decrypts a real ciphertext blob', async () => {
+    const env = envWith(KEY_A);
+    const blob = await encrypt(env, 'ghp_encrypted_token');
+    expect(await decryptOrPassthrough(env, blob)).toBe('ghp_encrypted_token');
+  });
+
+  it('decryptOrPassthrough returns a LEGACY PLAINTEXT value unchanged (never garbles it)', async () => {
+    const env = envWith(KEY_A);
+    // Pre-encryption plaintext secrets are not valid iv‖ct GCM blobs → passthrough,
+    // so legacy rows keep working with no data migration.
+    for (const legacy of ['ghp_legacy_plaintext_token_123', 'sk-plain', 'not base64!!!']) {
+      expect(await decryptOrPassthrough(env, legacy)).toBe(legacy);
+    }
   });
 });

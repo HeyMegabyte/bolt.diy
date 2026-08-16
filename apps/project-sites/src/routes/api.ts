@@ -184,6 +184,7 @@ import { suggestDomains, type DomainSuggestion } from '../services/domain_sugges
 import { gatherProfileContext } from '../services/profile_context.js';
 import { indexSiteFiles, resolvePublishOrgId } from '../services/rag_publish.js';
 import { semanticSearch } from '../services/rag.js';
+import { encrypt, decryptOrPassthrough } from '../services/ai_crypto.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 
 const api = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -9198,6 +9199,9 @@ api.get('/api/sites/:id/github/callback', async (c) => {
   );
 
   const nowIso = new Date().toISOString();
+  // The customer's GitHub OAuth token grants read/write to their repos — encrypt it
+  // at rest (the column name always promised it; it previously stored plaintext).
+  const accessTokenEncrypted = await encrypt(c.env, accessToken);
   if (existing) {
     await c.env.DB.prepare(
       `UPDATE github_integrations SET
@@ -9207,7 +9211,7 @@ api.get('/api/sites/:id/github/callback', async (c) => {
        WHERE id = ?`,
     )
       .bind(
-        accessToken,
+        accessTokenEncrypted,
         ghUser.login,
         ghUser.id,
         ghUser.avatar_url ?? null,
@@ -9224,7 +9228,7 @@ api.get('/api/sites/:id/github/callback', async (c) => {
       id: crypto.randomUUID(),
       site_id: site.id,
       org_id: site.org_id,
-      access_token_encrypted: accessToken,
+      access_token_encrypted: accessTokenEncrypted,
       github_user: ghUser.login,
       github_user_id: ghUser.id,
       github_avatar_url: ghUser.avatar_url ?? null,
@@ -9295,7 +9299,9 @@ api.post('/api/sites/:id/github/backup', async (c) => {
   const buildVersion = site.current_build_version as string | null;
   if (!buildVersion) throw badRequest('Site has no published build to back up');
 
-  const token = integration.access_token_encrypted;
+  // Decrypt the stored OAuth token to plaintext for the GitHub API call; legacy
+  // plaintext rows pass through unchanged (re-encrypt on the owner's next connect).
+  const token = await decryptOrPassthrough(c.env, integration.access_token_encrypted);
   const { repo_owner: owner, repo_name: repo, default_branch: branch } = integration;
   const prefix = `sites/${site.slug as string}/${buildVersion}/`;
 
