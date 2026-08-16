@@ -803,14 +803,22 @@ export async function callExternalLLM(
   const promptId = options.traceContext?.promptId;
 
   for (const provider of providers) {
+    // The caller's explicit `options.model` belongs to the PRIMARY provider only.
+    // When the loop falls back to a DIFFERENT provider, sending a cross-vendor model
+    // name (e.g. a `claude-*` model to OpenAI) 404s — so the fallback provider uses
+    // its OWN default model. Root cause of the auto-pilot preview + cron 502:
+    // provider:'anthropic' + model:'claude-sonnet-4-6' fell back to OpenAI, which
+    // 404'd "model `claude-sonnet-4-6` does not exist".
+    const model =
+      provider === primary ? (options.model ?? DEFAULT_MODELS[provider]) : DEFAULT_MODELS[provider];
+
     // Circuit breaker: skip provider if circuit is open
     if (isCircuitOpen(provider)) {
       llmLog.info('circuit_open_skip', { provider });
-      const skipModel = options.model ?? DEFAULT_MODELS[provider];
       void safeCaptureLLM(env, {
         distinctId,
         provider,
-        model: skipModel,
+        model,
         promptId,
         latencyMs: 0,
         status: 'circuit_open',
@@ -828,7 +836,6 @@ export async function callExternalLLM(
 
     if (!apiKey) continue;
 
-    const model = options.model ?? DEFAULT_MODELS[provider];
     const start = Date.now();
 
     try {
@@ -971,13 +978,18 @@ export async function callExternalLLMWithVision(
   const promptId = options.traceContext?.promptId;
 
   for (const provider of providers) {
+    // Same provider-scoped model rule as callExternalLLM: the explicit model belongs
+    // to the primary provider; a fallback to the other vendor uses its own default
+    // (a cross-vendor model name 404s).
+    const model =
+      provider === primary ? (options.model ?? DEFAULT_MODELS[provider]) : DEFAULT_MODELS[provider];
+
     if (isCircuitOpen(provider)) {
       llmLog.info('circuit_open_skip_vision', { provider });
-      const skipModel = options.model ?? DEFAULT_MODELS[provider];
       void safeCaptureLLM(env, {
         distinctId,
         provider,
-        model: skipModel,
+        model,
         promptId,
         latencyMs: 0,
         status: 'circuit_open',
@@ -991,7 +1003,6 @@ export async function callExternalLLMWithVision(
 
     if (!apiKey) continue;
 
-    const model = options.model ?? DEFAULT_MODELS[provider];
     const start = Date.now();
 
     try {

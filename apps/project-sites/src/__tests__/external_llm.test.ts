@@ -183,6 +183,26 @@ describe('provider routing', () => {
     const res = await callExternalLLM(makeEnv(), { system: 's', user: 'u', model: 'gpt-4o-mini' });
     expect(res.model_used).toBe('gpt-4o-mini');
   });
+
+  it('falls back to the OpenAI DEFAULT model, NOT the caller cross-vendor model, when the primary is unavailable', async () => {
+    // Regression: provider:'anthropic' + a claude model, but ANTHROPIC_API_KEY absent
+    // → the loop skips anthropic and falls to OpenAI. The OpenAI request MUST carry
+    // the OpenAI default model, never the caller's `claude-*` (OpenAI 404s it — the
+    // auto-pilot preview + cron 502'd "model `claude-sonnet-4-6` does not exist").
+    mockGatewayFetch.mockResolvedValueOnce(gwOk(openAIBody()));
+    const env = makeEnv({ ANTHROPIC_API_KEY: undefined });
+    const res = await callExternalLLM(env, {
+      system: 's',
+      user: 'u',
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-6',
+    });
+    expect(res.provider).toBe('openai');
+    expect(res.model_used).toBe('gpt-4o-2024-11-20');
+    // OpenAI fallback must NOT receive the claude model (Jest expect takes 1 arg).
+    const body = JSON.parse((mockGatewayFetch.mock.calls[0][3] as RequestInit).body as string);
+    expect(body.model).toBe('gpt-4o-2024-11-20');
+  });
 });
 
 // ─── OpenAI request build + auth header + param passthrough ────────────────────
