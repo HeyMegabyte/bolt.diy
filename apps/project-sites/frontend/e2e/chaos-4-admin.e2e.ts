@@ -168,6 +168,89 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
     );
   });
 
+  // M2 — Settings › General business identity round-trips to the SERVER. The
+  // render/tab sweeps never SAVE. saveGeneral writes business_phone via
+  // api.updateSite (site record) then calls state.loadData(); loadGeneral reads it
+  // back from selectedSite() (i.e. GET /api/sites). Code analysis says the read
+  // source = the write source — but only a live prod run proves the full
+  // updateSite → /api/sites → loadGeneral round-trip actually persists (verify-
+  // against-source-of-truth: correct-looking wiring ≠ a working server round-trip).
+  // Mutate → nav away → return → HARD RELOAD → assert the server echoed it, then
+  // restore the original value (the E2E org's site is left unchanged).
+  test('Settings › General business phone round-trips to the SERVER (save → nav → hard-reload → restore)', async ({
+    page,
+  }) => {
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+
+    const openGeneral = async (): Promise<void> => {
+      const tab = page
+        .getByRole('tab', { name: 'General' })
+        .or(page.locator('[role="tab"]:has-text("General"), button:has-text("General")'))
+        .first();
+      if (await tab.isVisible().catch(() => false)) {
+        await tab.click().catch(() => {});
+        await page.waitForTimeout(700);
+      }
+    };
+
+    await page.goto('/admin/settings', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
+    await openGeneral();
+
+    const phone = page.locator('[data-testid="business-phone"]');
+    // The General identity form only renders when the org has a selected site.
+    await expect(
+      phone,
+      'Settings › General business form must be reachable (E2E org has a site)',
+    ).toBeVisible({ timeout: 15_000 });
+
+    const original = await phone.inputValue();
+    const testVal = `+1555${Date.now().toString().slice(-7)}`;
+    const save = page.locator('[data-testid="general-save"]');
+
+    await phone.fill(testVal);
+    await expect(save, 'Save un-disables when the form is dirty').toBeEnabled({ timeout: 5000 });
+    await save.click();
+    await expect(page.getByText(/^Saved$/i).first()).toBeVisible({ timeout: 15_000 });
+
+    // Navigate away → return: the value survives an in-app route change (loadData).
+    await page.goto('/admin/analytics', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1500);
+    await page.goto('/admin/settings', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2500);
+    await openGeneral();
+    await expect(
+      page.locator('[data-testid="business-phone"]'),
+      'business_phone did not survive an in-app navigation',
+    ).toHaveValue(testVal, { timeout: 10_000 });
+
+    // HARD RELOAD: proves the value came from the SERVER (GET /api/sites), not
+    // in-memory admin state — the write-only / lying-success guard.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
+    await openGeneral();
+    await expect(
+      page.locator('[data-testid="business-phone"]'),
+      'business_phone did NOT persist to the server (write-only / lying-success)',
+    ).toHaveValue(testVal, { timeout: 12_000 });
+
+    // Restore the original value so the E2E org's site record is left unchanged.
+    const phone2 = page.locator('[data-testid="business-phone"]');
+    await phone2.fill(original);
+    await expect(save).toBeEnabled({ timeout: 5000 });
+    await save.click();
+    await page
+      .getByText(/^Saved$/i)
+      .first()
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .catch(() => {});
+
+    expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+    expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+    expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+  });
+
   // M2 — the one flow the render/interaction sweeps never exercise: mutate real
   // state → navigate away → return → HARD RELOAD → verify PERSISTENCE. Uses AI Env
   // Vars (org-scoped config — the safest reversible CRUD; namespaced test key,
