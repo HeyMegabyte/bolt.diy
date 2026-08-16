@@ -13,13 +13,18 @@
  * | POST   | /api/v1-tokens      | `{ name, scopes[], expires_at? }` → `{ token, plaintext, warning }` (plaintext shown ONCE) |
  * | DELETE | /api/v1-tokens/:id  | revoke → `{ ok: true }`                                    |
  *
- * Gated on the `public_api` flag (stable, on) — 404 (never 403) when off.
+ * UNCONDITIONAL (not flag-gated): migration `0614_unflag_and_remove_flags.sql`
+ * un-flagged `public_api` ("feature kept, gate dropped … now unconditional") and
+ * stripped the `isFlagOn` checks from the sibling routes — but this file was
+ * missed, so it kept gating on the now-unresolvable `public_api` flag, which made
+ * `isFlagOn` return false and 404 the whole feature. The gate is now removed; the
+ * handlers are guarded by auth (orgId) only. Guarded by `api_tokens_admin_route`
+ * spec so the dead-flag gate can't be reintroduced.
  *
  * @packageDocumentation
  */
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
-import { isFlagOn } from '../modules/feature_flags/services.js';
 import {
   createApiToken,
   listApiTokens,
@@ -32,14 +37,9 @@ type AppContext = { Bindings: Env; Variables: Variables };
 
 export const apiTokensAdmin = new Hono<AppContext>();
 
-const FLAG_KEY = 'public_api';
-
 /** GET /api/v1-tokens — list the caller org's tokens (metadata only). */
 apiTokensAdmin.get('/api/v1-tokens', async (c) => {
   const orgId = c.get('orgId');
-  if (!(await isFlagOn(c.env, FLAG_KEY, { userId: c.get('userId') ?? '', orgId }))) {
-    return c.json({ error: { code: 'NOT_FOUND', message: 'Resource not found.' } }, 404);
-  }
   if (!orgId) {
     return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required.' } }, 401);
   }
@@ -50,9 +50,6 @@ apiTokensAdmin.get('/api/v1-tokens', async (c) => {
 /** POST /api/v1-tokens — mint a token. Plaintext is returned ONCE, never stored. */
 apiTokensAdmin.post('/api/v1-tokens', async (c) => {
   const orgId = c.get('orgId');
-  if (!(await isFlagOn(c.env, FLAG_KEY, { userId: c.get('userId') ?? '', orgId }))) {
-    return c.json({ error: { code: 'NOT_FOUND', message: 'Resource not found.' } }, 404);
-  }
   if (!orgId) {
     return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required.' } }, 401);
   }
@@ -120,9 +117,6 @@ apiTokensAdmin.post('/api/v1-tokens', async (c) => {
 /** DELETE /api/v1-tokens/:id — revoke a token the caller org owns. */
 apiTokensAdmin.delete('/api/v1-tokens/:id', async (c) => {
   const orgId = c.get('orgId');
-  if (!(await isFlagOn(c.env, FLAG_KEY, { userId: c.get('userId') ?? '', orgId }))) {
-    return c.json({ error: { code: 'NOT_FOUND', message: 'Resource not found.' } }, 404);
-  }
   if (!orgId) {
     return c.json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required.' } }, 401);
   }
