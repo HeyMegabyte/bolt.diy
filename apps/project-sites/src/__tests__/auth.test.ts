@@ -11,11 +11,13 @@ import {
   createMagicLink,
   verifyMagicLink,
   createGoogleOAuthState,
+  createGitHubOAuthState,
   handleGoogleOAuthCallback,
   createSession,
   getSession,
   revokeSession,
   revokeOtherUserSessions,
+  findOrCreateUser,
   getUserSessions,
 } from '../services/auth.js';
 import { AppError } from '@project-sites/shared';
@@ -103,6 +105,13 @@ describe('createMagicLink', () => {
       }),
     );
   });
+
+  it('THROWS on a dropped magic_links insert — never mail a link whose token has no DB row', async () => {
+    // The row IS the credential; a swallowed insert error would send a sign-in email
+    // pointing at a token that can never verify ("invalid or expired link").
+    mockDbInsert.mockResolvedValue({ error: 'D1_ERROR: database is locked' });
+    await expect(createMagicLink(mockDb, mockEnv, input)).rejects.toThrow(/persist magic link/i);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -163,13 +172,41 @@ describe('verifyMagicLink', () => {
 
     await verifyMagicLink(mockDb, input);
 
+    // Compare-and-swap: the WHERE gates on `used = 0` so consumption is atomic.
     expect(mockDbUpdate).toHaveBeenCalledWith(
       mockDb,
       'magic_links',
       expect.objectContaining({ used: 1 }),
-      'id = ?',
+      'id = ? AND used = 0',
       ['link-3'],
     );
+  });
+
+  it('throws "already been used" when the CAS consumes 0 rows (race/replay — no 2nd session)', async () => {
+    const futureDate = new Date(Date.now() + 3_600_000).toISOString();
+    mockDbQueryOne.mockResolvedValueOnce({
+      id: 'link-race',
+      email: 'race@example.com',
+      redirect_url: null,
+      used: 0,
+      expires_at: futureDate,
+    });
+    // A concurrent verify flipped used 0→1 between our SELECT and UPDATE → changes 0.
+    mockDbUpdate.mockResolvedValueOnce({ error: null, changes: 0 });
+    await expect(verifyMagicLink(mockDb, input)).rejects.toThrow(/already been used/i);
+  });
+
+  it('throws on a dropped mark-used write (never mint a session on a swallowed consume error)', async () => {
+    const futureDate = new Date(Date.now() + 3_600_000).toISOString();
+    mockDbQueryOne.mockResolvedValueOnce({
+      id: 'link-boom',
+      email: 'boom@example.com',
+      redirect_url: null,
+      used: 0,
+      expires_at: futureDate,
+    });
+    mockDbUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: database is locked', changes: 0 });
+    await expect(verifyMagicLink(mockDb, input)).rejects.toThrow(/consume magic link/i);
   });
 });
 
@@ -271,6 +308,38 @@ describe('createGoogleOAuthState', () => {
         provider: 'google',
       }),
     );
+  });
+
+  it('THROWS on a dropped oauth_states insert — never redirect to Google with a state that cannot validate', async () => {
+    // A swallowed insert error would redirect the user to Google with a state that has
+    // no DB row → they authenticate, return, and hit "Invalid OAuth state".
+    mockDbInsert.mockResolvedValue({ error: 'D1_ERROR: database is locked' });
+    await expect(createGoogleOAuthState(mockDb, mockEnv)).rejects.toThrow(/persist Google OAuth state/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// createGitHubOAuthState
+// ---------------------------------------------------------------------------
+describe('createGitHubOAuthState', () => {
+  const ghEnv = { ...mockEnv, GITHUB_CLIENT_ID: 'gh-client-id' } as any;
+  beforeEach(() => {
+    mockDbInsert.mockResolvedValue({ error: null });
+  });
+
+  it('stores a github-provider state and returns a github.com authUrl', async () => {
+    const result = await createGitHubOAuthState(mockDb, ghEnv);
+    expect(result.authUrl).toContain('github.com/login/oauth/authorize');
+    expect(mockDbInsert).toHaveBeenCalledWith(
+      mockDb,
+      'oauth_states',
+      expect.objectContaining({ state: result.state, provider: 'github' }),
+    );
+  });
+
+  it('THROWS on a dropped oauth_states insert (same dead-redirect guard as Google)', async () => {
+    mockDbInsert.mockResolvedValue({ error: 'D1_ERROR: database is locked' });
+    await expect(createGitHubOAuthState(mockDb, ghEnv)).rejects.toThrow(/persist GitHub OAuth state/i);
   });
 });
 
@@ -565,5 +634,56 @@ describe('getUserSessions', () => {
     expect(result).toHaveLength(2);
     expect(result[0].id).toBe('s1');
     expect(result[1].device_info).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// findOrCreateUser — ATOMIC first-login account creation (users+orgs+memberships)
+// ---------------------------------------------------------------------------
+describe('findOrCreateUser', () => {
+  // A D1 mock exposing prepare()/batch() so the SUT's atomic 3-table create is
+  // observable. `batchThrows` simulates a failed transaction (rolls back → nothing
+  // recorded), mirroring the iter 17-22 atomicity-test pattern.
+  function batchDb(opts: { batchThrows?: boolean } = {}): { db: D1Database; calls: unknown[][] } {
+    const calls: unknown[][] = [];
+    const db = {
+      prepare: (_sql: string) => ({ bind: (...args: unknown[]) => ({ _args: args }) }),
+      batch: async (stmts: Array<{ _args: unknown[] }>) => {
+        if (opts.batchThrows) throw new Error('D1_ERROR: simulated batch failure');
+        calls.push(stmts.map((s) => s._args));
+        return stmts.map(() => ({ success: true, meta: { changes: 1 } }));
+      },
+    } as unknown as D1Database;
+    return { db, calls };
+  }
+
+  it('returns the existing user + org WITHOUT creating (no batch) when the email is known', async () => {
+    mockDbQueryOne
+      .mockResolvedValueOnce({ id: 'u-existing', email: 'known@x.co' }) // user lookup
+      .mockResolvedValueOnce({ org_id: 'org-existing' }); // membership lookup
+    const { db, calls } = batchDb();
+    const r = await findOrCreateUser(db, { email: 'known@x.co' });
+    expect(r).toEqual({ user_id: 'u-existing', org_id: 'org-existing', is_new: false });
+    expect(calls.length).toBe(0); // existing user must not trigger any write
+  });
+
+  it('creates user+org+membership in ONE atomic db.batch (3 statements) for a new email', async () => {
+    mockDbQueryOne.mockResolvedValueOnce(null); // no existing user
+    const { db, calls } = batchDb();
+    const r = await findOrCreateUser(db, { email: 'new@x.co', display_name: 'New' });
+    expect(r.is_new).toBe(true);
+    expect(r.user_id).toBeTruthy();
+    expect(r.org_id).toBeTruthy();
+    expect(calls.length).toBe(1); // exactly one atomic batch
+    expect(calls[0].length).toBe(3); // batch has all 3 inserts (users, orgs, memberships)
+  });
+
+  it('THROWS (rolls back — no phantom user/org) when the atomic batch fails', async () => {
+    // Previously three sequential bare-await inserts: a dropped write left an orphaned
+    // org + a session for a user whose row never persisted. The atomic batch rejects
+    // → the login handler surfaces a retryable 500, never a half-created account.
+    mockDbQueryOne.mockResolvedValueOnce(null);
+    const { db } = batchDb({ batchThrows: true });
+    await expect(findOrCreateUser(db, { email: 'boom@x.co' })).rejects.toThrow(/batch|D1_ERROR/i);
   });
 });

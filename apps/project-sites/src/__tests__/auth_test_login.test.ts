@@ -18,7 +18,13 @@ import { dbQueryOne } from '../services/db.js';
 import { authenticateTestLogin, TEST_LOGIN_EMAIL } from '../services/auth.js';
 
 const mockDbQueryOne = dbQueryOne as jest.MockedFunction<typeof dbQueryOne>;
-const mockDb = {} as D1Database;
+// findOrCreateUser now creates the account via an ATOMIC db.batch (users+orgs+
+// memberships), so the seam's D1 mock must expose prepare()/batch() — a bare `{}`
+// throws "db.batch is not a function" on the new-user path (iter 17-22 pattern).
+const mockDb = {
+  prepare: (_sql: string) => ({ bind: (..._args: unknown[]) => ({}) }),
+  batch: async (stmts: unknown[]) => stmts.map(() => ({ success: true, meta: { changes: 1 } })),
+} as unknown as D1Database;
 const PASSWORD = 'correct-horse-battery-staple-test';
 
 beforeEach(() => {

@@ -331,7 +331,13 @@ export async function createMagicLink(
     Date.now() + AUTH.MAGIC_LINK_EXPIRY_HOURS * 60 * 60 * 1000,
   ).toISOString();
 
-  await dbInsert(db, 'magic_links', {
+  // The magic_links row IS the credential — it MUST persist before we email a link
+  // pointing at it. A bare await would IGNORE `{error}` and send a sign-in email whose
+  // token has no DB row → the user clicks it, hits "invalid or expired link", and is
+  // stuck. Throw on a dropped credential write (retryable 500) instead of mailing a
+  // dead link. (The EMAIL send below is correctly best-effort — the row is the
+  // credential; a failed email still leaves a usable row + the retry/E2E-peek seam.)
+  const { error: linkError } = await dbInsert(db, 'magic_links', {
     id: crypto.randomUUID(),
     email: validated.email,
     token_hash: tokenHash,
@@ -340,6 +346,9 @@ export async function createMagicLink(
     used: 0,
     deleted_at: null,
   });
+  if (linkError) {
+    throw new Error(`Failed to persist magic link for ${validated.email}: ${linkError}`);
+  }
 
   // Build verify URL and send email
   const baseUrl = `https://${DOMAINS.SITES_BASE}`;
@@ -438,8 +447,26 @@ export async function verifyMagicLink(
     throw unauthorized('Magic link has expired');
   }
 
-  // Mark as used
-  await dbUpdate(db, 'magic_links', { used: 1 }, 'id = ?', [link.id]);
+  // Atomically CONSUME the single-use link — flip used 0→1 in one conditional write.
+  // The old bare await swallowed `{error}` (a dropped write left the link `used=0` →
+  // REPLAYABLE within its 24h expiry) AND the SELECT-`used=0`-then-UPDATE was a TOCTOU
+  // race (two concurrent verifies both passed the SELECT before either marked it used
+  // → two sessions from one link). The compare-and-swap (`WHERE id=? AND used=0` +
+  // a changes check) makes consumption atomic + genuinely single-use.
+  const { error: consumeError, changes } = await dbUpdate(
+    db,
+    'magic_links',
+    { used: 1 },
+    'id = ? AND used = 0',
+    [link.id],
+  );
+  if (consumeError) {
+    throw new Error(`Failed to consume magic link ${link.id}: ${consumeError}`);
+  }
+  if (changes === 0) {
+    // A concurrent verify already consumed it (race/replay) — never mint a 2nd session.
+    throw unauthorized('Magic link has already been used');
+  }
 
   console.warn(
     JSON.stringify({
@@ -480,7 +507,11 @@ export async function createGoogleOAuthState(
 
   const state = randomHex(32);
 
-  await dbInsert(db, 'oauth_states', {
+  // The state row is the CSRF credential the callback validates. A bare await would
+  // IGNORE `{error}` and redirect the user to Google with a state that has no DB row →
+  // they authenticate, return, and get "Invalid OAuth state" at the callback. Throw on
+  // a dropped state write so the flow fails at initiation (retryable), not after login.
+  const { error: stateError } = await dbInsert(db, 'oauth_states', {
     id: crypto.randomUUID(),
     state,
     provider: 'google',
@@ -488,6 +519,9 @@ export async function createGoogleOAuthState(
     expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 min
     deleted_at: null,
   });
+  if (stateError) {
+    throw new Error(`Failed to persist Google OAuth state: ${stateError}`);
+  }
 
   const callbackBase = `https://${DOMAINS.SITES_BASE}`;
 
@@ -572,8 +606,25 @@ export async function handleGoogleOAuthCallback(
     throw unauthorized('OAuth state expired');
   }
 
-  // Delete used state
-  await dbExecute(db, 'DELETE FROM oauth_states WHERE id = ?', [stateRecord.id]);
+  // Delete used state (one-time-use). Best-effort: the auth code is single-use at
+  // Google, so a lingering state (expires in 10 min) is not exploitable — log a
+  // failure rather than fail an otherwise-successful login on a cleanup blip.
+  const { error: stateDeleteError } = await dbExecute(
+    db,
+    'DELETE FROM oauth_states WHERE id = ?',
+    [stateRecord.id],
+  );
+  if (stateDeleteError) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'auth',
+        message: 'oauth_state_delete_failed',
+        provider: 'google',
+        error: stateDeleteError,
+      }),
+    );
+  }
 
   // Exchange code for tokens
   const callbackBase = `https://${DOMAINS.SITES_BASE}`;
@@ -659,7 +710,9 @@ export async function createGitHubOAuthState(
 
   const state = randomHex(32);
 
-  await dbInsert(db, 'oauth_states', {
+  // Same CSRF-credential contract as Google: a dropped state write must not redirect
+  // the user to GitHub with a state that can never validate (→ "Invalid OAuth state").
+  const { error: stateError } = await dbInsert(db, 'oauth_states', {
     id: crypto.randomUUID(),
     state,
     provider: 'github',
@@ -667,6 +720,9 @@ export async function createGitHubOAuthState(
     expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
     deleted_at: null,
   });
+  if (stateError) {
+    throw new Error(`Failed to persist GitHub OAuth state: ${stateError}`);
+  }
 
   const params = new URLSearchParams({
     client_id: env.GITHUB_CLIENT_ID,
@@ -715,8 +771,23 @@ export async function handleGitHubOAuthCallback(
     throw unauthorized('OAuth state expired');
   }
 
-  // Delete used state
-  await dbExecute(db, 'DELETE FROM oauth_states WHERE id = ?', [stateRecord.id]);
+  // Delete used state (one-time-use). Best-effort — see the Google callback note.
+  const { error: stateDeleteError } = await dbExecute(
+    db,
+    'DELETE FROM oauth_states WHERE id = ?',
+    [stateRecord.id],
+  );
+  if (stateDeleteError) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'auth',
+        message: 'oauth_state_delete_failed',
+        provider: 'github',
+        error: stateDeleteError,
+      }),
+    );
+  }
 
   // Exchange code for access token
   const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
@@ -1235,30 +1306,35 @@ export async function findOrCreateUser(
   const randomSuffix = crypto.randomUUID().substring(0, 6);
   const slug = `${slugBase}-${randomSuffix}`;
 
-  await dbInsert(db, 'users', {
-    id: userId,
-    email: opts.email ?? null,
-    phone: null,
-    display_name: opts.display_name ?? null,
-    avatar_url: opts.avatar_url ?? null,
-    deleted_at: null,
-  });
-
-  await dbInsert(db, 'orgs', {
-    id: orgId,
-    name: opts.email ?? 'Personal',
-    slug,
-    deleted_at: null,
-  });
-
-  await dbInsert(db, 'memberships', {
-    id: membershipId,
-    org_id: orgId,
-    user_id: userId,
-    role: 'owner',
-    billing_admin: 1,
-    deleted_at: null,
-  });
+  // Atomic 3-table account creation (users → orgs → memberships). These were THREE
+  // sequential bare-await dbInsert calls that IGNORED `{error}`: a dropped `users`
+  // insert still ran the orgs + memberships inserts (memberships FK-references a
+  // now-absent user → cascade failure + an orphaned org) and the function returned a
+  // `user_id` whose row never persisted → `createSession` then minted a session for a
+  // PHANTOM user (401 on every request). `db.batch` is an implicit transaction — any
+  // statement error rejects + rolls back the whole account, so first-login is
+  // all-or-nothing (the iter 17-22 atomicity pattern). A reject propagates to the
+  // login handler's error boundary → retryable 500 (never a half-created account).
+  const now = new Date().toISOString();
+  await db.batch([
+    db
+      .prepare(
+        `INSERT INTO users (id, email, phone, display_name, avatar_url, deleted_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(userId, opts.email ?? null, null, opts.display_name ?? null, opts.avatar_url ?? null, null, now, now),
+    db
+      .prepare(
+        `INSERT INTO orgs (id, name, slug, deleted_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(orgId, opts.email ?? 'Personal', slug, null, now, now),
+    db
+      .prepare(
+        `INSERT INTO memberships (id, org_id, user_id, role, billing_admin, deleted_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(membershipId, orgId, userId, 'owner', 1, null, now, now),
+  ]);
 
   console.warn(
     JSON.stringify({
