@@ -33,29 +33,29 @@ function fullZonePayload() {
           {
             totals: [
               {
-                sum: { requests: 1000, pageViews: 620, edgeResponseBytes: 50_000 },
-                uniq: { uniques: 240 },
+                count: 1000,
+                sum: { visits: 620, edgeResponseBytes: 50_000 },
               },
             ],
             byDay: [
               {
                 dimensions: { date: '2026-05-30' },
-                sum: { requests: 400, pageViews: 250, edgeResponseBytes: 20_000 },
-                uniq: { uniques: 90 },
+                count: 400,
+                sum: { visits: 250, edgeResponseBytes: 20_000 },
               },
               {
                 dimensions: { date: '2026-05-31' },
-                sum: { requests: 600, pageViews: 370, edgeResponseBytes: 30_000 },
-                uniq: { uniques: 150 },
+                count: 600,
+                sum: { visits: 370, edgeResponseBytes: 30_000 },
               },
             ],
             topPaths: [
-              { dimensions: { clientRequestPath: '/' }, sum: { requests: 700 } },
-              { dimensions: { clientRequestPath: '/about' }, sum: { requests: 300 } },
+              { dimensions: { clientRequestPath: '/' }, count: 700 },
+              { dimensions: { clientRequestPath: '/about' }, count: 300 },
             ],
             byCountry: [
-              { dimensions: { clientCountryName: 'United States' }, sum: { requests: 800 } },
-              { dimensions: { clientCountryName: 'Canada' }, sum: { requests: 200 } },
+              { dimensions: { clientCountryName: 'United States' }, count: 800 },
+              { dimensions: { clientCountryName: 'Canada' }, count: 200 },
             ],
           },
         ],
@@ -136,6 +136,26 @@ describe('loadSiteTraffic — request build + auth', () => {
     const out = await loadSiteTraffic(makeEnv(), 'vitos-mens-salon');
     expect(out.range_days).toBe(7);
   });
+
+  // The dataset was renamed to `httpRequestsAdaptiveGroups` but the field selection
+  // kept LEGACY names (`sum { requests pageViews }`, `orderBy [sum_requests_DESC]`,
+  // `$host: string!`) → CF rejected EVERY call with `unknown field "requests"`, so the
+  // zone-analytics fallback never worked (fired on every /api/analytics/:siteId call).
+  it('uses adaptive-groups schema (count + sum.visits), not the legacy sum.requests/pageViews', async () => {
+    mockFetch.mockResolvedValueOnce(gqlResponse(fullZonePayload()));
+    await loadSiteTraffic(makeEnv(), 'vitos-mens-salon', 7);
+    const query = JSON.parse(mockFetch.mock.calls[0][1].body as string).query as string;
+    // Adaptive groups expose the request count as the top-level `count` scalar, not
+    // `sum { requests }`, and have no `pageViews` sum field (`visits` is the proxy).
+    expect(query).toMatch(/\bcount\b/);
+    expect(query).toContain('visits');
+    expect(query).not.toContain('pageViews');
+    expect(query).not.toContain('requests'); // no `sum { requests }` nor `sum_requests_DESC`
+    expect(query).not.toContain('uniq'); // adaptive-groups has no `uniq` selector
+    // GraphQL's scalar is `String` (capitalized) — `string!` is invalid.
+    expect(query).not.toMatch(/\$host:\s*string!/);
+    expect(query).toMatch(/\$host:\s*String!/);
+  });
 });
 
 // ─── loadSiteTraffic: time-range clamping ─────────────────────
@@ -186,11 +206,12 @@ describe('loadSiteTraffic — success parse + aggregation', () => {
 
     expect(out.total_requests).toBe(1000);
     expect(out.page_views).toBe(620);
-    expect(out.unique_visitors).toBe(240);
+    // Adaptive-groups has no `uniq` selector → per-host uniques unavailable → 0.
+    expect(out.unique_visitors).toBe(0);
 
     expect(out.by_day).toEqual([
-      { day: '2026-05-30', requests: 400, page_views: 250, unique_visitors: 90, bytes: 20_000 },
-      { day: '2026-05-31', requests: 600, page_views: 370, unique_visitors: 150, bytes: 30_000 },
+      { day: '2026-05-30', requests: 400, page_views: 250, unique_visitors: 0, bytes: 20_000 },
+      { day: '2026-05-31', requests: 600, page_views: 370, unique_visitors: 0, bytes: 30_000 },
     ]);
 
     expect(out.top_paths).toEqual([

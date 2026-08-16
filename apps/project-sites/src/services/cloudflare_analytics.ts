@@ -115,21 +115,24 @@ export async function loadSiteTraffic(env: Env, slug: string, days = 7): Promise
 
   // The adaptive groups dataset replaced httpRequests1dGroups for new
   // queries — keep both code paths if needed, but prefer adaptive.
+  // `httpRequestsAdaptiveGroups` exposes the request count as the top-level `count`
+  // scalar (NOT `sum { requests }`) and has no `pageViews` sum field — `sum { visits }`
+  // is the page-view/session proxy at the edge. The dataset was renamed here but the
+  // field selection was left as the LEGACY `httpRequests1dGroups` schema (`sum { requests
+  // pageViews }`, `orderBy [sum_requests_DESC]`, `$host: string!`), so CF rejected EVERY
+  // call with `unknown field "requests"` and this zone fallback never returned data.
   const query = /* GraphQL */ `
-    query SiteTraffic($zoneTag: String!, $since: Time!, $until: Time!, $host: string!) {
+    query SiteTraffic($zoneTag: String!, $since: Time!, $until: Time!, $host: String!) {
       viewer {
         zones(filter: { zoneTag: $zoneTag }) {
           totals: httpRequestsAdaptiveGroups(
             limit: 1
             filter: { datetime_geq: $since, datetime_leq: $until, clientRequestHTTPHost: $host }
           ) {
+            count
             sum {
-              requests
-              pageViews
+              visits
               edgeResponseBytes
-            }
-            uniq {
-              uniques
             }
           }
           byDay: httpRequestsAdaptiveGroups(
@@ -140,38 +143,31 @@ export async function loadSiteTraffic(env: Env, slug: string, days = 7): Promise
             dimensions {
               date
             }
+            count
             sum {
-              requests
-              pageViews
+              visits
               edgeResponseBytes
-            }
-            uniq {
-              uniques
             }
           }
           topPaths: httpRequestsAdaptiveGroups(
             limit: 25
             filter: { datetime_geq: $since, datetime_leq: $until, clientRequestHTTPHost: $host }
-            orderBy: [sum_requests_DESC]
+            orderBy: [count_DESC]
           ) {
             dimensions {
               clientRequestPath
             }
-            sum {
-              requests
-            }
+            count
           }
           byCountry: httpRequestsAdaptiveGroups(
             limit: 25
             filter: { datetime_geq: $since, datetime_leq: $until, clientRequestHTTPHost: $host }
-            orderBy: [sum_requests_DESC]
+            orderBy: [count_DESC]
           ) {
             dimensions {
               clientCountryName
             }
-            sum {
-              requests
-            }
+            count
           }
         }
       }
@@ -202,27 +198,31 @@ export async function loadSiteTraffic(env: Env, slug: string, days = 7): Promise
     return emptyTraffic(range);
   }
 
+  // `httpRequestsAdaptiveGroups` has no `uniq` selector (verified via CF schema
+  // introspection) — per-host unique visitors aren't available at this edge dataset,
+  // so unique_visitors is 0 here. The primary analytics source (D1 `visitor_events`,
+  // JS-beacon) carries real uniques; this is the CF-zone FALLBACK.
   const totalsRow = zone.totals?.[0];
-  const total_requests = Number(totalsRow?.sum?.requests ?? 0);
-  const page_views = Number(totalsRow?.sum?.pageViews ?? 0);
-  const unique_visitors = Number(totalsRow?.uniq?.uniques ?? 0);
+  const total_requests = Number(totalsRow?.count ?? 0);
+  const page_views = Number(totalsRow?.sum?.visits ?? 0);
+  const unique_visitors = 0;
 
   const by_day: DailyBucket[] = (zone.byDay ?? []).map((r) => ({
     day: String(r.dimensions?.date ?? ''),
-    requests: Number(r.sum?.requests ?? 0),
-    page_views: Number(r.sum?.pageViews ?? 0),
-    unique_visitors: Number(r.uniq?.uniques ?? 0),
+    requests: Number(r.count ?? 0),
+    page_views: Number(r.sum?.visits ?? 0),
+    unique_visitors: 0,
     bytes: Number(r.sum?.edgeResponseBytes ?? 0),
   }));
 
   const top_paths: PathBucket[] = (zone.topPaths ?? []).map((r) => ({
     path: String(r.dimensions?.clientRequestPath ?? '/'),
-    requests: Number(r.sum?.requests ?? 0),
+    requests: Number(r.count ?? 0),
   }));
 
   const by_country: CountryBucket[] = (zone.byCountry ?? []).map((r) => ({
     country: String(r.dimensions?.clientCountryName ?? 'Unknown'),
-    requests: Number(r.sum?.requests ?? 0),
+    requests: Number(r.count ?? 0),
   }));
 
   return {
@@ -254,10 +254,10 @@ interface CfGraphQlResponse {
   data?: {
     viewer?: {
       zones?: Array<{
-        totals?: Array<{ sum?: SumFields; uniq?: UniqFields }>;
-        byDay?: Array<{ dimensions?: { date?: string }; sum?: SumFields; uniq?: UniqFields }>;
-        topPaths?: Array<{ dimensions?: { clientRequestPath?: string }; sum?: SumFields }>;
-        byCountry?: Array<{ dimensions?: { clientCountryName?: string }; sum?: SumFields }>;
+        totals?: Array<{ count?: number; sum?: SumFields }>;
+        byDay?: Array<{ dimensions?: { date?: string }; count?: number; sum?: SumFields }>;
+        topPaths?: Array<{ dimensions?: { clientRequestPath?: string }; count?: number }>;
+        byCountry?: Array<{ dimensions?: { clientCountryName?: string }; count?: number }>;
       }>;
     };
   };
@@ -265,11 +265,7 @@ interface CfGraphQlResponse {
 }
 
 interface SumFields {
-  requests?: number;
-  pageViews?: number;
+  /** Page-view/session proxy at the edge (adaptive-groups has no `pageViews`). */
+  visits?: number;
   edgeResponseBytes?: number;
-}
-
-interface UniqFields {
-  uniques?: number;
 }
