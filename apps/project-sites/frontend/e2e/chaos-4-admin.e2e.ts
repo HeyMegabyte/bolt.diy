@@ -448,4 +448,99 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
       }
     }
   });
+
+  // M2 (third real edit→persist) — Social Auto-Pilot config. The `Auto-Pilot prompt`
+  // dialog edits the org-scoped composer config (cadence / prompt / networks) via
+  // `POST /api/social/auto-pilot/config` = worker `upsertAutoPilotConfig`, which was
+  // hardened iter-107 to THROW on a dropped D1 write instead of returning a lying
+  // "saved". This journey proves the round-trip end-to-end: open dialog → change
+  // cadence → Save → 200 → HARD RELOAD → reopen → the new cadence PERSISTED. Also
+  // presses the AI "Generate preview" button and asserts it never 5xxes. Self-cleaning:
+  // restores the original cadence via the API in `finally`.
+  test('Social Auto-Pilot: edit cadence → save → persists across hard reload; preview button no 5xx (M2, validates iter-107)', async ({
+    page,
+  }) => {
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+    let original: string | null = null;
+    try {
+      await page.goto('/admin/social', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(4000); // Angular lazy chunk + accounts/config/posts fetch
+
+      const openBtn = page.locator('[data-testid="social-auto-pilot-prompt-btn"]');
+      await expect(openBtn, 'auto-pilot dialog trigger present').toBeVisible({ timeout: 8000 });
+      await openBtn.click();
+      const dialog = page.locator('[role="dialog"]');
+      await expect(dialog).toBeVisible({ timeout: 6000 });
+
+      // The dialog's first <select> is CADENCE. Capture the current value, flip it.
+      const cadence = dialog.locator('select').first();
+      original = await cadence.inputValue();
+      const options = await cadence.locator('option').evaluateAll((os) =>
+        (os as HTMLOptionElement[]).map((o) => o.value),
+      );
+      const target = options.find((o) => o !== original);
+      expect(target, 'cadence has ≥2 options to flip between').toBeTruthy();
+
+      await cadence.selectOption(target!);
+      const saveResp = page.waitForResponse(
+        (r) =>
+          /\/api\/social\/auto-pilot\/config/.test(r.url()) && r.request().method() === 'POST',
+        { timeout: 12_000 },
+      );
+      await dialog.getByRole('button', { name: 'Save' }).first().click();
+      const sr = await saveResp;
+      expect(sr.status(), 'auto-pilot config save must 200 (iter-107: never a lying save)').toBe(
+        200,
+      );
+
+      // Persistence — HARD RELOAD (fresh document), reopen the dialog, assert the new
+      // cadence stuck. This is the real proof the write hit D1, not just optimistic UI.
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(4000);
+      await openBtn.click({ timeout: 8000 });
+      await expect(dialog).toBeVisible({ timeout: 6000 });
+      const after = await dialog.locator('select').first().inputValue();
+      expect(after, 'cadence persisted across hard reload').toBe(target);
+
+      // Press the AI "Generate preview" button — a meaningful action that calls the
+      // model. It may take a while or degrade gracefully (0 connected accounts), but
+      // it must NEVER 5xx. We don't block on the (slow) LLM response.
+      const preview = dialog.getByRole('button', { name: 'Generate preview' });
+      if (await preview.isVisible().catch(() => false)) {
+        await preview.click().catch(() => {});
+        await page.waitForTimeout(2500);
+      }
+
+      await assertAlive(page);
+      expect(await e.xssFired(), 'no injected script on the auto-pilot flow').toBe(false);
+      expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+      expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+      expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+      expect(e.consoleWarnings, `console warnings (DoD=0): ${e.consoleWarnings.join('; ')}`).toEqual(
+        [],
+      );
+    } finally {
+      // Restore the original cadence via the API (org-scoped, bearer-authed) so the
+      // shared E2E org is left exactly as found — no destructive dialog needed.
+      if (original) {
+        const hours = Number(original.split(':').pop()?.trim());
+        if (Number.isFinite(hours)) {
+          await page
+            .evaluate(async (h) => {
+              const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
+              await fetch('/api/social/auto-pilot/config', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${s.token}`,
+                },
+                body: JSON.stringify({ cadence_hours: h }),
+              }).catch(() => {});
+            }, hours)
+            .catch(() => {});
+        }
+      }
+    }
+  });
 });
