@@ -594,18 +594,6 @@ body::before {
   border-radius: var(--glow-r-sm);
 }
 
-// Homepage hero + CTA search bars (WCAG 2.4.7). Their inputs are `outline-none`
-// (the global outline above was intentionally suppressed on these icon-wrapped
-// inputs — it rendered as stray stripes flanking the search icon), so a keyboard
-// user tabbing to the PRIMARY funnel input saw no focus indicator. The wrapper
-// carries the ring on :focus-within. Global (not component-scoped) + !important
-// because the component-scoped rule + the arbitrary Tailwind `focus:shadow-[…]`
-// classes were not applying, and the glow above carries no !important.
-.ps-search-wrap:focus-within {
-  border-color: #00e5ff !important;
-  box-shadow: 0 0 0 3px rgba(0,229,255,0.5), 0 0 18px -2px rgba(0,229,255,0.4) !important;
-}
-
 // Polished scrollbar (replaces the basic dark one above).
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }

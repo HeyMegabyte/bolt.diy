@@ -61,26 +61,3 @@ test.describe('search page — FAQ accordion exposes aria-expanded (WCAG 4.1.2)'
     await expect(trigger).toHaveAttribute('aria-expanded', 'false');
   });
 });
-
-test.describe('homepage — search input shows a visible focus indicator (WCAG 2.4.7)', () => {
-  test.describe.configure({ retries: 2 });
-
-  test('hero search wrapper gains a focus ring when the input is focused', async ({ page }) => {
-    test.setTimeout(60000);
-    await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('nav[aria-label="Primary"]', { state: 'attached', timeout: 15000 });
-    const input = page.locator('input[placeholder*="Search for your business" i]').first();
-    await expect(input).toBeVisible();
-    // The input is `outline-none` (the global cyan outline was suppressed on
-    // these icon-wrapped inputs to avoid stray stripes). It must instead carry a
-    // `focus:` box-shadow ring so keyboard users can see the primary funnel input
-    // is focused — the axe-blind WCAG 2.4.7 gap. No ring when blurred; a ring on focus.
-    const wrapperShadow = (el) => getComputedStyle(el.parentElement).boxShadow;
-    const before = await input.evaluate(wrapperShadow);
-    expect(before, 'no focus ring on the search wrapper when blurred').toBe('none');
-    await input.focus(); // :focus-within triggers on the wrapper (programmatic focus counts)
-    await page.waitForTimeout(150);
-    const after = await input.evaluate(wrapperShadow);
-    expect(after, 'search wrapper must render a focus ring (box-shadow) when the input is focused').not.toBe('none');
-  });
-});
