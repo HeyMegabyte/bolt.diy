@@ -744,9 +744,13 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
 
   onGridReady(ev: GridReadyEvent<AuditRow>): void {
     this.gridApi = ev.api;
-    // Apply the initial scope filter as soon as the grid is ready — the
-    // effect() in the constructor may have fired before gridApi existed.
-    this.applyScopeFilter(this.scopeSlug());
+    // Audit is intentionally ORG-WIDE (the "Org: <name>" chip is a label only,
+    // per this component's design). `scopeSlug` holds the ORG name (e.g.
+    // 'megabytespace') — NOT a site slug — so applying it as a `site`-column
+    // filter matched ZERO rows (every audit row's `site` is a site slug, never
+    // the org name), leaving the grid empty despite loaded events (stat cards
+    // showed N, grid showed "0 to 0 of 0"). Start unfiltered → show every org row.
+    this.applyScopeFilter(null);
     // Restore + persist column state across sessions (visibility, order, width, sort).
     try {
       const raw = localStorage.getItem('ps_audit_grid_v2');
