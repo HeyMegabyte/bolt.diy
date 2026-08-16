@@ -596,7 +596,10 @@ features.post('/api/sites/:siteId/mcp/discovery', requireFlag('site_mcp_server')
 features.post('/api/router/pick', requireFlag('model_registry'), async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as { prompt?: string; org_id?: string };
   return c.json(
-    await experimentalFeatures.autoRoutePrompt(c.env, { prompt: body.prompt ?? 'demo prompt', orgId: body.org_id }),
+    await experimentalFeatures.autoRoutePrompt(c.env, {
+      prompt: body.prompt ?? 'demo prompt',
+      orgId: body.org_id,
+    }),
   );
 });
 features.get('/api/router/stats', requireFlag('model_registry'), async (c) =>
