@@ -26,7 +26,7 @@
 
 import type { Env } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbInsert, dbUpdate } from './db.js';
-import { badRequest } from '@project-sites/shared';
+import { badRequest, internalError } from '@project-sites/shared';
 
 // ─── Public types ───────────────────────────────────────────────────────────
 
@@ -136,7 +136,7 @@ async function ensureWalletRow(env: Env, orgId: string): Promise<WalletRow> {
   );
   if (existing) return existing;
   const id = crypto.randomUUID();
-  await dbInsert(env.DB, 'wallet_accounts', {
+  const { error: createErr } = await dbInsert(env.DB, 'wallet_accounts', {
     id,
     org_id: orgId,
     stripe_customer_id: null,
@@ -149,6 +149,7 @@ async function ensureWalletRow(env: Env, orgId: string): Promise<WalletRow> {
     monthly_credit_cents: 5000,
     last_topup_at: null,
   });
+  if (createErr) throw internalError(`Failed to create wallet account: ${createErr}`);
   const created = await dbQueryOne<WalletRow>(
     env.DB,
     `SELECT * FROM wallet_accounts WHERE id = ? LIMIT 1`,
@@ -156,6 +157,52 @@ async function ensureWalletRow(env: Env, orgId: string): Promise<WalletRow> {
   );
   if (!created) throw new Error('Failed to create wallet');
   return created;
+}
+
+/**
+ * Compensating balance write, used when a `wallet_transactions` ledger INSERT
+ * fails AFTER `wallet_accounts.balance_cents` was already mutated. Applies
+ * `deltaCents` (signed) so the balance is restored to what it was before the
+ * doomed mutation — keeping the account balance consistent with the (now
+ * absent) ledger row. Best-effort: a failure here is a rare double-fault that
+ * needs manual reconciliation, so it is logged at error level (never swallowed
+ * silently) before the caller re-throws the original ledger error.
+ *
+ * @param env - Worker env (needs `DB`).
+ * @param walletId - `wallet_accounts.id` to compensate.
+ * @param deltaCents - signed reversal amount (e.g. `+amount` to undo a debit,
+ *   `-amount` to undo a credit/adjustment).
+ * @param context - short tag for the log line (`debit` | `credit` | `adjustment`).
+ * @remarks Impure — writes D1 + logs.
+ */
+async function reverseBalance(
+  env: Env,
+  walletId: string,
+  deltaCents: number,
+  context: string,
+): Promise<void> {
+  try {
+    await env.DB.prepare(
+      `UPDATE wallet_accounts
+          SET balance_cents = balance_cents + ?,
+              updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?`,
+    )
+      .bind(deltaCents, walletId)
+      .run();
+  } catch (e) {
+    console.warn(
+      JSON.stringify({
+        level: 'error',
+        service: 'wallet',
+        message: 'balance_reversal_failed',
+        context,
+        wallet_id: walletId,
+        delta_cents: deltaCents,
+        err: e instanceof Error ? e.message : String(e),
+      }),
+    );
+  }
 }
 
 async function loadCategory(env: Env, slug: string): Promise<CostCategory | null> {
@@ -398,7 +445,7 @@ export async function chargeWallet(
 
   const newBalance = wallet.balance_cents - amount;
   const txId = crypto.randomUUID();
-  await dbInsert(env.DB, 'wallet_transactions', {
+  const { error: ledgerErr } = await dbInsert(env.DB, 'wallet_transactions', {
     id: txId,
     wallet_id: wallet.id,
     org_id: orgId,
@@ -415,6 +462,13 @@ export async function chargeWallet(
     metadata_json: params.metadata ? JSON.stringify(params.metadata) : null,
     created_by: null,
   });
+  if (ledgerErr) {
+    // Ledger write failed AFTER the balance was debited — reverse the debit so
+    // the user is not charged for an operation with no ledger record (a retry
+    // would otherwise double-charge), then surface the failure.
+    await reverseBalance(env, wallet.id, amount, 'debit');
+    throw internalError(`Failed to record wallet debit: ${ledgerErr}`);
+  }
 
   if (newBalance < wallet.auto_topup_threshold_cents && wallet.stripe_default_payment_method) {
     topUpWallet(env, orgId, wallet.auto_topup_amount_cents).catch((e) => {
@@ -467,7 +521,7 @@ export async function creditWallet(
     .run();
   const newBalance = wallet.balance_cents + params.amount_cents;
   const txId = crypto.randomUUID();
-  await dbInsert(env.DB, 'wallet_transactions', {
+  const { error: ledgerErr } = await dbInsert(env.DB, 'wallet_transactions', {
     id: txId,
     wallet_id: wallet.id,
     org_id: orgId,
@@ -484,6 +538,13 @@ export async function creditWallet(
     metadata_json: JSON.stringify({ reason: params.reason, ...(params.metadata ?? {}) }),
     created_by: null,
   });
+  if (ledgerErr) {
+    // Reverse the credit so the balance never diverges from the ledger. The
+    // Stripe webhook retry then re-runs the idempotent path cleanly (the
+    // stripe_event_id dup row is absent, so it credits exactly once).
+    await reverseBalance(env, wallet.id, -params.amount_cents, 'credit');
+    throw internalError(`Failed to record wallet credit: ${ledgerErr}`);
+  }
 }
 
 /**
@@ -547,7 +608,7 @@ export async function manualAdjustment(
     .run();
   const newBalance = wallet.balance_cents + opts.amount_cents;
   const txId = crypto.randomUUID();
-  await dbInsert(env.DB, 'wallet_transactions', {
+  const { error: ledgerErr } = await dbInsert(env.DB, 'wallet_transactions', {
     id: txId,
     wallet_id: wallet.id,
     org_id: orgId,
@@ -564,6 +625,12 @@ export async function manualAdjustment(
     metadata_json: JSON.stringify({ reason: opts.reason }),
     created_by: opts.actor_id,
   });
+  if (ledgerErr) {
+    // Reverse the adjustment so the admin-visible balance never diverges from
+    // the ledger, then surface the failure to the super-admin caller.
+    await reverseBalance(env, wallet.id, -opts.amount_cents, 'adjustment');
+    throw internalError(`Failed to record wallet adjustment: ${ledgerErr}`);
+  }
   return { ok: true, balance_after: newBalance, transaction_id: txId };
 }
 

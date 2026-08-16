@@ -896,3 +896,68 @@ describe('syncSubscriptionStatus', () => {
     expect(patch).toHaveProperty('stripe_default_payment_method', null);
   });
 });
+
+// ── ledger-write failure compensation (financial integrity) ────────────────
+// A `wallet_transactions` INSERT that silently fails AFTER the balance was
+// already mutated used to leave money moved with no ledger record (a debit
+// retry would then double-charge; a credit would break stripe_event_id
+// idempotency). Each mutation now REVERSES the balance change and throws, so
+// wallet_accounts.balance_cents never diverges from the (absent) ledger.
+
+describe('ledger-write failure compensation', () => {
+  it('chargeWallet: reverses the debit + throws when the ledger insert fails', async () => {
+    mockDbQueryOne
+      .mockResolvedValueOnce(walletRow({ balance_cents: 5000 })) // ensureWalletRow
+      .mockResolvedValueOnce(
+        category({ base_cost_cents: 10, markup_factor: 2, min_charge_cents: 1 }),
+      ); // loadCategory
+    mockDbInsert.mockResolvedValueOnce({ error: 'ledger down' }); // ledger write fails
+    const { db, boundCalls } = fakeDb(okRun);
+    await expect(
+      chargeWallet(makeEnv(db), ORG, {
+        category: 'ai_token',
+        quantity: 3,
+        reference_type: 'chat',
+        reference_id: 'msg-1',
+      }),
+    ).rejects.toThrow(/Failed to record wallet debit/);
+    // boundCalls[0] = the atomic debit ([amount, walletId, amount]); boundCalls[1]
+    // = the compensating reversal that ADDS the 60¢ back to the balance.
+    expect(boundCalls[0]).toEqual([60, 'wallet-1', 60]);
+    expect(boundCalls[1]).toEqual([60, 'wallet-1']);
+  });
+
+  it('creditWallet: reverses the credit + throws when the ledger insert fails', async () => {
+    mockDbQueryOne
+      .mockResolvedValueOnce(null) // idempotency: no dup event
+      .mockResolvedValueOnce(walletRow({ balance_cents: 1000 })); // ensureWalletRow
+    mockDbInsert.mockResolvedValueOnce({ error: 'ledger down' });
+    const { db, boundCalls } = fakeDb(okRun);
+    await expect(
+      creditWallet(makeEnv(db), ORG, {
+        amount_cents: 5000,
+        reason: 'monthly_subscription_credit',
+        reference_type: 'subscription',
+        reference_id: 'sub_1',
+        stripe_event_id: 'evt_x',
+      }),
+    ).rejects.toThrow(/Failed to record wallet credit/);
+    expect(boundCalls[0]).toEqual([5000, 'wallet-1']); // credit: balance + 5000
+    expect(boundCalls[1]).toEqual([-5000, 'wallet-1']); // reverse: balance + (−5000)
+  });
+
+  it('manualAdjustment: reverses the adjustment + throws when the ledger insert fails', async () => {
+    mockDbQueryOne.mockResolvedValueOnce(walletRow({ balance_cents: 1000 })); // ensureWalletRow
+    mockDbInsert.mockResolvedValueOnce({ error: 'ledger down' });
+    const { db, boundCalls } = fakeDb(okRun);
+    await expect(
+      manualAdjustment(makeEnv(db), ORG, {
+        amount_cents: -200,
+        reason: 'refund correction',
+        actor_id: 'admin-1',
+      }),
+    ).rejects.toThrow(/Failed to record wallet adjustment/);
+    expect(boundCalls[0]).toEqual([-200, 'wallet-1']); // adjust: balance + (−200)
+    expect(boundCalls[1]).toEqual([200, 'wallet-1']); // reverse: balance + 200
+  });
+});
