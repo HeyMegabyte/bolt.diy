@@ -21,7 +21,7 @@
  * @packageDocumentation
  */
 import { Hono } from 'hono';
-import { escapeHtml, sha256Hex } from '@project-sites/shared';
+import { escapeHtml, internalError, notFound, sha256Hex } from '@project-sites/shared';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbExecute } from '../services/db.js';
@@ -193,11 +193,15 @@ authOrg.post('/api/auth/organization/cancel-invitation', async (c) => {
   const id = String(body.invitationId ?? '').trim();
   if (!id) return badRequest(c, 'An invitationId is required.');
   const now = new Date().toISOString();
-  await dbExecute(
+  const { error, changes } = await dbExecute(
     c.env.DB,
     `UPDATE team_invites SET deleted_at = ? WHERE id = ? AND org_id = ? AND deleted_at IS NULL`,
     [now, id, orgId],
   );
+  if (error) throw internalError(`Failed to cancel invitation: ${error}`);
+  // The WHERE (id + org_id) is the SOLE ownership guard — 0 rows means the invite
+  // doesn't exist, isn't this org's, or was already cancelled. Never a lying 200.
+  if (changes === 0) throw notFound('Invitation not found or already cancelled.');
   return c.json({ status: true });
 });
 
@@ -213,12 +217,16 @@ authOrg.post('/api/auth/organization/remove-member', async (c) => {
   const target = String(body.memberIdOrEmail ?? '').trim();
   if (!target) return badRequest(c, 'A memberIdOrEmail is required.');
   const now = new Date().toISOString();
-  await dbExecute(
+  const { error, changes } = await dbExecute(
     c.env.DB,
     `UPDATE memberships SET deleted_at = ?, updated_at = ?
        WHERE org_id = ? AND deleted_at IS NULL AND user_id != ?
          AND (id = ? OR user_id = (SELECT id FROM users WHERE email = ? AND deleted_at IS NULL))`,
     [now, now, orgId, userId ?? '', target, target],
   );
+  if (error) throw internalError(`Failed to remove member: ${error}`);
+  // Sole-guard WHERE (org_id + not-self + id/email match) — 0 rows means the member
+  // isn't in this org, is the caller themselves, or was already removed. Not a lying 200.
+  if (changes === 0) throw notFound('Member not found or cannot be removed.');
   return c.json({ status: true });
 });

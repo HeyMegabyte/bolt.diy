@@ -25,7 +25,7 @@
  * @packageDocumentation
  */
 import { Hono } from 'hono';
-import { sha256Hex } from '@project-sites/shared';
+import { internalError, notFound, sha256Hex } from '@project-sites/shared';
 import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbExecute } from '../services/db.js';
 
@@ -92,11 +92,15 @@ authSessions.post('/api/auth/revoke-session', async (c) => {
     );
   }
   const now = new Date().toISOString();
-  await dbExecute(
+  const { error, changes } = await dbExecute(
     c.env.DB,
     `UPDATE sessions SET deleted_at = ?, updated_at = ? WHERE id = ? AND user_id = ? AND deleted_at IS NULL`,
     [now, now, id, userId],
   );
+  if (error) throw internalError(`Failed to revoke session: ${error}`);
+  // Sole-guard WHERE (id + user_id) — 0 rows means the session isn't the caller's or was
+  // already revoked. Auth-sensitive: never report a sign-out that didn't actually happen.
+  if (changes === 0) throw notFound('Session not found or already revoked.');
   return c.json({ status: true });
 });
 
@@ -110,10 +114,13 @@ authSessions.post('/api/auth/revoke-other-sessions', async (c) => {
   const token = bearerToken(c.req.header('authorization') ?? null);
   const currentHash = token ? await sha256Hex(token) : '';
   const now = new Date().toISOString();
-  await dbExecute(
+  const { error } = await dbExecute(
     c.env.DB,
     `UPDATE sessions SET deleted_at = ?, updated_at = ? WHERE user_id = ? AND token_hash != ? AND deleted_at IS NULL`,
     [now, now, userId, currentHash],
   );
+  // Bulk revoke — changes===0 is a VALID success (the caller has no other sessions). Only a
+  // DB error must surface: a swallowed failure would falsely claim "signed out everywhere".
+  if (error) throw internalError(`Failed to revoke other sessions: ${error}`);
   return c.json({ status: true });
 });
