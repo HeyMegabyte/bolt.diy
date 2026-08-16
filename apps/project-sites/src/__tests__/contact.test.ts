@@ -239,6 +239,36 @@ describe('handleContactForm – email providers', () => {
     expect(mockFetch.mock.calls[1][0]).toBe('https://api.sendgrid.com/v3/mail/send');
   });
 
+  it('falls back to Resend when SES FAILS (SES configured) — a transient SES 5xx never loses the lead', async () => {
+    // The bug: when SES is configured, sendEmail used it exclusively and let a SES
+    // failure propagate (no fallback) → the public /api/contact form 5xx'd and the
+    // lead was lost. SES must fall back to Resend → SendGrid on FAILURE, not absence.
+    const sesEnv = {
+      ...mockEnv,
+      AWS_ACCESS_KEY_ID: 'AKIAEXAMPLE',
+      AWS_SECRET_ACCESS_KEY: 'secret-key',
+      AWS_DEFAULT_REGION: 'us-east-1',
+      SES_FROM_EMAIL: 'noreply@projectsites.dev',
+    } as any;
+    // SES (amazonaws.com) 500s; Resend/SendGrid succeed.
+    mockFetch.mockImplementation(async (url: string) =>
+      String(url).includes('amazonaws.com')
+        ? new Response('ses temporarily unavailable', { status: 500 })
+        : new Response(JSON.stringify({ id: 'resend-ok' }), { status: 200 }),
+    );
+
+    await handleContactForm(sesEnv, {
+      name: 'Jane',
+      email: 'jane@example.com',
+      message: 'Testing SES failure fallback to Resend.',
+    });
+
+    const urls = mockFetch.mock.calls.map((c: unknown[]) => String(c[0]));
+    // SES was attempted first, then Resend picked up the send → lead delivered, not lost.
+    expect(urls.some((u) => u.includes('amazonaws.com'))).toBe(true);
+    expect(urls.some((u) => u.includes('api.resend.com'))).toBe(true);
+  });
+
   it('throws when no email provider is configured', async () => {
     const noEmailEnv = { ENVIRONMENT: 'staging' } as any;
 

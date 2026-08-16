@@ -6307,8 +6307,8 @@ api.delete('/api/admin/domains/:hostnameId', async (c) => {
  *
  * @remarks
  * Two-stage best-effort flow: (1) `contactService.handleContactForm`
- * dispatches the transactional email (Resend → SendGrid fallback) and
- * may throw — surfaced to the visitor as a 5xx via `error_handler`.
+ * dispatches the transactional email (SES primary → Resend → SendGrid
+ * fallback) and may throw — surfaced to the visitor as a 5xx via `error_handler`.
  * (2) Audit log write is fire-and-forget with `.catch(() => {})` so a
  * D1 hiccup never blocks the success response. Audit `org_id` is the
  * sentinel `'system'` because this endpoint is org-less by design.
