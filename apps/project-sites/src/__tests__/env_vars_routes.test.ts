@@ -259,6 +259,23 @@ describe('POST /api/env-vars', () => {
     expect(mockSetEnvVar).not.toHaveBeenCalled();
   });
 
+  it('accepts description:null (the FE sends null for an empty description) — creates, never 400s', async () => {
+    // Regression: the POST schema used `description: z.string().optional()` which
+    // REJECTS null, but the env-vars-manager form sends `description || null`. Every
+    // create with an empty description 400'd with an enabled submit button. The PATCH
+    // schema already tolerates null (.nullable().optional()); POST must match.
+    mockSetEnvVar.mockResolvedValue(maskedRecord({ key: 'NO_DESC' }));
+    const env = makeEnv();
+    const res = await req(
+      makeApp(AUTH),
+      '/api/env-vars',
+      env,
+      json({ scope: 'org', key: 'NO_DESC', value: 'v', description: null }),
+    );
+    expect(res.status).toBe(200);
+    expect(mockSetEnvVar).toHaveBeenCalledTimes(1);
+  });
+
   it('hands the plaintext to setEnvVar (encryption-at-rest) and returns ONLY the masked record', async () => {
     mockSetEnvVar.mockResolvedValue(maskedRecord({ key: 'API_TOKEN' }));
     const env = makeEnv();

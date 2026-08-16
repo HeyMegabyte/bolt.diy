@@ -40,7 +40,11 @@ const SetEnvVarBodySchema = z.object({
   mcpProvider: z.string().optional(),
   endpointId: z.string().optional(),
   agentId: z.string().optional(),
-  description: z.string().optional(),
+  // The env-vars-manager form sends `description: draft.description || null`, so an
+  // empty description arrives as null — accept it (matches the PATCH schema below).
+  // Was `z.string().optional()`, which rejected null → every create with an empty
+  // description 400'd with an enabled submit button.
+  description: z.string().nullable().optional(),
   isSecret: z.boolean().optional(),
   exposedToAi: z.boolean().optional(),
 });
@@ -222,7 +226,9 @@ envVarsRoutes.post('/api/env-vars', async (c) => {
       agentId: body.agentId,
       key: body.key,
       value: body.value,
-      description: body.description,
+      // null (empty description from the form) → undefined; setEnvVar stores it as
+      // null either way — the DB column is nullable.
+      description: body.description ?? undefined,
       isSecret: body.isSecret,
       exposedToAi: body.exposedToAi,
       createdBy: userId,
