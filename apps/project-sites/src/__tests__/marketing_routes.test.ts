@@ -50,12 +50,16 @@ describe('isKnownMarketingRoute — known routes stay 200', () => {
 });
 
 describe('isKnownMarketingRoute — unknown routes become soft-404', () => {
-  it.each(['/garbage9999', '/this-does-not-exist', '/xyz/abc', '/wp-admin', '/.env', '/random-junk'])(
-    '%s → unknown (soft-404)',
-    (p) => {
-      expect(isKnownMarketingRoute(p)).toBe(false);
-    },
-  );
+  it.each([
+    '/garbage9999',
+    '/this-does-not-exist',
+    '/xyz/abc',
+    '/wp-admin',
+    '/.env',
+    '/random-junk',
+  ])('%s → unknown (soft-404)', (p) => {
+    expect(isKnownMarketingRoute(p)).toBe(false);
+  });
 });
 
 describe('drift guard — app.routes.ts ↔ KNOWN_MARKETING_PREFIXES', () => {
@@ -77,7 +81,10 @@ describe('drift guard — app.routes.ts ↔ KNOWN_MARKETING_PREFIXES', () => {
     const missing = [...prefixes].filter((p) => !KNOWN_MARKETING_PREFIXES.has(p));
     if (missing.length) {
       // Surface the drift loudly: a real Angular route missing here would 404 a live page.
-      console.error('DRIFT: app.routes.ts prefixes missing from KNOWN_MARKETING_PREFIXES:', missing);
+      console.error(
+        'DRIFT: app.routes.ts prefixes missing from KNOWN_MARKETING_PREFIXES:',
+        missing,
+      );
     }
     expect(missing).toEqual([]);
   });
