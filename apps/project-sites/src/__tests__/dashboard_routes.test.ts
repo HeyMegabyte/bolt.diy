@@ -577,7 +577,9 @@ describe('POST /api/calendar/bookings', () => {
     // dbInsert RETURNS { error } — it does NOT throw. The UNIQUE→409 path must key
     // off the returned error, not a catch. (A mockRejectedValueOnce here would test
     // a code path that can never happen in prod.)
-    mockDbInsert.mockResolvedValueOnce({ error: 'D1_ERROR: UNIQUE constraint failed: calendar_bookings.slug' });
+    mockDbInsert.mockResolvedValueOnce({
+      error: 'D1_ERROR: UNIQUE constraint failed: calendar_bookings.slug',
+    });
     const env = makeEnv();
     const res = await req(makeApp(AUTH), '/api/calendar/bookings', 'POST', env, VALID);
     expect(res.status).toBe(409);
