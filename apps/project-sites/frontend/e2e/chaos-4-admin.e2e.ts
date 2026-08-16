@@ -693,4 +693,145 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
       await patchServerName(restore);
     }
   });
+
+  // M3 — notification prefs cross-device round-trip (FE toggle → debounced POST
+  // /api/admin/notifications → per-user memory store → GET-hydrate on a fresh
+  // device). Presses the real "Weekly summary" switch, asserts the POST 2xx + the
+  // immediate flip, then a local-first reload, then simulates a NEW device (clears
+  // the local cache) and waits for the hydrate GET to prove the SERVER value drives
+  // the UI — not the localStorage-seeded default. Restores the state in finally.
+  test('User notifications: toggle round-trips to the server + shows on a fresh device (M3)', async ({
+    page,
+  }) => {
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+    await page.goto('/admin/user', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
+
+    const swName = /Weekly summary/i;
+    const sw = page.getByRole('switch', { name: swName });
+    await expect(sw, 'the Weekly-summary notification switch is present').toBeVisible({
+      timeout: 8000,
+    });
+    const original = await sw.getAttribute('aria-checked');
+    const flipped = original === 'true' ? 'false' : 'true';
+
+    const flipAndSync = async (): Promise<void> => {
+      const [postResp] = await Promise.all([
+        page.waitForResponse(
+          (r) => /\/api\/admin\/notifications\b/.test(r.url()) && r.request().method() === 'POST',
+          { timeout: 15_000 },
+        ),
+        page.getByRole('switch', { name: swName }).click(),
+      ]);
+      expect(postResp.status(), 'notification pref POST persists to the server (2xx)').toBeLessThan(
+        300,
+      );
+    };
+
+    try {
+      await flipAndSync();
+      await expect(sw, 'switch reflects the flipped state immediately').toHaveAttribute(
+        'aria-checked',
+        flipped,
+        { timeout: 4000 },
+      );
+
+      // Local-first: a hard reload (localStorage intact) keeps the flipped state.
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(2500);
+      await expect(
+        page.getByRole('switch', { name: swName }),
+        'flipped state survives a hard reload (local-first)',
+      ).toHaveAttribute('aria-checked', flipped, { timeout: 8000 });
+
+      // FRESH DEVICE: clear ONLY the local pref cache (auth stays). The flipped
+      // state must return from the server (per-user memory store) via the hydrate
+      // GET — NOT revert to the localStorage-seeded default (which is `true`).
+      await page.evaluate(() => localStorage.removeItem('ps_notification_prefs'));
+      await Promise.all([
+        page.waitForResponse(
+          (r) => /\/api\/admin\/notifications\b/.test(r.url()) && r.request().method() === 'GET',
+          { timeout: 15_000 },
+        ),
+        page.reload({ waitUntil: 'domcontentloaded' }),
+      ]);
+      await expect(
+        page.getByRole('switch', { name: swName }),
+        'flipped state hydrates from the server on a fresh device (not the default)',
+      ).toHaveAttribute('aria-checked', flipped, { timeout: 8000 });
+
+      await assertAlive(page);
+      expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+      expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+      expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+    } finally {
+      // Restore the original toggle state (flip back) so the account stays clean.
+      const cur = await page
+        .getByRole('switch', { name: swName })
+        .getAttribute('aria-checked')
+        .catch(() => null);
+      if (cur !== null && cur !== original) {
+        await flipAndSync().catch(() => {});
+      }
+    }
+  });
+
+  // M4 — destructive-action guard. The "Delete account" flow must NOT be able to
+  // fire without the EXACT confirmation phrase. Opens the dialog, asserts the
+  // confirm button is disabled, types a WRONG phrase (stays disabled, no ready
+  // state), types the CORRECT phrase (enables + ready), then CANCELS — NEVER
+  // clicking "Delete forever" (the E2E account must survive). A guard that enabled
+  // without the phrase would be a catastrophic irreversible data-loss bug.
+  test('User delete-account: destructive guard requires the exact phrase; Cancel is safe (M4)', async ({
+    page,
+  }) => {
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+    await page.goto('/admin/user', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
+
+    await page.locator('[data-testid="delete-account-button"]').click();
+    const input = page.locator('[data-testid="delete-account-confirm-input"]');
+    const confirmBtn = page.locator('[data-testid="delete-account-confirm"]');
+    await expect(input, 'confirm dialog opened').toBeVisible({ timeout: 6000 });
+
+    // Guard 1: disabled with no phrase.
+    await expect(confirmBtn, 'Delete is disabled before any phrase').toBeDisabled();
+
+    // Guard 2: a WRONG phrase keeps it disabled + shows no ready state.
+    await input.fill('delete');
+    await expect(confirmBtn, 'Delete stays disabled on a wrong phrase').toBeDisabled();
+    await expect(
+      page.locator('[data-testid="delete-confirm-ready"]'),
+      'no ready state on a wrong phrase',
+    ).toHaveCount(0);
+
+    // Exact phrase: enables + shows the ready affordance.
+    await input.fill('delete my account');
+    await expect(confirmBtn, 'Delete enables only on the exact phrase').toBeEnabled({
+      timeout: 4000,
+    });
+    await expect(
+      page.locator('[data-testid="delete-confirm-ready"]'),
+      'ready affordance shows on the exact phrase',
+    ).toBeVisible({ timeout: 4000 });
+
+    // NEVER click "Delete forever". Cancel — the account must survive.
+    await page.getByRole('button', { name: /^Cancel$/ }).click();
+    await expect(input, 'Cancel closes the dialog').toHaveCount(0, { timeout: 4000 });
+
+    // Prove the account is intact: reload /admin/user, still authed + profile renders.
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2500);
+    await expect(
+      page.locator('[data-testid="us-profile-card"]'),
+      'account still exists + admin still authed after the guarded (cancelled) delete',
+    ).toBeVisible({ timeout: 8000 });
+
+    await assertAlive(page);
+    expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+    expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+    expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+  });
 });
