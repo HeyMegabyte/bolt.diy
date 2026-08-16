@@ -73,6 +73,18 @@ describe('AdminApiTokensComponent (token CRUD)', () => {
     expect(show).not.toHaveBeenCalled();
   });
 
+  it('a 404 marks the feature flag-disabled (worker 404s when public_api is off) — graceful, not an error toast', () => {
+    // Regression: the worker gates `/api/v1-tokens` with 404 (feature-flag doctrine:
+    // never 403). Detection previously only flipped `flagDisabled` on 503, so a flag-off
+    // org saw a "Failed to load" toast + a dead create button (that also 404s) instead of
+    // the graceful gate notice. Prod E2E: chaos-4 "flag-off org gets the graceful gate".
+    const { c, show } = make({ get: jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 404 }))) });
+    (c as unknown as { loadTokens(): void }).loadTokens();
+    expect(c.flagDisabled()).toBe(true);
+    expect(c.tokens().length).toBe(0);
+    expect(show).not.toHaveBeenCalled();
+  });
+
   it('a non-503 load error surfaces an error toast', () => {
     const { c, show } = make({ get: jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))) });
     (c as unknown as { loadTokens(): void }).loadTokens();

@@ -103,9 +103,14 @@ const ALL_SCOPES = [
             <a hlmBtn variant="outline" size="sm" [routerLink]="'/admin/docs/api-reference'">
               <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> API Docs
             </a>
-            <button hlmBtn variant="primary" size="sm" type="button" data-testid="at-create-open" (click)="openCreateModal()">
-              <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg> New Token
-            </button>
+            <!-- The New Token button lives in the always-rendered header, so it MUST be
+                 flag-gated too — otherwise a flag-off org (worker 404s /v1-tokens) sees a
+                 create button that 404s on click, beside the "not enabled" gate notice. -->
+            @if (!flagDisabled()) {
+              <button hlmBtn variant="primary" size="sm" type="button" data-testid="at-create-open" (click)="openCreateModal()">
+                <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg> New Token
+              </button>
+            }
           </div>
         </div>
 
@@ -556,7 +561,13 @@ export class AdminApiTokensComponent {
         },
         error: (err) => {
           this.loading.set(false);
-          if (err?.status === 503) {
+          // The worker returns 404 (never 403) when the `public_api` flag is off for
+          // the org — the feature-flag doctrine's "don't leak existence" guard. Treat
+          // 404 (and 503 maintenance) as "feature not enabled" → show the graceful
+          // gate notice + hide the create UI, NOT a scary "Failed to load" toast + a
+          // create button that then 404s. (Before this, only 503 flipped the gate, so
+          // a flag-off org saw a dead create button and the gate notice was dead code.)
+          if (err?.status === 404 || err?.status === 503) {
             this.flagDisabled.set(true);
             this.tokens.set([]);
           } else {

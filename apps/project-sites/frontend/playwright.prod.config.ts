@@ -23,11 +23,17 @@ import { defineConfig, devices } from '@playwright/test';
 
 const cfBrowserWs = process.env.CF_BROWSER_WS_ENDPOINT;
 
+// Playwright's `workers` accepts a NUMBER or a percentage STRING ('50%') — a bare
+// non-percentage string ('4') is rejected at config-load. Coerce a numeric override
+// to a Number so the documented `PW_WORKERS=4` override actually works.
+const rawWorkers = process.env.PW_WORKERS;
+const workers = rawWorkers ? (/^\d+$/.test(rawWorkers) ? Number(rawWorkers) : rawWorkers) : '50%';
+
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.e2e.ts',
   fullyParallel: true,
-  workers: process.env.PW_WORKERS || '50%',
+  workers,
   // 2 retries: this targets the LIVE site whose persistent editor iframe adds
   // first-load network time, so the first attempt can be timing-flaky.
   retries: 2,

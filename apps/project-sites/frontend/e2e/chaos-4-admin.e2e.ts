@@ -14,13 +14,17 @@ import { trackErrors, assertAlive, seedAuth } from './chaos-helpers';
 
 const KEY = process.env.E2E_API_KEY ?? '';
 
-// Section routes (navigate directly; the shell mounts each lazily).
+// Section routes (navigate directly; the shell mounts each lazily). EVERY entry
+// MUST be a real registered admin child route in app.routes.ts — a route with no
+// child renders the admin not-found component, which the render-sweep's assertAlive
+// (page has text) CANNOT distinguish from a real section. The `admin-not-found`
+// guard below fails on any such dead-end. `/admin/sites` + `/admin/media` were
+// REMOVED here (2026-08-16): neither is a registered bare route (only `sites/:id`
+// exists; media lived in the reverted admin-v2) so both silently rendered the 404.
 const SECTIONS = [
   '/admin',
-  '/admin/sites',
   '/admin/analytics',
   '/admin/domains',
-  '/admin/media',
   '/admin/social',
   '/admin/voice',
   '/admin/billing',
@@ -32,6 +36,15 @@ const SECTIONS = [
   '/admin/mcp',
   '/admin/audit',
   '/admin/snapshots',
+  // Real registered sections the prior sweep never covered (coverage expansion):
+  '/admin/api-tokens',
+  '/admin/forms',
+  '/admin/site-features',
+  '/admin/deliverability',
+  '/admin/logs',
+  '/admin/team',
+  '/admin/auth-security',
+  '/admin/user',
 ];
 
 test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
@@ -47,6 +60,16 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
       await page.goto(route, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(3500); // Angular lazy chunk + data fetch
       await assertAlive(page);
+      // Dead-end guard: a route with no registered child renders the admin
+      // not-found component — which assertAlive (text present) passes. This asserts
+      // the swept route mounted a REAL section, not the cockpit 404.
+      const deadEnd = await page
+        .locator('[data-testid="admin-not-found"]')
+        .isVisible()
+        .catch(() => false);
+      expect(deadEnd, `${route} is a DEAD-END — renders the admin 404, not a real section`).toBe(
+        false,
+      );
       if (
         e.consoleErrors.length ||
         e.pageErrors.length ||
@@ -226,6 +249,96 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
           .evaluate(async (id) => {
             const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
             await fetch(`/api/env-vars/${id}`, {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${s.token}` },
+            }).catch(() => {});
+          }, createdId)
+          .catch(() => {});
+      }
+    }
+  });
+
+  // M2 (second real CRUD) — API Tokens, flag-aware. `/api/v1-tokens` is gated on the
+  // `public_api` flag; the worker returns 404 when off (doctrine: never 403). Two paths:
+  //  • flag OFF (the E2E org's reality) — REGRESSION GUARD: the UI must show the graceful
+  //    gate notice and MUST NOT show a create button that 404s. (The frontend detected
+  //    flag-off via 503, but the worker returns 404 → the gate was dead code + a dead
+  //    create button showed + a scary "Failed to load" toast fired.)
+  //  • flag ON — exercise the full create → one-time reveal → persist (nav + hard reload)
+  //    → revoke (cleanup via API in finally) round-trip.
+  test('API Tokens: flag-off org gets the graceful gate (no dead create button), or full CRUD when enabled', async ({
+    page,
+  }) => {
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+    let createdId: string | null = null;
+    try {
+      await page.goto('/admin/api-tokens', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(3500); // loadTokens() completes → flag state resolved
+
+      const gate = page.locator('[data-testid="api-tokens-flag-gate"]');
+      const createBtn = page.locator('[data-testid="at-create-open"]');
+      const gateVisible = await gate.isVisible().catch(() => false);
+
+      if (gateVisible) {
+        // public_api OFF → the worker 404s the list. The graceful gate notice MUST show
+        // and the create button MUST be hidden (never a dead button that 404s on click).
+        expect(
+          await createBtn.isVisible().catch(() => false),
+          'flag-off: create button must be hidden (no dead button that 404s)',
+        ).toBe(false);
+      } else {
+        // public_api ON → full create → reveal → persist → revoke.
+        const tokenName = `E2E_CHAOS_${Date.now()}`;
+        await createBtn.first().click({ timeout: 5000 });
+        await page.waitForTimeout(500);
+        await page.locator('[data-testid="at-name-input"]').fill(tokenName);
+        const createResp = page.waitForResponse(
+          (r) => /\/api\/v1-tokens\b/.test(r.url()) && r.request().method() === 'POST',
+          { timeout: 12_000 },
+        );
+        await page.locator('[data-testid="at-create-submit"]').click({ timeout: 5000 });
+        const cr = await createResp;
+        expect([200, 201], `token create status ${cr.status()}`).toContain(cr.status());
+        const created = (await cr.json().catch(() => ({}))) as { token?: { id?: string } };
+        createdId = created.token?.id ?? null;
+
+        await expect(page.locator('[data-testid="at-token-reveal"]')).toBeVisible({
+          timeout: 8000,
+        });
+        const plaintext = await page.locator('[data-testid="at-token-plaintext"]').innerText();
+        expect(plaintext.trim().length, 'reveal shows a non-empty token').toBeGreaterThan(10);
+        await page.locator('[data-testid="at-reveal-done"]').click({ timeout: 5000 });
+        await expect(page.locator(`text=${tokenName}`).first()).toBeVisible({ timeout: 8000 });
+
+        // Persist across nav + HARD reload.
+        await page.goto('/admin/analytics', { waitUntil: 'domcontentloaded' });
+        await page.waitForTimeout(1200);
+        await page.goto('/admin/api-tokens', { waitUntil: 'domcontentloaded' });
+        await page.waitForTimeout(2500);
+        await expect(page.locator(`text=${tokenName}`).first()).toBeVisible({ timeout: 8000 });
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.waitForTimeout(2500);
+        await expect(
+          page.locator(`text=${tokenName}`).first(),
+          'token persists after hard reload',
+        ).toBeVisible({ timeout: 8000 });
+      }
+
+      await assertAlive(page);
+      expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+      expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+      expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+      expect(
+        e.consoleWarnings,
+        `console warnings (DoD=0): ${e.consoleWarnings.join('; ')}`,
+      ).toEqual([]);
+    } finally {
+      if (createdId) {
+        await page
+          .evaluate(async (id) => {
+            const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
+            await fetch(`/api/v1-tokens/${id}`, {
               method: 'DELETE',
               headers: { Authorization: `Bearer ${s.token}` },
             }).catch(() => {});
