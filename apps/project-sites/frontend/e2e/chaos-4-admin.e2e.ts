@@ -1208,4 +1208,133 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
       }
     }
   });
+
+  // M2 (create→persist) + M4 (destructive delete + one-time-secret) — Outbound Webhooks
+  // (/admin/webhooks) subscribe an https endpoint to site events, the signing secret is
+  // shown EXACTLY once, the row persists, and delete goes through a destructive confirm.
+  // Zero chaos coverage before. Resilient to the `outbound_webhooks` flag: flag-off → assert
+  // the graceful gate (create disabled, no dead-end); flag-on → full create→secret→persist→
+  // delete. Self-cleans via API in finally.
+  test('Webhooks: subscribe → one-time secret → persists across reload → UI delete (M2+M4), or graceful flag-gate', async ({
+    page,
+  }) => {
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+    const url = `https://e2e-chaos-${Date.now().toString().slice(-7)}.example.com/hook`;
+    let createdViaUi = false;
+    try {
+      await page.goto('/admin/webhooks', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(3500);
+
+      const createBtn = page.locator('[data-testid="webhooks-create-btn"]');
+      const gated = await page
+        .locator('[data-testid="webhooks-flag-gate"]')
+        .isVisible()
+        .catch(() => false);
+
+      if (gated) {
+        // outbound_webhooks OFF → graceful gate: create MUST be disabled (no dead button).
+        expect(
+          await createBtn.isDisabled().catch(() => true),
+          'flag-off: create-webhook button must be disabled',
+        ).toBe(true);
+      } else {
+        // Flag ON → full CRUD. Empty form → button disabled (no dead-end submit).
+        await expect(page.locator('[data-testid="webhooks-url"]'), 'url input present').toBeVisible(
+          {
+            timeout: 6000,
+          },
+        );
+        expect(await createBtn.isDisabled().catch(() => true), 'empty form: create disabled').toBe(
+          true,
+        );
+
+        await page.locator('[data-testid="webhooks-url"]').fill(url);
+        await page.locator('[data-testid^="webhooks-event-"]').first().check();
+        await expect(createBtn, 'valid url + event enables create').toBeEnabled({ timeout: 4000 });
+
+        const cResp = page.waitForResponse(
+          (r) => /\/webhooks$/.test(r.url()) && r.request().method() === 'POST',
+          { timeout: 15000 },
+        );
+        await createBtn.click();
+        const cr = await cResp;
+        expect([200, 201], `create status ${cr.status()}`).toContain(cr.status());
+        createdViaUi = true;
+
+        // The signing secret is revealed EXACTLY once.
+        await expect(
+          page.locator('[data-testid="webhooks-secret"]'),
+          'signing secret shown once',
+        ).toBeVisible({ timeout: 8000 });
+        const row = page.locator(`[data-testid="webhooks-row"]:has-text("${url}")`);
+        await expect(row, 'endpoint row appears').toBeVisible({ timeout: 8000 });
+
+        // Persist across HARD reload — and the one-time secret must NOT reappear.
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.waitForTimeout(2500);
+        await expect(
+          page.locator(`[data-testid="webhooks-row"]:has-text("${url}")`),
+          'endpoint persists across hard reload',
+        ).toBeVisible({ timeout: 8000 });
+        expect(
+          await page
+            .locator('[data-testid="webhooks-secret"]')
+            .isVisible()
+            .catch(() => false),
+          'one-time secret must NOT re-show after reload',
+        ).toBe(false);
+
+        // UI delete via the destructive confirm dialog.
+        await page
+          .locator(
+            `[data-testid="webhooks-row"]:has-text("${url}") [data-testid="webhooks-delete"]`,
+          )
+          .click({ timeout: 6000 });
+        const accept = page.locator('[data-testid="confirm-accept"]');
+        await expect(accept, 'delete confirm dialog opens').toBeVisible({ timeout: 6000 });
+        const dResp = page.waitForResponse(
+          (r) => /\/webhooks\//.test(r.url()) && r.request().method() === 'DELETE',
+          { timeout: 15000 },
+        );
+        await accept.click();
+        const dr = await dResp;
+        expect([200, 204], `delete status ${dr.status()}`).toContain(dr.status());
+        await expect(
+          page.locator(`[data-testid="webhooks-row"]:has-text("${url}")`),
+          'endpoint row disappears',
+        ).toBeHidden({ timeout: 8000 });
+        createdViaUi = false; // deleted via UI
+      }
+
+      await assertAlive(page);
+      expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+      expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+      expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+    } finally {
+      if (createdViaUi) {
+        await page
+          .evaluate(async (u) => {
+            const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
+            const list = await fetch('/api/sites/e2e-site-3/webhooks', {
+              headers: { Authorization: `Bearer ${s.token}` },
+            })
+              .then((r) => r.json())
+              .catch(() => ({}));
+            const eps = (list?.endpoints ?? list?.data ?? []) as Array<{
+              id: string;
+              url?: string;
+            }>;
+            const mine = eps.find((x) => x.url === u);
+            if (mine) {
+              await fetch(`/api/sites/e2e-site-3/webhooks/${mine.id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${s.token}` },
+              }).catch(() => {});
+            }
+          }, url)
+          .catch(() => {});
+      }
+    }
+  });
 });
