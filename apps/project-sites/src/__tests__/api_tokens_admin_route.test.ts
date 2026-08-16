@@ -73,7 +73,11 @@ describe('apiTokensAdmin — unconditional after 0614 un-flag (public_api gate r
   it('POST /api/v1-tokens validates the body (400) rather than 404-ing on the dead flag', async () => {
     const res = await buildApp().request(
       '/api/v1-tokens',
-      { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: '' }) },
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: '' }),
+      },
       env,
     );
     expect(res.status).toBe(400); // reaches validation → proves it's not gated to 404
