@@ -144,4 +144,94 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
       [],
     );
   });
+
+  // M2 — the one flow the render/interaction sweeps never exercise: mutate real
+  // state → navigate away → return → HARD RELOAD → verify PERSISTENCE. Uses AI Env
+  // Vars (org-scoped config — the safest reversible CRUD; namespaced test key,
+  // deleted via the API in `finally`). Also regression-guards the null-description
+  // 400 bug (the form sends description:null for an empty description).
+  test('AI Env Vars create → persists across nav + hard reload → cleanup (M2 persistence)', async ({
+    page,
+  }) => {
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+    const testKey = `E2E_PERSIST_${Date.now()}`;
+    let createdId: string | null = null;
+    try {
+      await page.goto('/admin/settings', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(3000);
+      const tab = page
+        .getByRole('tab', { name: 'AI Env Vars' })
+        .or(page.locator('button:has-text("AI Env Vars"), [role="tab"]:has-text("AI Env Vars")'))
+        .first();
+      await tab.click({ timeout: 4000 });
+      await page.waitForTimeout(1500);
+
+      // Create: Add opens the draft form; fill key + value only (no description →
+      // the form posts description:null, the exact payload that used to 400).
+      await page.locator('button:has-text("Add")').first().click({ timeout: 4000 });
+      await page.waitForTimeout(600);
+      await page.locator('input[name="key"]').first().fill(testKey);
+      await page.locator('input[name="value"]').first().fill('persist-value');
+      const createResp = page.waitForResponse(
+        (r) => /\/api\/env-vars\b/.test(r.url()) && r.request().method() === 'POST',
+        { timeout: 12_000 },
+      );
+      await page
+        .locator('button[type="submit"]')
+        .filter({ hasNotText: /cancel/i })
+        .first()
+        .click({ timeout: 4000 });
+      const cr = await createResp;
+      expect(cr.status(), 'env var create must 200 (not 400 on null description)').toBe(200);
+      const created = (await cr.json().catch(() => ({}))) as { var?: { id?: string } };
+      createdId = created.var?.id ?? null;
+      await expect(page.locator(`text=${testKey}`).first()).toBeVisible({ timeout: 8000 });
+
+      // Persistence 1 — navigate away, come back, re-open the tab.
+      await page.goto('/admin/sites', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1200);
+      await page.goto('/admin/settings', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(2500);
+      await tab.click({ timeout: 4000 }).catch(() => {});
+      await page.waitForTimeout(1500);
+      await expect(
+        page.locator(`text=${testKey}`).first(),
+        'env var persists after nav-away + back',
+      ).toBeVisible({ timeout: 8000 });
+
+      // Persistence 2 — HARD RELOAD (fresh document, no SPA state).
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(2500);
+      await tab.click({ timeout: 4000 }).catch(() => {});
+      await page.waitForTimeout(1500);
+      await expect(
+        page.locator(`text=${testKey}`).first(),
+        'env var persists after hard reload',
+      ).toBeVisible({ timeout: 8000 });
+
+      await assertAlive(page);
+      expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+      expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+      expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+      expect(
+        e.consoleWarnings,
+        `console warnings (DoD=0): ${e.consoleWarnings.join('; ')}`,
+      ).toEqual([]);
+    } finally {
+      // Always remove the created row (real D1 in the E2E org) — via the API, which
+      // avoids the destructive-confirm dialog and never leaves a stray test var.
+      if (createdId) {
+        await page
+          .evaluate(async (id) => {
+            const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
+            await fetch(`/api/env-vars/${id}`, {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${s.token}` },
+            }).catch(() => {});
+          }, createdId)
+          .catch(() => {});
+      }
+    }
+  });
 });
