@@ -38,17 +38,31 @@ test.describe('CHAOS 5 — Chaos Monkey (resilience + security + responsive)', (
     expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
   });
 
-  test('PWA service worker registers (offline-capable shell)', async ({ page }) => {
+  test('PWA is deployed + the shell is service-worker capable', async ({ page, request }) => {
+    // The Angular SW registers with `registerWhenStable:30000` and headless
+    // Chromium registers/observes SWs unreliably — so we assert the DEPLOYMENT
+    // (SW script + manifest served) + capability (navigator.serviceWorker) here,
+    // and treat live registration as a best-effort soft-log (real Chrome gets it).
+    const sw = await request.get('https://projectsites.dev/ngsw-worker.js');
+    expect(sw.status(), 'ngsw-worker.js is deployed').toBe(200);
+    const mani = await request.get('https://projectsites.dev/manifest.webmanifest');
+    expect(mani.status(), 'web manifest is deployed').toBe(200);
+    const mtype = mani.headers()['content-type'] ?? '';
+    expect(mtype, `manifest content-type: ${mtype}`).toMatch(/manifest|json/);
+
     await page.goto('/');
-    await page.waitForTimeout(3000);
-    const hasSW = await page.evaluate(async () => {
-      if (!('serviceWorker' in navigator)) return false;
-      const regs = await navigator.serviceWorker.getRegistrations();
-      return regs.length > 0;
+    const capable = await page.evaluate(() => 'serviceWorker' in navigator);
+    expect(capable, 'browser is service-worker capable').toBe(true);
+
+    await page.waitForTimeout(4000);
+    const registered = await page.evaluate(async () => {
+      try {
+        return (await navigator.serviceWorker.getRegistrations()).length > 0;
+      } catch {
+        return false;
+      }
     });
-    // SW is best-effort (prod-only, idle-deferred) — log, don't hard-fail.
-    console.log('CHAOS5/serviceWorker registered:', hasSW);
-    expect(true).toBe(true);
+    console.log('CHAOS5/serviceWorker registered (soft, headless-unreliable):', registered);
   });
 
   test('hostile query string + hash do not break the shell', async ({ page }) => {
