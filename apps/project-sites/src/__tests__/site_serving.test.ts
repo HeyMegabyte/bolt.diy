@@ -290,7 +290,7 @@ describe('generateTopBar', () => {
 });
 
 describe('serveSiteFromR2', () => {
-  function createMockEnv(files: Record<string, string> = {}) {
+  function createMockEnv(files: Record<string, string> = {}, opts: { status?: string } = {}) {
     return {
       SITES_BUCKET: {
         get: jest.fn(async (key: string) => {
@@ -317,6 +317,18 @@ describe('serveSiteFromR2', () => {
         put: jest.fn(async () => {}),
         delete: jest.fn(async () => {}),
       },
+      // DB stub for the version-less fallback's status read (dbQueryOne →
+      // prepare→bind→all→{results}). Only wired when a test provides `status`;
+      // otherwise DB is absent and the fallback safely defaults to "building".
+      ...(opts.status !== undefined
+        ? {
+            DB: {
+              prepare: () => ({
+                bind: () => ({ all: async () => ({ results: [{ status: opts.status }] }) }),
+              }),
+            },
+          }
+        : {}),
     } as unknown as import('../types/env').Env;
   }
 
@@ -459,23 +471,71 @@ describe('serveSiteFromR2', () => {
   // crawling that window indexes "Building your website" as the site's content.
   describe('building placeholder (current_build_version === null)', () => {
     const buildingSite = { ...baseSite, current_build_version: null };
+    // A genuinely IN-PROGRESS build (status generating/building/…) → the "Building…"
+    // page with auto-refresh. (DB absent also defaults here — safe.)
+    const inProgress = () => createMockEnv({}, { status: 'generating' });
 
     it('serves the branded building page with a 200 (keeps the auto-refresh UX)', async () => {
-      const response = await serveSiteFromR2(createMockEnv({}), buildingSite, '/');
+      const response = await serveSiteFromR2(inProgress(), buildingSite, '/');
       expect(response.status).toBe(200);
       expect(response.headers.get('Content-Type')).toBe('text/html;charset=utf-8');
       expect(await response.text()).toContain('Building your website');
     });
 
     it('carries a robots noindex meta tag so the placeholder is never indexed', async () => {
-      const response = await serveSiteFromR2(createMockEnv({}), buildingSite, '/');
+      const response = await serveSiteFromR2(inProgress(), buildingSite, '/');
       const html = await response.text();
       expect(html).toMatch(/<meta[^>]+name=["']robots["'][^>]+content=["'][^"']*noindex/i);
     });
 
     it('carries an X-Robots-Tag: noindex response header (belt-and-suspenders)', async () => {
-      const response = await serveSiteFromR2(createMockEnv({}), buildingSite, '/');
+      const response = await serveSiteFromR2(inProgress(), buildingSite, '/');
       expect(response.headers.get('X-Robots-Tag')).toMatch(/noindex/i);
+    });
+
+    it('DB read failing (no DB) still defaults to the Building page (fail-soft)', async () => {
+      const response = await serveSiteFromR2(createMockEnv({}), buildingSite, '/');
+      expect(response.status).toBe(200);
+      expect(await response.text()).toContain('Building your website');
+    });
+  });
+
+  // ── Terminal-but-no-content: a FAILED build (status='error') or a published site
+  // whose R2 content is missing must NOT loop "Building your website… auto-refreshes
+  // every 15s" forever — that misleads the visitor into thinking it's still working.
+  // Show an honest "not available" page (noindex, no infinite refresh) instead.
+  describe('terminal state without content (status-aware fallback)', () => {
+    const versionless = { ...baseSite, current_build_version: null };
+
+    it("status='error' (build failed) → honest error page, NOT 'Building your website'", async () => {
+      const response = await serveSiteFromR2(
+        createMockEnv({}, { status: 'error' }),
+        versionless,
+        '/',
+      );
+      const html = await response.text();
+      expect(html).not.toContain('Building your website');
+      expect(html).toMatch(/not available|didn't finish|couldn.t be|went wrong|try again/i);
+    });
+
+    it("status='error' page is noindex and does NOT auto-refresh forever", async () => {
+      const response = await serveSiteFromR2(
+        createMockEnv({}, { status: 'error' }),
+        versionless,
+        '/',
+      );
+      const html = await response.text();
+      expect(response.headers.get('X-Robots-Tag')).toMatch(/noindex/i);
+      expect(html).not.toMatch(/http-equiv=["']refresh["']/i); // no infinite 15s reload loop
+    });
+
+    it("status='published' but no version (inconsistent) → error page, NOT 'Building'", async () => {
+      const response = await serveSiteFromR2(
+        createMockEnv({}, { status: 'published' }),
+        versionless,
+        '/',
+      );
+      expect(await response.text()).not.toContain('Building your website');
     });
   });
 
