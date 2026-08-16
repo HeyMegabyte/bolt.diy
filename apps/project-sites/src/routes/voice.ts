@@ -420,7 +420,7 @@ voiceRoutes.delete('/api/voice/numbers/:id', async (c) => {
     }
   }
 
-  await dbUpdate(
+  const { error: relErr } = await dbUpdate(
     c.env.DB,
     'voice_numbers',
     {
@@ -431,6 +431,10 @@ voiceRoutes.delete('/api/voice/numbers/:id', async (c) => {
     'id = ?',
     [id],
   );
+  // The Twilio release already happened above (idempotent on retry) — but if the
+  // local soft-delete failed, surface it rather than showing a "released" number
+  // that D1 still marks active. Row + org were 404-guarded, so this is a real error.
+  if (relErr) throw internalError(`Failed to record number release: ${relErr}`);
 
   await auditService.writeAuditLog(c.env.DB, {
     org_id: orgId,
@@ -884,13 +888,16 @@ voiceRoutes.put('/api/voice/mcp-attachments', async (c) => {
     [body.site_id],
   );
   if (existing) {
-    await dbUpdate(
+    // Match the INSERT path (else branch): surface a genuine write failure instead
+    // of a lying 200 that silently drops the caller's MCP-attachment changes.
+    const { error: updErr } = await dbUpdate(
       c.env.DB,
       'voice_agent_settings',
       { mcp_connection_ids: voiceJson, mcp_sms_connection_ids: smsJson },
       'id = ?',
       [existing.id],
     );
+    if (updErr) throw internalError(`Failed to save voice MCP attachments: ${updErr}`);
   } else {
     const { error: vErr } = await dbInsert(c.env.DB, 'voice_agent_settings', {
       id: crypto.randomUUID(),
@@ -970,7 +977,10 @@ voiceRoutes.put('/api/voice/agent-settings', async (c) => {
     [body.siteId],
   );
   if (existing) {
-    await dbUpdate(c.env.DB, 'voice_agent_settings', updates, 'id = ?', [existing.id]);
+    const { error: updErr } = await dbUpdate(c.env.DB, 'voice_agent_settings', updates, 'id = ?', [
+      existing.id,
+    ]);
+    if (updErr) throw internalError(`Failed to save voice agent settings: ${updErr}`);
   } else {
     const { error: vErr } = await dbInsert(c.env.DB, 'voice_agent_settings', {
       id: crypto.randomUUID(),

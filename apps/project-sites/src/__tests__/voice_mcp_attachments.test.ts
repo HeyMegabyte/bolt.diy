@@ -100,6 +100,14 @@ describe('PUT /api/voice/mcp-attachments — value domains (TDD #10)', () => {
     expect(updates.mcp_sms_connection_ids).toBeNull();
   });
 
+  it('UPDATE write failure → 500 (not a lying 200) — matches the INSERT path', async () => {
+    once(siteRow); // membership
+    once({ id: 'vas-1' }); // existing → update path
+    mockUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 } as never);
+    const res = await put({ site_id: SITE, voice: ['mc-a'], sms: [] });
+    expect(res.status).toBe(500);
+  });
+
   it('no settings row yet: INSERT a new row → 200', async () => {
     once(siteRow);
     once(null); // no existing settings
