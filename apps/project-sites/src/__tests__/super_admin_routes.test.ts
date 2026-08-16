@@ -142,7 +142,7 @@ beforeEach(() => {
   mockDbQuery.mockResolvedValue({ data: [] });
   mockDbQueryOne.mockResolvedValue(null);
   mockDbInsert.mockResolvedValue({ error: null });
-  mockDbUpdate.mockResolvedValue(undefined);
+  mockDbUpdate.mockResolvedValue({ error: null, changes: 1 });
 });
 
 // ─── Representative route matrix (method + path) used by the gate tests ───────
@@ -323,6 +323,23 @@ describe('cost categories', () => {
     expect(patchArg.markup_factor).toBe(2.5);
     expect(patchArg.billable).toBe(0); // boolean coerced to 0/1
     expect(patchArg.updated_by).toBe('admin-1');
+  });
+
+  it('PATCH 500s (not a stale-row 200) when the UPDATE fails', async () => {
+    mockDbQueryOne.mockImplementation(async (_db: unknown, sql: string) => {
+      if (/is_super_admin/i.test(sql)) return { is_super_admin: 1 };
+      if (/FROM cost_categories WHERE slug/i.test(sql)) return { slug: 'ai_generation' };
+      return null;
+    });
+    mockDbUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    const res = await req(
+      makeApp(SUPER),
+      'PATCH',
+      '/api/super-admin/cost-categories/ai_generation',
+      makeEnv(),
+      { markup_factor: 2.5 },
+    );
+    expect(res.status).toBe(500);
   });
 });
 

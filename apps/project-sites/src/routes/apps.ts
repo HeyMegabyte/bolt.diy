@@ -25,7 +25,14 @@
  */
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { badRequest, conflict, forbidden, notFound, unauthorized } from '@project-sites/shared';
+import {
+  badRequest,
+  conflict,
+  forbidden,
+  internalError,
+  notFound,
+  unauthorized,
+} from '@project-sites/shared';
 import type { Env, Variables } from '../types/env.js';
 import { APPS_CATALOG, type CatalogApp } from '../data/apps-catalog.js';
 import { estimateInstanceCost, type InstanceCostEstimate } from '../services/app_cost_meter.js';
@@ -374,7 +381,7 @@ apps.post('/api/apps/instances', async (c) => {
         volumeMB: app.volumeMB,
         appSlug: app.id,
       });
-      await dbUpdate(
+      const { error: startWriteErr } = await dbUpdate(
         c.env.DB,
         'app_instances',
         start.ok
@@ -383,6 +390,18 @@ apps.post('/api/apps/instances', async (c) => {
         'id = ?',
         [instanceId],
       );
+      // Background task — the response already returned, so a throw is useless.
+      // Surface the dropped status-write to logs so a stale row is observable.
+      if (startWriteErr) {
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            event: 'app_instance_start_status_write_failed',
+            instanceId,
+            err: startWriteErr,
+          }),
+        );
+      }
     })(),
   );
 
@@ -445,7 +464,7 @@ apps.post('/api/apps/instances/:id/restart', async (c) => {
   const row = await loadInstance(c.env, orgId, c.req.param('id'));
   if (!row) throw notFound('app_instance not found');
   const r = await dispatcher.restartContainer(c.env, row.id, row.app_slug);
-  await dbUpdate(
+  const { error: restartWriteErr } = await dbUpdate(
     c.env.DB,
     'app_instances',
     r.ok
@@ -454,6 +473,7 @@ apps.post('/api/apps/instances/:id/restart', async (c) => {
     'id = ?',
     [row.id],
   );
+  if (restartWriteErr) throw internalError(`Failed to persist restart status: ${restartWriteErr}`);
   await auditService.writeAuditLog(c.env.DB, {
     org_id: orgId,
     actor_id: userId,
@@ -478,13 +498,14 @@ apps.post('/api/apps/instances/:id/stop', async (c) => {
   const row = await loadInstance(c.env, orgId, c.req.param('id'));
   if (!row) throw notFound('app_instance not found');
   const r = await dispatcher.stopContainer(c.env, row.id, row.app_slug);
-  await dbUpdate(
+  const { error: stopWriteErr } = await dbUpdate(
     c.env.DB,
     'app_instances',
     r.ok ? { status: 'stopped' } : { status: 'error', last_error: r.detail ?? 'stop_failed' },
     'id = ?',
     [row.id],
   );
+  if (stopWriteErr) throw internalError(`Failed to persist stop status: ${stopWriteErr}`);
   await auditService.writeAuditLog(c.env.DB, {
     org_id: orgId,
     actor_id: userId,
@@ -520,29 +541,41 @@ apps.patch('/api/apps/instances/:id/env', async (c) => {
   const current = await decryptEnv(c.env, row);
   const merged = { ...current, ...body.env_overrides };
   const encrypted = await encrypt(c.env, JSON.stringify(merged));
-  await dbUpdate(
+  const { error: envWriteErr } = await dbUpdate(
     c.env.DB,
     'app_instances',
     { env_encrypted: encrypted, env_iv: 'inline' },
     'id = ?',
     [row.id],
   );
+  // User-data write — never report success (or restart with stale env) on a
+  // dropped save. Throw BEFORE the restart is scheduled.
+  if (envWriteErr) throw internalError(`Failed to save env vars: ${envWriteErr}`);
 
   // Schedule a restart so the new env-var values take effect.
   c.executionCtx.waitUntil(
-    dispatcher
-      .restartContainer(c.env, row.id, row.app_slug)
-      .then((r) =>
-        dbUpdate(
-          c.env.DB,
-          'app_instances',
-          r.ok
-            ? { status: 'starting', last_started_at: new Date().toISOString(), last_error: null }
-            : { status: 'error', last_error: r.detail ?? 'restart_failed' },
-          'id = ?',
-          [row.id],
-        ),
-      ),
+    dispatcher.restartContainer(c.env, row.id, row.app_slug).then(async (r) => {
+      const { error: restartWriteErr } = await dbUpdate(
+        c.env.DB,
+        'app_instances',
+        r.ok
+          ? { status: 'starting', last_started_at: new Date().toISOString(), last_error: null }
+          : { status: 'error', last_error: r.detail ?? 'restart_failed' },
+        'id = ?',
+        [row.id],
+      );
+      // Background task — the response already returned; log a dropped write.
+      if (restartWriteErr) {
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            event: 'app_instance_env_restart_status_write_failed',
+            instanceId: row.id,
+            err: restartWriteErr,
+          }),
+        );
+      }
+    }),
   );
 
   await auditService.writeAuditLog(c.env.DB, {

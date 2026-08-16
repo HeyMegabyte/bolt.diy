@@ -115,7 +115,13 @@ superAdmin.patch(
     if (body.billable !== undefined) patch.billable = body.billable ? 1 : 0;
     if (body.description !== undefined) patch.description = body.description;
 
-    await dbUpdate(c.env.DB, 'cost_categories', patch, 'slug = ?', [slug]);
+    const { error: patchErr } = await dbUpdate(c.env.DB, 'cost_categories', patch, 'slug = ?', [
+      slug,
+    ]);
+    // Without this, a failed UPDATE falls through to the re-fetch and returns
+    // the STALE row as 200 — the admin sees their edit "succeed" but nothing
+    // changed (lying-success).
+    if (patchErr) throw internalError(`Failed to update cost category: ${patchErr}`);
     const updated = await dbQueryOne(
       c.env.DB,
       `SELECT slug, label, unit, base_cost_cents, markup_factor, min_charge_cents,

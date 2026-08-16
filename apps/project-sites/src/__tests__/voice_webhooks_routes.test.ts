@@ -130,7 +130,7 @@ describe('POST /webhooks/voice/status', () => {
 
   it('persists status + duration and sets ended_at on completed', async () => {
     mockValidateSignature.mockResolvedValue(true);
-    mockDbUpdate.mockResolvedValue(undefined);
+    mockDbUpdate.mockResolvedValue({ error: null, changes: 1 });
     const res = await postForm(
       makeApp(),
       '/webhooks/voice/status',
@@ -150,7 +150,7 @@ describe('POST /webhooks/voice/status', () => {
 
   it('omits ended_at + nulls duration for a non-terminal status', async () => {
     mockValidateSignature.mockResolvedValue(true);
-    mockDbUpdate.mockResolvedValue(undefined);
+    mockDbUpdate.mockResolvedValue({ error: null, changes: 1 });
     await postForm(
       makeApp(),
       '/webhooks/voice/status',
@@ -177,9 +177,12 @@ describe('POST /webhooks/voice/status', () => {
     expect(mockDbUpdate).not.toHaveBeenCalled();
   });
 
-  it('swallows a DB failure and still returns 200 TwiML (idempotent-safe)', async () => {
+  it('logs a DB failure (never silently) and still returns 200 TwiML (idempotent-safe)', async () => {
     mockValidateSignature.mockResolvedValue(true);
-    mockDbUpdate.mockRejectedValue(new Error('D1 down'));
+    // dbUpdate resolves { error } — it never throws — so a failed status write must
+    // be OBSERVED (console.warn), not dropped by a dead .catch(). Still acks 200.
+    mockDbUpdate.mockResolvedValue({ error: 'D1 down', changes: 0 });
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     const res = await postForm(
       makeApp(),
       '/webhooks/voice/status',
@@ -188,6 +191,10 @@ describe('POST /webhooks/voice/status', () => {
       SIG,
     );
     expect(res.status).toBe(200);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('voice_call_status_update_failed'),
+    );
+    warnSpy.mockRestore();
   });
 });
 
@@ -246,7 +253,7 @@ describe('POST /webhooks/voice/recording-ready', () => {
     });
     mockDownloadRecordingBytes.mockResolvedValue({ bytes: new ArrayBuffer(8), mime: 'audio/mpeg' });
     mockDbInsert.mockResolvedValue({ error: null });
-    mockDbUpdate.mockResolvedValue(undefined);
+    mockDbUpdate.mockResolvedValue({ error: null, changes: 1 });
 
     const env = makeEnv();
     const res = await postForm(
@@ -354,7 +361,7 @@ describe('POST /webhooks/sms/status', () => {
 
   it('persists status + delivered_at on a delivered message', async () => {
     mockValidateSignature.mockResolvedValue(true);
-    mockDbUpdate.mockResolvedValue(undefined);
+    mockDbUpdate.mockResolvedValue({ error: null, changes: 1 });
     const res = await postForm(
       makeApp(),
       '/webhooks/sms/status',
@@ -374,7 +381,7 @@ describe('POST /webhooks/sms/status', () => {
 
   it('omits delivered_at for non-delivered statuses', async () => {
     mockValidateSignature.mockResolvedValue(true);
-    mockDbUpdate.mockResolvedValue(undefined);
+    mockDbUpdate.mockResolvedValue({ error: null, changes: 1 });
     await postForm(
       makeApp(),
       '/webhooks/sms/status',
@@ -494,7 +501,7 @@ describe('POST /internal/voice/recording-saved', () => {
 
   it('also updates voice_calls with the video URL when kind is video', async () => {
     mockDbInsert.mockResolvedValue({ error: null });
-    mockDbUpdate.mockResolvedValue(undefined);
+    mockDbUpdate.mockResolvedValue({ error: null, changes: 1 });
     const body = JSON.stringify({
       callId: 'call-8',
       kind: 'video',

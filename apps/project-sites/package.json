@@ -28,7 +28,7 @@
     "check:fitness:ci": "node scripts/check-architecture-fitness.mjs --ci",
     "format": "prettier --write src",
     "format:check": "prettier --check src",
-    "check": "npm run typecheck && npm run lint && npm run check:html-injection && npm run check:fabricated-people && npm run check:idor && npm run check:admin-email && npm run check:local-error-helpers && npm run check:ai-gateway && npm run check:no-openmeter && npm run check:unwired && npm run check:dbinsert && npm run check:duplicate-routes && npm run format:check && npm run test:unit",
+    "check": "npm run typecheck && npm run lint && npm run check:html-injection && npm run check:fabricated-people && npm run check:idor && npm run check:admin-email && npm run check:local-error-helpers && npm run check:ai-gateway && npm run check:no-openmeter && npm run check:unwired && npm run check:dbinsert && npm run check:dbupdate:ci && npm run check:duplicate-routes && npm run format:check && npm run test:unit",
     "check:idor": "node scripts/check-idor-gates.mjs --ci",
     "check:admin-email": "node scripts/check-hardcoded-admin-email.mjs --ci",
     "check:local-error-helpers": "node scripts/check-local-error-helpers.mjs --ci",

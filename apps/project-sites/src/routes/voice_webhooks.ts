@@ -88,7 +88,10 @@ voiceWebhookRoutes.post('/webhooks/voice/status', async (c) => {
   const status = params.CallStatus;
   const duration = parseInt(params.CallDuration ?? '0', 10) || null;
   if (callSid) {
-    await dbUpdate(
+    // Best-effort status write — dbUpdate returns { error } (never throws), so the
+    // old .catch() was dead code that silently dropped a failed write. Twilio sends
+    // further callbacks and the row already exists, so log the drop but still ack 200.
+    const { error: statusErr } = await dbUpdate(
       c.env.DB,
       'voice_calls',
       {
@@ -98,7 +101,18 @@ voiceWebhookRoutes.post('/webhooks/voice/status', async (c) => {
       },
       'twilio_call_sid = ?',
       [callSid],
-    ).catch(() => undefined);
+    );
+    if (statusErr) {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'voice_webhooks',
+          message: 'voice_call_status_update_failed',
+          twilio_call_sid: callSid,
+          error: statusErr,
+        }),
+      );
+    }
   }
   return new Response('<Response/>', { headers: TWIML_HEADERS });
 });
@@ -164,7 +178,7 @@ voiceWebhookRoutes.post('/webhooks/voice/recording-ready', async (c) => {
           }),
         );
       }
-      await dbUpdate(
+      const { error: recUpdateErr } = await dbUpdate(
         c.env.DB,
         'voice_calls',
         {
@@ -174,6 +188,17 @@ voiceWebhookRoutes.post('/webhooks/voice/recording-ready', async (c) => {
         'id = ?',
         [call.id],
       );
+      if (recUpdateErr) {
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            service: 'voice_webhooks',
+            message: 'voice_call_recording_link_update_failed',
+            call_id: call.id,
+            error: recUpdateErr,
+          }),
+        );
+      }
     } catch (err) {
       console.warn(
         JSON.stringify({
@@ -235,7 +260,7 @@ voiceWebhookRoutes.post('/webhooks/sms/status', async (c) => {
   const sid = params.MessageSid;
   const status = params.MessageStatus;
   if (sid) {
-    await dbUpdate(
+    const { error: smsStatusErr } = await dbUpdate(
       c.env.DB,
       'voice_messages',
       {
@@ -244,7 +269,18 @@ voiceWebhookRoutes.post('/webhooks/sms/status', async (c) => {
       },
       'twilio_message_sid = ?',
       [sid],
-    ).catch(() => undefined);
+    );
+    if (smsStatusErr) {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'voice_webhooks',
+          message: 'voice_message_status_update_failed',
+          twilio_message_sid: sid,
+          error: smsStatusErr,
+        }),
+      );
+    }
   }
   return new Response('<Response/>', { headers: TWIML_HEADERS });
 });
@@ -320,13 +356,24 @@ voiceWebhookRoutes.post('/internal/voice/recording-saved', async (c) => {
     );
   }
   if (payload.kind === 'video') {
-    await dbUpdate(
+    const { error: videoUrlErr } = await dbUpdate(
       c.env.DB,
       'voice_calls',
       { video_recording_url: `/api/voice/recordings/${payload.callId}/video` },
       'id = ?',
       [payload.callId],
-    ).catch(() => undefined);
+    );
+    if (videoUrlErr) {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'voice_webhooks',
+          message: 'voice_call_video_url_update_failed',
+          call_id: payload.callId,
+          error: videoUrlErr,
+        }),
+      );
+    }
   }
   return c.json({ ok: true });
 });

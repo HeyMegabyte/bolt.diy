@@ -518,6 +518,18 @@ describe('POST /api/apps/instances/:id/restart', () => {
     expect(mockDbUpdate).toHaveBeenCalledTimes(1);
     expect(mockAudit.mock.calls[0][1]).toMatchObject({ action: 'apps.instance.restarted' });
   });
+
+  it('returns 500 (not a lying 200) when the status-write fails', async () => {
+    mockDbQueryOne.mockResolvedValue(instanceRow());
+    mockDbUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full' });
+    const res = await req(
+      makeApp(AUTH),
+      '/api/apps/instances/inst-1/restart',
+      { method: 'POST' },
+      makeEnv(),
+    );
+    expect(res.status).toBe(500);
+  });
 });
 
 describe('POST /api/apps/instances/:id/stop', () => {
@@ -552,6 +564,49 @@ describe('POST /api/apps/instances/:id/stop', () => {
       status: 'error',
       last_error: 'do_unreachable',
     });
+  });
+
+  it('returns 500 (not a lying 200) when the status-write fails', async () => {
+    mockDbQueryOne.mockResolvedValue(instanceRow());
+    mockDbUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full' });
+    const res = await req(
+      makeApp(AUTH),
+      '/api/apps/instances/inst-1/stop',
+      { method: 'POST' },
+      makeEnv(),
+    );
+    expect(res.status).toBe(500);
+  });
+});
+
+describe('PATCH /api/apps/instances/:id/env', () => {
+  it('persists the merged env and returns 200 { status: starting }', async () => {
+    mockDbQueryOne.mockResolvedValue(instanceRow({ env_encrypted: 'cipher', env_iv: 'inline' }));
+    const res = await req(
+      makeApp(AUTH),
+      '/api/apps/instances/inst-1/env',
+      jsonInit('PATCH', { env_overrides: { FOO: 'bar' } }),
+      makeEnv(),
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { ok: boolean; status: string };
+    expect(json).toMatchObject({ ok: true, status: 'starting' });
+    expect(mockDbUpdate.mock.calls[0][2]).toMatchObject({ env_encrypted: 'cipher-blob' });
+    expect(mockAudit.mock.calls[0][1]).toMatchObject({ action: 'apps.instance.env_updated' });
+  });
+
+  it('returns 500 (never silently drops the env save) when the write fails', async () => {
+    mockDbQueryOne.mockResolvedValue(instanceRow({ env_encrypted: 'cipher', env_iv: 'inline' }));
+    mockDbUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full' });
+    const res = await req(
+      makeApp(AUTH),
+      '/api/apps/instances/inst-1/env',
+      jsonInit('PATCH', { env_overrides: { FOO: 'bar' } }),
+      makeEnv(),
+    );
+    expect(res.status).toBe(500);
+    // The restart must NOT be scheduled when the env save failed.
+    expect(mockRestart).not.toHaveBeenCalled();
   });
 });
 
