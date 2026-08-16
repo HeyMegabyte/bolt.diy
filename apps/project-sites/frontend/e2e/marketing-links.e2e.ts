@@ -49,3 +49,42 @@ test.describe('marketing — no broken internal links', () => {
     expect(broken, `broken internal marketing links:\n${broken.join('\n')}`).toEqual([]);
   });
 });
+
+/**
+ * Regression: the footer "About" link used to point at `routerLink="/search"`
+ * (the business-search page) — a semantic mislink the broken-link crawler above
+ * could never catch, since `/search` returns 200. "About" must lead to product
+ * info; it now scrolls to the on-page `#how-it-works` section. Fixed 2026-08-15.
+ */
+test.describe('marketing — footer "About" leads to product info, not business search', () => {
+  test.describe.configure({ retries: 2 });
+
+  test('footer About scrolls to #how-it-works and never links to /search', async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+    // Real hydration gate — the sticky nav proves the Angular homepage mounted.
+    await page.waitForSelector('nav[aria-label="Primary"]', { state: 'attached', timeout: 15000 });
+
+    // The old mislink must be gone: no "About"-labelled anchor to /search.
+    const strayAbout = await page.locator('a[href="/search"], a[routerlink="/search"]').count();
+    expect(strayAbout, 'no marketing link may point "About" at /search').toBe(0);
+
+    // "About" is now a button (an in-page scroll action, not navigation).
+    const about = page.getByRole('button', { name: 'About', exact: true }).first();
+    await about.scrollIntoViewIfNeeded();
+    await expect(about).toBeVisible();
+    await about.click();
+    await page.waitForTimeout(900);
+
+    // It must NOT navigate away from the homepage …
+    expect(new URL(page.url()).pathname, 'About must not navigate away from /').toBe('/');
+    // … and the How-It-Works section must be scrolled into view.
+    const inView = await page.evaluate(() => {
+      const el = document.getElementById('how-it-works');
+      if (!el) return false;
+      const r = el.getBoundingClientRect();
+      return r.top < window.innerHeight && r.bottom > 0;
+    });
+    expect(inView, '#how-it-works must be in view after clicking footer About').toBe(true);
+  });
+});

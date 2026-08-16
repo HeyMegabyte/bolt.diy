@@ -673,7 +673,7 @@
       <div>
         <h3 class="font-heading font-semibold text-light text-sm mb-4 uppercase tracking-wider">{{ 'footer.company' | translate }}</h3>
         <ul class="space-y-2.5">
-          <li><a routerLink="/search" class="text-slate-400 hover:text-primary text-sm transition-colors cursor-pointer">{{ 'footer.about' | translate }}</a></li>
+          <li><button class="text-left text-slate-400 hover:text-primary text-sm transition-colors" (click)="scrollTo('how-it-works')">{{ 'footer.about' | translate }}</button></li>
           <li><a routerLink="/blog" class="text-slate-400 hover:text-primary text-sm transition-colors cursor-pointer">{{ 'footer.blog' | translate }}</a></li>
         </ul>
       </div>
