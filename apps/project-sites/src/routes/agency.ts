@@ -152,7 +152,7 @@ agency.post('/api/agency/clients', zValidator('json', inviteSchema), async (c) =
     [agencyOrgId, body.email],
   );
   if (existing) {
-    await dbUpdate(
+    const { error: reinviteErr } = await dbUpdate(
       c.env.DB,
       'agency_invitations',
       {
@@ -164,6 +164,7 @@ agency.post('/api/agency/clients', zValidator('json', inviteSchema), async (c) =
       'id = ?',
       [existing.id],
     );
+    if (reinviteErr) throw internalError(`Failed to refresh invitation: ${reinviteErr}`);
     // Email delivery (sendEmail/Novu) is the remaining enhancement.
     return c.json({ invitation_id: existing.id, token, expires_at: expiresAt });
   }
@@ -485,9 +486,14 @@ agency.put('/api/agency/brand', zValidator('json', brandSchema), async (c) => {
     ...(existing?.brand_overrides_json ? JSON.parse(existing.brand_overrides_json) : {}),
     ...body,
   };
-  await dbUpdate(c.env.DB, 'orgs', { brand_overrides_json: JSON.stringify(merged) }, 'id = ?', [
-    orgId,
-  ]);
+  const { error: brandErr } = await dbUpdate(
+    c.env.DB,
+    'orgs',
+    { brand_overrides_json: JSON.stringify(merged) },
+    'id = ?',
+    [orgId],
+  );
+  if (brandErr) throw internalError(`Failed to save brand overrides: ${brandErr}`);
   // Invalidate brand KV cache for this org's hostnames.
   try {
     await c.env.CACHE_KV.delete(`brand:${orgId}`);
@@ -519,13 +525,15 @@ agency.post('/api/agency/upgrade', zValidator('json', upgradeSchema), async (c) 
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized();
   const body = c.req.valid('json');
-  await dbUpdate(
+  const { error: upgradeErr } = await dbUpdate(
     c.env.DB,
     'orgs',
     { is_agency: 1, agency_tier: body.tier, markup_pct: body.markup_pct },
     'id = ?',
     [orgId],
   );
+  // Entitlement change — never report "upgraded" if the org wasn't actually flipped.
+  if (upgradeErr) throw internalError(`Failed to upgrade to agency: ${upgradeErr}`);
   return c.json({ ok: true, tier: body.tier, markup_pct: body.markup_pct });
 });
 

@@ -340,6 +340,18 @@ describe('POST /api/agency/clients (invite)', () => {
     // The pending lookup is scoped to the caller's agency org + email.
     expect(mockQueryOne.mock.calls[0][2]).toEqual(['org-1', 'client@acme.test']);
   });
+
+  it('500 (not a lying 200) when the re-invite UPDATE write fails', async () => {
+    mockQueryOne.mockResolvedValue({ id: 'inv-existing' }); // existing pending invite
+    mockUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    const { request } = makeApp(AUTH);
+    const res = await request('/api/agency/clients', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ email: 'client@acme.test', role: 'client_editor' }),
+    });
+    expect(res.status).toBe(500);
+  });
 });
 
 describe('GET /api/agency/brand', () => {
@@ -463,6 +475,18 @@ describe('PUT /api/agency/brand', () => {
     expect(res.status).toBe(200);
     expect(mockUpdate).toHaveBeenCalledTimes(1);
   });
+
+  it('500 (not a lying 200) when the brand UPDATE write fails', async () => {
+    mockQueryOne.mockResolvedValue({ brand_overrides_json: '{}' });
+    mockUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    const { request } = makeApp(AUTH);
+    const res = await request('/api/agency/brand', {
+      method: 'PUT',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ appName: 'X' }),
+    });
+    expect(res.status).toBe(500);
+  });
 });
 
 describe('POST /api/agency/upgrade', () => {
@@ -526,6 +550,19 @@ describe('POST /api/agency/upgrade', () => {
     expect(updates).toMatchObject({ is_agency: 1, agency_tier: 'scale', markup_pct: 0 });
     expect(whereClause).toBe('id = ?');
     expect(whereParams).toEqual(['org-1']);
+  });
+
+  it('500 (not a lying {ok:true}) when the entitlement write fails', async () => {
+    // A silent failure here tells the caller they're on the agency tier when the
+    // org was NOT flipped — an entitlement lying-success. Must surface as 500.
+    mockUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    const { request } = makeApp(AUTH);
+    const res = await request('/api/agency/upgrade', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ tier: 'pro', markup_pct: 10 }),
+    });
+    expect(res.status).toBe(500);
   });
 });
 
