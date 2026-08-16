@@ -583,13 +583,11 @@ const json = async (c: { req: { json: () => Promise<unknown> } }) =>
 
 // ── 10 experimental features — semantic per-feature endpoints ────────────────────
 
-// #1 Site-as-MCP-server
-features.get('/api/sites/:siteId/mcp/discovery', requireFlag('site_mcp_server'), async (c) =>
-  c.json(await experimentalFeatures.buildSiteMcpManifest(c.env, c.req.param('siteId'))),
-);
-features.post('/api/sites/:siteId/mcp/discovery', requireFlag('site_mcp_server'), async (c) =>
-  c.json(await experimentalFeatures.buildSiteMcpManifest(c.env, c.req.param('siteId'))),
-);
+// #1 Site-as-MCP-server — REMOVED with the child-site feature cut (commit d0fd4949,
+// "🔥 remove(child-site) batch 4"). The registry flag `site_mcp_server` was dropped
+// then, but these two /mcp/discovery routes lingered as orphan dead code (gated on a
+// now-unresolvable flag → permanent 404). Removed here to complete that deletion;
+// no frontend caller existed. (buildSiteMcpManifest is left for a separate knip sweep.)
 
 // AI model router — folded under model_registry (the AI-model platform flag);
 // the standalone ai_auto_router flag was retired 2026-08-14 as a duplicate.

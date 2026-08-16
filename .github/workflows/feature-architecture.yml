@@ -146,6 +146,17 @@ jobs:
         working-directory: apps/project-sites
         run: node scripts/check-unwired-endpoints.mjs --ci
 
+      # Orphan-flag-gate detector — every flag key gated by isFlagOn()/requireFlag()
+      # in worker src MUST exist in FLAG_REGISTRY (registry.ts). A gate on a flag that
+      # was pruned/un-flagged out of the registry returns false forever → the route
+      # 404s permanently + the feature is un-toggleable, masked by graceful "not enabled"
+      # UI. Caps the 2026-08-16 arc: public_api (fixed), then approval_workflow +
+      # github_repo_sync + abandoned_build_nudge + research_cache (over-pruned, re-added)
+      # + site_mcp_server (retired, dead route deleted). 0-finding-stable → blocking gate.
+      - name: Orphan-flag-gate detector
+        working-directory: apps/project-sites
+        run: node scripts/check-orphan-flag-gates.mjs
+
       # Unchecked-dbInsert ingestion gate — every dbInsert() into a user-generated
       # INGESTION table (contacts / form_submissions / donations / orders / voice_* /
       # pulse_posts / leads …) MUST capture the returned `{ error }` and surface it,

@@ -79,7 +79,6 @@ const FLAG_PRIMARY_PATH: Record<string, { method: 'GET' | 'POST'; path: string }
   web_push:                    { method: 'POST', path: '/api/push/subscribe' },
   auto_changelog:              { method: 'POST', path: '/api/changelog/generate' },
   tier_rate_limit:             { method: 'GET',  path: '/api/tier-rate-limit/status' },
-  site_mcp_server:             { method: 'GET',  path: '/api/sites/demo-site/mcp/discovery' },
   cold_tier_thaw:              { method: 'GET',  path: '/api/cold-tier/status/demo-site' },
   ghost_routes:                { method: 'GET',  path: '/api/ghost-routes/list/demo-site' },
   speed_compare_widget:        { method: 'POST', path: '/api/speed-compare' },

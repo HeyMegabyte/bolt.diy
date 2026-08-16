@@ -32,6 +32,47 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   // ── Restored 2026-08-13: dark-launch flags for WIRED built-ahead modules that
   // commit 442e1d82 (flag prune) over-removed. All 33 have libs/features/* manifests
   // + are imported in src (index.ts). default_enabled:false → zero runtime change.
+  // ── Restored 2026-08-16: 4 MORE over-pruned flags found by the orphan-gate
+  // detector (scripts/check-orphan-flag-gates.mjs) — each was gated by a live
+  // route/service but absent from this registry, so isFlagOn returned false
+  // forever → the feature was PERMANENTLY dead + un-toggleable (masked by graceful
+  // "not enabled" UI). Re-added dark (off) → zero runtime change, now toggleable.
+  abandoned_build_nudge: {
+    default_enabled: false,
+    default_rollout_percent: 0,
+    description:
+      'Abandoned-build recovery nudge (#27) — a scheduled cron that emails owners whose site build stalled/was abandoned, prompting them to resume.\n\n• Runs from the Worker scheduled() handler via services/abandoned_builds_cron.ts; dark-launched behind this flag (default-off → the cron is a no-op).\n• When on, finds builds idle past a threshold and sends one recovery nudge per build (dedup-stamped so it never re-nudges).\n• No route surface; backend cron only. Off → zero sends.',
+    key: 'abandoned_build_nudge',
+    owner_email: 'brian@megabyte.space',
+    stage: 'experimental',
+  },
+  approval_workflow: {
+    default_enabled: false,
+    default_rollout_percent: 0,
+    description:
+      'Client preview + approval share-links — stakeholders review a site and approve/reject via a password-protected shared link (agency sign-off flow).\n\n• GET/POST /api/sites/:siteId/review-links create + list shareable preview links (routes/review_links.ts); public /review/:id page (ReviewComponent) lets a reviewer approve/reject (routes/review_public.ts).\n• Frontend app-share-link-dialog is the "Share link" modal; it shows a flag-gate notice ("Turn on approval_workflow") when off.\n• Off → all review-link routes 404 and the dialog stays gated.',
+    key: 'approval_workflow',
+    owner_email: 'brian@megabyte.space',
+    stage: 'experimental',
+  },
+  github_repo_sync: {
+    default_enabled: false,
+    default_rollout_percent: 0,
+    description:
+      'GitHub repo sync + git-backed site rollback — mirrors a generated site to a GitHub repo and enables version rollback from commit history.\n\n• Gates a site-generation step (workflows/site-generation.ts) + services/site_create.ts that push the built site to GitHub, and GET/POST rollback in routes/site_rollback.ts.\n• Off → the generation push step is skipped and the rollback routes 404.\n• Backend + admin snapshots/rollback surface; requires GitHub credentials when enabled.',
+    key: 'github_repo_sync',
+    owner_email: 'brian@megabyte.space',
+    stage: 'experimental',
+  },
+  research_cache: {
+    default_enabled: false,
+    default_rollout_percent: 0,
+    description:
+      'Per-business research cache (#19c margin lever) — when on, rebuilding the same business skips all 5 research LLM calls (~15→5 min build + lower model spend).\n\n• services/openai_research.ts checks isFlagOn(env, "research_cache"); on → reads/writes a KV cache keyed by stable identity (placeId → name+address), 30-day TTL, v1 namespace for prompt-quality invalidation.\n• Off (default) → every rebuild pays full research cost. Enabling is a pure cost/latency win with bounded staleness.\n• Backend-only; no route surface.',
+    key: 'research_cache',
+    owner_email: 'brian@megabyte.space',
+    stage: 'experimental',
+  },
   abuse_takedown: {
     default_enabled: false,
     default_rollout_percent: 0,

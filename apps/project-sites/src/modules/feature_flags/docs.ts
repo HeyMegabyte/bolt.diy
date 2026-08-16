@@ -36,6 +36,65 @@ export interface FlagDocs {
 }
 
 export const FLAG_DOCS: Record<string, FlagDocs> = {
+  // ── Restored 2026-08-16 (1:1 with registry.ts): docs for the 4 orphan-gate flags
+  // (approval_workflow, github_repo_sync, abandoned_build_nudge, research_cache)
+  // re-added after the orphan-gate detector found them gated but absent from the registry.
+  abandoned_build_nudge: {
+    checklist: [
+      'Scheduled recovery nudge for stalled / abandoned builds',
+      'Dark-launched cron — default-off is a no-op (zero sends)',
+      'One dedup-stamped nudge per abandoned build',
+      'Backend cron only — no route surface',
+    ],
+    explanation:
+      'Abandoned-build recovery nudge (#27): a scheduled cron that emails owners whose site build stalled or was abandoned, prompting them to resume. Dark-launched behind this flag — a complete no-op until enabled.',
+    smoke_test: [
+      'Enable the flag → the next scheduled run emails one nudge per abandoned build',
+      'Off → the cron is a no-op (zero sends)',
+    ],
+  },
+  approval_workflow: {
+    checklist: [
+      'Password-protected client preview + approval share-links',
+      'Public /review/:id page for stakeholder approve / reject',
+      'GET/POST /api/sites/:siteId/review-links CRUD',
+      'Share-link dialog in admin, gated when off',
+    ],
+    explanation:
+      'Client preview + approval share-links for agency sign-off: create a password-protected shareable preview link and let a stakeholder approve or reject the site from a public /review/:id page. Off → review-link routes 404 and the dialog shows a gate notice.',
+    smoke_test: [
+      'Enable → open the Share-link dialog → create a link → visit /review/:id → approve',
+      'Off → /api/sites/:id/review-links 404s and the dialog stays gated',
+    ],
+  },
+  github_repo_sync: {
+    checklist: [
+      'Mirror a generated site to a GitHub repo',
+      'Git-backed site rollback from commit history',
+      'Gates a site-generation push step + rollback routes',
+      'Requires GitHub credentials when enabled',
+    ],
+    explanation:
+      'GitHub repo sync + git-backed rollback: pushes the generated site to a GitHub repo during generation and enables rolling a site back to a previous commit. Off → the generation push step is skipped and the rollback routes 404.',
+    smoke_test: [
+      'Enable + configure GitHub creds → generate a site → the repo receives a commit',
+      'POST /api/sites/:id/rollback restores a prior commit; Off → rollback 404s',
+    ],
+  },
+  research_cache: {
+    checklist: [
+      'Per-business research cache (margin + latency lever)',
+      'Rebuild of the same business skips all 5 research LLM calls',
+      'KV keyed by placeId → name+address, 30-day TTL',
+      'v1 namespace for prompt-quality invalidation',
+    ],
+    explanation:
+      'Per-business research cache (#19c margin lever): when on, rebuilding the same business reuses cached research and skips all 5 research LLM calls (~15→5 min build + lower model spend), keyed by stable identity with a 30-day TTL. Off → every rebuild pays full research cost.',
+    smoke_test: [
+      'Enable → rebuild the same business twice → the 2nd build skips the research LLM calls (faster)',
+      'Off → every rebuild runs the full 5-call research pipeline',
+    ],
+  },
   // ── Restored 2026-08-13 (1:1 with registry.ts): docs for the 33 over-pruned dark-launch flags.
   abuse_takedown: {
     checklist: [
