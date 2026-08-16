@@ -88,18 +88,48 @@ async function buildCtx(env: Env, row: SocialAccountRow): Promise<SocialAccountC
       if (next.refresh_token) {
         updates.refresh_token_encrypted = await encrypt(env, next.refresh_token);
       }
-      await dbUpdate(env.DB, 'social_accounts', updates, 'id = ?', [accountId]);
+      const { error } = await dbUpdate(env.DB, 'social_accounts', updates, 'id = ?', [accountId]);
+      // Persisting the refreshed token is what makes the refresh meaningful — a
+      // silent drop leaves the account on the OLD token → the next publish 401s.
+      // Callers include a publisher's inline mid-publish refresh, where a throw
+      // would fail/duplicate an already-succeeded post, so surface the drop to logs
+      // rather than throwing.
+      if (error) {
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            service: 'social_account_ctx',
+            message: 'token_refresh_persist_failed',
+            account_id: accountId,
+            error,
+          }),
+        );
+      }
     },
   };
 }
 
 /** Mark account as error (e.g. invalid token) with a human-readable reason. */
 export async function markAccountError(env: Env, accountId: string, reason: string): Promise<void> {
-  await dbUpdate(
+  const { error } = await dbUpdate(
     env.DB,
     'social_accounts',
     { status: 'error', last_error: reason.slice(0, 500) },
     'id = ?',
     [accountId],
   );
+  // Best-effort error-marking (callers treat it as fire-and-forget, e.g.
+  // `.catch(() => undefined)`) — never throw, but log a dropped mark so a stuck
+  // account state stays observable.
+  if (error) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'social_account_ctx',
+        message: 'mark_account_error_write_failed',
+        account_id: accountId,
+        error,
+      }),
+    );
+  }
 }

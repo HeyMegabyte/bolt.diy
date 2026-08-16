@@ -139,6 +139,21 @@ describe('onTokenRefresh callback', () => {
     expect(updates.refresh_token_encrypted).toBe('enc(newR)');
     expect(updates.token_expires_at).toBeNull(); // expires_at omitted → null
   });
+
+  it('WARNS (never throws) when the refreshed-token persist write drops', async () => {
+    // Called mid-publish by publishers — a throw would fail/duplicate a succeeded
+    // post, so a dropped persist is surfaced to logs, not thrown.
+    mQueryOne.mockResolvedValue(row());
+    mUpdate.mockResolvedValue({ error: 'D1_ERROR: disk full' });
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const ctx = await loadAccount(env, 'acc-1');
+    await expect(ctx!.onTokenRefresh({ access_token: 'newA' })).resolves.toBeUndefined();
+    const logged = warnSpy.mock.calls
+      .map((c) => JSON.parse(c[0] as string))
+      .find((l) => l.message === 'token_refresh_persist_failed');
+    expect(logged).toMatchObject({ service: 'social_account_ctx', account_id: 'acc-1' });
+    warnSpy.mockRestore();
+  });
 });
 
 describe('markAccountError', () => {
@@ -150,5 +165,16 @@ describe('markAccountError', () => {
     expect(updates.last_error).toHaveLength(500);
     expect(where).toBe('id = ?');
     expect(params).toEqual(['acc-1']);
+  });
+
+  it('WARNS (never throws) when the error-mark write drops', async () => {
+    mUpdate.mockResolvedValue({ error: 'D1_ERROR: disk full' });
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    await expect(markAccountError(env, 'acc-1', 'bad token')).resolves.toBeUndefined();
+    const logged = warnSpy.mock.calls
+      .map((c) => JSON.parse(c[0] as string))
+      .find((l) => l.message === 'mark_account_error_write_failed');
+    expect(logged).toMatchObject({ service: 'social_account_ctx', account_id: 'acc-1' });
+    warnSpy.mockRestore();
   });
 });

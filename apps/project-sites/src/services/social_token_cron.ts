@@ -27,6 +27,25 @@ const MAX_PER_TICK = 1000;
 const EXPIRY_WINDOW_HOURS = 72;
 
 /**
+ * Surface a dropped D1 write (dbUpdate returns `{ error }` and never throws, so a
+ * bare `await` would silently ignore a real failure). The cron is a per-account
+ * best-effort sweep — log the drop so a stuck account state is observable in OTLP,
+ * never throw (the per-account catch already handles genuine exceptions).
+ */
+function warnWriteDrop(accountId: string, op: string, error: string): void {
+  console.warn(
+    JSON.stringify({
+      level: 'warn',
+      service: 'social_token_cron',
+      message: 'account_write_dropped',
+      account_id: accountId,
+      op,
+      error,
+    }),
+  );
+}
+
+/**
  * Run the token-refresh backstop sweep.
  *
  * @returns Summary for structured logging.
@@ -91,13 +110,14 @@ export async function runTokenRefreshCron(
       if (!refreshToken) {
         // No refresh token — mark for re-auth
         await markAccountError(env, row.id, 'no_refresh_token');
-        await dbUpdate(
+        const { error: nrErr } = await dbUpdate(
           env.DB,
           'social_accounts',
           { status: 'needs_reconnect', last_error: 'No refresh token available' },
           'id = ?',
           [row.id],
         );
+        if (nrErr) warnWriteDrop(row.id, 'mark_needs_reconnect_no_token', nrErr);
         failed++;
         continue;
       }
@@ -140,7 +160,7 @@ export async function runTokenRefreshCron(
         const body = await res.text().catch(() => '');
         if (res.status === 401 || res.status === 403) {
           await markAccountError(env, row.id, `token_refresh_rejected:${res.status}`);
-          await dbUpdate(
+          const { error: rjErr } = await dbUpdate(
             env.DB,
             'social_accounts',
             {
@@ -150,6 +170,7 @@ export async function runTokenRefreshCron(
             'id = ?',
             [row.id],
           );
+          if (rjErr) warnWriteDrop(row.id, 'mark_needs_reconnect_rejected', rjErr);
         }
         failed++;
         continue;
@@ -170,23 +191,25 @@ export async function runTokenRefreshCron(
           refresh_token: json.refresh_token ?? null,
           expires_at: expiresAt,
         });
-        await dbUpdate(
+        const rcRow = await dbQuery<{ rc: number }>(
+          env.DB,
+          'SELECT refresh_count as rc FROM social_accounts WHERE id = ?',
+          [row.id],
+        );
+        const { error: metaErr } = await dbUpdate(
           env.DB,
           'social_accounts',
           {
             last_refreshed_at: new Date().toISOString(),
-            refresh_count:
-              (
-                await dbQuery<{ rc: number }>(
-                  env.DB,
-                  'SELECT refresh_count as rc FROM social_accounts WHERE id = ?',
-                  [row.id],
-                )
-              ).data[0]?.rc ?? 0 + 1,
+            // (rc ?? 0) + 1 — the previous `rc ?? 0 + 1` parsed as `rc ?? 1` (`??`
+            // binds looser than `+`), so refresh_count never incremented past its
+            // stored value. Parenthesize so each successful refresh actually counts.
+            refresh_count: (rcRow.data[0]?.rc ?? 0) + 1,
           },
           'id = ?',
           [row.id],
         );
+        if (metaErr) warnWriteDrop(row.id, 'refresh_metadata', metaErr);
         refreshed++;
       } else {
         failed++;
