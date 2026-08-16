@@ -317,6 +317,40 @@ describe('provisionFreeDomain', () => {
       }),
     );
   });
+
+  it('rolls back the CF hostname + THROWS when the D1 insert drops (no orphan, no lying-success)', async () => {
+    mockQueryOne.mockResolvedValueOnce(null); // not already present
+    // createCustomHostname → CF create OK (returns a cf_id)
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        result: { id: 'cf-orphan-1', status: 'pending', ssl: { status: 'pending_validation' } },
+      }),
+      text: async () => '',
+    });
+    // D1 tracking insert DROPS ({ error } — dbInsert never throws)
+    mockInsert.mockResolvedValueOnce({ error: 'D1_ERROR: database is locked' });
+    // compensating deleteCustomHostname → CF DELETE OK
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => '',
+    });
+
+    await expect(
+      provisionFreeDomain(mockDb, mockEnv, {
+        org_id: 'org-1',
+        site_id: 'site-1',
+        slug: 'drop-app',
+      }),
+    ).rejects.toThrow(/failed to persist hostname/);
+
+    // The CF hostname was created THEN deleted (compensated) — no orphan left behind.
+    const calls = (global.fetch as jest.Mock).mock.calls;
+    expect(calls.length).toBe(2);
+    expect(String(calls[1][0])).toContain('custom_hostnames/cf-orphan-1');
+    expect(calls[1][1]?.method).toBe('DELETE');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -356,6 +390,44 @@ describe('provisionCustomDomain', () => {
       status: 'pending',
       is_primary: true,
     });
+  });
+
+  it('rolls back the CF hostname, THROWS, and NEVER sets primary when the D1 insert drops', async () => {
+    mockQuery.mockResolvedValueOnce({ data: [], error: null }); // domain-limit check
+    mockQueryOne.mockResolvedValueOnce(null); // existing-hostname check
+    mockQuery.mockResolvedValueOnce({ data: [], error: null }); // site custom domains → first
+    // createCustomHostname → CF create OK
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        result: { id: 'cf-custom-drop', status: 'pending', ssl: { status: 'pending_validation' } },
+      }),
+      text: async () => '',
+    });
+    // D1 tracking insert DROPS
+    mockInsert.mockResolvedValueOnce({ error: 'D1_ERROR: disk I/O error' });
+    // compensating deleteCustomHostname → CF DELETE OK
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      text: async () => '',
+    });
+
+    await expect(
+      provisionCustomDomain(mockDb, mockEnv, {
+        org_id: 'org-1',
+        site_id: 'site-1',
+        hostname: 'drop.example.com',
+      }),
+    ).rejects.toThrow(/failed to persist hostname/);
+
+    // setSolePrimary (db.batch) must NEVER run on a dropped insert — else the site is
+    // left primary-less (every primary cleared, the new one set on a non-existent row).
+    expect(mockBatch).not.toHaveBeenCalled();
+    // The CF hostname was compensated (deleted), not orphaned.
+    const calls = (global.fetch as jest.Mock).mock.calls;
+    expect(calls.length).toBe(2);
+    expect(calls[1][1]?.method).toBe('DELETE');
   });
 
   it('throws conflict when max domains reached', async () => {

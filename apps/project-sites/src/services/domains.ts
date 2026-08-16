@@ -218,6 +218,43 @@ export async function deleteCustomHostname(env: Env, cfCustomHostnameId: string)
 }
 
 /**
+ * Compensating action (saga, per CLAUDE.md §8.2) for a failed `hostnames` D1 insert.
+ * By the time we insert, {@link createCustomHostname} has ALREADY created the CF custom
+ * hostname — so a dropped tracking row would ORPHAN it: invisible to
+ * {@link getSiteHostnames} + the verify cron, and (on the custom path) it would let
+ * {@link setSolePrimary} clear every primary then set one on a non-existent row, leaving
+ * the site primary-less. `dbInsert` returns `{ error }` and NEVER throws, so a bare
+ * `await` would return a phantom success. Best-effort-delete the CF hostname to undo the
+ * side-effect, then THROW so provisioning fails loud. If compensation itself fails, log
+ * the orphan for manual cleanup and still throw the original error.
+ *
+ * @throws Always — never returns normally.
+ */
+async function rollbackHostnameInsert(
+  env: Env,
+  cfCustomHostnameId: string,
+  hostname: string,
+  insertError: string,
+): Promise<never> {
+  try {
+    await deleteCustomHostname(env, cfCustomHostnameId);
+  } catch (compErr) {
+    console.warn(
+      JSON.stringify({
+        level: 'error',
+        service: 'domains',
+        message: 'orphaned_cf_hostname_compensation_failed',
+        hostname,
+        cf_id: cfCustomHostnameId,
+        insert_error: insertError,
+        compensation_error: compErr instanceof Error ? compErr.message : String(compErr),
+      }),
+    );
+  }
+  throw new Error(`domains: failed to persist hostname ${hostname}: ${insertError}`);
+}
+
+/**
  * Provision a free subdomain for a site (e.g. `slug.projectsites.dev`).
  *
  * If the hostname already exists in D1, returns its current status without
@@ -259,8 +296,8 @@ export async function provisionFreeDomain(
   // Create CF custom hostname
   const cfResult = await createCustomHostname(env, hostname);
 
-  // Store in DB
-  await dbInsert(db, 'hostnames', {
+  // Store in DB — the CF hostname now exists, so a dropped tracking row would orphan it.
+  const { error: freeInsertError } = await dbInsert(db, 'hostnames', {
     id: crypto.randomUUID(),
     org_id: opts.org_id,
     site_id: opts.site_id,
@@ -273,6 +310,9 @@ export async function provisionFreeDomain(
     last_verified_at: new Date().toISOString(),
     deleted_at: null,
   });
+  if (freeInsertError) {
+    await rollbackHostnameInsert(env, cfResult.cf_id, hostname, freeInsertError);
+  }
 
   console.warn(
     JSON.stringify({
@@ -352,8 +392,10 @@ export async function provisionCustomDomain(
 
   const hostnameId = crypto.randomUUID();
 
-  // Store in DB
-  await dbInsert(db, 'hostnames', {
+  // Store in DB — the CF hostname now exists, so a dropped tracking row would orphan it
+  // AND (below) let setSolePrimary clear every primary then set one on a non-existent row,
+  // leaving the site primary-less. Compensate + throw before that can happen.
+  const { error: customInsertError } = await dbInsert(db, 'hostnames', {
     id: hostnameId,
     org_id: opts.org_id,
     site_id: opts.site_id,
@@ -366,6 +408,9 @@ export async function provisionCustomDomain(
     last_verified_at: new Date().toISOString(),
     deleted_at: null,
   });
+  if (customInsertError) {
+    await rollbackHostnameInsert(env, cfResult.cf_id, opts.hostname, customInsertError);
+  }
 
   // Auto-set as primary if this is the first custom domain for the site (atomic swap).
   if (isFirstCustomDomain) {
