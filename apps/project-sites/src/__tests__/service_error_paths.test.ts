@@ -473,12 +473,15 @@ describe('Domains Service Error Paths', () => {
 
   describe('verifyPendingHostnames', () => {
     it('returns correct verified/failed counts after checking multiple hostnames', async () => {
+      const old = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
       // Return 3 pending hostnames from DB
       mockQuery.mockResolvedValueOnce({
+        // Old enough (2h) that the verification grace window has elapsed — so h2's
+        // persistent errors correctly fail rather than staying pending.
         data: [
-          { id: 'h1', cf_custom_hostname_id: 'cf-1', hostname: 'a.example.com' },
-          { id: 'h2', cf_custom_hostname_id: 'cf-2', hostname: 'b.example.com' },
-          { id: 'h3', cf_custom_hostname_id: 'cf-3', hostname: 'c.example.com' },
+          { id: 'h1', cf_custom_hostname_id: 'cf-1', hostname: 'a.example.com', created_at: old },
+          { id: 'h2', cf_custom_hostname_id: 'cf-2', hostname: 'b.example.com', created_at: old },
+          { id: 'h3', cf_custom_hostname_id: 'cf-3', hostname: 'c.example.com', created_at: old },
         ],
         error: null,
       });

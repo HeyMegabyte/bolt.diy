@@ -587,7 +587,15 @@ describe('verifyPendingHostnames', () => {
 
   it('returns { verified: 0, failed: 1 } when verification errors', async () => {
     mockQuery.mockResolvedValueOnce({
-      data: [{ id: 'h-fail', cf_custom_hostname_id: 'cf-fail-1', hostname: 'fail.example.com' }],
+      data: [
+        {
+          id: 'h-fail',
+          cf_custom_hostname_id: 'cf-fail-1',
+          hostname: 'fail.example.com',
+          // Old enough that the grace window has elapsed → a persistent error now fails.
+          created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+        },
+      ],
       error: null,
     });
 
@@ -619,6 +627,48 @@ describe('verifyPendingHostnames', () => {
       }),
       'id = ?',
       ['h-fail'],
+    );
+  });
+
+  it('KEEPS a YOUNG hostname pending on verification errors (grace period — DNS still propagating)', async () => {
+    // A freshly-created hostname returns verification_errors until the owner's DNS
+    // (CNAME + DCV) propagates. Failing it immediately would strand it forever —
+    // `verification_failed` is excluded from this sweep. Within the grace window it
+    // must stay `pending` so the next sweep retries it and it self-heals.
+    mockQuery.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'h-young',
+          cf_custom_hostname_id: 'cf-young-1',
+          hostname: 'young.example.com',
+          created_at: new Date().toISOString(), // just created — inside the grace window
+        },
+      ],
+      error: null,
+    });
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        result: {
+          status: 'pending',
+          ssl: { status: 'pending_validation' },
+          verification_errors: ['custom hostname does not CNAME to this zone yet'],
+        },
+      }),
+      text: async () => '',
+    });
+    mockUpdate.mockResolvedValueOnce({ error: null, changes: 1 });
+
+    const result = await verifyPendingHostnames(mockDb, mockEnv);
+
+    // Not failed — kept pending for the next sweep to retry.
+    expect(result).toEqual({ verified: 0, failed: 0 });
+    expect(mockUpdate).toHaveBeenCalledWith(
+      mockDb,
+      'hostnames',
+      expect.objectContaining({ status: 'pending' }),
+      'id = ?',
+      ['h-young'],
     );
   });
 

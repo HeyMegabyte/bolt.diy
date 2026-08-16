@@ -579,9 +579,10 @@ export async function verifyPendingHostnames(
     id: string;
     cf_custom_hostname_id: string;
     hostname: string;
+    created_at: string;
   }>(
     db,
-    'SELECT id, cf_custom_hostname_id, hostname FROM hostnames WHERE status = ? AND deleted_at IS NULL',
+    'SELECT id, cf_custom_hostname_id, hostname, created_at FROM hostnames WHERE status = ? AND deleted_at IS NULL',
     ['pending'],
   );
 
@@ -594,10 +595,18 @@ export async function verifyPendingHostnames(
     try {
       const status = await checkHostnameStatus(env, record.cf_custom_hostname_id);
 
+      // A freshly-added hostname returns verification_errors until the owner's DNS
+      // (CNAME + DCV) propagates — often minutes. Failing on the FIRST such error is
+      // premature: `verification_failed` is excluded from this sweep, so the domain
+      // would be stranded forever even once DNS lands. Keep young hostnames `pending`
+      // (retried next sweep → self-heals on propagation); only fail after a grace
+      // window, when the errors are genuinely persistent.
+      const VERIFY_GRACE_MS = 60 * 60 * 1000; // 1h — generous for DNS/DCV propagation.
+      const ageMs = Date.now() - new Date(record.created_at).getTime();
       const newStatus: HostnameState =
         status.status === 'active'
           ? 'active'
-          : status.verification_errors.length > 0
+          : status.verification_errors.length > 0 && ageMs > VERIFY_GRACE_MS
             ? 'verification_failed'
             : 'pending';
 
