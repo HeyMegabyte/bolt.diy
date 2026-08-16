@@ -93,7 +93,11 @@ describe('writeAuditLog', () => {
     expect(mockInsert).toHaveBeenCalledWith(
       mockDb,
       'audit_logs',
-      expect.objectContaining({ org_id: 'e2e-test-org', actor_id: 'system', action: 'cmdk.ai.answered' }),
+      expect.objectContaining({
+        org_id: 'e2e-test-org',
+        actor_id: 'system',
+        action: 'cmdk.ai.answered',
+      }),
     );
   });
 
