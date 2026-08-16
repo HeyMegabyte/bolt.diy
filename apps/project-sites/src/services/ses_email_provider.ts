@@ -57,7 +57,12 @@ export class AmazonSesEmailProvider implements EmailProvider {
     private readonly env: SesEnv,
     deps: SesDeps = {},
   ) {
-    this.fetchImpl = deps.fetchImpl ?? fetch;
+    // Bind the global `fetch` to `globalThis`: assigning the bare native fetch to an
+    // instance field and calling it as `this.fetchImpl(...)` invokes it with
+    // `this === this provider`, which the Workers runtime rejects with
+    // "Illegal invocation: function called with incorrect `this` reference" — so every
+    // real SES send failed (magic-link login, build emails). An injected mock is used as-is.
+    this.fetchImpl = deps.fetchImpl ?? fetch.bind(globalThis);
     this.now = deps.now ?? (() => new Date());
   }
 

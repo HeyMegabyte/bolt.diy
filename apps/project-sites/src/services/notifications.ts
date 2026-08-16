@@ -79,158 +79,215 @@ export async function sendEmail(
   deps: { email?: EmailRouter } = {},
 ): Promise<void> {
   const category = opts.category ?? 'transactional';
+  // ADR-0019 progressive-degradation: every CONFIGURED rail is tried in order
+  // (SES → Resend → SendGrid); a rail that FAILS falls through to the next. We throw
+  // only when EVERY configured rail has failed — a single-provider outage (e.g. a SES
+  // send-quota throttle) must NOT fail transactional email (magic-link login) while
+  // another configured rail is still available. Previously the SES/Resend failure
+  // paths threw immediately, so the documented fallback never actually kicked in.
+  const failures: string[] = [];
 
-  // ADR-0019 Resend→SES migration: Amazon SES becomes the PRIMARY transactional
-  // rail the moment it is configured (AWS creds + verified sender). Resend/
-  // SendGrid below remain the fallback until then — progressive-degradation, no
-  // feature flag needed. The Resend fallback is removed once SES is proven live.
+  // 1. Amazon SES — PRIMARY the moment it is configured (AWS creds + verified sender).
   if (env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY && env.SES_FROM_EMAIL) {
-    const email = deps.email ?? getEmailProvider(env);
-    await email.sendTransactional({
-      kind: categoryToEmailKind(category),
-      to: opts.to,
-      subject: opts.subject,
-      html: opts.html,
-    });
-    return;
-  }
-
-  if (env.RESEND_API_KEY) {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: 'Project Sites <noreply@projectsites.dev>',
-        to: [opts.to],
+    try {
+      const email = deps.email ?? getEmailProvider(env);
+      await email.sendTransactional({
+        kind: categoryToEmailKind(category),
+        to: opts.to,
         subject: opts.subject,
         html: opts.html,
-      }),
-    });
-    const requestId = res.headers.get('x-resend-request-id') ?? res.headers.get('x-request-id');
-    if (!res.ok) {
-      const text = await res.text();
-      const bodyExcerpt = text.slice(0, 400);
+      });
+      return;
+    } catch (err) {
+      const excerpt = (err instanceof Error ? err.message : String(err)).slice(0, 400);
+      failures.push(`ses(${excerpt})`);
       console.warn(
         JSON.stringify({
           level: 'error',
           service: 'notifications',
+          provider: 'ses',
+          category,
+          message: 'SES send failed — falling through to Resend/SendGrid',
+          body_excerpt: excerpt,
+          to: opts.to,
+          subject: opts.subject,
+        }),
+      );
+      log.error('SES send failed', {
+        provider: 'ses',
+        category,
+        to: opts.to,
+        subject: opts.subject,
+        body_excerpt: excerpt,
+      });
+    }
+  }
+
+  // 2. Resend fallback.
+  if (env.RESEND_API_KEY) {
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'Project Sites <noreply@projectsites.dev>',
+          to: [opts.to],
+          subject: opts.subject,
+          html: opts.html,
+        }),
+      });
+      const requestId = res.headers.get('x-resend-request-id') ?? res.headers.get('x-request-id');
+      if (!res.ok) {
+        const bodyExcerpt = (await res.text()).slice(0, 400);
+        console.warn(
+          JSON.stringify({
+            level: 'error',
+            service: 'notifications',
+            provider: 'resend',
+            category,
+            message: 'Resend send failed',
+            status: res.status,
+            body_excerpt: bodyExcerpt,
+            to: opts.to,
+            subject: opts.subject,
+            request_id: requestId,
+          }),
+        );
+        log.error('Resend invite send failed', {
           provider: 'resend',
           category,
-          message: 'Resend send failed',
           status: res.status,
-          body_excerpt: bodyExcerpt,
           to: opts.to,
           subject: opts.subject,
           request_id: requestId,
-        }),
-      );
+          body_excerpt: bodyExcerpt,
+        });
+        failures.push(`resend ${res.status}`); // fall through to SendGrid
+      } else {
+        console.warn(
+          JSON.stringify({
+            level: 'info',
+            service: 'notifications',
+            provider: 'resend',
+            category,
+            message: 'Resend send ok',
+            status: res.status,
+            body_excerpt: '',
+            to: opts.to,
+            subject: opts.subject,
+            request_id: requestId,
+          }),
+        );
+        log.info('Resend invite sent', {
+          provider: 'resend',
+          category,
+          to: opts.to,
+          subject: opts.subject,
+          request_id: requestId,
+        });
+        return;
+      }
+    } catch (err) {
+      const excerpt = (err instanceof Error ? err.message : String(err)).slice(0, 400);
+      failures.push(`resend(${excerpt})`);
       log.error('Resend invite send failed', {
         provider: 'resend',
         category,
-        status: res.status,
         to: opts.to,
         subject: opts.subject,
-        request_id: requestId,
-        body_excerpt: bodyExcerpt,
+        body_excerpt: excerpt,
       });
-      throw new Error(`Resend error ${res.status}: ${text}`);
     }
-    console.warn(
-      JSON.stringify({
-        level: 'info',
-        service: 'notifications',
-        provider: 'resend',
-        category,
-        message: 'Resend send ok',
-        status: res.status,
-        body_excerpt: '',
-        to: opts.to,
-        subject: opts.subject,
-        request_id: requestId,
-      }),
-    );
-    // Sentry breadcrumb for successful sends — surfaces in any error that
-    // fires later in the same request scope.
-    log.info('Resend invite sent', {
-      provider: 'resend',
-      category,
-      to: opts.to,
-      subject: opts.subject,
-      request_id: requestId,
-    });
-    return;
   }
 
+  // 3. SendGrid fallback.
   if (env.SENDGRID_API_KEY) {
-    const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${env.SENDGRID_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        personalizations: [{ to: [{ email: opts.to }] }],
-        from: { email: 'noreply@projectsites.dev', name: 'Project Sites' },
-        subject: opts.subject,
-        content: [{ type: 'text/html', value: opts.html }],
-      }),
-    });
-    const requestId = res.headers.get('x-message-id') ?? res.headers.get('x-request-id');
-    if (!res.ok) {
-      const text = await res.text();
-      const bodyExcerpt = text.slice(0, 400);
-      console.warn(
-        JSON.stringify({
-          level: 'error',
-          service: 'notifications',
+    try {
+      const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.SENDGRID_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: opts.to }] }],
+          from: { email: 'noreply@projectsites.dev', name: 'Project Sites' },
+          subject: opts.subject,
+          content: [{ type: 'text/html', value: opts.html }],
+        }),
+      });
+      const requestId = res.headers.get('x-message-id') ?? res.headers.get('x-request-id');
+      if (!res.ok) {
+        const bodyExcerpt = (await res.text()).slice(0, 400);
+        console.warn(
+          JSON.stringify({
+            level: 'error',
+            service: 'notifications',
+            provider: 'sendgrid',
+            category,
+            message: 'SendGrid send failed',
+            status: res.status,
+            body_excerpt: bodyExcerpt,
+            to: opts.to,
+            subject: opts.subject,
+            request_id: requestId,
+          }),
+        );
+        log.error('SendGrid invite send failed', {
           provider: 'sendgrid',
           category,
-          message: 'SendGrid send failed',
           status: res.status,
-          body_excerpt: bodyExcerpt,
           to: opts.to,
           subject: opts.subject,
           request_id: requestId,
-        }),
-      );
+          body_excerpt: bodyExcerpt,
+        });
+        failures.push(`sendgrid ${res.status}`);
+      } else {
+        console.warn(
+          JSON.stringify({
+            level: 'info',
+            service: 'notifications',
+            provider: 'sendgrid',
+            category,
+            message: 'SendGrid send ok',
+            status: res.status,
+            body_excerpt: '',
+            to: opts.to,
+            subject: opts.subject,
+            request_id: requestId,
+          }),
+        );
+        log.info('SendGrid invite sent', {
+          provider: 'sendgrid',
+          category,
+          to: opts.to,
+          subject: opts.subject,
+          request_id: requestId,
+        });
+        return;
+      }
+    } catch (err) {
+      const excerpt = (err instanceof Error ? err.message : String(err)).slice(0, 400);
+      failures.push(`sendgrid(${excerpt})`);
       log.error('SendGrid invite send failed', {
         provider: 'sendgrid',
         category,
-        status: res.status,
         to: opts.to,
         subject: opts.subject,
-        request_id: requestId,
-        body_excerpt: bodyExcerpt,
+        body_excerpt: excerpt,
       });
-      throw new Error(`SendGrid error ${res.status}: ${text}`);
     }
-    console.warn(
-      JSON.stringify({
-        level: 'info',
-        service: 'notifications',
-        provider: 'sendgrid',
-        category,
-        message: 'SendGrid send ok',
-        status: res.status,
-        body_excerpt: '',
-        to: opts.to,
-        subject: opts.subject,
-        request_id: requestId,
-      }),
-    );
-    log.info('SendGrid invite sent', {
-      provider: 'sendgrid',
-      category,
-      to: opts.to,
-      subject: opts.subject,
-      request_id: requestId,
-    });
-    return;
   }
 
+  // Every configured rail failed → surface it (callers apply their own .catch()).
+  // If NONE was configured, preserve the historical warn-and-return no-op.
+  if (failures.length > 0) {
+    throw new Error(`All email providers failed: ${failures.join('; ')}`);
+  }
   console.warn(
     JSON.stringify({
       level: 'warn',

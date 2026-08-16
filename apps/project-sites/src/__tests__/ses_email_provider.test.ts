@@ -109,4 +109,27 @@ describe('AmazonSesEmailProvider', () => {
     );
     expect(f.calls).toHaveLength(0);
   });
+
+  it('binds the fallback global fetch to globalThis (no Workers "Illegal invocation")', async () => {
+    // The prod fallback is `deps.fetchImpl ?? fetch`. Assigning the BARE global fetch to
+    // an instance field and calling it as `this.fetchImpl(...)` invokes fetch with
+    // `this === the provider instance` → the Workers runtime throws
+    // "Illegal invocation: function called with incorrect `this` reference", so EVERY
+    // real SES send (magic-link login, etc.) failed. Binding it to globalThis fixes it.
+    let capturedThis: unknown = 'unset';
+    const spy = function (this: unknown) {
+      capturedThis = this;
+      return Promise.resolve(new Response(JSON.stringify({ MessageId: 'ok' }), { status: 200 }));
+    };
+    const orig = globalThis.fetch;
+    globalThis.fetch = spy as unknown as typeof fetch;
+    try {
+      const p = new AmazonSesEmailProvider(goodEnv, { now: fixedNow }); // NO fetchImpl → global fallback
+      await p.sendTransactional(send);
+      // The call-site receiver must NOT be the provider instance (native fetch rejects that).
+      expect(capturedThis).not.toBe(p);
+    } finally {
+      globalThis.fetch = orig;
+    }
+  });
 });

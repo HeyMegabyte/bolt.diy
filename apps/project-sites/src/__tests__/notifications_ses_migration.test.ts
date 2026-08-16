@@ -65,4 +65,59 @@ describe('sendEmail SES migration (ADR-0019)', () => {
       globalThis.fetch = orig;
     }
   });
+
+  /** A router whose SES send always throws (a SES throttle / outage). */
+  function failingRouter(): EmailRouter {
+    return {
+      transactional: {} as EmailRouter['transactional'],
+      marketing: {} as EmailRouter['marketing'],
+      async sendTransactional() {
+        throw new Error('SES send failed (454): daily send quota exceeded');
+      },
+    };
+  }
+
+  it('FALLS THROUGH to Resend when the SES rail FAILS (fallback, not abort)', async () => {
+    // A transient SES failure must NOT fail the send when Resend is configured —
+    // the documented Resend fallback (ADR-0019) has to actually kick in.
+    const fetchSpy = jest.fn().mockResolvedValue(
+      new Response(JSON.stringify({ id: 're-1' }), {
+        status: 200,
+        headers: { 'x-resend-request-id': 'req-1' },
+      }),
+    );
+    const orig = globalThis.fetch;
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+    try {
+      await expect(
+        sendEmail(
+          sesEnv,
+          { to: 'a@b.com', subject: 'Verify', html: '<p>x</p>', category: 'magic_link' },
+          { email: failingRouter() },
+        ),
+      ).resolves.toBeUndefined();
+      expect(fetchSpy).toHaveBeenCalledTimes(1); // Resend WAS tried as the fallback
+      expect(String(fetchSpy.mock.calls[0][0])).toContain('api.resend.com');
+    } finally {
+      globalThis.fetch = orig;
+    }
+  });
+
+  it('throws only when EVERY configured provider fails (SES + Resend both fail)', async () => {
+    const fetchSpy = jest.fn().mockResolvedValue(new Response('unprocessable', { status: 422 }));
+    const orig = globalThis.fetch;
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+    try {
+      await expect(
+        sendEmail(
+          sesEnv,
+          { to: 'a@b.com', subject: 'Verify', html: '<p>x</p>', category: 'magic_link' },
+          { email: failingRouter() },
+        ),
+      ).rejects.toThrow(/email/i);
+      expect(fetchSpy).toHaveBeenCalledTimes(1); // Resend WAS attempted before giving up
+    } finally {
+      globalThis.fetch = orig;
+    }
+  });
 });
