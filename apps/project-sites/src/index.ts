@@ -1745,6 +1745,37 @@ export default {
       );
     }
 
+    // Task-inbox expiry sweep — auto-resolve expired + unresolved AI-elicitation
+    // tasks that carry a `default_choice`, stamping the row resolved with
+    // `autoDefaulted:true`. The site-generation logo-approval step already
+    // self-heals functionally via its own `waitForEvent` timeout; this sweep is
+    // the `applyExpiredDefaults` cron those comments reference — it keeps the
+    // admin tray + audit trail consistent and stops expired rows accumulating as
+    // NULL-resolved. Cheap indexed sweep, no-op when the inbox is empty.
+    try {
+      const { applyExpiredDefaults } = await import('./services/task_inbox.js');
+      const defaulted = await applyExpiredDefaults(env);
+      if (defaulted > 0) {
+        console.warn(
+          JSON.stringify({
+            level: 'info',
+            service: 'cron',
+            message: 'Task-inbox expired-default sweep complete',
+            defaulted,
+          }),
+        );
+      }
+    } catch (err) {
+      console.warn(
+        JSON.stringify({
+          level: 'error',
+          service: 'cron',
+          message: 'Task-inbox expired-default sweep failed',
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
+    }
+
     // AN5 — once daily, roll up yesterday's visitor_events into analytics_daily so
     // owner analytics answers "last N days" in O(days) rows. Idempotent UPSERT, so a
     // missed/replayed day self-heals on the next run. Runs only on the daily 06:00 UTC trigger.
