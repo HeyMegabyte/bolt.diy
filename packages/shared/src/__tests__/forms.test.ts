@@ -46,6 +46,22 @@ describe('formSubmissionInputSchema', () => {
     expect(formSubmissionInputSchema.safeParse({ origin_url: 'https://acme.example.com/p' }).success).toBe(true);
   });
 
+  it('accepts explicit null for email + origin_url (public endpoint — a custom form sending null must not 400 + lose the submission)', () => {
+    // The `x.trim() || null` idiom is ubiquitous in custom/3rd-party forms. `.optional()`
+    // alone would 400 the WHOLE submission on `email: null`; `.nullish()` accepts it.
+    const out = formSubmissionInputSchema.safeParse({
+      form_name: 'contact',
+      email: null,
+      origin_url: null,
+      fields: { message: 'hi' },
+    });
+    expect(out.success).toBe(true);
+    if (out.success) {
+      expect(out.data.email).toBeNull();
+      expect(out.data.origin_url).toBeNull();
+    }
+  });
+
   it('rejects an oversized fields payload (> 16KB)', () => {
     const big = { blob: 'x'.repeat(17_000) };
     expect(formSubmissionInputSchema.safeParse({ fields: big }).success).toBe(false);

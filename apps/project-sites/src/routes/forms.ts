@@ -127,7 +127,9 @@ forms.post('/api/v1/forms/submit', async (c) => {
       site_id: site.id,
       site_slug: site.slug,
       form_name: validated.form_name,
-      email: validated.email,
+      // Normalize null→undefined: the schema now accepts `email: null` (public endpoint),
+      // but dispatch treats a missing email as undefined (skips email-only integrations).
+      email: validated.email ?? undefined,
       fields: validated.fields,
       origin_url: validated.origin_url ?? c.req.header('referer') ?? undefined,
       ip_address: ip ?? undefined,

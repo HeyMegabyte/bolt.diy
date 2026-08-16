@@ -28,12 +28,18 @@ export const formSubmissionInputSchema = z.object({
     .max(64)
     .regex(/^[a-z0-9][a-z0-9-_]{0,62}$/i, 'form_name must be a short slug')
     .default('default'),
-  email: emailSchema.optional(),
+  // `.nullish()` (not `.optional()`): this is a PUBLIC ingestion endpoint — a custom
+  // form or third-party tool that sends `email: null` / `origin_url: null` for an empty
+  // field (the ubiquitous `input.value || null` idiom) must not have its WHOLE submission
+  // 400'd + LOST. Bare `.optional()` rejects `null` ("Expected string, received null").
+  // Downstream normalizes null→undefined (dispatch) and null→NULL (D1). Same class as the
+  // contact-phone + createSiteSchema fixes.
+  email: emailSchema.nullish(),
   fields: z
     .record(z.union([z.string(), z.number(), z.boolean(), z.null()]))
     .refine((val) => JSON.stringify(val).length <= 16384, 'Form payload too large (max 16KB)')
     .default({}),
-  origin_url: z.string().url().max(2048).optional(),
+  origin_url: z.string().url().max(2048).nullish(),
 });
 export type FormSubmissionInput = z.infer<typeof formSubmissionInputSchema>;
 
