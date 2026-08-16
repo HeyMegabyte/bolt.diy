@@ -20,7 +20,7 @@ jest.mock('../services/db.js', () => ({
   dbQuery: jest.fn(),
   dbQueryOne: jest.fn(),
   dbInsert: jest.fn(async () => ({ error: null })),
-  dbUpdate: jest.fn(),
+  dbUpdate: jest.fn(async () => ({ error: null, changes: 1 })),
 }));
 jest.mock('../services/external_llm.js', () => ({
   callExternalLLM: jest.fn(),
@@ -255,6 +255,29 @@ describe('upsertAutoPilotConfig', () => {
     expect(out.cadence_hours).toBe(12);
     expect(out.target_networks).toEqual(['facebook']);
   });
+
+  it('THROWS (never a lying "saved") when the config INSERT fails', async () => {
+    mDbQueryOne.mockResolvedValueOnce(null); // no existing → insert branch
+    mDbInsert.mockResolvedValueOnce({ error: 'D1_ERROR: disk full' });
+    await expect(
+      upsertAutoPilotConfig(db, 'org-1', { enabled: true, cadence_hours: 6 }),
+    ).rejects.toThrow(/save auto-pilot config/i);
+  });
+
+  it('THROWS (never a lying "saved") when the config UPDATE fails', async () => {
+    mDbQueryOne.mockResolvedValueOnce({
+      enabled: 1,
+      prompt: 'old',
+      cadence_hours: 24,
+      target_networks_json: JSON.stringify(['twitter']),
+      last_run_at: 5,
+      next_run_at: FIXED_NOW + 24 * HOUR,
+    });
+    mDbUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    await expect(upsertAutoPilotConfig(db, 'org-1', { prompt: 'new copy' })).rejects.toThrow(
+      /update auto-pilot config/i,
+    );
+  });
 });
 
 // ────────────────────────────────────────────────────────────
@@ -416,6 +439,33 @@ describe('runAutoPilotIfDue', () => {
     expect(updates.next_run_at).toBe(FIXED_NOW + 6 * HOUR);
     expect(where).toBe('org_id = ?');
     expect(params).toEqual(['org-A']);
+  });
+
+  it('WARNS but never throws when the cron cursor advance fails (one org must not abort the batch)', async () => {
+    mDbQuery.mockResolvedValueOnce({
+      data: [
+        {
+          org_id: 'org-A',
+          prompt: 'custom prompt',
+          cadence_hours: 6,
+          target_networks_json: JSON.stringify(['twitter']),
+        },
+      ],
+    });
+    mDbQueryOne.mockResolvedValue({ business_name: 'B', business_address: null });
+    mLLM.mockResolvedValue(llmResult(JSON.stringify({ text: 'post' })));
+    // The social_auto_pilot cursor advance is the only dbUpdate in the cron loop.
+    mDbUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const out = await runAutoPilotIfDue(makeEnv());
+
+    expect(out.orgs_scanned).toBe(1); // batch completed despite the cursor failure
+    const logged = warnSpy.mock.calls
+      .map((c) => JSON.parse(c[0]))
+      .find((l) => l.message === 'cron_cursor_advance_failed');
+    expect(logged).toMatchObject({ service: 'social_auto_pilot', org_id: 'org-A' });
+    warnSpy.mockRestore();
   });
 
   it('skips an org with empty/invalid target networks without bumping it', async () => {

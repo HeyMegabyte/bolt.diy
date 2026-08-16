@@ -402,6 +402,40 @@ describe('dispatchUsageToStripe', () => {
     expect(mockUpdate).toHaveBeenCalledTimes(1);
   });
 
+  it('WARNS at error level (double-bill risk) but still dispatches when the billed=1 mark fails', async () => {
+    mockQueryOne
+      .mockResolvedValueOnce({ plan: 'paid', status: 'active' })
+      .mockResolvedValueOnce({ stripe_subscription_id: 'sub_1' })
+      .mockResolvedValueOnce({ total: 10 }); // ai_calls sum
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: [{ id: 'si_ai', price: { id: 'price_ai' } }] }),
+      })
+      .mockResolvedValue({ ok: true, json: async () => ({}), text: async () => '' });
+    global.fetch = fetchMock;
+    // Stripe was charged (res.ok) but the local billed=1 mark drops → the events
+    // stay billed=0 and the NEXT run re-reports them = double-bill. Must be loud.
+    mockUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const out = await dispatchUsageToStripe(priceEnv, db, ORG);
+
+    // Still counts as dispatched — Stripe WAS charged; the bug is the local record.
+    expect(out).toEqual({ dispatched: 1 });
+    const logged = warnSpy.mock.calls
+      .map((c) => JSON.parse(c[0]))
+      .find((l) => l.message === 'usage_charged_but_mark_failed_double_bill_risk');
+    expect(logged).toMatchObject({
+      level: 'error',
+      service: 'usage_metering',
+      metric: 'ai_calls',
+      quantity: 10,
+    });
+    warnSpy.mockRestore();
+  });
+
   it('skips a metric whose unbilled total is zero (no double-charge)', async () => {
     mockQueryOne
       .mockResolvedValueOnce({ plan: 'paid', status: 'active' })

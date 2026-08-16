@@ -291,13 +291,33 @@ export async function dispatchUsageToStripe(
       );
       continue;
     }
-    await dbUpdate(
+    const { error: markErr, changes: marked } = await dbUpdate(
       db,
       'usage_events',
       { billed: 1, stripe_subscription_item_id: siItem },
       'org_id = ? AND metric = ? AND billed = 0',
       [orgId, metric],
     );
+    // Stripe was ALREADY charged (res.ok above). If the billed=1 mark fails or
+    // touches 0 rows, those events stay billed=0 and the NEXT run re-reports them
+    // to Stripe → DOUBLE-BILL. Don't throw (the metric loop must continue), but
+    // log at error level so an operator can reconcile before the next dispatch.
+    // TODO(usage-idempotency): pass a deterministic Stripe Idempotency-Key on the
+    // usage_records POST so a re-report is a no-op even when this mark is lost.
+    if (markErr || marked === 0) {
+      console.warn(
+        JSON.stringify({
+          level: 'error',
+          service: 'usage_metering',
+          message: 'usage_charged_but_mark_failed_double_bill_risk',
+          org_id: orgId,
+          metric,
+          quantity: total,
+          changes: marked ?? 0,
+          error: markErr ?? null,
+        }),
+      );
+    }
     dispatched += 1;
   }
   return { dispatched };

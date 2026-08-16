@@ -18,6 +18,7 @@
  * @see ../index.ts (cron hook — `runAutoPilotIfDue`)
  */
 import type { Env } from '../types/env.js';
+import { internalError } from '@project-sites/shared';
 import { dbInsert, dbQueryOne, dbUpdate } from './db.js';
 import { callExternalLLM } from './external_llm.js';
 import { PLATFORMS, type Platform, PLATFORM_CHAR_LIMITS } from './social_publishers/index.js';
@@ -149,7 +150,7 @@ export async function upsertAutoPilotConfig(
     next_run_at = now + cadence_hours * 3_600_000;
   }
   if (!existing) {
-    await dbInsert(db, 'social_auto_pilot', {
+    const { error } = await dbInsert(db, 'social_auto_pilot', {
       org_id: orgId,
       enabled: enabled ? 1 : 0,
       prompt,
@@ -160,8 +161,11 @@ export async function upsertAutoPilotConfig(
       created_at: now,
       updated_at: now,
     });
+    // User-facing config save — a dropped write must not return a lying "saved"
+    // (the settings the user just changed wouldn't persist). Surface as a 500.
+    if (error) throw internalError(`Failed to save auto-pilot config: ${error}`);
   } else {
-    await dbUpdate(
+    const { error } = await dbUpdate(
       db,
       'social_auto_pilot',
       {
@@ -175,6 +179,7 @@ export async function upsertAutoPilotConfig(
       'org_id = ?',
       [orgId],
     );
+    if (error) throw internalError(`Failed to update auto-pilot config: ${error}`);
   }
   return {
     enabled,
@@ -392,13 +397,27 @@ export async function runAutoPilotIfDue(
       }
     }
     const next = now + row.cadence_hours * 3_600_000;
-    await dbUpdate(
+    const { error: cursorErr } = await dbUpdate(
       env.DB,
       'social_auto_pilot',
       { last_run_at: now, next_run_at: next, updated_at: now },
       'org_id = ?',
       [row.org_id],
     );
+    // Cron cursor advance: a silent drop leaves next_run_at unchanged so the next
+    // tick re-scans this org → duplicate drafts. Never throw (one org's D1 hiccup
+    // must not abort the whole batch) — surface it so the re-scan is observable.
+    if (cursorErr) {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'social_auto_pilot',
+          message: 'cron_cursor_advance_failed',
+          org_id: row.org_id,
+          error: cursorErr,
+        }),
+      );
+    }
   }
   return { orgs_scanned: rows.length, drafts_created };
 }
