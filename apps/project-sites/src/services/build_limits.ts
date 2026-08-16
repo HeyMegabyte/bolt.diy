@@ -2,11 +2,15 @@
  * @module services/build_limits
  *
  * @description
- * Per-org site allowance — free accounts get exactly 1 site; paid plans are
- * billed at $50/month per site (PAID_LIMIT is the runaway-cost sanity ceiling,
- * not an "all you can eat" allotment). Owners of unlimited orgs get `Infinity`.
- * Tracked by counting non-deleted rows in the `sites` table (soft-deletes don't
- * free a slot — by design, so users can't dodge the quota by churning).
+ * Per-org site allowance — free accounts get exactly 1 site AT A TIME; paid
+ * plans are billed at $50/month per site (PAID_LIMIT is the runaway-cost sanity
+ * ceiling, not an "all you can eat" allotment). Owners of unlimited orgs get
+ * `Infinity`. Tracked by counting LIVE (non-deleted) rows in the `sites` table
+ * (`deleted_at IS NULL`) — a soft-delete FREES the slot, so a user can delete a
+ * site and create another (the legit fix-a-mistake flow). Churn abuse
+ * (delete→recreate to trigger repeated expensive builds) is bounded NOT by this
+ * site count but by the monthly AI-spend cap in `build_budget` (free tier
+ * $5/mo), which gates the create→build path — the two limits compose.
  *
  * @remarks
  * - The `UNLIMITED_ORGS` set is request-cached, populated lazily when the
