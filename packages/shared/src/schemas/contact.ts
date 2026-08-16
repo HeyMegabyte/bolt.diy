@@ -23,7 +23,12 @@ export const contactFormSchema = z.object({
     .max(200, 'Name is too long (max 200 characters)')
     .refine((val) => !/<script[\s>]/i.test(val), 'Invalid characters in name'),
   email: emailSchema,
-  phone: z.string().max(20, 'Phone number is too long').optional(),
+  // `.nullish()` (not `.optional()`): a contact form commonly sends `phone: null`
+  // for an empty optional field (`input.value || null`) — `.optional()` alone
+  // rejects null and 400s the ENTIRE submission, losing the visitor's message.
+  // Every downstream consumer already null-guards (`body.phone ?? null`, truthy
+  // checks). See [[optional-field-form-sends-null-schema-rejects]].
+  phone: z.string().max(20, 'Phone number is too long').nullish(),
   message: z
     .string()
     .min(10, 'Message must be at least 10 characters')

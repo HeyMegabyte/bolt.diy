@@ -24,6 +24,15 @@ describe('contactFormSchema', () => {
     expect(result.phone).toBeUndefined();
   });
 
+  it('accepts phone: null (a form sends null for an empty optional field)', () => {
+    // Generated-site contact JS commonly does `phone: input.value || null`, so an
+    // empty phone arrives as `null`. `.optional()` alone REJECTS null → the ENTIRE
+    // submission 400s and the visitor's message is silently lost. The field must
+    // accept null. See [[optional-field-form-sends-null-schema-rejects]].
+    const result = contactFormSchema.parse({ ...validInput, phone: null });
+    expect(result.phone == null).toBe(true); // null/undefined accepted, never thrown
+  });
+
   it('lowercases email', () => {
     const result = contactFormSchema.parse({
       ...validInput,
