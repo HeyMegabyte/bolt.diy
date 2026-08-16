@@ -165,19 +165,3 @@ footer {
     }
   }
 }
-
-/* ── Search bar keyboard focus ring (WCAG 2.4.7) ──────────────
-   The hero + CTA search inputs are Tailwind `outline-none` — the global cyan
-   `*:focus-visible` outline is deliberately suppressed on these icon-wrapped
-   inputs (it rendered as stray vertical stripes flanking the icon). Without a
-   replacement, a keyboard user tabbing to the PRIMARY funnel input saw no
-   focus indicator. Provide a clear ring on the WRAPPER via `:focus-within`.
-   Hand-written + `!important` on purpose: Tailwind never generated the
-   arbitrary `focus:shadow-[…]` classes, and the global glow box-shadow (which
-   carries no `!important`) was being overridden on these inputs. */
-.ps-search-wrap:focus-within {
-  border-color: var(--ps-accent, #00e5ff) !important;
-  box-shadow:
-    0 0 0 3px color-mix(in oklch, var(--ps-accent, #00e5ff) 45%, transparent),
-    0 0 18px -2px color-mix(in oklch, var(--ps-accent, #00e5ff) 40%, transparent) !important;
-}
