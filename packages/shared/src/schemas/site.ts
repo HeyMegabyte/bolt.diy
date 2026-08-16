@@ -64,15 +64,19 @@ export const siteSchema = z.object({
  *
  * Only `business_name` is required. The `slug` is optional and will be
  * auto-generated from the business name when omitted. All other contact
- * fields are optional and can be enriched later by the AI research pipeline.
+ * fields are `.nullable().optional()` — omit to leave unset, or send explicit
+ * `null` for "no value" (matching `updateSiteSchema`, the nullable `sites`
+ * columns, and the `siteSchema` row shape). A caller that sends `business_phone:
+ * null` for an empty field (the `x.trim() || null` idiom) must not have its whole
+ * create 400'd — the exact `.optional()`-rejects-`null` class fixed for contact.
  */
 export const createSiteSchema = z.object({
   business_name: nameSchema,
   slug: slugSchema.optional(),
-  business_phone: z.string().max(20).optional(),
-  business_email: z.string().email().max(254).optional(),
-  business_address: z.string().max(500).optional(),
-  google_place_id: z.string().max(255).optional(),
+  business_phone: z.string().max(20).nullable().optional(),
+  business_email: z.string().email().max(254).nullable().optional(),
+  business_address: z.string().max(500).nullable().optional(),
+  google_place_id: z.string().max(255).nullable().optional(),
 });
 
 /**

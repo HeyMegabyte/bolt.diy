@@ -272,6 +272,25 @@ describe('createSiteSchema', () => {
   it('rejects invalid emails', () => {
     expect(() => createSiteSchema.parse({ business_name: 'Valid', business_email: 'not-email' })).toThrow();
   });
+
+  it('accepts explicit null for the optional business fields (x.trim() || null must not 400 the create)', () => {
+    // A caller building the payload with `phone.trim() || null` (the settings idiom)
+    // sends null for empty fields — `.optional()` alone would reject that ("Expected
+    // string, received null") and 400 the whole create; `.nullable().optional()` accepts
+    // it (matching updateSiteSchema, the nullable sites columns, and siteSchema).
+    const result = createSiteSchema.parse({
+      business_name: 'Joe Pizza',
+      business_phone: null,
+      business_email: null,
+      business_address: null,
+      google_place_id: null,
+    });
+    expect(result.business_name).toBe('Joe Pizza');
+    expect(result.business_phone).toBeNull();
+    expect(result.business_email).toBeNull();
+    expect(result.business_address).toBeNull();
+    expect(result.google_place_id).toBeNull();
+  });
 });
 
 // ─── Auth Schemas ────────────────────────────────────────────
