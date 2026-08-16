@@ -16,8 +16,13 @@ test.describe('CHAOS 3 — Locked-Out User (auth + access control)', () => {
     await page.waitForTimeout(2000);
     await assertAlive(page);
     console.log('CHAOS3/signin console:', JSON.stringify(e.consoleErrors));
+    console.log('CHAOS3/signin warn   :', JSON.stringify(e.consoleWarnings));
     expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
     expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+    expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+    expect(e.consoleWarnings, `console warnings (DoD=0): ${e.consoleWarnings.join('; ')}`).toEqual(
+      [],
+    );
   });
 
   test('magic-link input rejects/handles hostile emails without crash or XSS', async ({ page }) => {

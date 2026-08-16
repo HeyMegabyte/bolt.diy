@@ -21,11 +21,20 @@ test.describe('CHAOS 1 — Skeptical Visitor (marketing + search)', () => {
     console.log('CHAOS1/home console:', JSON.stringify(e.consoleErrors));
     console.log('CHAOS1/home pageerr:', JSON.stringify(e.pageErrors));
     console.log('CHAOS1/home failed :', JSON.stringify(e.failedRequests));
+    console.log('CHAOS1/home 404ast :', JSON.stringify(e.notFoundAssets));
     console.log('CHAOS1/home 5xx    :', JSON.stringify(e.serverErrors));
 
     expect(await e.xssFired(), 'no injected script executed on load').toBe(false);
     expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
     expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+    expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+    expect(e.consoleWarnings, `console warnings (DoD=0): ${e.consoleWarnings.join('; ')}`).toEqual(
+      [],
+    );
+    expect(
+      e.notFoundAssets,
+      `missing same-origin assets (404): ${e.notFoundAssets.join('; ')}`,
+    ).toEqual([]);
   });
 
   test('business search survives hostile inputs (honest degradation, no XSS/crash)', async ({

@@ -17,9 +17,14 @@ test.describe('CHAOS 2 — Impatient Builder (create funnel + AI + domains)', ()
     await page.waitForTimeout(2500);
     await assertAlive(page);
     console.log('CHAOS2/create console:', JSON.stringify(e.consoleErrors));
+    console.log('CHAOS2/create warn   :', JSON.stringify(e.consoleWarnings));
     console.log('CHAOS2/create 5xx    :', JSON.stringify(e.serverErrors));
     expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
     expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+    expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+    expect(e.consoleWarnings, `console warnings (DoD=0): ${e.consoleWarnings.join('; ')}`).toEqual(
+      [],
+    );
   });
 
   test('every text input on the create flow survives hostile fills', async ({ page }) => {

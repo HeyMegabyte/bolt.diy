@@ -47,11 +47,18 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
       await page.goto(route, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(3500); // Angular lazy chunk + data fetch
       await assertAlive(page);
-      if (e.consoleErrors.length || e.pageErrors.length || e.serverErrors.length) {
+      if (
+        e.consoleErrors.length ||
+        e.pageErrors.length ||
+        e.serverErrors.length ||
+        e.consoleWarnings.length
+      ) {
         console.log(
           `CHAOS4 ${route}:`,
           JSON.stringify({
-            console: e.consoleErrors,
+            err: e.consoleErrors,
+            warn: e.consoleWarnings,
+            asset404: e.notFoundAssets,
             pageerr: e.pageErrors,
             s5xx: e.serverErrors,
           }),
@@ -60,6 +67,15 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
       expect(await e.xssFired(), `no injected script on ${route}`).toBe(false);
       expect(e.pageErrors, `${route} pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
       expect(e.serverErrors, `${route} 5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+      expect(e.consoleErrors, `${route} console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+      expect(
+        e.consoleWarnings,
+        `${route} console warnings (mission DoD = 0): ${e.consoleWarnings.join('; ')}`,
+      ).toEqual([]);
+      expect(
+        e.notFoundAssets,
+        `${route} missing same-origin assets (404): ${e.notFoundAssets.join('; ')}`,
+      ).toEqual([]);
     });
   }
 
