@@ -30,7 +30,7 @@ import { listSuppressions, removeSuppression } from '../services/email_suppressi
 import { invalidateFlagCache, FLAG_REGISTRY } from '../modules/feature_flags/services.js';
 import { SERVICE_REGISTRY } from '../platform/service-registry.js';
 import { signHs256 } from '../lib/jwt.js';
-import { unauthorized, forbidden } from '@project-sites/shared';
+import { unauthorized, forbidden, internalError } from '@project-sites/shared';
 
 const superAdmin = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -689,7 +689,7 @@ superAdmin.post('/api/super-admin/refunds', zValidator('json', refundSchema), as
     status = data.status ?? 'pending';
   }
 
-  await dbInsert(c.env.DB, 'refunds', {
+  const { error: refundErr } = await dbInsert(c.env.DB, 'refunds', {
     id,
     org_id: body.org_id,
     stripe_charge_id: body.stripe_charge_id ?? null,
@@ -700,6 +700,21 @@ superAdmin.post('/api/super-admin/refunds', zValidator('json', refundSchema), as
     initiated_by: userId,
     status,
   });
+  if (refundErr) {
+    // The Stripe refund already SUCCEEDED — money is out and cannot be reversed,
+    // and Stripe's Idempotency-Key (`id`) blocks a double-refund on retry. So we
+    // cannot compensate; instead preserve the recoverable stripe_refund_id in the
+    // audit trail and surface a precise error — never a lying 201 that hides an
+    // un-recorded refund.
+    await audit(c, 'refund_record_failed', {
+      target_kind: 'org',
+      target_id: body.org_id,
+      after: { ...body, stripe_refund_id: stripeRefundId, status, db_error: refundErr },
+    });
+    throw internalError(
+      `Refund issued at Stripe (${stripeRefundId ?? 'no-charge'}) but recording it failed: ${refundErr}`,
+    );
+  }
   await audit(c, 'refund_initiate', {
     target_kind: 'org',
     target_id: body.org_id,
@@ -749,7 +764,7 @@ superAdmin.post('/api/super-admin/broadcasts', zValidator('json', broadcastSchem
   const body = c.req.valid('json');
   const userId = c.get('userId') as string;
   const id = `bc_${crypto.randomUUID()}`;
-  await dbInsert(c.env.DB, 'broadcasts', {
+  const { error: bcErr } = await dbInsert(c.env.DB, 'broadcasts', {
     id,
     channel: body.channel,
     segment_json: JSON.stringify(body.segment),
@@ -760,6 +775,7 @@ superAdmin.post('/api/super-admin/broadcasts', zValidator('json', broadcastSchem
     scheduled_at: body.scheduled_at ?? null,
     created_by: userId,
   });
+  if (bcErr) throw internalError(`Failed to create broadcast: ${bcErr}`);
   await audit(c, 'broadcast_create', { target_kind: 'broadcast', target_id: id, after: body });
   return c.json({ id }, 201);
 });
@@ -822,7 +838,7 @@ superAdmin.post(
     const body = c.req.valid('json');
     const userId = c.get('userId') as string;
     const id = `ann_${crypto.randomUUID()}`;
-    await dbInsert(c.env.DB, 'announcements', {
+    const { error: annErr } = await dbInsert(c.env.DB, 'announcements', {
       id,
       title: body.title,
       body_md: body.body_md,
@@ -833,6 +849,7 @@ superAdmin.post(
       ends_at: body.ends_at ?? null,
       created_by: userId,
     });
+    if (annErr) throw internalError(`Failed to create announcement: ${annErr}`);
     await audit(c, 'announcement_create', {
       target_kind: 'announcement',
       target_id: id,
@@ -1081,7 +1098,7 @@ superAdmin.post(
       `SELECT m.org_id FROM memberships m WHERE m.user_id = ? AND m.deleted_at IS NULL ORDER BY m.created_at LIMIT 1`,
       [body.target_user_id],
     );
-    await dbInsert(c.env.DB, 'impersonation_sessions', {
+    const { error: impErr } = await dbInsert(c.env.DB, 'impersonation_sessions', {
       id,
       super_admin_user_id: userId,
       target_user_id: body.target_user_id,
@@ -1091,6 +1108,9 @@ superAdmin.post(
       ip_address: c.req.header('cf-connecting-ip') ?? null,
       user_agent: c.req.header('user-agent') ?? null,
     });
+    // The session row IS the audit trail. If it did not persist, BLOCK the
+    // impersonation — never mint the token below for an un-auditable session.
+    if (impErr) throw internalError(`Failed to record impersonation session: ${impErr}`);
     await audit(c, 'impersonate_start', {
       target_kind: 'user',
       target_id: body.target_user_id,

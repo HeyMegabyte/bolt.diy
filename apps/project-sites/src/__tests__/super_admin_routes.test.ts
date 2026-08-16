@@ -141,7 +141,7 @@ beforeEach(() => {
   // Default: every other dbQuery returns an empty list, dbQueryOne null.
   mockDbQuery.mockResolvedValue({ data: [] });
   mockDbQueryOne.mockResolvedValue(null);
-  mockDbInsert.mockResolvedValue(undefined);
+  mockDbInsert.mockResolvedValue({ error: null });
   mockDbUpdate.mockResolvedValue(undefined);
 });
 
@@ -824,6 +824,81 @@ describe('impersonation', () => {
       makeEnv(),
     );
     expect(res.status).toBe(200);
+  });
+});
+
+// ─── Ledger-write failure: no lying 2xx when the row silently drops ──────────
+// dbInsert returns {error} without throwing; a bare await used to return a
+// lying 201/200 while the row dropped. refunds preserves the recoverable
+// stripe_refund_id (the Stripe refund already moved money — cannot compensate);
+// broadcasts/announcements/impersonation throw so nothing is faked.
+
+describe('ledger-write failure (no lying 2xx)', () => {
+  beforeEach(grantSuperAdmin);
+  const realFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = realFetch;
+  });
+
+  it('refund: 500 + preserves stripe_refund_id in the audit when the DB insert fails', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: 're_orphan', status: 'succeeded' }),
+    }) as unknown as typeof fetch;
+    mockDbInsert.mockResolvedValueOnce({ error: 'db down' }); // refunds insert fails
+    const env = makeEnv({ STRIPE_SECRET_KEY: 'sk_test_x' });
+    const res = await req(makeApp(SUPER), 'POST', '/api/super-admin/refunds', env, {
+      org_id: 'org-7',
+      amount_cents: 500,
+      reason: 'duplicate',
+      stripe_charge_id: 'ch_1',
+    });
+    expect(res.status).toBe(500); // NOT a lying 201
+    // The already-issued Stripe refund id MUST survive in the audit trail so the
+    // orphaned refund is recoverable (money is out; the DB row is not).
+    const auditedFailure = (
+      env.DB as unknown as { _stmt: { bind: jest.Mock } }
+    )._stmt.bind.mock.calls.some((args) => (args as unknown[]).includes('refund_record_failed'));
+    expect(auditedFailure).toBe(true);
+  });
+
+  it('broadcast: 500 when the DB insert fails (not a lying 201)', async () => {
+    mockDbInsert.mockResolvedValueOnce({ error: 'db down' });
+    const res = await req(makeApp(SUPER), 'POST', '/api/super-admin/broadcasts', makeEnv(), {
+      channel: 'email',
+      segment: { plan: 'pro' },
+      body_md: 'A meaningful update body.',
+    });
+    expect(res.status).toBe(500);
+  });
+
+  it('announcement: 500 when the DB insert fails (not a lying 201)', async () => {
+    mockDbInsert.mockResolvedValueOnce({ error: 'db down' });
+    const res = await req(makeApp(SUPER), 'POST', '/api/super-admin/announcements', makeEnv(), {
+      title: 'Scheduled maintenance',
+      body_md: 'We will be down briefly.',
+    });
+    expect(res.status).toBe(500);
+  });
+
+  it('impersonate: 500 + NO token issued when the session-record insert fails', async () => {
+    mockDbQueryOne.mockImplementation(async (_db: unknown, sql: string) => {
+      if (/is_super_admin/i.test(sql)) return { is_super_admin: 1 };
+      if (/FROM memberships/i.test(sql)) return { org_id: 'org-target' };
+      return null;
+    });
+    mockDbInsert.mockResolvedValueOnce({ error: 'db down' }); // impersonation_sessions insert fails
+    const res = await req(
+      makeApp(SUPER),
+      'POST',
+      '/api/super-admin/impersonate',
+      // Secret IS set — so if the code did NOT throw it would mint a token + 200.
+      // The 500 proves un-auditable impersonation is blocked BEFORE token issue.
+      makeEnv({ IMPERSONATION_JWT_SECRET: 'x'.repeat(40) }),
+      { target_user_id: 'u1', reason: 'support ticket #42' },
+    );
+    expect(res.status).toBe(500);
   });
 });
 
