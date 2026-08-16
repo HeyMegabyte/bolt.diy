@@ -45,7 +45,7 @@
     </div>
 
     <!-- Mobile hamburger -->
-    <button class="md:hidden text-light p-2" (click)="toggleMobileMenu()" aria-label="Toggle menu">
+    <button class="md:hidden text-light p-2" [attr.aria-expanded]="mobileMenuOpen()" (click)="toggleMobileMenu()" aria-label="Toggle menu">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         @if (mobileMenuOpen()) {
           <path d="M18 6 6 18" /><path d="m6 6 12 12" />
@@ -534,6 +534,7 @@
              [class.faq-active]="openFaqIndex() === i">
           <button
             class="w-full flex items-center justify-between px-6 py-5 text-left transition-colors hover:bg-white/[0.02]"
+            [attr.aria-expanded]="openFaqIndex() === i"
             (click)="toggleFaq(i)"
           >
             <span class="font-medium text-light text-sm pr-4">{{ 'faq.q' + i | translate }}</span>
