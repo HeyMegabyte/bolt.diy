@@ -207,12 +207,23 @@ export async function writeOutbox(
   return { inserted: (res.meta?.changes ?? 0) > 0 };
 }
 
-/** Read up to `limit` pending events (FIFO) for the dispatcher to drain. */
+/**
+ * Read up to `limit` DRAINABLE events (FIFO) for the dispatcher: `pending` rows AND
+ * retryable `failed` rows (`attempts < MAX_OUTBOX_ATTEMPTS`). Including the retryable-failed
+ * set is what makes the retry→dead-letter lifecycle actually run — a `markFailed` row would
+ * otherwise never be re-dispatched (see the WHERE-clause note below).
+ */
 export async function readPendingOutbox(env: OutboxDb, limit = 50): Promise<ProjectSitesEvent[]> {
   const res = await env.DB.prepare(
-    `SELECT payload FROM outbox_events WHERE status = 'pending' ORDER BY created_at ASC LIMIT ?`,
+    // Include retryable-FAILED rows (status='failed', attempts < cap), not just 'pending'
+    // — else `markFailed` strands an event forever: the drain re-reads only THIS set, so a
+    // failed row is never re-dispatched → it never retries AND never dead-letters (attempts
+    // stuck below the cap). Reading them here makes the retry→dead-letter lifecycle real.
+    `SELECT payload FROM outbox_events
+       WHERE status = 'pending' OR (status = 'failed' AND attempts < ?)
+       ORDER BY created_at ASC LIMIT ?`,
   )
-    .bind(limit)
+    .bind(MAX_OUTBOX_ATTEMPTS, limit)
     .all<{ payload: string }>();
   return (res.results ?? []).map((r) => ProjectSitesEventSchema.parse(JSON.parse(r.payload)));
 }

@@ -172,11 +172,17 @@ describe('writeOutbox — idempotent', () => {
 });
 
 describe('outbox drain + DLQ', () => {
-  it('reads only pending rows and parses each payload back to an event', async () => {
+  it('reads pending AND retryable-failed rows so failed events actually retry (not stranded)', async () => {
     const ev = buildEvent(baseInput, 'evt-20', '2026-06-19T00:00:00.000Z');
     const { env, calls } = stubDb({ changes: 0 }, [{ payload: JSON.stringify(ev) }]);
     const pending = await readPendingOutbox(env, 10);
+    // The pending-only reader stranded failed events forever: drainOutbox only re-reads
+    // this set, so a `markFailed` row (status='failed', attempts<MAX) was never picked up
+    // → it never retried AND never dead-lettered (attempts stuck at 1). The reader MUST
+    // also include retryable-failed rows so the retry→dead-letter lifecycle actually runs.
     expect(calls[0].sql).toMatch(/status = 'pending'/);
+    expect(calls[0].sql).toMatch(/status = 'failed' AND attempts </);
+    expect(calls[0].binds[0]).toBe(MAX_OUTBOX_ATTEMPTS);
     expect(pending).toHaveLength(1);
     expect(pending[0].id).toBe('evt-20');
   });
