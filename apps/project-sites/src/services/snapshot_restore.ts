@@ -81,7 +81,26 @@ export async function restoreSnapshot(
   if (!head) return { ok: false, error: 'Snapshot build is no longer in storage' };
 
   // Re-point the live build version (reversible — old version files remain).
-  await dbUpdate(env.DB, 'sites', { current_build_version: row.build_version }, 'id = ?', [siteId]);
+  // `dbUpdate` RETURNS `{ error, changes }` (it never throws) — a bare await would
+  // IGNORE a write failure and still purge the cache + audit-log a "restored" event +
+  // return ok:true, a lying-success where the live site never actually changed
+  // version. Honor this module's contract ("every failure path returns { ok:false }"):
+  // surface the drop BEFORE any side effect.
+  const { error: updateError, changes } = await dbUpdate(
+    env.DB,
+    'sites',
+    { current_build_version: row.build_version },
+    'id = ?',
+    [siteId],
+  );
+  if (updateError) {
+    return { ok: false, error: `Failed to re-point build version: ${updateError}` };
+  }
+  if (changes === 0) {
+    // The site row vanished between the org-scoped lookup and the update (a race
+    // deleted it). Never claim a restore that touched no row.
+    return { ok: false, error: 'Site no longer exists' };
+  }
 
   // Purge the host KV cache so serving resolves the new version immediately —
   // the base subdomain plus every active custom hostname bound to the site.

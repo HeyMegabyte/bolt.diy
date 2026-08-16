@@ -46,7 +46,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mQueryOne.mockResolvedValue({ build_version: 'v9', slug: 'acme' });
   mQuery.mockResolvedValue({ data: [] }); // no custom hostnames by default
-  mUpdate.mockResolvedValue({});
+  mUpdate.mockResolvedValue({ error: null, changes: 1 });
   mHead.mockResolvedValue({}); // R2 build exists
   mKvDelete.mockResolvedValue(undefined);
   mAudit.mockResolvedValue(undefined);
@@ -112,5 +112,28 @@ describe('restoreSnapshot', () => {
     mQuery.mockResolvedValue({ data: [{ hostname: 'www.acme.com' }] });
     await restoreSnapshot(env, params);
     expect(mKvDelete.mock.calls.some((c) => c[0] === 'host:www.acme.com')).toBe(true);
+  });
+
+  it('returns {ok:false} WITHOUT purging cache or auditing when the version UPDATE fails (no lying-success)', async () => {
+    // dbUpdate returns { error } (it never throws) — a bare await would ignore this,
+    // purge the cache, audit a "restored" event, and claim ok:true while the live
+    // site never changed version. The honest contract: surface the drop, no side effects.
+    mUpdate.mockResolvedValue({ error: 'D1_ERROR: database is locked', changes: 0 });
+    const res = await restoreSnapshot(env, params);
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/re-point|build version/i);
+    // The restore did NOT happen → no cache purge, no "restored" audit row.
+    expect(mKvDelete).not.toHaveBeenCalled();
+    expect(mAudit).not.toHaveBeenCalled();
+  });
+
+  it('returns {ok:false} when the site row vanished mid-restore (changes===0, no error)', async () => {
+    // A race soft-deleted the site between the org-scoped lookup and the UPDATE.
+    mUpdate.mockResolvedValue({ error: null, changes: 0 });
+    const res = await restoreSnapshot(env, params);
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/no longer exists/i);
+    expect(mKvDelete).not.toHaveBeenCalled();
+    expect(mAudit).not.toHaveBeenCalled();
   });
 });
