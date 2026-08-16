@@ -397,12 +397,17 @@ async function readOrgPlan(
 ): Promise<'free' | 'pro' | 'business' | 'enterprise'> {
   if (!orgId) return 'free';
   try {
-    const row = await c.env.DB.prepare(
-      `SELECT plan FROM subscriptions WHERE org_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT 1`,
-    )
-      .bind(orgId)
-      .first<{ plan: string | null }>();
-    const plan = (row?.plan ?? 'free').toLowerCase();
+    // Resolve the plan through the shared status-gated SSOT (`status IN
+    // ('active','trialing')`). The old query had NO status filter (`ORDER BY
+    // updated_at DESC LIMIT 1` over any non-deleted row) → a PAST_DUE org (payment
+    // failed: status='past_due' but `plan` stays 'paid') resolved to the 'enterprise'
+    // tier and could ENABLE every paid site-feature (the toggle handler below gates
+    // `enabled` on this tier) — a revenue leak that kept premium features for a
+    // non-paying org, while the build-quota gate already dropped them to free. Routing
+    // through resolveActiveOrgPlan makes the two entitlement gates consistent + honors
+    // the documented past_due-revokes-entitlements intent (iter-137 sibling drift).
+    const { resolveActiveOrgPlan } = await import('../services/build_limits.js');
+    const plan = ((await resolveActiveOrgPlan(c.env.DB, orgId)) ?? 'free').toLowerCase();
     // A generic 'paid' subscription (legacy value) is a full paid tier, not free.
     if (plan === 'paid') return 'enterprise';
     return plan === 'pro' || plan === 'business' || plan === 'enterprise' ? plan : 'free';

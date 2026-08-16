@@ -187,6 +187,35 @@ describe('GET /api/site-features (owner catalog, plan-aware)', () => {
     // per Brian's directive; the endpoint still returns a well-formed empty catalog.
     expect(Array.isArray(json.features)).toBe(true);
   });
+
+  it('resolves the org plan tier via a STATUS-gated subscription query (no past_due/canceled entitlement leak)', async () => {
+    // readOrgPlan (which gates the paid-feature toggle) MUST resolve the plan through
+    // the shared status-gated SSOT. The old query had NO status filter → a past_due
+    // org (payment failed: status='past_due', plan still 'paid') kept the enterprise
+    // tier → could enable every paid feature (revenue leak). `?org_id=` drives the
+    // resolution path (readOrgPlan short-circuits to 'free' when orgId is absent).
+    const sqls: string[] = [];
+    const capChain = {
+      bind: () => capChain,
+      first: async () => null,
+      all: async () => ({ results: [] }),
+      run: async () => ({}),
+    };
+    const capEnv = {
+      DB: {
+        prepare: (sql: string) => {
+          sqls.push(sql);
+          return capChain;
+        },
+      },
+      CACHE_KV: { get: async () => null, put: async () => undefined },
+    } as never;
+    const res = await features.request('/api/site-features?org_id=org-status-check', {}, capEnv);
+    expect(res.status).toBe(200);
+    const planSql = sqls.find((s) => /FROM subscriptions/i.test(s));
+    expect(planSql).toBeTruthy();
+    expect(String(planSql)).toContain("status IN ('active', 'trialing')");
+  });
 });
 
 describe('POST /api/site-features/:key', () => {
