@@ -15,7 +15,11 @@ jest.mock('../services/db.js', () => ({
 }));
 
 import { dbQuery, dbQueryOne } from '../services/db.js';
-import { checkBuildLimit, isUnlimitedOrgOwner, resolveActiveOrgPlan } from '../services/build_limits.js';
+import {
+  checkBuildLimit,
+  isUnlimitedOrgOwner,
+  resolveActiveOrgPlan,
+} from '../services/build_limits.js';
 
 const mockDbQuery = dbQuery as unknown as jest.Mock;
 const mockDbQueryOne = dbQueryOne as unknown as jest.Mock;

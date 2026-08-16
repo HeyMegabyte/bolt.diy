@@ -314,7 +314,9 @@ describe('createGoogleOAuthState', () => {
     // A swallowed insert error would redirect the user to Google with a state that has
     // no DB row → they authenticate, return, and hit "Invalid OAuth state".
     mockDbInsert.mockResolvedValue({ error: 'D1_ERROR: database is locked' });
-    await expect(createGoogleOAuthState(mockDb, mockEnv)).rejects.toThrow(/persist Google OAuth state/i);
+    await expect(createGoogleOAuthState(mockDb, mockEnv)).rejects.toThrow(
+      /persist Google OAuth state/i,
+    );
   });
 });
 
@@ -339,7 +341,9 @@ describe('createGitHubOAuthState', () => {
 
   it('THROWS on a dropped oauth_states insert (same dead-redirect guard as Google)', async () => {
     mockDbInsert.mockResolvedValue({ error: 'D1_ERROR: database is locked' });
-    await expect(createGitHubOAuthState(mockDb, ghEnv)).rejects.toThrow(/persist GitHub OAuth state/i);
+    await expect(createGitHubOAuthState(mockDb, ghEnv)).rejects.toThrow(
+      /persist GitHub OAuth state/i,
+    );
   });
 });
 

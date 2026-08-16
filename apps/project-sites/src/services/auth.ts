@@ -609,11 +609,9 @@ export async function handleGoogleOAuthCallback(
   // Delete used state (one-time-use). Best-effort: the auth code is single-use at
   // Google, so a lingering state (expires in 10 min) is not exploitable — log a
   // failure rather than fail an otherwise-successful login on a cleanup blip.
-  const { error: stateDeleteError } = await dbExecute(
-    db,
-    'DELETE FROM oauth_states WHERE id = ?',
-    [stateRecord.id],
-  );
+  const { error: stateDeleteError } = await dbExecute(db, 'DELETE FROM oauth_states WHERE id = ?', [
+    stateRecord.id,
+  ]);
   if (stateDeleteError) {
     console.warn(
       JSON.stringify({
@@ -772,11 +770,9 @@ export async function handleGitHubOAuthCallback(
   }
 
   // Delete used state (one-time-use). Best-effort — see the Google callback note.
-  const { error: stateDeleteError } = await dbExecute(
-    db,
-    'DELETE FROM oauth_states WHERE id = ?',
-    [stateRecord.id],
-  );
+  const { error: stateDeleteError } = await dbExecute(db, 'DELETE FROM oauth_states WHERE id = ?', [
+    stateRecord.id,
+  ]);
   if (stateDeleteError) {
     console.warn(
       JSON.stringify({
@@ -1024,9 +1020,13 @@ export async function revokeSession(db: D1Database, sessionId: string): Promise<
   // session, both read as done). Throw so the caller surfaces it + can retry
   // (re-revoking a soft-deleted row is idempotent). `changes === 0` is NOT a
   // failure here — an already-revoked/absent row means the goal is already met.
-  const { error } = await dbUpdate(db, 'sessions', { deleted_at: new Date().toISOString() }, 'id = ?', [
-    sessionId,
-  ]);
+  const { error } = await dbUpdate(
+    db,
+    'sessions',
+    { deleted_at: new Date().toISOString() },
+    'id = ?',
+    [sessionId],
+  );
   if (error) {
     throw new Error(`Failed to revoke session ${sessionId}: ${error}`);
   }
@@ -1322,7 +1322,16 @@ export async function findOrCreateUser(
         `INSERT INTO users (id, email, phone, display_name, avatar_url, deleted_at, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .bind(userId, opts.email ?? null, null, opts.display_name ?? null, opts.avatar_url ?? null, null, now, now),
+      .bind(
+        userId,
+        opts.email ?? null,
+        null,
+        opts.display_name ?? null,
+        opts.avatar_url ?? null,
+        null,
+        now,
+        now,
+      ),
     db
       .prepare(
         `INSERT INTO orgs (id, name, slug, deleted_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
