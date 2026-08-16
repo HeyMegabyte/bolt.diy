@@ -75,6 +75,8 @@ npm run build       # remix vite:build → build/client
 
 ## Deeper docs (single source of truth — don't duplicate here)
 
-Architecture [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · Deployment [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) ·
+Architecture [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — **as-deployed / current**; root
+[`ARCHITECTURE.md`](ARCHITECTURE.md) is the **v2 TARGET vision (aspirational, not shipped)** — build
+against the `docs/` one. Deployment [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) ·
 Testing [`docs/TESTING.md`](docs/TESTING.md) · AI [`docs/AI_INTEGRATION.md`](docs/AI_INTEGRATION.md) ·
 Observability [`docs/OBSERVABILITY.md`](docs/OBSERVABILITY.md) · Decisions [`DECISIONS.md`](DECISIONS.md).
