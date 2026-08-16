@@ -223,6 +223,18 @@ describe('POST /api/experiments/:id/promote', () => {
     expect(updates).toMatchObject({ status: 'promoted', promoted_variant_id: 'vB' });
   });
 
+  it('500 (not a lying {ok:true}) when the promote write fails on an owned experiment', async () => {
+    mockQueryOne.mockResolvedValueOnce({ id: 'e1', site_id: 'site1' } as never); // owned
+    mockQuery.mockResolvedValueOnce({
+      data: [{ id: 'vB', beta_alpha: 9, beta_beta: 1 }],
+      error: null,
+    });
+    mockUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    const { request } = app({ userId: 'u', orgId: 'org-a' });
+    const res = await request('/api/experiments/e1/promote', { method: 'POST' });
+    expect(res.status).toBe(500);
+  });
+
   it('401 when unauthenticated', async () => {
     const { request } = app();
     expect((await request('/api/experiments/e1/promote', { method: 'POST' })).status).toBe(401);

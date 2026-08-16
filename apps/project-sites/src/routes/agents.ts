@@ -154,7 +154,10 @@ agents.patch('/api/agents/:id', zValidator('json', patchSchema), async (c) => {
   if (body.monthly_budget_cents !== undefined)
     patch.monthly_budget_cents = body.monthly_budget_cents;
   if (Object.keys(patch).length > 0) {
-    await dbUpdate(c.env.DB, 'agents', patch, 'id = ?', [agent.id]);
+    // Ownership is already 404-guarded by loadAgent above, so changes===0 is a race,
+    // not authz — but a genuine write error must surface, never a lying { ok: true }.
+    const { error } = await dbUpdate(c.env.DB, 'agents', patch, 'id = ?', [agent.id]);
+    if (error) throw internalError(`Failed to update agent: ${error}`);
   }
   return c.json({ ok: true });
 });
@@ -245,13 +248,14 @@ agents.get('/api/agents/:id/runs', async (c) => {
 agents.delete('/api/agents/:id', async (c) => {
   const id = c.req.param('id');
   const agent = await loadAgent(c, id);
-  await dbUpdate(
+  const { error } = await dbUpdate(
     c.env.DB,
     'agents',
     { deleted_at: new Date().toISOString(), status: 'paused' },
     'id = ?',
     [agent.id],
   );
+  if (error) throw internalError(`Failed to delete agent: ${error}`);
   return c.json({ ok: true });
 });
 

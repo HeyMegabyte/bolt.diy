@@ -197,6 +197,26 @@ describe('agent-scoped routes (loadAgent existence-oracle closed)', () => {
     expect(mockUpdate).not.toHaveBeenCalled();
   });
 
+  it('PATCH → 500 (not a lying {ok:true}) when the update write fails on an owned agent', async () => {
+    mockQueryOne.mockResolvedValueOnce(OWNED_AGENT as never); // loadAgent → owned
+    mockUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    const { request } = app({ userId: 'u', orgId: 'org-a' });
+    const res = await request('/api/agents/ag1', {
+      method: 'PATCH',
+      headers: json,
+      body: JSON.stringify({ status: 'paused' }),
+    });
+    expect(res.status).toBe(500);
+  });
+
+  it('DELETE → 500 (not a lying {ok:true}) when the soft-delete write fails on an owned agent', async () => {
+    mockQueryOne.mockResolvedValueOnce(OWNED_AGENT as never); // loadAgent → owned
+    mockUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    const { request } = app({ userId: 'u', orgId: 'org-a' });
+    const res = await request('/api/agents/ag1', { method: 'DELETE' });
+    expect(res.status).toBe(500);
+  });
+
   it('POST run → 409 when the owned agent is paused', async () => {
     mockQueryOne.mockResolvedValueOnce({ ...OWNED_AGENT, status: 'paused' } as never);
     const { request } = app({ userId: 'u', orgId: 'org-a' });

@@ -319,13 +319,14 @@ experiments.post('/api/experiments/:id/promote', async (c) => {
       winnerId = v.id;
     }
   }
-  await dbUpdate(
+  const { error } = await dbUpdate(
     c.env.DB,
     'experiments',
     { status: 'promoted', promoted_variant_id: winnerId },
     'id = ?',
     [exp.id],
   );
+  if (error) throw internalError(`Failed to promote experiment: ${error}`);
   return c.json({ ok: true, promoted_variant_id: winnerId });
 });
 
