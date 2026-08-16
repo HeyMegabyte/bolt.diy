@@ -52,6 +52,35 @@ export async function isUnlimitedOrgOwner(db: D1Database, orgId: string): Promis
 }
 
 /**
+ * Resolve an org's ACTIVE billing plan for quota / entitlement decisions.
+ *
+ * The single source of truth for "what plan is this org entitled to right now".
+ * Gates on `status IN ('active', 'trialing')` — a TRIAL grants full paid access,
+ * matching `subscriptionEventType` (which emits `subscription.active` for trialing
+ * and provisions paid capabilities) and the AI-spend-cap resolver. Four call sites
+ * used to hand-roll `SELECT plan … WHERE status = 'active'`, which silently EXCLUDED
+ * `trialing` → a trialing subscriber was dropped to the free 1-site quota despite
+ * being provisioned paid capabilities everywhere else. Routing them all through here
+ * fixes that inconsistency + stops the four copies from drifting again.
+ *
+ * @param db    - D1Database binding.
+ * @param orgId - Organization to resolve.
+ * @returns The plan string (e.g. `'paid'`), or `null` when no active/trialing sub exists.
+ *
+ * @example
+ * const plan = await resolveActiveOrgPlan(env.DB, orgId); // 'paid' | 'free' | null
+ * const quota = await checkBuildLimit(env.DB, orgId, plan);
+ */
+export async function resolveActiveOrgPlan(db: D1Database, orgId: string): Promise<string | null> {
+  const sub = await dbQueryOne<{ plan: string }>(
+    db,
+    "SELECT plan FROM subscriptions WHERE org_id = ? AND status IN ('active', 'trialing')",
+    [orgId],
+  );
+  return sub?.plan ?? null;
+}
+
+/**
  * Check whether the org can create another site without exceeding its plan.
  *
  * @param db    - D1Database binding.

@@ -170,7 +170,7 @@ import {
 } from '../services/network_analytics.js';
 import { z } from 'zod';
 import { crawlSiteForImport, estimateRebuildMinutes } from '../services/import_crawler.js';
-import { checkBuildLimit } from '../services/build_limits.js';
+import { checkBuildLimit, resolveActiveOrgPlan } from '../services/build_limits.js';
 import {
   checkBatch as rdapCheckBatch,
   checkAvailability as rdapCheck,
@@ -1028,25 +1028,21 @@ api.post('/api/sites', async (c) => {
   // as create-from-search + import-from-url. Without it a free org (1-site cap)
   // could POST /api/sites N times then /reset each → unlimited builds. Check
   // BEFORE the AI slug call so an over-quota caller burns nothing.
-  const sub = await dbQueryOne<{ plan: string }>(
-    c.env.DB,
-    "SELECT plan FROM subscriptions WHERE org_id = ? AND status = 'active'",
-    [orgId],
-  );
-  const limitCheck = await checkBuildLimit(c.env.DB, orgId, sub?.plan ?? null);
+  const plan = await resolveActiveOrgPlan(c.env.DB, orgId);
+  const limitCheck = await checkBuildLimit(c.env.DB, orgId, plan);
   if (!limitCheck.allowed) {
     c.executionCtx.waitUntil(
       auditService.writeAuditLog(c.env.DB, {
         org_id: orgId,
         actor_id: c.get('userId') ?? null,
         action: 'build_limit.exceeded',
-        message: `Site-create limit reached for org '${orgId}' (used ${limitCheck.used}/${limitCheck.limit} on '${sub?.plan ?? 'free'}' plan via POST /api/sites)`,
+        message: `Site-create limit reached for org '${orgId}' (used ${limitCheck.used}/${limitCheck.limit} on '${plan ?? 'free'}' plan via POST /api/sites)`,
         target_type: 'org',
         target_id: orgId,
         metadata_json: {
           used: limitCheck.used,
           limit: limitCheck.limit,
-          plan: sub?.plan ?? 'free',
+          plan: plan ?? 'free',
           route: 'POST /api/sites',
         },
         request_id: c.get('requestId'),
@@ -1919,12 +1915,7 @@ api.get('/api/billing/quota', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized('Must be authenticated');
 
-  const sub = await dbQueryOne<{ plan: string }>(
-    c.env.DB,
-    "SELECT plan FROM subscriptions WHERE org_id = ? AND status = 'active'",
-    [orgId],
-  );
-  const plan = sub?.plan ?? 'free';
+  const plan = (await resolveActiveOrgPlan(c.env.DB, orgId)) ?? 'free';
   const q = await checkBuildLimit(c.env.DB, orgId, plan);
   const unlimited = !Number.isFinite(q.limit);
   return c.json({
@@ -11402,25 +11393,21 @@ api.post('/api/sites/import-from-url', async (c) => {
   // unlimited sites/builds here, bypassing the limit that create-from-search
   // enforces. Check BEFORE the crawl so an over-quota caller never even triggers
   // the outbound fetch.
-  const sub = await dbQueryOne<{ plan: string }>(
-    c.env.DB,
-    "SELECT plan FROM subscriptions WHERE org_id = ? AND status = 'active'",
-    [orgId],
-  );
-  const limitCheck = await checkBuildLimit(c.env.DB, orgId, sub?.plan ?? null);
+  const plan = await resolveActiveOrgPlan(c.env.DB, orgId);
+  const limitCheck = await checkBuildLimit(c.env.DB, orgId, plan);
   if (!limitCheck.allowed) {
     c.executionCtx.waitUntil(
       auditService.writeAuditLog(c.env.DB, {
         org_id: orgId,
         actor_id: userId ?? null,
         action: 'build_limit.exceeded',
-        message: `Import build-limit reached for org '${orgId}' (used ${limitCheck.used}/${limitCheck.limit} on '${sub?.plan ?? 'free'}' plan via import-from-url)`,
+        message: `Import build-limit reached for org '${orgId}' (used ${limitCheck.used}/${limitCheck.limit} on '${plan ?? 'free'}' plan via import-from-url)`,
         target_type: 'org',
         target_id: orgId,
         metadata_json: {
           used: limitCheck.used,
           limit: limitCheck.limit,
-          plan: sub?.plan ?? 'free',
+          plan: plan ?? 'free',
           route: '/api/sites/import-from-url',
         },
         request_id: c.get('requestId'),

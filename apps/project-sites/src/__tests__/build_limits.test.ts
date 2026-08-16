@@ -15,7 +15,7 @@ jest.mock('../services/db.js', () => ({
 }));
 
 import { dbQuery, dbQueryOne } from '../services/db.js';
-import { checkBuildLimit, isUnlimitedOrgOwner } from '../services/build_limits.js';
+import { checkBuildLimit, isUnlimitedOrgOwner, resolveActiveOrgPlan } from '../services/build_limits.js';
 
 const mockDbQuery = dbQuery as unknown as jest.Mock;
 const mockDbQueryOne = dbQueryOne as unknown as jest.Mock;
@@ -103,6 +103,26 @@ describe('checkBuildLimit — unlimited orgs', () => {
     const second = await checkBuildLimit(db, 'org-brian-cached', 'free');
     expect(second.limit).toBe(Infinity);
     expect(second.allowed).toBe(true);
+  });
+});
+
+describe('resolveActiveOrgPlan — SSOT plan resolver (must include trialing, not active-only)', () => {
+  it('returns the plan and gates on status IN (active, trialing)', async () => {
+    mockDbQueryOne.mockResolvedValue({ plan: 'paid' } as never);
+    const plan = await resolveActiveOrgPlan(db, 'org-active');
+    expect(plan).toBe('paid');
+    // Regression guard for the drift this helper fixed: a TRIALING subscriber is
+    // paid-entitled everywhere else (subscriptionEventType emits subscription.active;
+    // the AI spend-cap grants $50) — so the quota gate must NOT silently drop them to
+    // the free tier by filtering `status = 'active'` alone.
+    const sql = String(mockDbQueryOne.mock.calls[0][1]);
+    expect(sql).toContain("status IN ('active', 'trialing')");
+  });
+
+  it('returns null when no active/trialing subscription exists (caller → free tier)', async () => {
+    mockDbQueryOne.mockResolvedValue(null as never);
+    const plan = await resolveActiveOrgPlan(db, 'org-none');
+    expect(plan).toBeNull();
   });
 });
 

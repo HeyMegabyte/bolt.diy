@@ -644,27 +644,22 @@ search.post('/api/sites/create-from-search', async (c) => {
   }
 
   // Check build limits (1 free, then $50/mo per site)
-  const { checkBuildLimit } = await import('../services/build_limits.js');
-  const { dbQueryOne } = await import('../services/db.js');
-  const sub = await dbQueryOne<{ plan: string }>(
-    c.env.DB,
-    "SELECT plan FROM subscriptions WHERE org_id = ? AND status = 'active'",
-    [orgId],
-  );
-  const limitCheck = await checkBuildLimit(c.env.DB, orgId, sub?.plan ?? null);
+  const { checkBuildLimit, resolveActiveOrgPlan } = await import('../services/build_limits.js');
+  const plan = await resolveActiveOrgPlan(c.env.DB, orgId);
+  const limitCheck = await checkBuildLimit(c.env.DB, orgId, plan);
   if (!limitCheck.allowed) {
     c.executionCtx.waitUntil(
       writeAuditLog(c.env.DB, {
         org_id: orgId,
         actor_id: c.get('userId') ?? null,
         action: 'build_limit.exceeded',
-        message: `Build limit reached for org '${orgId}' (used ${limitCheck.used}/${limitCheck.limit} on '${sub?.plan ?? 'free'}' plan)`,
+        message: `Build limit reached for org '${orgId}' (used ${limitCheck.used}/${limitCheck.limit} on '${plan ?? 'free'}' plan)`,
         target_type: 'org',
         target_id: orgId,
         metadata_json: {
           used: limitCheck.used,
           limit: limitCheck.limit,
-          plan: sub?.plan ?? 'free',
+          plan: plan ?? 'free',
         },
         request_id: c.get('requestId'),
       }),
