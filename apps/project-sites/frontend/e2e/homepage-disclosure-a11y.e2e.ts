@@ -71,15 +71,16 @@ test.describe('homepage — search input shows a visible focus indicator (WCAG 2
     await page.waitForSelector('nav[aria-label="Primary"]', { state: 'attached', timeout: 15000 });
     const input = page.locator('input[placeholder*="Search for your business" i]').first();
     await expect(input).toBeVisible();
-    // The input itself is `outline-none` + `border-none` — the visible focus
-    // indicator lives on the WRAPPER via `focus-within` (border + ring). Before
-    // focus there is no ring; focusing must produce one (else keyboard users
-    // can't see the primary funnel input is focused — the axe-blind 2.4.7 gap).
-    const before = await input.evaluate((el) => getComputedStyle(el.parentElement).boxShadow);
-    await input.focus();
+    // The input is `outline-none` (the global cyan outline was suppressed on
+    // these icon-wrapped inputs to avoid stray stripes). It must instead carry a
+    // `focus:` box-shadow ring so keyboard users can see the primary funnel input
+    // is focused — the axe-blind WCAG 2.4.7 gap. No ring when blurred; a ring on focus.
+    const wrapperShadow = (el) => getComputedStyle(el.parentElement).boxShadow;
+    const before = await input.evaluate(wrapperShadow);
+    expect(before, 'no focus ring on the search wrapper when blurred').toBe('none');
+    await input.focus(); // :focus-within triggers on the wrapper (programmatic focus counts)
     await page.waitForTimeout(150);
-    const after = await input.evaluate((el) => getComputedStyle(el.parentElement).boxShadow);
-    expect(after, 'wrapper must render a focus ring when the search input is focused').not.toBe('none');
-    expect(after, 'focus ring must be added on focus (not present when blurred)').not.toBe(before);
+    const after = await input.evaluate(wrapperShadow);
+    expect(after, 'search wrapper must render a focus ring (box-shadow) when the input is focused').not.toBe('none');
   });
 });
