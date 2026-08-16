@@ -11,13 +11,15 @@ function env(): Env {
   return { DB: {} as D1Database } as unknown as Env;
 }
 
-beforeEach(() => { jest.clearAllMocks(); });
+beforeEach(() => {
+  jest.clearAllMocks();
+});
 
 describe('computeUsageGauges', () => {
   it('returns all 4 gauge metrics', async () => {
     (dbQueryOne as jest.Mock)
-      .mockResolvedValueOnce({ cnt: 5 })   // sites
-      .mockResolvedValueOnce({ cnt: 8 })   // builds
+      .mockResolvedValueOnce({ cnt: 5 }) // sites
+      .mockResolvedValueOnce({ cnt: 8 }) // builds
       .mockResolvedValueOnce({ total_mb: 512 }); // media
 
     const gauges = await computeUsageGauges(env(), 'org-1');
@@ -48,6 +50,21 @@ describe('computeUsageGauges', () => {
 
     const gauges = await computeUsageGauges(env(), 'org-1');
     expect(gauges[0].pct).toBe(100);
+  });
+
+  it('reads media storage from media_assets.size_bytes (not the nonexistent sites.media_size_bytes)', async () => {
+    (dbQueryOne as jest.Mock)
+      .mockResolvedValueOnce({ cnt: 1 })
+      .mockResolvedValueOnce({ cnt: 1 })
+      .mockResolvedValueOnce({ total_mb: 100 });
+    await computeUsageGauges(env(), 'org-1');
+    // The media gauge MUST query media_assets (which has size_bytes), NOT
+    // `SUM(media_size_bytes) FROM sites` — that column doesn't exist, so the query
+    // threw + was swallowed by dbQuery, making the Media gauge always read 0 GB.
+    const mediaSql = (dbQueryOne as jest.Mock).mock.calls[2][1] as string;
+    expect(mediaSql).toMatch(/FROM media_assets/);
+    expect(mediaSql).toMatch(/SUM\(size_bytes\)/);
+    expect(mediaSql).not.toMatch(/media_size_bytes/);
   });
 
   it('handles null DB results gracefully', async () => {

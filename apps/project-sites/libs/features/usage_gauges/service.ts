@@ -31,10 +31,7 @@ interface SizeRow {
  * Compute usage gauges for an org. Queries D1 for live counts and
  * compares against free-tier limits (paid plan limits TBD).
  */
-export async function computeUsageGauges(
-  env: Env,
-  orgId: string,
-): Promise<UsageGauge[]> {
+export async function computeUsageGauges(env: Env, orgId: string): Promise<UsageGauge[]> {
   const [siteRow] = await Promise.all([
     dbQueryOne<CountRow>(
       env.DB,
@@ -52,8 +49,12 @@ export async function computeUsageGauges(
 
   const mediaRow = await dbQueryOne<SizeRow>(
     env.DB,
-    `SELECT COALESCE(SUM(media_size_bytes), 0) / 1048576.0 as total_mb
-     FROM sites WHERE org_id = ? AND deleted_at IS NULL`,
+    // Media storage lives in `media_assets.size_bytes` (per-org), NOT on `sites` —
+    // the old `SUM(media_size_bytes) FROM sites` referenced a column that doesn't
+    // exist, so the query threw (swallowed by dbQuery) and the Media gauge always
+    // read 0 GB regardless of actual usage.
+    `SELECT COALESCE(SUM(size_bytes), 0) / 1048576.0 as total_mb
+     FROM media_assets WHERE org_id = ? AND deleted_at IS NULL`,
     [orgId],
   );
 
@@ -62,10 +63,38 @@ export async function computeUsageGauges(
   const mediaGb = Number(((mediaRow?.total_mb ?? 0) / 1024).toFixed(2));
 
   const gauges: UsageGauge[] = [
-    { metric: 'sites', label: 'Sites', used: sites, limit: FREE_LIMITS.sites, unit: 'sites', pct: Math.min(100, Math.round((sites / FREE_LIMITS.sites) * 100)) },
-    { metric: 'builds', label: 'Builds', used: builds, limit: FREE_LIMITS.builds, unit: 'builds', pct: Math.min(100, Math.round((builds / FREE_LIMITS.builds) * 100)) },
-    { metric: 'media_gb', label: 'Media', used: mediaGb, limit: FREE_LIMITS.media_gb, unit: 'GB', pct: Math.min(100, Math.round((mediaGb / FREE_LIMITS.media_gb) * 100)) },
-    { metric: 'bandwidth_gb', label: 'Bandwidth', used: 0, limit: FREE_LIMITS.bandwidth_gb, unit: 'GB', pct: 0 },
+    {
+      metric: 'sites',
+      label: 'Sites',
+      used: sites,
+      limit: FREE_LIMITS.sites,
+      unit: 'sites',
+      pct: Math.min(100, Math.round((sites / FREE_LIMITS.sites) * 100)),
+    },
+    {
+      metric: 'builds',
+      label: 'Builds',
+      used: builds,
+      limit: FREE_LIMITS.builds,
+      unit: 'builds',
+      pct: Math.min(100, Math.round((builds / FREE_LIMITS.builds) * 100)),
+    },
+    {
+      metric: 'media_gb',
+      label: 'Media',
+      used: mediaGb,
+      limit: FREE_LIMITS.media_gb,
+      unit: 'GB',
+      pct: Math.min(100, Math.round((mediaGb / FREE_LIMITS.media_gb) * 100)),
+    },
+    {
+      metric: 'bandwidth_gb',
+      label: 'Bandwidth',
+      used: 0,
+      limit: FREE_LIMITS.bandwidth_gb,
+      unit: 'GB',
+      pct: 0,
+    },
   ];
 
   return gauges;
