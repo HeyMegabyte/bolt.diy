@@ -87,8 +87,29 @@ export async function resolveAbuseReport(
   );
   if (!report) return null;
 
+  // Order matters + BOTH writes are error-checked. dbExecute returns { error } and NEVER
+  // throws, so a bare await would silently drop. Do the safety-critical site archive (the
+  // actual takedown) FIRST and throw on failure BEFORE marking the report resolved: a
+  // failed archive then leaves the report pending/reviewing (retryable) rather than
+  // stranding a still-LIVE abusive site behind an already-'upheld_takedown' report that the
+  // retry SELECT can no longer find. Re-archiving an already-archived site on retry is an
+  // idempotent no-op (the `deleted_at IS NULL` guard + fixed target status).
+  if (action === 'takedown' && report.site_id) {
+    const { error: archiveError } = await dbExecute(
+      env.DB,
+      `UPDATE sites SET status = 'archived', updated_at = datetime('now')
+        WHERE id = ? AND deleted_at IS NULL`,
+      [report.site_id],
+    );
+    if (archiveError) {
+      throw new Error(
+        `abuse_takedown: failed to archive site ${report.site_id} for report ${reportId}: ${archiveError}`,
+      );
+    }
+  }
+
   const newStatus = action === 'takedown' ? 'upheld_takedown' : 'dismissed';
-  await dbExecute(
+  const { error: reportError } = await dbExecute(
     env.DB,
     `UPDATE abuse_reports
         SET status = ?, resolution_note = ?, resolved_by = ?,
@@ -96,13 +117,9 @@ export async function resolveAbuseReport(
       WHERE id = ?`,
     [newStatus, note ?? null, resolvedBy, reportId],
   );
-
-  if (action === 'takedown' && report.site_id) {
-    await dbExecute(
-      env.DB,
-      `UPDATE sites SET status = 'archived', updated_at = datetime('now')
-        WHERE id = ? AND deleted_at IS NULL`,
-      [report.site_id],
+  if (reportError) {
+    throw new Error(
+      `abuse_takedown: failed to mark report ${reportId} ${newStatus}: ${reportError}`,
     );
   }
 

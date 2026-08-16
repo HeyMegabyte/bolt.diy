@@ -43,11 +43,13 @@ import { abuseTakedown } from '../handlers.js';
 const env = { DB: {} } as never;
 
 /** Default db routing by SQL fragment so one mock serves sites/users/reports lookups. */
-function routeDbQueryOne(opts: {
-  site?: unknown;
-  superAdmin?: unknown;
-  report?: unknown;
-} = {}): void {
+function routeDbQueryOne(
+  opts: {
+    site?: unknown;
+    superAdmin?: unknown;
+    report?: unknown;
+  } = {},
+): void {
   mockDbQueryOne.mockImplementation((_db: unknown, sql: string) => {
     if (/FROM sites/i.test(sql)) return Promise.resolve(opts.site ?? null);
     if (/is_super_admin/i.test(sql)) return Promise.resolve(opts.superAdmin ?? null);
@@ -69,8 +71,8 @@ function appWith(userId?: string): Hono {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockDbInsert.mockResolvedValue(undefined);
-  mockDbExecute.mockResolvedValue(undefined);
+  mockDbInsert.mockResolvedValue({ error: null });
+  mockDbExecute.mockResolvedValue({ error: null });
   mockDbQuery.mockResolvedValue({ data: [] });
   mockIsFlagOn.mockResolvedValue(true);
   routeDbQueryOne();
@@ -89,7 +91,12 @@ describe('createAbuseReport', () => {
     expect(typeof res.id).toBe('string');
     const [, table, record] = mockDbInsert.mock.calls[0];
     expect(table).toBe('abuse_reports');
-    expect(record).toMatchObject({ site_id: 'site_9', org_id: 'org_1', category: 'dmca', status: 'pending' });
+    expect(record).toMatchObject({
+      site_id: 'site_9',
+      org_id: 'org_1',
+      category: 'dmca',
+      status: 'pending',
+    });
   });
 });
 
@@ -136,6 +143,24 @@ describe('resolveAbuseReport', () => {
     expect(out).toBeNull();
     expect(mockDbExecute).not.toHaveBeenCalled();
   });
+
+  it('takedown whose site-archive DROPS throws + leaves the report unresolved (retryable, no stranded-live site)', async () => {
+    routeDbQueryOne({ report: { id: 'r1', site_id: 'site_9' } });
+    mockDbQueryOne.mockResolvedValueOnce({ id: 'r1', site_id: 'site_9' });
+    // dbExecute returns { error } and never throws. The site-archive (the actual takedown)
+    // fails; the report-status UPDATE must NOT run, so the report stays pending/reviewing
+    // and a retry can re-attempt — vs marking it resolved over a still-LIVE abusive site.
+    mockDbExecute.mockImplementation((_db: unknown, sql: string) =>
+      /UPDATE sites/i.test(sql)
+        ? Promise.resolve({ error: 'D1_ERROR: database is locked' })
+        : Promise.resolve({ error: null }),
+    );
+    await expect(resolveAbuseReport(env, 'r1', 'takedown', 'confirmed', 'admin_1')).rejects.toThrow(
+      /failed to archive site/,
+    );
+    // The report-status UPDATE never fired — the report is NOT stranded as resolved.
+    expect(mockDbExecute.mock.calls.some((c) => /UPDATE abuse_reports/i.test(c[1]))).toBe(false);
+  });
 });
 
 describe('resolveReportedSite', () => {
@@ -157,25 +182,41 @@ describe('POST /api/abuse/report', () => {
 
   it('404s when the flag is off (no leak)', async () => {
     mockIsFlagOn.mockResolvedValue(false);
-    const res = await appWith().request('/api/abuse/report', body({ site: 'acme', category: 'dmca', reason: 'xxxxxxxx' }), env);
+    const res = await appWith().request(
+      '/api/abuse/report',
+      body({ site: 'acme', category: 'dmca', reason: 'xxxxxxxx' }),
+      env,
+    );
     expect(res.status).toBe(404);
   });
 
   it('400s on an invalid body', async () => {
-    const res = await appWith().request('/api/abuse/report', body({ site: 'acme', category: 'dmca' }), env); // missing reason
+    const res = await appWith().request(
+      '/api/abuse/report',
+      body({ site: 'acme', category: 'dmca' }),
+      env,
+    ); // missing reason
     expect(res.status).toBe(400);
   });
 
   it('404s when the reported site is unknown', async () => {
     routeDbQueryOne({ site: null });
-    const res = await appWith().request('/api/abuse/report', body({ site: 'ghost', category: 'spam', reason: 'spammy content here' }), env);
+    const res = await appWith().request(
+      '/api/abuse/report',
+      body({ site: 'ghost', category: 'spam', reason: 'spammy content here' }),
+      env,
+    );
     expect(res.status).toBe(404);
     expect(mockDbInsert).not.toHaveBeenCalled();
   });
 
   it('202s + inserts a pending report for a valid submission', async () => {
     routeDbQueryOne({ site: { id: 'site_9', org_id: 'org_1' } });
-    const res = await appWith().request('/api/abuse/report', body({ site: 'acme', category: 'illegal', reason: 'illegal content on the homepage' }), env);
+    const res = await appWith().request(
+      '/api/abuse/report',
+      body({ site: 'acme', category: 'illegal', reason: 'illegal content on the homepage' }),
+      env,
+    );
     expect(res.status).toBe(202);
     const json = (await res.json()) as { ok: boolean; status: string };
     expect(json.ok).toBe(true);
@@ -214,13 +255,21 @@ describe('POST /api/abuse/reports/:id/resolve (super-admin)', () => {
   });
 
   it('401s without auth', async () => {
-    const res = await appWith().request('/api/abuse/reports/r1/resolve', body({ action: 'dismiss' }), env);
+    const res = await appWith().request(
+      '/api/abuse/reports/r1/resolve',
+      body({ action: 'dismiss' }),
+      env,
+    );
     expect(res.status).toBe(401);
   });
 
   it('403s for a non-super-admin', async () => {
     routeDbQueryOne({ superAdmin: { is_super_admin: 0 } });
-    const res = await appWith('user_1').request('/api/abuse/reports/r1/resolve', body({ action: 'dismiss' }), env);
+    const res = await appWith('user_1').request(
+      '/api/abuse/reports/r1/resolve',
+      body({ action: 'dismiss' }),
+      env,
+    );
     expect(res.status).toBe(403);
   });
 
@@ -228,7 +277,11 @@ describe('POST /api/abuse/reports/:id/resolve (super-admin)', () => {
     mockDbQueryOne.mockImplementation((_db: unknown, sql: string) =>
       Promise.resolve(/is_super_admin/i.test(sql) ? { is_super_admin: 1 } : null),
     );
-    const res = await appWith('admin_1').request('/api/abuse/reports/missing/resolve', body({ action: 'takedown' }), env);
+    const res = await appWith('admin_1').request(
+      '/api/abuse/reports/missing/resolve',
+      body({ action: 'takedown' }),
+      env,
+    );
     expect(res.status).toBe(404);
   });
 
@@ -246,7 +299,11 @@ describe('POST /api/abuse/reports/:id/resolve (super-admin)', () => {
       }
       return Promise.resolve(null);
     });
-    const res = await appWith('admin_1').request('/api/abuse/reports/r1/resolve', body({ action: 'takedown', note: 'confirmed' }), env);
+    const res = await appWith('admin_1').request(
+      '/api/abuse/reports/r1/resolve',
+      body({ action: 'takedown', note: 'confirmed' }),
+      env,
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { ok: boolean; report: { status: string } };
     expect(json.ok).toBe(true);
