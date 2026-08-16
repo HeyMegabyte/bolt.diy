@@ -27,6 +27,7 @@ import { scoreReadiness } from '../services/production_readiness.js';
 import { postAskUser } from '../services/task_inbox.js';
 import { appendBuildEvent, type BuildEvent } from '../services/build_events.js';
 import { checkBudget, recordSpend } from '../services/build_budget.js';
+import { resolveActiveOrgPlan } from '../services/build_limits.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 import { indexSiteFiles } from '../services/rag_publish.js';
 import { tryEmitEvent } from '../services/emit_event.js';
@@ -686,13 +687,15 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         );
         if (!flagOn) return JSON.stringify({ skipped: true, reason: 'flag_off' });
 
-        const sub = (await env.DB.prepare(
-          'SELECT plan, status FROM subscriptions WHERE org_id = ? AND deleted_at IS NULL',
-        )
-          .bind(params.orgId)
-          .first()
-          .catch(() => null)) as { plan: string; status: string } | null;
-        const plan = sub?.plan === 'paid' && sub.status === 'active' ? 'paid' : 'free';
+        // Route through the SSOT plan resolver (`status IN ('active','trialing')`)
+        // so a TRIALING paid sub gets the paid AI budget — the old
+        // `status === 'active'` gate excluded trialing (trialing-drift class).
+        // `.catch(() => null)` preserves the workflow-step resilience (a DB hiccup
+        // resolves to the free budget, never throws out of the step).
+        const plan =
+          (await resolveActiveOrgPlan(env.DB, params.orgId).catch(() => null)) === 'paid'
+            ? 'paid'
+            : 'free';
 
         const meter = await checkBudget(env.DB, params.orgId, plan);
         if (!meter.allowed) {

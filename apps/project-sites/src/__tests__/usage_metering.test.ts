@@ -174,9 +174,24 @@ describe('getOrgTier', () => {
     expect(await getOrgTier(db, ORG)).toBe('free');
   });
 
-  it('returns free when status is not active', async () => {
-    mockQueryOne.mockResolvedValue({ plan: 'paid', status: 'past_due' });
+  it('returns free when status is past_due/canceled (excluded by the SSOT SQL)', async () => {
+    // getOrgTier delegates to resolveActiveOrgPlan, whose SQL filters
+    // `status IN ('active', 'trialing')` — a past_due sub matches no row, so the
+    // (SQL-bypassing) mock returns null exactly as the real query would → free.
+    mockQueryOne.mockResolvedValue(null);
     expect(await getOrgTier(db, ORG)).toBe('free');
+  });
+
+  it('returns pro for a TRIALING paid subscription + routes through the trialing-inclusive SSOT', async () => {
+    // Trialing-drift fix: the SSOT SQL includes `trialing`, so a paid trial returns a
+    // `{ plan: 'paid' }` row → pro (was wrongly free under the old active-only gate).
+    let sql = '';
+    mockQueryOne.mockImplementation(async (_db: unknown, q: string) => {
+      sql = q;
+      return { plan: 'paid' };
+    });
+    expect(await getOrgTier(db, ORG)).toBe('pro');
+    expect(sql).toContain("status IN ('active', 'trialing')");
   });
 
   it('returns pro for an active paid subscription', async () => {

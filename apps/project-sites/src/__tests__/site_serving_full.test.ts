@@ -173,7 +173,10 @@ describe('resolveSite', () => {
     expect(result!.plan).toBe('free');
   });
 
-  it('returns plan=free when subscription exists but is not active', async () => {
+  it('returns plan=free when subscription is past_due/canceled (excluded by SSOT SQL)', async () => {
+    // resolveSite delegates plan resolution to resolveActiveOrgPlan, whose SQL
+    // filters `status IN ('active', 'trialing')` — a canceled sub matches no row,
+    // so the sub-query mock returns null (as the real query would) → free.
     mockQueryOne
       .mockResolvedValueOnce({
         id: 'site-i',
@@ -181,11 +184,29 @@ describe('resolveSite', () => {
         org_id: 'org-i',
         current_build_version: 'v1',
       })
-      .mockResolvedValueOnce({ plan: 'paid', status: 'canceled' });
+      .mockResolvedValueOnce(null);
 
     const result = await resolveSite(env as any, db, `inactive-site${DOMAINS.SITES_SUFFIX}`);
 
     expect(result!.plan).toBe('free');
+  });
+
+  it('returns plan=paid when subscription is paid and TRIALING (trialing is entitled)', async () => {
+    // Trialing-drift fix: the SSOT SQL includes `trialing`, so a paid trial returns a
+    // `{ plan: 'paid' }` row → served as paid (no top-bar). Was wrongly 'free' under
+    // the old active-only gate.
+    mockQueryOne
+      .mockResolvedValueOnce({
+        id: 'site-t',
+        slug: 'trial-site',
+        org_id: 'org-t',
+        current_build_version: 'v1',
+      })
+      .mockResolvedValueOnce({ plan: 'paid' });
+
+    const result = await resolveSite(env as any, db, `trial-site${DOMAINS.SITES_SUFFIX}`);
+
+    expect(result!.plan).toBe('paid');
   });
 
   it('returns null when site not found', async () => {

@@ -31,6 +31,7 @@
 import { DOMAINS } from '@project-sites/shared';
 import type { Env } from '../types/env.js';
 import { dbQueryOne } from './db.js';
+import { resolveActiveOrgPlan } from './build_limits.js';
 import { minifyCssCached } from './css_minify.js';
 import { parseBranchHost } from './site_branches.js';
 import { buildAnalyticsTracker } from './analytics_tracker.js';
@@ -544,13 +545,12 @@ export async function resolveSite(
       );
 
       if (siteRow) {
-        const subRow = await dbQueryOne<{ plan: string; status: string }>(
-          db,
-          'SELECT plan, status FROM subscriptions WHERE org_id = ? AND deleted_at IS NULL',
-          [hostnameRow.org_id],
-        );
-
-        const plan = subRow?.plan === 'paid' && subRow.status === 'active' ? 'paid' : 'free';
+        // Route through the SSOT plan resolver (`status IN ('active','trialing')`)
+        // so a TRIALING paid sub keeps its paid serving (no top-bar injection). The
+        // old hand-rolled `status === 'active'` gate excluded trialing (trialing-drift
+        // class); past_due/canceled resolve to null → free.
+        const plan =
+          (await resolveActiveOrgPlan(db, hostnameRow.org_id)) === 'paid' ? 'paid' : 'free';
 
         const resolved = {
           site_id: hostnameRow.site_id,
@@ -627,13 +627,9 @@ export async function resolveSite(
     }
 
     if (siteRow) {
-      const subRow = await dbQueryOne<{ plan: string; status: string }>(
-        db,
-        'SELECT plan, status FROM subscriptions WHERE org_id = ? AND deleted_at IS NULL',
-        [siteRow.org_id],
-      );
-
-      const plan = subRow?.plan === 'paid' && subRow.status === 'active' ? 'paid' : 'free';
+      // Route through the SSOT plan resolver (trialing-inclusive; see above).
+      const plan =
+        (await resolveActiveOrgPlan(db, siteRow.org_id)) === 'paid' ? 'paid' : 'free';
 
       const resolved = {
         site_id: siteRow.id,

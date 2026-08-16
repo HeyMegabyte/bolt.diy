@@ -15,6 +15,7 @@
  */
 
 import { dbInsert, dbQuery, dbQueryOne } from './db.js';
+import { resolveActiveOrgPlan } from './build_limits.js';
 import { USAGE_TIERS, USAGE_METRICS, OVERAGE_MICRO_USD } from '../constants/pricing.js';
 import type { UsageTier, UsageMetric } from '../constants/pricing.js';
 import type { Env } from '../types/env.js';
@@ -126,12 +127,11 @@ export async function getMonthUsage(
  * Stripe price id baked into their subscription metadata.
  */
 export async function getOrgTier(db: D1Database, orgId: string): Promise<UsageTier> {
-  const sub = await dbQueryOne<{ plan: string; status: string }>(
-    db,
-    'SELECT plan, status FROM subscriptions WHERE org_id = ? AND deleted_at IS NULL',
-    [orgId],
-  );
-  if (!sub || sub.plan !== 'paid' || sub.status !== 'active') return 'free';
+  // Route through the SSOT plan resolver (`status IN ('active','trialing')`) so a
+  // TRIALING paid sub gets the pro tier — the old `status === 'active'` gate
+  // excluded trialing (trialing-drift class). past_due/canceled resolve to null → free.
+  const plan = await resolveActiveOrgPlan(db, orgId);
+  if (plan !== 'paid') return 'free';
   // Future: differentiate scale via subscription_item lookup. Default to pro.
   return 'pro';
 }
