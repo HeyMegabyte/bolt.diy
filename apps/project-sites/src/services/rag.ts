@@ -140,7 +140,13 @@ export async function indexChunk(
 
   await env.RAG_INDEX.upsert([{ id, values, metadata: metadata as Record<string, unknown> }]);
 
-  await dbExecute(
+  // The Vectorize upsert (the primary, searchable write) already succeeded. Mirror
+  // into D1 — the AUTHORITATIVE source `deleteIndex` + re-index read from. A silently
+  // swallowed failure here diverges Vectorize↔D1: the vector is searchable but has no
+  // `rag_chunks` row, so it can never be found/deleted by (kind, sourceId) → an
+  // orphaned vector. Surface the divergence (never a silent drop); stay fail-soft (the
+  // index write succeeded and re-index is idempotent — don't fail the caller's build).
+  const { error: mirrorError } = await dbExecute(
     env.DB,
     `INSERT INTO rag_chunks (id, kind, source_id, org_id, text, metadata_json, embedded_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -153,6 +159,19 @@ export async function indexChunk(
        embedded_at = excluded.embedded_at`,
     [id, kind, sourceId, orgId ?? null, text, JSON.stringify(extra), Date.now()],
   );
+  if (mirrorError) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'rag',
+        message: 'index_chunk_mirror_write_failed',
+        chunk_id: id,
+        kind,
+        source_id: sourceId,
+        error: mirrorError,
+      }),
+    );
+  }
 
   return { id };
 }
@@ -296,9 +315,26 @@ export async function deleteIndex(
     }
   }
 
-  await dbExecute(env.DB, `DELETE FROM rag_chunks WHERE kind = ? AND source_id = ?`, [
-    kind,
-    sourceId,
-  ]);
+  const { error: delError } = await dbExecute(
+    env.DB,
+    `DELETE FROM rag_chunks WHERE kind = ? AND source_id = ?`,
+    [kind, sourceId],
+  );
+  if (delError) {
+    // The Vectorize vectors were removed (best-effort above), but the D1 mirror
+    // DELETE failed → stale `rag_chunks` rows. The old code swallowed this and still
+    // returned `removed: ids.length` (a lying-success). Surface it; the returned
+    // count reflects the vectors targeted for removal from the index.
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'rag',
+        message: 'delete_index_mirror_delete_failed',
+        kind,
+        source_id: sourceId,
+        error: delError,
+      }),
+    );
+  }
   return { removed: ids.length };
 }

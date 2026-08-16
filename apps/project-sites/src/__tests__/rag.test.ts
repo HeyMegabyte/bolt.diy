@@ -12,8 +12,8 @@ jest.mock('../services/db.js', () => ({
   dbExecute: jest.fn().mockResolvedValue({ error: null, changes: 1 }),
 }));
 
-import { dbExecute } from '../services/db.js';
-import { indexChunk, semanticSearch } from '../services/rag.js';
+import { dbExecute, dbQuery } from '../services/db.js';
+import { indexChunk, semanticSearch, deleteIndex } from '../services/rag.js';
 
 const EMBED_DIM = 768;
 
@@ -91,6 +91,59 @@ describe('services/rag', () => {
     expect(typeof upsertArg[0].metadata.text).toBe('string');
 
     expect(dbExecute).toHaveBeenCalledTimes(1);
+  });
+
+  it('indexChunk SURFACES a D1 mirror write failure (Vectorize↔D1 divergence) but stays fail-soft', async () => {
+    // The Vectorize upsert succeeds first; if the authoritative D1 mirror write
+    // then fails, the chunk is searchable but can't be found/deleted by
+    // (kind, sourceId) → an orphaned vector. The old code swallowed the dbExecute
+    // {error} silently. Now it must LOG the divergence (never a silent drop) while
+    // still resolving (the primary index write succeeded; re-index is idempotent).
+    const { env, upsert } = makeEnv();
+    (dbExecute as jest.Mock).mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await indexChunk(env, {
+      id: 'chunk-x',
+      kind: 'research',
+      sourceId: 'site-x',
+      text: 'hello world text for embedding',
+    });
+
+    expect(result.id).toBe('chunk-x'); // fail-soft: still resolves
+    expect(upsert).toHaveBeenCalledTimes(1); // primary Vectorize write happened
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const logged = JSON.parse(warnSpy.mock.calls[0][0] as string);
+    expect(logged).toMatchObject({
+      service: 'rag',
+      message: 'index_chunk_mirror_write_failed',
+      chunk_id: 'chunk-x',
+    });
+    warnSpy.mockRestore();
+  });
+
+  it('deleteIndex SURFACES a D1 mirror DELETE failure instead of silently claiming success', async () => {
+    // Old bug: the DELETE swallowed its {error} and `return { removed: ids.length }`
+    // reported success even when the D1 rows were NOT deleted (lying-success).
+    const { env } = makeEnv();
+    (dbQuery as jest.Mock).mockResolvedValueOnce({
+      data: [{ id: 'chunk-1' }, { id: 'chunk-2' }],
+      error: null,
+    });
+    (dbExecute as jest.Mock).mockResolvedValueOnce({ error: 'D1_ERROR: locked', changes: 0 });
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const res = await deleteIndex(env, 'research', 'site-x');
+
+    expect(res.removed).toBe(2); // reflects the Vectorize vectors targeted/removed
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const logged = JSON.parse(warnSpy.mock.calls[0][0] as string);
+    expect(logged).toMatchObject({
+      service: 'rag',
+      message: 'delete_index_mirror_delete_failed',
+      kind: 'research',
+    });
+    warnSpy.mockRestore();
   });
 
   it('semanticSearch returns shaped match results with kind, sourceId, text, score', async () => {
