@@ -63,10 +63,10 @@ interface SparklineResponse {
     .hs-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 0.6rem; }
     .hs-eyebrow { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ps-accent, #00e5ff); margin: 0 0 0.2rem; }
     .hs-total { font-size: 1.15rem; font-weight: 800; margin: 0; color: var(--ps-ink, #f4f4ff); font-variant-numeric: tabular-nums; }
-    .hs-total-lbl { font-size: 0.7rem; font-weight: 600; color: rgba(255,255,255,0.45); }
+    .hs-total-lbl { font-size: 0.7rem; font-weight: 600; color: rgba(255,255,255,0.7); }
     .hs-peak { text-align: right; line-height: 1.1; }
     .hs-peak-num { display: block; font-size: 1rem; font-weight: 800; color: var(--ps-accent, #00e5ff); font-variant-numeric: tabular-nums; }
-    .hs-peak-lbl { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.4); }
+    .hs-peak-lbl { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.7); }
     .hs-svg { width: 100%; height: 56px; display: block; overflow: visible; }
     .hs-line { stroke: var(--ps-accent, #00e5ff); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
     .hs-area { fill: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent); }

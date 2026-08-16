@@ -81,7 +81,7 @@ interface OrgBudgetResponse {
     .bm-lead { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .bm-eyebrow { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ps-accent, #00e5ff); }
     .bm-amount { font-size: 0.9rem; color: var(--ps-ink, #f4f4ff); font-variant-numeric: tabular-nums; }
-    .bm-of, .bm-period { color: rgba(255,255,255,0.45); }
+    .bm-of, .bm-period { color: rgba(255,255,255,0.7); }
     .bm-remaining { font-size: 0.82rem; font-weight: 700; color: #34d399; font-variant-numeric: tabular-nums; flex-shrink: 0; }
     .bm-remaining--low { color: #f87171; }
     .bm-track { height: 8px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }

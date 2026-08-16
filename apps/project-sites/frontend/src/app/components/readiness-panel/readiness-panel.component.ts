@@ -85,7 +85,7 @@ interface ReadinessResponse {
     .rp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 0.5rem; }
     .rp-title { font-size: 1rem; font-weight: 700; margin: 0; color: var(--ps-ink, #f4f4ff); }
     .rp-score { font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ps-ink, #f4f4ff); }
-    .rp-score-den { font-size: 0.75rem; color: rgba(255,255,255,0.4); font-weight: 600; }
+    .rp-score-den { font-size: 0.75rem; color: rgba(255,255,255,0.7); font-weight: 600; }
     .rp-lead { font-size: 0.84rem; color: rgba(255,255,255,0.62); margin: 0 0 0.7rem; }
     .rp-lead--done { color: #34d399; }
     .rp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
