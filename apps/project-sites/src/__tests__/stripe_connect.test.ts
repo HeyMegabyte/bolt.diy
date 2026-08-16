@@ -301,6 +301,15 @@ describe('disconnectConnect', () => {
     const logged = JSON.parse(warnSpy.mock.calls[0][0]);
     expect(logged).toMatchObject({ level: 'warn', service: 'stripe_connect', status: 401 });
   });
+
+  it('THROWS (never a lying "disconnected") when the cache-clear write fails', async () => {
+    mockQueryOne.mockResolvedValueOnce({ stripe_connect_account_id: 'acct_x' });
+    (global.fetch as jest.Mock).mockResolvedValueOnce(jsonOk({ stripe_user_id: 'acct_x' }));
+    mockUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    await expect(disconnectConnect(baseEnv, mockDb, 'org-1')).rejects.toThrow(
+      /clear Connect account/i,
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -365,5 +374,17 @@ describe('handleAccountUpdated', () => {
       stripe_connect_charges_enabled: 0,
       stripe_connect_payouts_enabled: 0,
     });
+  });
+
+  it('THROWS when the account.updated write fails (webhook marks failed, not silent-stale)', async () => {
+    mockUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    await expect(
+      handleAccountUpdated(mockDb, {
+        id: 'acct_x',
+        charges_enabled: true,
+        payouts_enabled: true,
+        metadata: { org_id: 'org-1' },
+      }),
+    ).rejects.toThrow(/apply account\.updated/i);
   });
 });

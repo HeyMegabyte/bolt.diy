@@ -19,7 +19,7 @@
  * @packageDocumentation
  */
 
-import { badRequest } from '@project-sites/shared';
+import { badRequest, internalError } from '@project-sites/shared';
 import { dbQueryOne, dbUpdate } from './db.js';
 import type { Env } from '../types/env.js';
 
@@ -100,7 +100,28 @@ export async function startConnectOnboarding(
     }
     const acct = (await acctRes.json()) as { id: string };
     accountId = acct.id;
-    await dbUpdate(db, 'orgs', { stripe_connect_account_id: accountId }, 'id = ?', [opts.orgId]);
+    const { error: linkErr } = await dbUpdate(
+      db,
+      'orgs',
+      { stripe_connect_account_id: accountId },
+      'id = ?',
+      [opts.orgId],
+    );
+    // The Connect account already exists in Stripe (created just above) and this fn
+    // SKIPS creation when the id is set — so throwing would make a retry create a
+    // DUPLICATE account. Log the lost link for reconciliation instead.
+    if (linkErr) {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'stripe_connect',
+          message: 'connect_account_link_write_failed',
+          org_id: opts.orgId,
+          stripe_connect_account_id: accountId,
+          error: linkErr,
+        }),
+      );
+    }
   }
 
   // Always create a fresh account link.
@@ -225,7 +246,7 @@ export async function disconnectConnect(
     );
   }
 
-  await dbUpdate(
+  const { error: clearErr } = await dbUpdate(
     db,
     'orgs',
     {
@@ -237,6 +258,10 @@ export async function disconnectConnect(
     'id = ?',
     [orgId],
   );
+  // Never report a disconnect that didn't persist — a silent failure leaves the org
+  // still showing a linked Connect account (a lying "disconnected"). Deauthorize is
+  // idempotent (401 already-revoked handled above), so a retry is safe.
+  if (clearErr) throw internalError(`Failed to clear Connect account: ${clearErr}`);
 
   return { disconnected: true };
 }
@@ -289,7 +314,7 @@ export async function handleAccountUpdated(
     return;
   }
 
-  await dbUpdate(
+  const { error: applyErr } = await dbUpdate(
     db,
     'orgs',
     {
@@ -300,4 +325,8 @@ export async function handleAccountUpdated(
     'id = ?',
     [orgId],
   );
+  // Stale charges/payouts_enabled = payouts blocked or allowed incorrectly. Throw so the
+  // Stripe webhook route marks the event 'failed' + logs + audits (observable) instead of
+  // a silent 200 with divergent Connect capability state.
+  if (applyErr) throw internalError(`Failed to apply account.updated: ${applyErr}`);
 }
