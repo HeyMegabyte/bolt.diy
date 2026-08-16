@@ -251,6 +251,85 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
     expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
   });
 
+  // M2 — Settings › AI Chat system prompt round-trips to the SERVER. The tab sweep
+  // enters the AI Chat tab but never SAVES; this drives the per-site `ai-settings`
+  // PUT → GET round-trip (chat_system_prompt), the persistence surface for the AI
+  // concierge on every published site. Mutate → SAVE (assert PUT 200) → nav away →
+  // return → HARD RELOAD → assert the server echoed the prompt back (not a lying
+  // local-only save), then RESTORE the original so the E2E org's site is unchanged.
+  test('Settings › AI Chat system prompt round-trips to the SERVER (save → nav → hard-reload → restore) (M2)', async ({
+    page,
+  }) => {
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+    await page.goto('/admin/settings', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
+
+    const openChatTab = async (): Promise<void> => {
+      const tab = page
+        .getByRole('tab', { name: 'AI Chat' })
+        .or(page.locator('[role="tab"]:has-text("AI Chat"), button:has-text("AI Chat")'))
+        .first();
+      if (await tab.isVisible().catch(() => false)) {
+        await tab.click({ timeout: 3000 }).catch(() => {});
+        await page.waitForTimeout(1200);
+      }
+    };
+    // Prefer the testid; fall back to the class so the guard is green whether or
+    // not the testid deploy has propagated yet.
+    const promptBox = page
+      .locator('[data-testid="ai-chat-system-prompt"], textarea.ai-chat-textarea')
+      .first();
+    const saveBtn = page
+      .locator('[data-testid="ai-chat-save"]')
+      .or(page.getByRole('button', { name: /Save AI Chat settings/i }))
+      .first();
+
+    await openChatTab();
+    // If the AI Chat surface isn't reachable for this org, don't vacuously pass —
+    // but the tab exists for every authed org, so require the textarea.
+    await expect(promptBox, 'AI Chat system-prompt textarea is reachable').toBeVisible({
+      timeout: 10_000,
+    });
+    const original = await promptBox.inputValue();
+    const marker = `chaos-aichat-${Date.now()}`;
+    const newPrompt = `${marker}\nYou are a concise concierge. Never invent prices.`;
+
+    await promptBox.fill(newPrompt);
+    const putP = page
+      .waitForResponse(
+        (r) => r.url().includes('/ai-settings') && r.request().method() === 'PUT',
+        { timeout: 15_000 },
+      )
+      .catch(() => null);
+    await saveBtn.click();
+    const put = await putP;
+    expect(put?.status(), 'ai-settings PUT should be 200').toBe(200);
+    await page.waitForTimeout(1200);
+
+    // Navigate away, then HARD RELOAD the settings surface (fresh GET).
+    await page.goto('/admin', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1000);
+    await page.goto('/admin/settings', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
+    await openChatTab();
+    await expect(promptBox).toBeVisible({ timeout: 10_000 });
+    const persisted = await promptBox.inputValue();
+    expect(
+      persisted.startsWith(marker),
+      `AI Chat prompt did NOT persist server-side after hard reload (got len ${persisted.length})`,
+    ).toBe(true);
+
+    // Restore the original value so the org's site is left unchanged.
+    await promptBox.fill(original);
+    await saveBtn.click().catch(() => {});
+    await page.waitForTimeout(1200);
+
+    expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+    expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+    expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+  });
+
   // M2 — the one flow the render/interaction sweeps never exercise: mutate real
   // state → navigate away → return → HARD RELOAD → verify PERSISTENCE. Uses AI Env
   // Vars (org-scoped config — the safest reversible CRUD; namespaced test key,

@@ -303,6 +303,7 @@ const PROVIDERS = MCP_PROVIDERS;
                   <button class="btn-ghost text-[0.66rem] inline-flex items-center gap-1" (click)="improveChatField('system')" [disabled]="improvingField() === 'system'" [brnTooltip]="'Rewrite this system prompt for clarity + concrete behavioral rules'">@if (improvingField() !== 'system') { <app-ai-spark /> }<span>{{ improvingField() === 'system' ? 'Improving…' : 'Improve with AI' }}</span></button>
                 </div>
                 <textarea hlmInput [multiline]="true" class="w-full mt-1 font-mono text-[0.72rem] ai-chat-textarea" rows="10"
+                          data-testid="ai-chat-system-prompt"
                           [placeholder]="chat.system_prompt_default || 'You are the AI concierge for [business]. Concise. Never invent prices.'"
                           [(ngModel)]="chat.system_prompt"></textarea>
                 <p class="text-[0.62rem] text-text-secondary mt-1 leading-relaxed">
@@ -378,7 +379,7 @@ const PROVIDERS = MCP_PROVIDERS;
           </div>
 
           <div class="flex justify-end mt-4">
-            <button class="btn-primary" [disabled]="savingChat()" (click)="saveChat()">{{ savingChat() ? 'Saving…' : 'Save AI Chat settings' }}</button>
+            <button class="btn-primary" data-testid="ai-chat-save" [disabled]="savingChat()" (click)="saveChat()">{{ savingChat() ? 'Saving…' : 'Save AI Chat settings' }}</button>
           </div>
         </section>
       }
