@@ -336,7 +336,15 @@ app.patch('/api/calendar/events/:id', zValidator('json', EventPatchSchema), asyn
     else updates[k] = v;
   }
   if (Object.keys(updates).length === 0) return c.json({ data: { id } });
-  await dbUpdate(c.env.DB, 'calendar_events', updates, 'id=? AND user_id=?', [id, user.userId]);
+  const { error, changes } = await dbUpdate(c.env.DB, 'calendar_events', updates, 'id=? AND user_id=?', [
+    id,
+    user.userId,
+  ]);
+  if (error) throw internalError(`Failed to update calendar event: ${error}`);
+  // changes===0 ⇒ the WHERE (id + user_id) matched nothing — the event doesn't exist
+  // or isn't the caller's. Honor the documented 404 instead of a lying 200 that also
+  // hides the ownership check.
+  if (changes === 0) return c.json({ error: { code: 'NOT_FOUND', message: 'event not found' } }, 404);
   return c.json({ data: { id } });
 });
 
@@ -350,13 +358,16 @@ app.delete('/api/calendar/events/:id', async (c) => {
   const user = requireUser(c);
   if (!user) return c.json({ error: { code: 'UNAUTHORIZED', message: 'sign in' } }, 401);
   const id = c.req.param('id');
-  await dbUpdate(
+  const { error, changes } = await dbUpdate(
     c.env.DB,
     'calendar_events',
     { deleted_at: new Date().toISOString() },
     'id=? AND user_id=?',
     [id, user.userId],
   );
+  if (error) throw internalError(`Failed to delete calendar event: ${error}`);
+  // changes===0 ⇒ not the caller's event / already gone — honor the documented 404.
+  if (changes === 0) return c.json({ error: { code: 'NOT_FOUND', message: 'event not found' } }, 404);
   return c.json({ data: { id } });
 });
 

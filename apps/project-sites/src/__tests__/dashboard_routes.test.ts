@@ -111,7 +111,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockDbQuery.mockResolvedValue({ data: [] });
   mockDbInsert.mockResolvedValue({ error: null });
-  mockDbUpdate.mockResolvedValue(undefined);
+  mockDbUpdate.mockResolvedValue({ error: null, changes: 1 });
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -381,6 +381,26 @@ describe('PATCH /api/calendar/events/:id', () => {
     expect(json.data.id).toBe('e1');
     expect(mockDbUpdate).not.toHaveBeenCalled();
   });
+
+  it('404s (not a lying 200) when the event is not the callers / does not exist', async () => {
+    mockDbUpdate.mockResolvedValueOnce({ error: null, changes: 0 }); // WHERE id+user matched nothing
+    const env = makeEnv();
+    const res = await req(makeApp(AUTH), '/api/calendar/events/nope', 'PATCH', env, {
+      title: 'Renamed',
+    });
+    expect(res.status).toBe(404);
+    const json = (await res.json()) as { error?: { code?: string } };
+    expect(json.error?.code).toBe('NOT_FOUND');
+  });
+
+  it('500s (not a lying 200) when the update errors', async () => {
+    mockDbUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    const env = makeEnv();
+    const res = await req(makeApp(AUTH), '/api/calendar/events/e1', 'PATCH', env, {
+      title: 'Renamed',
+    });
+    expect(res.status).toBe(500);
+  });
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -411,6 +431,15 @@ describe('DELETE /api/calendar/events/:id', () => {
     expect(table).toBe('calendar_events');
     expect(updates['deleted_at']).toBeTruthy();
     expect(params).toEqual(['e9', 'user-1']);
+  });
+
+  it('404s (not a lying 200) when deleting an event that is not the callers / does not exist', async () => {
+    mockDbUpdate.mockResolvedValueOnce({ error: null, changes: 0 }); // nothing matched
+    const env = makeEnv();
+    const res = await req(makeApp(AUTH), '/api/calendar/events/nope', 'DELETE', env);
+    expect(res.status).toBe(404);
+    const json = (await res.json()) as { error?: { code?: string } };
+    expect(json.error?.code).toBe('NOT_FOUND');
   });
 });
 
