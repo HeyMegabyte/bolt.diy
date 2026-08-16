@@ -5,8 +5,9 @@ their business, signs in, and receives a professionally built, AI-generated webs
 15 minutes — hosted, SSL'd, and live. The repo also hosts the in-browser editor (a fork of
 [bolt.diy](https://github.com/stackblitz-labs/bolt.diy)) at `editor.projectsites.dev`.
 
-> **AI onboarding:** start at [`CLAUDE.md`](./CLAUDE.md) (root) →
-> [`apps/project-sites/CLAUDE.md`](./apps/project-sites/CLAUDE.md) (the Worker).
+> **AI onboarding:** start at [`AGENTS.md`](./AGENTS.md) (30-second map) →
+> [`CLAUDE.md`](./CLAUDE.md) (root depth) → the per-surface `CLAUDE.md`
+> (e.g. [`apps/project-sites/CLAUDE.md`](./apps/project-sites/CLAUDE.md)).
 
 ## What's New (May 2026)
 
