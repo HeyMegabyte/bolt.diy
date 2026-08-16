@@ -33,10 +33,24 @@ const SITES_SUFFIX = '.projectsites.dev';
 
 /** Content-type by extension (mirrors the /api/publish/bolt handler). */
 const MIME: Record<string, string> = {
-  html: 'text/html', css: 'text/css', js: 'application/javascript', mjs: 'application/javascript',
-  json: 'application/json', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
-  svg: 'image/svg+xml', ico: 'image/x-icon', webp: 'image/webp', woff: 'font/woff', woff2: 'font/woff2',
-  ttf: 'font/ttf', xml: 'application/xml', txt: 'text/plain', webmanifest: 'application/manifest+json',
+  html: 'text/html',
+  css: 'text/css',
+  js: 'application/javascript',
+  mjs: 'application/javascript',
+  json: 'application/json',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  svg: 'image/svg+xml',
+  ico: 'image/x-icon',
+  webp: 'image/webp',
+  woff: 'font/woff',
+  woff2: 'font/woff2',
+  ttf: 'font/ttf',
+  xml: 'application/xml',
+  txt: 'text/plain',
+  webmanifest: 'application/manifest+json',
 };
 
 /**
@@ -66,7 +80,12 @@ async function publishSiteFiles(
   puts.push(
     env.SITES_BUCKET.put(
       `sites/${slug}/_manifest.json`,
-      JSON.stringify({ current_version: version, slug, updated_at: new Date().toISOString(), source: 'platform_mcp' }),
+      JSON.stringify({
+        current_version: version,
+        slug,
+        updated_at: new Date().toISOString(),
+        source: 'platform_mcp',
+      }),
       { httpMetadata: { contentType: 'application/json' } },
     ),
   );
@@ -107,7 +126,8 @@ export const PLATFORM_MCP_TOOLS = [
   },
   {
     name: 'list_sites',
-    description: 'List the websites in your projectsites.dev account (id, slug, name, status, hostname).',
+    description:
+      'List the websites in your projectsites.dev account (id, slug, name, status, hostname).',
     requiredScope: 'sites:read' as const,
     inputSchema: {
       type: 'object',
@@ -128,7 +148,8 @@ export const PLATFORM_MCP_TOOLS = [
   },
   {
     name: 'get_build_status',
-    description: 'Get the AI build/workflow status + step for a site (poll while a generation runs).',
+    description:
+      'Get the AI build/workflow status + step for a site (poll while a generation runs).',
     requiredScope: 'sites:read' as const,
     inputSchema: {
       type: 'object',
@@ -139,11 +160,15 @@ export const PLATFORM_MCP_TOOLS = [
   },
   {
     name: 'get_audit_log',
-    description: 'Recent audit-log actions for a site (deploys, edits, config changes) — inspect what happened.',
+    description:
+      'Recent audit-log actions for a site (deploys, edits, config changes) — inspect what happened.',
     requiredScope: 'sites:read' as const,
     inputSchema: {
       type: 'object',
-      properties: { site_id: { type: 'string' }, limit: { type: 'number', minimum: 1, maximum: 50, default: 20 } },
+      properties: {
+        site_id: { type: 'string' },
+        limit: { type: 'number', minimum: 1, maximum: 50, default: 20 },
+      },
       required: ['site_id'],
       additionalProperties: false,
     },
@@ -197,7 +222,8 @@ export const PLATFORM_MCP_TOOLS = [
   },
   {
     name: 'get_research',
-    description: 'Return the AI research data collected for a site (business profile, brand, selling points).',
+    description:
+      'Return the AI research data collected for a site (business profile, brand, selling points).',
     requiredScope: 'sites:read' as const,
     inputSchema: {
       type: 'object',
@@ -208,7 +234,8 @@ export const PLATFORM_MCP_TOOLS = [
   },
   {
     name: 'tail_logs',
-    description: 'Return recent build/workflow log entries for a site (newest-first) to debug deploys.',
+    description:
+      'Return recent build/workflow log entries for a site (newest-first) to debug deploys.',
     requiredScope: 'sites:read' as const,
     inputSchema: {
       type: 'object',
@@ -236,7 +263,11 @@ export const PLATFORM_MCP_TOOLS = [
 
 /** Slugify a name the same way the create-from-search handler does. */
 function slugify(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 63);
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 63);
 }
 
 /**
@@ -379,11 +410,26 @@ export async function dispatchPlatformTool(
       );
       if (!site) return err('Site not found.');
       const result = await publishSiteFiles(env, site.slug, files);
-      await dbExecute(
+      const { error: statusError } = await dbExecute(
         db,
         `UPDATE sites SET status = 'published', updated_at = datetime('now') WHERE id = ?`,
         [site_id],
       );
+      if (statusError) {
+        // publishSiteFiles already succeeded (the files ARE live); only the status
+        // marker failed. Surface the drift (never a silent swallow) but don't fail the
+        // deploy that already happened — the next publish re-sets status. Mirrors the
+        // snapshot insert's `{ error }` handling below.
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            service: 'platform_mcp',
+            message: 'publish_status_update_failed',
+            site_id,
+            error: statusError,
+          }),
+        );
+      }
       // Version-pin this deploy as a snapshot so the agent gets a STABLE preview URL
       // (served via the existing {slug}-{snapshot} host path, unaffected by later
       // deploys). Dash-free short name keeps the snapshot host a single clean label.
@@ -414,7 +460,8 @@ export async function dispatchPlatformTool(
     case 'create_site': {
       const business_name = String(args.business_name ?? '').trim();
       if (!business_name) return err('business_name is required.');
-      const base = slugify(typeof args.slug === 'string' && args.slug ? args.slug : business_name) || 'site';
+      const base =
+        slugify(typeof args.slug === 'string' && args.slug ? args.slug : business_name) || 'site';
       let slug = base;
       const taken = await dbQueryOne<{ id: string }>(
         db,
@@ -479,7 +526,11 @@ export async function dispatchPlatformTool(
         [site_id, orgId],
       );
       if (!owned) return err('Site not found.');
-      const { data } = await dbQuery<{ task_name: string; parsed_output: string; raw_output: string }>(
+      const { data } = await dbQuery<{
+        task_name: string;
+        parsed_output: string;
+        raw_output: string;
+      }>(
         db,
         `SELECT task_name, parsed_output, raw_output FROM research_data WHERE site_id = ? AND deleted_at IS NULL ORDER BY created_at DESC`,
         [site_id],
@@ -527,7 +578,9 @@ export async function dispatchPlatformTool(
       // Custom domains are a paid capability (same gate as POST /hostnames).
       const entitlements = await getOrgEntitlements(db, orgId);
       if (!entitlements.topBarHidden) {
-        return err('Custom domains require a paid plan. Upgrade at https://projectsites.dev/admin/billing, then retry.');
+        return err(
+          'Custom domains require a paid plan. Upgrade at https://projectsites.dev/admin/billing, then retry.',
+        );
       }
       // The customer must point DNS at us first — verify the CNAME before provisioning.
       const cnameTarget = await checkCnameTarget(hostname);

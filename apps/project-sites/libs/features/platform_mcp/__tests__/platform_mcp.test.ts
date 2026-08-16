@@ -21,7 +21,9 @@ jest.mock('../../../../src/services/db.js', () => ({
   dbInsert: jest.fn().mockResolvedValue({}),
   dbQuery: jest.fn().mockResolvedValue({ data: [] }),
   dbQueryOne: jest.fn().mockResolvedValue(null),
-  dbExecute: jest.fn().mockResolvedValue(undefined),
+  // dbExecute returns `{ error, changes }` — the publish flow now reads `.error` on
+  // the status UPDATE (surfacing a swallowed drift), so the mock must be the real shape.
+  dbExecute: jest.fn().mockResolvedValue({ error: null, changes: 1 }),
 }));
 
 const mockEntitlements = jest.fn();
@@ -44,11 +46,16 @@ function app() {
   return a;
 }
 const rpc = (method: string, params?: unknown, headers: Record<string, string> = {}) =>
-  app().request('/api/mcp', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...headers },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-  }, {} as never, { waitUntil() {}, passThroughOnException() {} } as never);
+  app().request(
+    '/api/mcp',
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...headers },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    },
+    {} as never,
+    { waitUntil() {}, passThroughOnException() {} } as never,
+  );
 
 beforeEach(() => {
   mockIsFlagOn.mockReset();
@@ -78,7 +85,21 @@ describe('platform_mcp JSON-RPC', () => {
     const res = await rpc('tools/list');
     const body = await res.json();
     const names = body.result.tools.map((t: { name: string }) => t.name);
-    expect(names).toEqual(expect.arrayContaining(['whoami', 'list_sites', 'get_site', 'get_build_status', 'get_audit_log', 'deploy_site', 'create_site', 'list_snapshots', 'get_research', 'tail_logs', 'set_domain']));
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'whoami',
+        'list_sites',
+        'get_site',
+        'get_build_status',
+        'get_audit_log',
+        'deploy_site',
+        'create_site',
+        'list_snapshots',
+        'get_research',
+        'tail_logs',
+        'set_domain',
+      ]),
+    );
   });
 
   it('tools/call without a token is 401 + WWW-Authenticate (RFC 9728) with -32001 body', async () => {
@@ -88,7 +109,9 @@ describe('platform_mcp JSON-RPC', () => {
     expect(res.status).toBe(401);
     // The header points OAuth-capable clients at the Protected Resource Metadata.
     expect(res.headers.get('WWW-Authenticate') ?? '').toContain('resource_metadata="');
-    expect(res.headers.get('WWW-Authenticate') ?? '').toContain('/.well-known/oauth-protected-resource');
+    expect(res.headers.get('WWW-Authenticate') ?? '').toContain(
+      '/.well-known/oauth-protected-resource',
+    );
     const body = await res.json();
     expect(body.result.code).toBe(-32001);
   });
@@ -96,7 +119,11 @@ describe('platform_mcp JSON-RPC', () => {
   it('tools/call whoami returns the org identity for a valid token', async () => {
     mockIsFlagOn.mockResolvedValue(true);
     mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'CI key', scopes: '["sites:read"]' });
-    const res = await rpc('tools/call', { name: 'whoami', arguments: {} }, { authorization: 'Bearer psk_abc' });
+    const res = await rpc(
+      'tools/call',
+      { name: 'whoami', arguments: {} },
+      { authorization: 'Bearer psk_abc' },
+    );
     const body = await res.json();
     expect(body.result.content[0].text).toContain('org-1');
     expect(body.result.isError).toBeFalsy();
@@ -105,7 +132,11 @@ describe('platform_mcp JSON-RPC', () => {
   it('deploy_site rejects an empty file set', async () => {
     mockIsFlagOn.mockResolvedValue(true);
     mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:write"]' });
-    const res = await rpc('tools/call', { name: 'deploy_site', arguments: { site_id: 's1', files: [] } }, { authorization: 'Bearer psk_x' });
+    const res = await rpc(
+      'tools/call',
+      { name: 'deploy_site', arguments: { site_id: 's1', files: [] } },
+      { authorization: 'Bearer psk_x' },
+    );
     const body = await res.json();
     expect(body.result.isError).toBe(true);
   });
@@ -117,7 +148,10 @@ describe('platform_mcp JSON-RPC', () => {
     mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:write"]' });
     const res = await rpc(
       'tools/call',
-      { name: 'deploy_site', arguments: { site_id: 's1', files: [{ path: '../../other/_manifest.json', content: 'x' }] } },
+      {
+        name: 'deploy_site',
+        arguments: { site_id: 's1', files: [{ path: '../../other/_manifest.json', content: 'x' }] },
+      },
       { authorization: 'Bearer psk_x' },
     );
     const body = await res.json();
@@ -130,7 +164,14 @@ describe('platform_mcp JSON-RPC', () => {
   it('deploy_site 404s on a site the token org does not own', async () => {
     mockIsFlagOn.mockResolvedValue(true);
     mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:write"]' });
-    const res = await rpc('tools/call', { name: 'deploy_site', arguments: { site_id: 'foreign', files: [{ path: 'index.html', content: '<h1>hi</h1>' }] } }, { authorization: 'Bearer psk_x' });
+    const res = await rpc(
+      'tools/call',
+      {
+        name: 'deploy_site',
+        arguments: { site_id: 'foreign', files: [{ path: 'index.html', content: '<h1>hi</h1>' }] },
+      },
+      { authorization: 'Bearer psk_x' },
+    );
     const body = await res.json();
     expect(body.result.content[0].text).toContain('Site not found');
   });
@@ -139,7 +180,7 @@ describe('platform_mcp JSON-RPC', () => {
     const { dbQueryOne, dbInsert, dbExecute } = require('../../../../src/services/db.js');
     dbQueryOne.mockResolvedValueOnce({ id: 's1', slug: 'acme' }); // owned site
     dbInsert.mockResolvedValueOnce({}); // snapshot insert ok
-    dbExecute.mockResolvedValueOnce(undefined);
+    dbExecute.mockResolvedValueOnce({ error: null, changes: 1 }); // status UPDATE ok (real {error} shape)
     mockIsFlagOn.mockResolvedValue(true);
     mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:write"]' });
     const env = {
@@ -155,7 +196,10 @@ describe('platform_mcp JSON-RPC', () => {
           jsonrpc: '2.0',
           id: 1,
           method: 'tools/call',
-          params: { name: 'deploy_site', arguments: { site_id: 's1', files: [{ path: 'index.html', content: '<h1>hi</h1>' }] } },
+          params: {
+            name: 'deploy_site',
+            arguments: { site_id: 's1', files: [{ path: 'index.html', content: '<h1>hi</h1>' }] },
+          },
         }),
       },
       env as never,
@@ -172,7 +216,11 @@ describe('platform_mcp JSON-RPC', () => {
   it('create_site creates a draft + returns the slug', async () => {
     mockIsFlagOn.mockResolvedValue(true);
     mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:write"]' });
-    const res = await rpc('tools/call', { name: 'create_site', arguments: { business_name: 'Acme Co' } }, { authorization: 'Bearer psk_x' });
+    const res = await rpc(
+      'tools/call',
+      { name: 'create_site', arguments: { business_name: 'Acme Co' } },
+      { authorization: 'Bearer psk_x' },
+    );
     const body = await res.json();
     expect(body.result.isError).toBeFalsy();
     expect(body.result.content[0].text).toContain('acme-co');
@@ -181,10 +229,14 @@ describe('platform_mcp JSON-RPC', () => {
   it('list_snapshots returns an empty snapshot list when none exist', async () => {
     const { dbQueryOne, dbQuery } = require('../../../../src/services/db.js');
     dbQueryOne.mockResolvedValueOnce({ id: 'site-1' }); // ownership check passes
-    dbQuery.mockResolvedValueOnce({ data: [] });          // no snapshots
+    dbQuery.mockResolvedValueOnce({ data: [] }); // no snapshots
     mockIsFlagOn.mockResolvedValue(true);
     mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:read"]' });
-    const res = await rpc('tools/call', { name: 'list_snapshots', arguments: { site_id: 'site-1' } }, { authorization: 'Bearer psk_x' });
+    const res = await rpc(
+      'tools/call',
+      { name: 'list_snapshots', arguments: { site_id: 'site-1' } },
+      { authorization: 'Bearer psk_x' },
+    );
     const body = await res.json();
     expect(body.result.isError).toBeFalsy();
     const payload = JSON.parse(body.result.content[0].text);
@@ -203,7 +255,11 @@ describe('platform_mcp JSON-RPC', () => {
     });
     mockIsFlagOn.mockResolvedValue(true);
     mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:read"]' });
-    const res = await rpc('tools/call', { name: 'get_research', arguments: { site_id: 'site-1' } }, { authorization: 'Bearer psk_x' });
+    const res = await rpc(
+      'tools/call',
+      { name: 'get_research', arguments: { site_id: 'site-1' } },
+      { authorization: 'Bearer psk_x' },
+    );
     const body = await res.json();
     expect(body.result.isError).toBeFalsy();
     const payload = JSON.parse(body.result.content[0].text);
@@ -222,7 +278,11 @@ describe('platform_mcp JSON-RPC', () => {
     });
     mockIsFlagOn.mockResolvedValue(true);
     mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:read"]' });
-    const res = await rpc('tools/call', { name: 'tail_logs', arguments: { site_id: 'site-1', limit: 2 } }, { authorization: 'Bearer psk_x' });
+    const res = await rpc(
+      'tools/call',
+      { name: 'tail_logs', arguments: { site_id: 'site-1', limit: 2 } },
+      { authorization: 'Bearer psk_x' },
+    );
     const body = await res.json();
     expect(body.result.isError).toBeFalsy();
     const payload = JSON.parse(body.result.content[0].text);
@@ -237,7 +297,11 @@ describe('platform_mcp JSON-RPC', () => {
     dbQueryOne.mockResolvedValueOnce(null); // ownership check fails
     mockIsFlagOn.mockResolvedValue(true);
     mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:read"]' });
-    const res = await rpc('tools/call', { name: 'tail_logs', arguments: { site_id: 'foreign' } }, { authorization: 'Bearer psk_x' });
+    const res = await rpc(
+      'tools/call',
+      { name: 'tail_logs', arguments: { site_id: 'foreign' } },
+      { authorization: 'Bearer psk_x' },
+    );
     const body = await res.json();
     expect(body.result.isError).toBe(true);
     expect(body.result.content[0].text).toContain('Site not found');
@@ -249,7 +313,11 @@ describe('platform_mcp JSON-RPC', () => {
     mockEntitlements.mockResolvedValueOnce({ topBarHidden: false }); // free plan
     mockIsFlagOn.mockResolvedValue(true);
     mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:write"]' });
-    const res = await rpc('tools/call', { name: 'set_domain', arguments: { site_id: 's1', hostname: 'app.acme.com' } }, { authorization: 'Bearer psk_x' });
+    const res = await rpc(
+      'tools/call',
+      { name: 'set_domain', arguments: { site_id: 's1', hostname: 'app.acme.com' } },
+      { authorization: 'Bearer psk_x' },
+    );
     const body = await res.json();
     expect(body.result.isError).toBe(true);
     expect(body.result.content[0].text).toContain('paid plan');
@@ -263,7 +331,11 @@ describe('platform_mcp JSON-RPC', () => {
     mockCheckCname.mockResolvedValueOnce(null); // CNAME not pointed
     mockIsFlagOn.mockResolvedValue(true);
     mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:write"]' });
-    const res = await rpc('tools/call', { name: 'set_domain', arguments: { site_id: 's1', hostname: 'app.acme.com' } }, { authorization: 'Bearer psk_x' });
+    const res = await rpc(
+      'tools/call',
+      { name: 'set_domain', arguments: { site_id: 's1', hostname: 'app.acme.com' } },
+      { authorization: 'Bearer psk_x' },
+    );
     const body = await res.json();
     expect(body.result.isError).toBe(true);
     expect(body.result.content[0].text).toMatch(/CNAME record: app\.acme\.com . projectsites\.dev/);
@@ -275,10 +347,18 @@ describe('platform_mcp JSON-RPC', () => {
     dbQueryOne.mockResolvedValueOnce({ id: 's1' });
     mockEntitlements.mockResolvedValueOnce({ topBarHidden: true });
     mockCheckCname.mockResolvedValueOnce('projectsites.dev');
-    mockProvision.mockResolvedValueOnce({ hostname: 'app.acme.com', status: 'pending', is_primary: true });
+    mockProvision.mockResolvedValueOnce({
+      hostname: 'app.acme.com',
+      status: 'pending',
+      is_primary: true,
+    });
     mockIsFlagOn.mockResolvedValue(true);
     mockVerify.mockResolvedValue({ org_id: 'org-1', name: 'k', scopes: '["sites:write"]' });
-    const res = await rpc('tools/call', { name: 'set_domain', arguments: { site_id: 's1', hostname: 'APP.acme.com' } }, { authorization: 'Bearer psk_x' });
+    const res = await rpc(
+      'tools/call',
+      { name: 'set_domain', arguments: { site_id: 's1', hostname: 'APP.acme.com' } },
+      { authorization: 'Bearer psk_x' },
+    );
     const body = await res.json();
     expect(body.result.isError).toBeFalsy();
     const payload = JSON.parse(body.result.content[0].text);
