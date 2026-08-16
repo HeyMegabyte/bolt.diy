@@ -239,7 +239,28 @@ async function getOrCreateStripeCustomer(
   });
   if (!r.ok) throw badRequest(`Stripe customer creation failed: ${await r.text()}`);
   const c = (await r.json()) as { id: string };
-  await dbUpdate(env.DB, 'wallet_accounts', { stripe_customer_id: c.id }, 'id = ?', [wallet.id]);
+  const { error: linkErr } = await dbUpdate(
+    env.DB,
+    'wallet_accounts',
+    { stripe_customer_id: c.id },
+    'id = ?',
+    [wallet.id],
+  );
+  // The Stripe customer already exists (no idempotency key on the create above), so
+  // throwing here would make a caller retry → a DUPLICATE customer. Log the lost link
+  // for reconciliation instead; the id is still returned + usable for this request.
+  if (linkErr) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'wallet',
+        message: 'stripe_customer_link_write_failed',
+        wallet_id: wallet.id,
+        stripe_customer_id: c.id,
+        error: linkErr,
+      }),
+    );
+  }
   return c.id;
 }
 
@@ -667,9 +688,17 @@ export async function handleStripeEvent(
         metadata: { invoice_amount_paid: obj.amount_paid as number | undefined },
       });
       // Also flip status to active in case it was past_due.
-      await dbUpdate(env.DB, 'wallet_accounts', { subscription_status: 'active' }, 'org_id = ?', [
-        orgId,
-      ]);
+      const { error: statusErr } = await dbUpdate(
+        env.DB,
+        'wallet_accounts',
+        { subscription_status: 'active' },
+        'org_id = ?',
+        [orgId],
+      );
+      // Payment-critical: a dropped status flip leaves a PAID org stuck `past_due`
+      // (locked out of what they bought). Throw so the webhook is marked 'failed' +
+      // logged + audited (observable) instead of a silent 200 with stale state.
+      if (statusErr) throw internalError(`Failed to activate subscription: ${statusErr}`);
       return;
     }
 
@@ -716,9 +745,16 @@ export async function handleStripeEvent(
       });
       // The first invoice.paid usually fires immediately; if not, this ensures
       // the wallet at least has the customer-on-file recorded.
-      await dbUpdate(env.DB, 'wallet_accounts', { stripe_customer_id: customerId }, 'org_id = ?', [
-        orgId,
-      ]);
+      const { error: custErr } = await dbUpdate(
+        env.DB,
+        'wallet_accounts',
+        { stripe_customer_id: customerId },
+        'org_id = ?',
+        [orgId],
+      );
+      // Without the customer on file, future off-session top-ups can't fire — a
+      // dropped write here silently breaks recurring billing. Surface it.
+      if (custErr) throw internalError(`Failed to record customer on wallet: ${custErr}`);
       return;
     }
 
@@ -733,13 +769,14 @@ export async function handleStripeEvent(
       );
       if (!wallet) return;
       if (!wallet.stripe_default_payment_method) {
-        await dbUpdate(
+        const { error: pmErr } = await dbUpdate(
           env.DB,
           'wallet_accounts',
           { stripe_default_payment_method: obj.id as string },
           'id = ?',
           [wallet.id],
         );
+        if (pmErr) throw internalError(`Failed to record default payment method: ${pmErr}`);
       }
       return;
     }
@@ -801,5 +838,11 @@ export async function syncSubscriptionStatus(
   if (opts.default_payment_method !== undefined) {
     patch.stripe_default_payment_method = opts.default_payment_method;
   }
-  await dbUpdate(env.DB, 'wallet_accounts', patch, 'id = ?', [wallet.id]);
+  const { error: syncErr } = await dbUpdate(env.DB, 'wallet_accounts', patch, 'id = ?', [
+    wallet.id,
+  ]);
+  // Subscription-state sync is billing-critical — a dropped write leaves the wallet's
+  // status/subscription-id stale (wrong entitlements). Throw so a webhook caller marks
+  // it 'failed' (observable) rather than a silent success with divergent state.
+  if (syncErr) throw internalError(`Failed to sync subscription status: ${syncErr}`);
 }

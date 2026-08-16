@@ -700,6 +700,31 @@ describe('handleStripeEvent', () => {
     );
   });
 
+  it('invoice.paid THROWS when the status-flip write fails (payment-critical: webhook marked failed, not a silent stale success)', async () => {
+    mockDbQueryOne
+      .mockResolvedValueOnce(walletRow()) // ensureWalletRow (invoice handler)
+      .mockResolvedValueOnce(null) // creditWallet idempotency
+      .mockResolvedValueOnce(walletRow({ balance_cents: 0 })); // creditWallet ensureWalletRow
+    // Fail ONLY the subscription_status flip; the credit path stays healthy — proves a
+    // dropped activation write surfaces (throws) instead of a lying silent success that
+    // leaves a PAID org stuck past_due.
+    mockDbUpdate.mockImplementation((_db: unknown, _t: unknown, patch: Record<string, unknown>) =>
+      Promise.resolve(
+        patch?.subscription_status
+          ? { error: 'D1_ERROR: disk full', changes: 0 }
+          : { error: null, changes: 1 },
+      ),
+    );
+    await expect(
+      handleStripeEvent(makeEnv(fakeDb(okRun).db), 'invoice.paid', {
+        id: 'evt_inv_fail',
+        subscription: 'sub_9',
+        amount_paid: 5000,
+        metadata: { org_id: ORG },
+      }),
+    ).rejects.toThrow(/activate subscription/i);
+  });
+
   it('invoice.paid without a subscription is skipped (one-time invoice)', async () => {
     mockDbQueryOne.mockResolvedValue(walletRow());
     await handleStripeEvent(makeEnv(fakeDb(okRun).db), 'invoice.paid', {
