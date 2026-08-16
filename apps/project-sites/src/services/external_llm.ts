@@ -185,19 +185,27 @@ export interface ExternalLLMResult {
 /**
  * Cost per 1M tokens (input/output) for current default models.
  *
- * @remarks Sourced from public pricing pages 2026-05:
+ * @remarks Sourced from public pricing pages:
+ * - Fable 5 — $10 / $50 (the `DEFAULT_MODELS.anthropic` — was MISSING → estimated $0)
  * - Opus 4.7 — $15 / $75
  * - Sonnet 4.6 — $3 / $15
  * - Haiku 4.5 — $1 / $5
  * - GPT-4o (2024-11-20) — $2.50 / $10
  * - GPT-4o-mini — $0.15 / $0.60
+ * - deepseek-chat (V3) — $0.27 / $1.10 (the `DEFAULT_MODELS.deepseek` — was MISSING → $0)
+ *
+ * EVERY `DEFAULT_MODELS` entry MUST have a cost row here — a missing row makes
+ * `estimateCostPrecise` silently return $0, undercounting the highest-volume
+ * providers in LLM Observability. Guarded by `external_llm.test.ts`.
  */
 const MODEL_COSTS: Record<string, { input: number; output: number }> = {
   'gpt-4o': { input: 2.5, output: 10 },
   'gpt-4o-mini': { input: 0.15, output: 0.6 },
+  'claude-fable-5': { input: 10, output: 50 },
   'claude-opus-4-7': { input: 15, output: 75 },
   'claude-sonnet-4-6': { input: 3, output: 15 },
   'claude-haiku-4-5': { input: 1, output: 5 },
+  'deepseek-chat': { input: 0.27, output: 1.1 },
 };
 
 /** Default model IDs per provider — used when caller does not pass `model`. */
@@ -705,8 +713,18 @@ async function callAnthropic(
  * const cost = estimateCostPrecise('claude-sonnet-4-6', 1500, 600); // → ~$0.0135
  * ```
  */
-function estimateCostPrecise(model: string, inputTokens: number, outputTokens: number): number {
-  const key = Object.keys(MODEL_COSTS).find((k) => model.includes(k));
+export function estimateCostPrecise(
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+): number {
+  // Match the LONGEST (most specific) key the model name contains. `find`-first was
+  // order-dependent: 'gpt-4o-mini' contains 'gpt-4o', so a 'gpt-4o' key listed first
+  // shadowed the mini entry → mini was priced 16× too high ($2.50 vs $0.15 input).
+  // Longest-match makes the most-specific row win regardless of table order.
+  const key = Object.keys(MODEL_COSTS)
+    .filter((k) => model.includes(k))
+    .sort((a, b) => b.length - a.length)[0];
   if (!key) return 0;
   const costs = MODEL_COSTS[key];
   return (inputTokens * costs.input + outputTokens * costs.output) / 1_000_000;

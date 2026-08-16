@@ -672,3 +672,36 @@ describe('uploadDocToOpenAI', () => {
     ).rejects.toThrow(/OpenAI Files API error 400: bad file/);
   });
 });
+
+describe('estimateCostPrecise — cost-table accuracy (LLM Observability)', () => {
+  it('prices gpt-4o-mini as MINI, not gpt-4o (longest-match, not find-first)', () => {
+    // 'gpt-4o-mini' CONTAINS 'gpt-4o' — the old find-first picked 'gpt-4o' and priced
+    // mini 16× too high ($2.50 vs $0.15 input). Longest-match resolves the mini row.
+    expect(sut.estimateCostPrecise('gpt-4o-mini', 1_000_000, 1_000_000)).toBeCloseTo(0.15 + 0.6, 6);
+  });
+
+  it('prices the anthropic default (claude-fable-5) instead of returning $0', () => {
+    expect(sut.estimateCostPrecise('claude-fable-5', 1_000_000, 1_000_000)).toBeCloseTo(10 + 50, 6);
+  });
+
+  it('prices the deepseek default (deepseek-chat) instead of returning $0', () => {
+    expect(sut.estimateCostPrecise('deepseek-chat', 1_000_000, 1_000_000)).toBeCloseTo(
+      0.27 + 1.1,
+      6,
+    );
+  });
+
+  it('DRIFT GUARD: every DEFAULT_MODELS model resolves to a non-zero cost', () => {
+    // A DEFAULT model with no MODEL_COSTS row silently reports $0 — undercounting the
+    // highest-volume providers in observability. This locks the write→cost invariant.
+    for (const model of Object.values(sut.DEFAULT_MODELS_EXPORT)) {
+      // A DEFAULT model resolving to $0 means it has no MODEL_COSTS row.
+      const cost = sut.estimateCostPrecise(model, 1000, 1000);
+      expect({ model, priced: cost > 0 }).toEqual({ model, priced: true });
+    }
+  });
+
+  it('returns 0 for a genuinely unknown model (no false pricing)', () => {
+    expect(sut.estimateCostPrecise('some-unknown-model-xyz', 1000, 1000)).toBe(0);
+  });
+});
