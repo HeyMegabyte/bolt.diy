@@ -50,7 +50,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',
   },
-  // ── 10 brilliant — site-as-MCP, cold-tier, ghost-routes, speed-compare, auto-gen-files, hallucination-guard, visitor-recognition, faq-from-tickets, competitor-monitor
+  // ── 10 experimental features — site-as-MCP, cold-tier, ghost-routes, speed-compare, auto-gen-files, hallucination-guard, visitor-recognition, faq-from-tickets, competitor-monitor
   ai_gateway_guardrails: {
     default_enabled: false,
     default_rollout_percent: 0,
@@ -184,7 +184,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
   },
   // ── Round-2 top-5 admin upgrades
-  // ── 30 big-bet features
+  // ── 30 advanced features
   // ── IDE + multi-agent + progressive build (3 new flags)
   // ── Content Freshness + pSEO (items #16 + #17) — flag registry restoration after content-pseo agent shipped the impl without registering the flag (caught by validate-feature-manifests 2026-05-28)
   // ── IDEAS-50 wave 3: GEO + reputation + growth (3 + 9 + 10/11/13 + 18 + 32 + 34)

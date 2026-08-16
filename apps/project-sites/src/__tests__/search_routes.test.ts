@@ -10,7 +10,7 @@ jest.mock('../services/audit.js', () => ({
   writeAuditLog: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('../services/big_bets.js', () => ({
+jest.mock('../services/advanced_features.js', () => ({
   newsletterSubscribe: jest
     .fn()
     .mockResolvedValue({ id: 'sub-1', confirm_email_sent: true, double_opt_in_required: true }),
@@ -22,7 +22,7 @@ import { errorHandler } from '../middleware/error_handler.js';
 import { search, isProxyableImageUrl } from '../routes/search.js';
 import { dbQuery, dbQueryOne, dbInsert } from '../services/db.js';
 import { writeAuditLog } from '../services/audit.js';
-import { newsletterSubscribe } from '../services/big_bets.js';
+import { newsletterSubscribe } from '../services/advanced_features.js';
 
 const mockDbQuery = dbQuery as jest.MockedFunction<typeof dbQuery>;
 const mockDbQueryOne = dbQueryOne as jest.MockedFunction<typeof dbQueryOne>;

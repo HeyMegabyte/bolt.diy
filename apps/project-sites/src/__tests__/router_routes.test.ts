@@ -2,13 +2,13 @@
  * Route-layer coverage for the AI model router's two endpoints in
  * `src/routes/features.ts`, gated by the `model_registry` flag (the standalone
  * ai_auto_router flag was folded into model_registry 2026-08-14):
- *   - POST /api/router/pick   → B.autoRoutePrompt
- *   - GET  /api/router/stats  → B.getRouterStats
+ *   - POST /api/router/pick   → experimentalFeatures.autoRoutePrompt
+ *   - GET  /api/router/stats  → experimentalFeatures.getRouterStats
  *
  * The SERVICE layer (autoRoutePrompt / getRouterStats) is already covered by
- * brilliant.test.ts. The ROUTE layer — the `requireFlag('model_registry')` gate
+ * experimental_features.test.ts. The ROUTE layer — the `requireFlag('model_registry')` gate
  * (404 when off, no leak) + request wiring (body parse + defaults + query) — had
- * ZERO tests. Mocks only the two boundaries: the flag resolver and the brilliant
+ * ZERO tests. Mocks only the two boundaries: the flag resolver and the experimental-features
  * service; everything else (the real Hono sub-app) runs.
  */
 
@@ -19,17 +19,17 @@ jest.mock('../modules/feature_flags/services.js', () => ({
   isFlagOn: jest.fn(),
 }));
 
-// Override just the two router service fns; keep every other B.* export intact
+// Override just the two router service fns; keep every other experimentalFeatures.* export intact
 // (features.ts does `import * as B` and wires dozens of other handlers).
-jest.mock('../services/brilliant.js', () => ({
-  ...jest.requireActual('../services/brilliant.js'),
+jest.mock('../services/experimental_features.js', () => ({
+  ...jest.requireActual('../services/experimental_features.js'),
   autoRoutePrompt: jest.fn(),
   getRouterStats: jest.fn(),
 }));
 
 import features from '../routes/features.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
-import { autoRoutePrompt, getRouterStats } from '../services/brilliant.js';
+import { autoRoutePrompt, getRouterStats } from '../services/experimental_features.js';
 
 const mockIsFlagOn = isFlagOn as jest.MockedFunction<typeof isFlagOn>;
 const mockAutoRoute = autoRoutePrompt as jest.MockedFunction<typeof autoRoutePrompt>;

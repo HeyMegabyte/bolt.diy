@@ -7,7 +7,7 @@
  * feeding the site-generation research step or embedding into Vectorize. No API
  * key required for the public reader endpoint.
  *
- * Ledger: 50-improvement-audit follow-on — "30 brilliant tools" #12.
+ * Ledger: 50-improvement-audit follow-on — "30 advanced tools" #12.
  *
  * @example
  * const md = await fetchReaderMarkdown('https://vitos-mens-salon.com');

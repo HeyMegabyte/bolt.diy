@@ -1,7 +1,7 @@
 /**
- * @module __tests__/brilliant
- * @description Additive unit coverage for the "10 brilliant features" consolidated
- * service (`services/brilliant.ts`). Each exported function reads/writes a
+ * @module __tests__/experimental_features
+ * @description Additive unit coverage for the "10 experimental features" consolidated
+ * service (`services/experimental_features.ts`). Each exported function reads/writes a
  * `0502_brilliant_ten.sql` table via the `env.DB.prepare().bind().first()/all()/run()`
  * chain and returns mock-realistic shapes when the row is absent (per
  * [[secret-provisioning]] graceful-degradation). This suite exercises every real
@@ -49,7 +49,7 @@ import {
   listFaqDrafts,
   scanCompetitors,
   listCompetitorAlerts,
-} from '../services/brilliant.js';
+} from '../services/experimental_features.js';
 import type { Env } from '../types/env.js';
 
 // ─── D1 mock harness ──────────────────────────────────────────
@@ -118,7 +118,7 @@ function envFrom(h: DbHarness): Env {
   return { DB: h.db } as unknown as Env;
 }
 
-describe('brilliant service — 10 features (additive unit coverage)', () => {
+describe('experimental-features service — 10 features (additive unit coverage)', () => {
   // ── #1 Site-as-MCP-server ──────────────────────────────────
   describe('buildSiteMcpManifest', () => {
     it('uses real site slug + name when the row is present', async () => {

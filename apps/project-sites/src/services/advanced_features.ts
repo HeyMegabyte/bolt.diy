@@ -1,5 +1,5 @@
 /**
- * 30 big-bet features — consolidated service module.
+ * Advanced product features — consolidated service module (30 features).
  *
  * Each function returns mock-realistic shapes (per [[secret-provisioning]]
  * mock-when-no-key pattern). Real vendor wiring lands per-feature in

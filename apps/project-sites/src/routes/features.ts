@@ -22,7 +22,7 @@ import { DOMAINS } from '@project-sites/shared';
 import { assertSiteOwned } from '../services/site_ownership.js';
 import { createReviewLink } from '../services/review_approval.js';
 import * as F from '../services/features.js';
-import * as B from '../services/brilliant.js';
+import * as experimentalFeatures from '../services/experimental_features.js';
 import {
   isFlagOn,
   resolveFlag,
@@ -574,21 +574,21 @@ features.get('/api/pwa/manifest', requireFlag('pwa_manifest_full'), (c) =>
   c.json(F.getPwaManifest(c.env, c.req.query('org_id') ?? 'demo-org')),
 );
 
-// ── 30 big-bet features — semantic per-feature endpoints ──────────────
+// ── 30 advanced features — semantic per-feature endpoints ──────────────
 
 const json = async (c: { req: { json: () => Promise<unknown> } }) =>
   (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
 
 // ── 3 NEW: IDE Sandbox + multi-agent + progressive skeleton ──────────
 
-// ── 10 brilliant — semantic per-feature endpoints ────────────────────
+// ── 10 experimental features — semantic per-feature endpoints ────────────────────
 
 // #1 Site-as-MCP-server
 features.get('/api/sites/:siteId/mcp/discovery', requireFlag('site_mcp_server'), async (c) =>
-  c.json(await B.buildSiteMcpManifest(c.env, c.req.param('siteId'))),
+  c.json(await experimentalFeatures.buildSiteMcpManifest(c.env, c.req.param('siteId'))),
 );
 features.post('/api/sites/:siteId/mcp/discovery', requireFlag('site_mcp_server'), async (c) =>
-  c.json(await B.buildSiteMcpManifest(c.env, c.req.param('siteId'))),
+  c.json(await experimentalFeatures.buildSiteMcpManifest(c.env, c.req.param('siteId'))),
 );
 
 // AI model router — folded under model_registry (the AI-model platform flag);
@@ -596,11 +596,11 @@ features.post('/api/sites/:siteId/mcp/discovery', requireFlag('site_mcp_server')
 features.post('/api/router/pick', requireFlag('model_registry'), async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as { prompt?: string; org_id?: string };
   return c.json(
-    await B.autoRoutePrompt(c.env, { prompt: body.prompt ?? 'demo prompt', orgId: body.org_id }),
+    await experimentalFeatures.autoRoutePrompt(c.env, { prompt: body.prompt ?? 'demo prompt', orgId: body.org_id }),
   );
 });
 features.get('/api/router/stats', requireFlag('model_registry'), async (c) =>
-  c.json(await B.getRouterStats(c.env, c.req.query('org_id') ?? 'demo-org')),
+  c.json(await experimentalFeatures.getRouterStats(c.env, c.req.query('org_id') ?? 'demo-org')),
 );
 
 export default features;

@@ -1417,7 +1417,7 @@ search.post('/api/contact-form/:slug', async (c) => {
  *
  * @remarks
  * Closes a triple-drift gap: the generated-site signup widget
- * (`services/archive_signup.ts`) POSTs here, `services/big_bets.ts` owns
+ * (`services/archive_signup.ts`) POSTs here, `services/advanced_features.ts` owns
  * `newsletterSubscribe()`, and the analytics tile READS `newsletter_subscribers`
  * — but the ROUTE joining them was never mounted, so this path 404'd and the tile
  * had no live writer (structurally 0). Distinct from `/api/v1/forms/submit`
@@ -1455,7 +1455,7 @@ search.post('/api/newsletter/subscribe', async (c) => {
     );
     if (!site) return c.json({ error: { code: 'NOT_FOUND', message: 'Site not found' } }, 404);
 
-    const { newsletterSubscribe } = await import('../services/big_bets.js');
+    const { newsletterSubscribe } = await import('../services/advanced_features.js');
     const res = await newsletterSubscribe(c.env, { siteId: site.id, email, segment });
     if (res.error) {
       // Persist failed for real (not a duplicate no-op) — surface it, never a

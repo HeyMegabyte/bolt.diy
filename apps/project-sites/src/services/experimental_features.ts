@@ -1,5 +1,5 @@
 /**
- * 10 brilliant features — consolidated service module.
+ * Experimental site features — consolidated service module (10 features).
  *
  * Pattern: each function reads/writes the relevant 0502_brilliant_ten.sql table,
  * uses Workers AI free Llama for content gen where applicable, returns

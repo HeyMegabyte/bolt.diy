@@ -1,6 +1,6 @@
 /**
- * Additive unit tests for the 30-big-bet consolidated service module
- * (services/big_bets.ts).
+ * Additive unit tests for the 30 advanced-features consolidated service module
+ * (services/advanced_features.ts).
  *
  * This module exposes ~35 thin feature engines (e-commerce, booking, LMS,
  * community, newsletter, membership, donations, mobile/desktop/extension/
@@ -67,7 +67,7 @@ import {
   crmCreateDeal,
   cdpUpsertProfile,
   cdpTrackEvent,
-} from '../services/big_bets.js';
+} from '../services/advanced_features.js';
 
 // ── Controllable D1 mock ─────────────────────────────────────────────
 //
