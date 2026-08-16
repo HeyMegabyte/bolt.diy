@@ -44,3 +44,20 @@ test.describe('homepage — disclosure widgets expose aria-expanded (WCAG 4.1.2)
     await expect(burger).toHaveAttribute('aria-expanded', 'true');
   });
 });
+
+test.describe('search page — FAQ accordion exposes aria-expanded (WCAG 4.1.2)', () => {
+  test.describe.configure({ retries: 2 });
+
+  test('/search FAQ trigger reflects collapsed↔expanded via aria-expanded', async ({ page }) => {
+    test.setTimeout(60000);
+    await page.goto(BASE + '/search', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.faq-item button', { state: 'attached', timeout: 15000 });
+    const trigger = page.locator('.faq-item button').first();
+    await trigger.scrollIntoViewIfNeeded();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await trigger.click();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    await trigger.click();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  });
+});

@@ -67,6 +67,8 @@ test.describe('admin notification bell — local feed, Novu-free (ADR-0034)', ()
     // open the admin topbar bell (bespoke inline bell — `.notif-pop` dropdown)
     const bell = page.locator('button[aria-label="Notifications"]').first();
     await expect(bell).toBeVisible({ timeout: 15000 });
+    // Disclosure a11y (WCAG 4.1.2): collapsed before open (axe can't detect this).
+    await expect(bell).toHaveAttribute('aria-expanded', 'false');
     await bell.click();
 
     // local feed surface still renders (no regression) — the audit/seed feed
@@ -74,6 +76,9 @@ test.describe('admin notification bell — local feed, Novu-free (ADR-0034)', ()
     // notifications popover specifically: the site-actions dropdown reuses the
     // `.notif-pop` class (`.notif-pop.site-actions-pop`), so exclude it.
     await expect(page.locator('.notif-pop:not(.site-actions-pop)').first()).toBeVisible({ timeout: 10000 });
+
+    // Disclosure a11y (WCAG 4.1.2): expanded once the popover is open.
+    await expect(bell, 'bell must expose aria-expanded=true when open').toHaveAttribute('aria-expanded', 'true');
 
     // Settle: the old Novu client fired its inbox session on admin boot + bell
     // open. Give any (regressed) Novu call a generous window to appear BEFORE we

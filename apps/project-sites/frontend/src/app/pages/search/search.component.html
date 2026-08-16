@@ -316,7 +316,7 @@
       { q: 'What happens if I cancel?', a: 'You can cancel anytime. Your site stays live through the end of your billing period. After that, it reverts to the free tier (subdomain hosting with a branding bar). We offer a 14-day money-back guarantee on your first payment.' }
     ]; track $index; let i = $index) {
       <div class="faq-item border border-primary/[0.1] rounded-xl overflow-hidden transition-colors hover:border-primary/25" [class.open]="openFaqIndex() === i">
-        <button class="w-full py-[18px] px-5 bg-transparent border-none text-light text-[0.95rem] font-semibold font-sans text-left cursor-pointer flex justify-between items-center gap-4 transition-colors hover:text-primary" (click)="toggleFaq(i)">
+        <button class="w-full py-[18px] px-5 bg-transparent border-none text-light text-[0.95rem] font-semibold font-sans text-left cursor-pointer flex justify-between items-center gap-4 transition-colors hover:text-primary" [attr.aria-expanded]="openFaqIndex() === i" (click)="toggleFaq(i)">
           {{ faq.q }}
           <svg class="w-5 h-5 flex-shrink-0 text-text-secondary transition-transform duration-300" [class.rotate-180]="openFaqIndex() === i" [class.text-primary]="openFaqIndex() === i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
