@@ -334,3 +334,57 @@ describe('AdminSnapshotsComponent (⋯ more-actions hover title)', () => {
     expect(more?.getAttribute('title')).toBe('More actions for snapshot v3 launch');
   });
 });
+
+/**
+ * Build-state gate — the create-snapshot action must be OFF for a site with no
+ * published build. POST /sites/:id/snapshots 400s ("Site has no published
+ * version to snapshot") when current_build_version is null, so an enabled
+ * button would dead-end. siteBuildable() mirrors that exact server precondition
+ * and canCreate() folds it in. Regression for the chaos-4 "publish first" gate.
+ */
+describe('AdminSnapshotsComponent (create gated on a published build)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function makeWithSite(
+    site: { id: string; current_build_version?: number } | null,
+  ): AdminSnapshotsComponent {
+    TestBed.configureTestingModule({
+      imports: [AdminSnapshotsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: {} }), post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: TelemetryService, useValue: { track: () => undefined, capture: () => undefined } },
+        { provide: BoltEmbedService, useValue: { openSnapshot: () => undefined } },
+        { provide: AdminStateService, useValue: { selectedSite: signal(site) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminSnapshotsComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(AdminSnapshotsComponent).componentInstance;
+  }
+
+  it('siteBuildable() is false when the selected site has no current_build_version', () => {
+    expect(makeWithSite({ id: 's1' }).siteBuildable()).toBe(false);
+  });
+
+  it('siteBuildable() is false when there is no selected site', () => {
+    expect(makeWithSite(null).siteBuildable()).toBe(false);
+  });
+
+  it('siteBuildable() is true once the site has a published build version', () => {
+    expect(makeWithSite({ id: 's1', current_build_version: 3 }).siteBuildable()).toBe(true);
+  });
+
+  it('canCreate() stays false on an unbuilt site even with a valid name (no 400 dead-end)', () => {
+    const c = makeWithSite({ id: 's1' });
+    c.newSnapshotName = 'v2-redesign';
+    expect(c.nameError()).withContext('name itself is valid').toBeNull();
+    expect(c.canCreate()).withContext('the build gate blocks submit').toBe(false);
+  });
+
+  it('canCreate() is true on a built site with a valid name', () => {
+    const c = makeWithSite({ id: 's1', current_build_version: 1 });
+    c.newSnapshotName = 'v2-redesign';
+    expect(c.canCreate()).toBe(true);
+  });
+});

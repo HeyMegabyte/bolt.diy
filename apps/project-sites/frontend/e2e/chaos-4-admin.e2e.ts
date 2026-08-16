@@ -991,4 +991,85 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
       `a fresh cmdk.ai.answered audit entry must land after the AI answer (non-UUID org write no longer dropped; beforeTs=${beforeTs})`,
     ).toBe(true);
   });
+
+  // M4 (adversarial dead-end) — the Snapshots create action must NEVER dead-end.
+  // A site with no published build has no `current_build_version`, so
+  // POST /sites/:id/snapshots 400s ("Site has no published version to snapshot").
+  // The UI MUST gate the create button (disabled + a "publish first" affordance)
+  // rather than offer an enabled button that 400s on click. When the selected
+  // site IS built, the full create flow must succeed (200/201, never 400) — and
+  // its snapshot is cleaned up in `finally`. Ground truth (buildable?) is read
+  // straight from GET /api/sites so the assertion adapts to whatever the E2E org has.
+  test('Snapshots: unbuilt site gets a graceful "publish first" gate — no create button that 400s (M4)', async ({
+    page,
+  }) => {
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+    let createdSnap: { siteId: string; snapId: string } | null = null;
+    try {
+      await page.goto('/admin/snapshots', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(3500); // sites + snapshots load → selectedSite() resolved
+
+      // Ground truth: does the section's selected site (the first site) have a build?
+      const truth = await page.evaluate(async () => {
+        const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
+        const r = await fetch('/api/sites', { headers: { Authorization: `Bearer ${s.token}` } });
+        const j = (await r.json().catch(() => ({}))) as {
+          data?: Array<{ id?: string; current_build_version?: number | null }>;
+        };
+        const site = Array.isArray(j.data) ? j.data[0] : undefined;
+        return { hasSite: !!site, buildable: !!site?.current_build_version, siteId: site?.id ?? null };
+      });
+
+      const createBtn = page.locator('[data-testid="snapshot-create-button"]');
+      expect(await createBtn.isVisible().catch(() => false), 'create button is rendered').toBe(true);
+
+      if (truth.hasSite && !truth.buildable) {
+        // Unbuilt → button DISABLED (can't reach the 400) + a "publish first" hint explains why.
+        expect(
+          await createBtn.isDisabled().catch(() => true),
+          'unbuilt site: create-snapshot button MUST be disabled (no 400 dead-end)',
+        ).toBe(true);
+        expect(
+          await page.locator('[data-testid="snapshots-build-gate"]').isVisible().catch(() => false),
+          'unbuilt site: a "publish first" affordance MUST be shown (never a mysteriously-dead button)',
+        ).toBe(true);
+      } else if (truth.buildable && truth.siteId) {
+        // Built → create must be enabled + the POST must succeed (200/201), never 400.
+        expect(await createBtn.isEnabled().catch(() => false), 'built site: create enabled').toBe(true);
+        await createBtn.click({ timeout: 5000 });
+        await page.waitForTimeout(400);
+        const name = `e2e-chaos-${Date.now().toString().slice(-6)}`;
+        await page.locator('[data-testid="snapshot-name-input"]').fill(name);
+        const respP = page.waitForResponse(
+          (r) => /\/snapshots\b/.test(r.url()) && r.request().method() === 'POST',
+          { timeout: 15_000 },
+        );
+        await page.locator('[data-testid="snapshot-create-submit"]').click({ timeout: 5000 });
+        const cr = await respP;
+        expect([200, 201], `built site: snapshot create status ${cr.status()} (must not 400)`).toContain(
+          cr.status(),
+        );
+        const body = (await cr.json().catch(() => ({}))) as { data?: { id?: string } };
+        if (body.data?.id) createdSnap = { siteId: truth.siteId, snapId: body.data.id };
+      }
+
+      await assertAlive(page);
+      expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+      expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+      expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+    } finally {
+      if (createdSnap) {
+        await page
+          .evaluate(async (c) => {
+            const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
+            await fetch(`/api/sites/${c.siteId}/snapshots/${c.snapId}`, {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${s.token}` },
+            }).catch(() => {});
+          }, createdSnap)
+          .catch(() => {});
+      }
+    }
+  });
 });

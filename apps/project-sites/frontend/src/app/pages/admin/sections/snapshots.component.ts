@@ -147,8 +147,8 @@ interface GhStatus {
           class="btn-create-snap btn-create-snap--primary"
           type="button"
           (click)="createOpen.set(true)"
-          [disabled]="!state.selectedSite()"
-          [brnTooltip]="'Open the create-snapshot dialog'"
+          [disabled]="!state.selectedSite() || !siteBuildable()"
+          [brnTooltip]="siteBuildable() ? 'Open the create-snapshot dialog' : 'Publish your site first — snapshots capture a published build'"
           data-testid="snapshot-create-button">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
           <span>Create Snapshot</span>
@@ -193,6 +193,20 @@ interface GhStatus {
         }
         </div>
       </div>
+
+      <!-- Build-state gate — a site with no published build has no
+           current_build_version, so POST /snapshots would 400
+           ("Site has no published version to snapshot"). Rather than offer an
+           enabled create button that dead-ends, we disable it and explain why. -->
+      @if (state.selectedSite() && !siteBuildable()) {
+        <div
+          class="flex items-start gap-2.5 mt-3 rounded-xl border border-amber-400/25 bg-amber-400/[0.06] px-3.5 py-2.5 text-[0.8rem] leading-relaxed text-amber-200/90"
+          role="status"
+          data-testid="snapshots-build-gate">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="mt-[1px] shrink-0" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+          <span>Publish your site first — snapshots capture a published build. Once your site is live, snapshot creation unlocks automatically.</span>
+        </div>
+      }
 
       <!-- Create Snapshot — uses the standardized DialogShellComponent
            per the admin overhaul "one consistent modal primitive" rule. -->
@@ -302,7 +316,7 @@ interface GhStatus {
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             <h4>No snapshots yet</h4>
             <p>The first snapshot is created automatically when your site is built. You can also create one manually.</p>
-            <button class="btn-create-snap" (click)="createOpen.set(true)" [disabled]="!state.selectedSite()" [brnTooltip]="'Open the create-snapshot dialog'">
+            <button class="btn-create-snap" (click)="createOpen.set(true)" [disabled]="!state.selectedSite() || !siteBuildable()" [brnTooltip]="siteBuildable() ? 'Open the create-snapshot dialog' : 'Publish your site first — snapshots capture a published build'">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
               <span>Create your first snapshot</span>
             </button>
@@ -1463,6 +1477,17 @@ export class AdminSnapshotsComponent implements OnInit, OnDestroy {
   unlinkingGh = signal(false);
   createOpen = signal(false);
 
+  /**
+   * True only when the selected site has a published build to snapshot.
+   * The worker returns 400 ("Site has no published version to snapshot") when
+   * `current_build_version` is null (POST /sites/:id/snapshots derives
+   * `buildVersion = body.build_version || site.current_build_version`), so
+   * gating the create action on this mirrors the exact server precondition —
+   * an unbuilt site shows a "publish first" affordance instead of an enabled
+   * button that dead-ends on a 400.
+   */
+  siteBuildable = computed<boolean>(() => !!this.state.selectedSite()?.current_build_version);
+
   /** Which row's "More" dropdown is open (null = none). */
   moreOpenId = signal<string | null>(null);
 
@@ -1486,9 +1511,9 @@ export class AdminSnapshotsComponent implements OnInit, OnDestroy {
     return null;
   }
 
-  /** Submit enabled only when there's a name AND no validation error. */
+  /** Submit enabled only when the site is buildable AND there's a name AND no validation error. */
   canCreate(): boolean {
-    return this.newSnapshotName.trim().length > 0 && this.nameError() === null;
+    return this.siteBuildable() && this.newSnapshotName.trim().length > 0 && this.nameError() === null;
   }
 
   /**
