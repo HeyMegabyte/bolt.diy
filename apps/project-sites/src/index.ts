@@ -33,6 +33,7 @@ import type { Env, Variables } from './types/env.js';
 import { requestIdMiddleware } from './middleware/request_id.js';
 import { requestLogger } from './lib/log.js';
 import { notFoundHtml } from './lib/not_found_page.js';
+import { isKnownMarketingRoute } from './marketing_routes.js';
 import { llmLandingPage } from './lib/llm_landing_page.js';
 import { renderDocsReferencePage } from './lib/docs_reference_page.js';
 import { resolveSystemService, systemServiceLanding } from './lib/system_service_landing.js';
@@ -1348,10 +1349,18 @@ app.all('*', async (c) => {
         );
         html = html.replace('<body>', `<body>\n${quotable}\n`);
 
+        // Soft-404 guard: an extension-less path served the SPA shell fallback.
+        // If it's NOT a known marketing route (e.g. `/garbage9999`), return a real
+        // 404 status + noindex so crawlers/AI don't index junk URLs — the SPA still
+        // renders its own 404 view. Known routes (incl. every /admin/* + dynamic
+        // blog/:slug) stay 200. Real HTML files (hasExtension) are never soft-404'd.
+        const isSoft404 = !hasExtension && !isKnownMarketingRoute(path);
         return new Response(html, {
+          status: isSoft404 ? 404 : 200,
           headers: {
             'Content-Type': 'text/html',
-            'Cache-Control': 'public, max-age=60',
+            'Cache-Control': isSoft404 ? 'no-cache, no-store' : 'public, max-age=60',
+            ...(isSoft404 ? { 'X-Robots-Tag': 'noindex, nofollow' } : {}),
             // Cross-origin isolation for WebContainers in embedded bolt.diy editor
             'Cross-Origin-Opener-Policy': 'same-origin',
             'Cross-Origin-Embedder-Policy': 'credentialless',
