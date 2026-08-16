@@ -846,7 +846,13 @@ export async function createSession(
     Date.now() + AUTH.SESSION_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
   ).toISOString();
 
-  await dbInsert(db, 'sessions', {
+  // `dbInsert` RETURNS `{ error }` (it never throws). A bare await would IGNORE a
+  // failed write and still return a valid-looking token for a session that was
+  // NEVER persisted — the user "logs in" then 401s on every subsequent request
+  // (a broken-token dead-end with no visible error). Auth is security-critical:
+  // fail LOUDLY (the caller's error boundary returns a retryable 500) rather than
+  // hand out a broken token, per fail-fast-build-fail-soft-prod.
+  const { error } = await dbInsert(db, 'sessions', {
     id: crypto.randomUUID(),
     user_id: userId,
     token_hash: tokenHash,
@@ -856,6 +862,9 @@ export async function createSession(
     last_active_at: new Date().toISOString(),
     deleted_at: null,
   });
+  if (error) {
+    throw new Error(`Failed to persist session for user ${userId}: ${error}`);
+  }
 
   console.warn(
     JSON.stringify({
@@ -938,7 +947,18 @@ export async function getSession(
  * ```
  */
 export async function revokeSession(db: D1Database, sessionId: string): Promise<void> {
-  await dbUpdate(db, 'sessions', { deleted_at: new Date().toISOString() }, 'id = ?', [sessionId]);
+  // A revoke that didn't persist must NOT claim success. A swallowed `{ error }`
+  // would log "Session revoked" + return void while the session stays VALID — a
+  // security lying-success (a failed logout, or a failed revoke of a compromised
+  // session, both read as done). Throw so the caller surfaces it + can retry
+  // (re-revoking a soft-deleted row is idempotent). `changes === 0` is NOT a
+  // failure here — an already-revoked/absent row means the goal is already met.
+  const { error } = await dbUpdate(db, 'sessions', { deleted_at: new Date().toISOString() }, 'id = ?', [
+    sessionId,
+  ]);
+  if (error) {
+    throw new Error(`Failed to revoke session ${sessionId}: ${error}`);
+  }
   console.warn(
     JSON.stringify({
       level: 'info',
@@ -1090,8 +1110,27 @@ export async function revokeOtherUserSessions(
     [userId],
   );
   const others = data.filter((s) => !currentHash || s.token_hash !== currentHash);
-  for (const s of others) await revokeSession(db, s.id);
-  return others.length;
+  // Revoke each independently so one transient D1 failure doesn't strand the rest
+  // (revokeSession now throws on a failed write), and return the ACTUAL revoked
+  // count — the old `return others.length` LIED (it reported the intended count
+  // even when a revoke silently failed). If any failed, surface it so the caller
+  // retries (re-revoking the already-done ones is idempotent).
+  let revoked = 0;
+  const failures: string[] = [];
+  for (const s of others) {
+    try {
+      await revokeSession(db, s.id);
+      revoked++;
+    } catch (e) {
+      failures.push(`${s.id}(${e instanceof Error ? e.message : String(e)})`);
+    }
+  }
+  if (failures.length > 0) {
+    throw new Error(
+      `Revoked ${revoked}/${others.length} sessions; ${failures.length} failed: ${failures.join('; ')}`,
+    );
+  }
+  return revoked;
 }
 
 /**

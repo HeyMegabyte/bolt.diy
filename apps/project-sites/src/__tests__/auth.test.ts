@@ -15,6 +15,7 @@ import {
   createSession,
   getSession,
   revokeSession,
+  revokeOtherUserSessions,
   getUserSessions,
 } from '../services/auth.js';
 import { AppError } from '@project-sites/shared';
@@ -367,6 +368,13 @@ describe('createSession', () => {
       }),
     );
   });
+
+  it('THROWS on a dropped session insert (no broken-token lying-success)', async () => {
+    // dbInsert RETURNS { error } — a bare await would return a valid token for a
+    // session that was never persisted → the user 401s on every subsequent request.
+    mockDbInsert.mockResolvedValue({ error: 'D1_ERROR: database is locked' });
+    await expect(createSession(mockDb, 'user-id-3')).rejects.toThrow(/persist session/i);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -472,6 +480,55 @@ describe('revokeSession', () => {
     expect(updates.deleted_at).toBeDefined();
     // updated_at is added internally by dbUpdate, not by the service
     expect(() => new Date(updates.deleted_at as string).toISOString()).not.toThrow();
+  });
+
+  it('THROWS on a failed revoke — a security lying-success (session stays valid) is unacceptable', async () => {
+    mockDbUpdate.mockResolvedValue({ error: 'D1_ERROR: database is locked', changes: 0 });
+    await expect(revokeSession(mockDb, 'sess-x')).rejects.toThrow(/revoke session/i);
+  });
+
+  it('does NOT throw on changes===0 (already-revoked/absent row is idempotent success)', async () => {
+    mockDbUpdate.mockResolvedValue({ error: null, changes: 0 });
+    await expect(revokeSession(mockDb, 'sess-already-gone')).resolves.toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// revokeOtherUserSessions
+// ---------------------------------------------------------------------------
+describe('revokeOtherUserSessions', () => {
+  it('revokes every OTHER session and returns the ACTUAL revoked count', async () => {
+    mockDbQuery.mockResolvedValueOnce({
+      data: [
+        { id: 's1', token_hash: 'h1' },
+        { id: 's2', token_hash: 'h2' },
+        { id: 's3', token_hash: 'h3' },
+      ],
+      error: null,
+    });
+    mockDbUpdate.mockResolvedValue({ error: null, changes: 1 });
+
+    // No currentToken → currentHash null → revoke ALL listed sessions.
+    const n = await revokeOtherUserSessions(mockDb, 'user-1');
+    expect(n).toBe(3);
+    expect(mockDbUpdate).toHaveBeenCalledTimes(3);
+  });
+
+  it('THROWS with actual/total when a revoke fails mid-loop (no silent partial success)', async () => {
+    mockDbQuery.mockResolvedValueOnce({
+      data: [
+        { id: 's1', token_hash: 'h1' },
+        { id: 's2', token_hash: 'h2' },
+      ],
+      error: null,
+    });
+    mockDbUpdate
+      .mockResolvedValueOnce({ error: null, changes: 1 }) // s1 revoked
+      .mockResolvedValueOnce({ error: 'D1_ERROR', changes: 0 }); // s2 fails
+
+    // The old code returned `others.length` (=2) even though only 1 revoked. Now it
+    // revokes what it can and surfaces the partial failure so the caller retries.
+    await expect(revokeOtherUserSessions(mockDb, 'user-1')).rejects.toThrow(/1\/2|failed/i);
   });
 });
 
