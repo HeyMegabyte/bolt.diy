@@ -628,8 +628,7 @@ export async function resolveSite(
 
     if (siteRow) {
       // Route through the SSOT plan resolver (trialing-inclusive; see above).
-      const plan =
-        (await resolveActiveOrgPlan(db, siteRow.org_id)) === 'paid' ? 'paid' : 'free';
+      const plan = (await resolveActiveOrgPlan(db, siteRow.org_id)) === 'paid' ? 'paid' : 'free';
 
       const resolved = {
         site_id: siteRow.id,
