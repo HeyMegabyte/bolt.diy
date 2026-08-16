@@ -24,6 +24,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { MiddlewareHandler } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
+import { sanitizeLikeTerm } from '../services/like_pattern.js';
 import { manualAdjustment } from '../services/wallet.js';
 import { isSuperAdmin } from '../services/sysadmin.js';
 import { listSuppressions, removeSuppression } from '../services/email_suppressions.js';
@@ -154,8 +155,11 @@ superAdmin.get('/api/super-admin/wallets', async (c) => {
   const where: string[] = [];
   const params: unknown[] = [];
   if (q) {
+    // Strip the operator's %/_ wildcards so they match literally — an unstripped
+    // wildcard-heavy term crashes the query ('LIKE pattern too complex').
     where.push('(w.org_id LIKE ? OR o.name LIKE ? OR o.slug LIKE ?)');
-    params.push(`%${q}%`, `%${q}%`, `%${q}%`);
+    const like = `%${sanitizeLikeTerm(q)}%`;
+    params.push(like, like, like);
   }
   if (status && ['active', 'past_due', 'canceled', 'inactive'].includes(status)) {
     where.push('w.subscription_status = ?');

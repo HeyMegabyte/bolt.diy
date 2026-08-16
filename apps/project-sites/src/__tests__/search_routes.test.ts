@@ -731,3 +731,38 @@ describe('POST /api/newsletter/subscribe', () => {
     expect(res.status).toBe(500);
   });
 });
+
+// ─── LIKE-wildcard sanitizing (pre-built site search) ────────────────────────
+// A live D1 error surfaced in prod: `LIKE or GLOB pattern too complex` on the
+// `business_name LIKE ?` query — the user's own `%`/`_` were embedded in the
+// pattern, so a wildcard-heavy term both (a) crashed the query (swallowed →
+// lying-empty "no sites found") and (b) matched wrong rows (searching "50%" is a
+// match-anything wildcard). Escaping + `ESCAPE '\'` did NOT cure (a) — D1's SQLite
+// raises "too complex" on the raw %/_ byte count before resolving escapes — so the
+// fix STRIPS the user's `%`/`_`/`\` (zero wildcards → never complex, literal match).
+describe('GET /api/sites/search — LIKE wildcard sanitizing', () => {
+  it("strips the user's %/_ wildcards (no pattern-too-complex, literal match)", async () => {
+    mockDbQuery.mockResolvedValueOnce({ data: [], error: null });
+    const res = await makeRequest('/api/sites/search?q=' + encodeURIComponent('a%b_c'));
+    expect(res.status).toBe(200);
+    const [, , params] = mockDbQuery.mock.calls[0] as [unknown, string, unknown[]];
+    // The user's %/_ are stripped → only the two intended outer wildcards remain.
+    expect(params[0]).toBe('%abc%');
+  });
+
+  it('leaves a plain term unchanged (still wrapped for substring match)', async () => {
+    mockDbQuery.mockResolvedValueOnce({ data: [], error: null });
+    const res = await makeRequest('/api/sites/search?q=' + encodeURIComponent('Vito Salon'));
+    expect(res.status).toBe(200);
+    const [, , params] = mockDbQuery.mock.calls[0] as [unknown, string, unknown[]];
+    expect(params[0]).toBe('%Vito Salon%');
+  });
+
+  it('neutralizes a wildcard-heavy term to a harmless pattern', async () => {
+    mockDbQuery.mockResolvedValueOnce({ data: [], error: null });
+    const res = await makeRequest('/api/sites/search?q=' + encodeURIComponent('%_'.repeat(30)));
+    expect(res.status).toBe(200);
+    const [, , params] = mockDbQuery.mock.calls[0] as [unknown, string, unknown[]];
+    expect(params[0]).toBe('%%'); // all wildcards stripped → just the outer wrap
+  });
+});

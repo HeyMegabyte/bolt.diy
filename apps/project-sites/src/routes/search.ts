@@ -42,6 +42,7 @@ import {
 export { pickSafeRedirect };
 
 import { dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
+import { sanitizeLikeTerm } from '../services/like_pattern.js';
 import { gatewayFetch } from '../services/ai_gateway.js';
 import { writeAuditLog } from '../services/audit.js';
 import { getEmailProvider } from '../platform/email-router.js';
@@ -391,9 +392,11 @@ search.get('/api/sites/search', async (c) => {
     return c.json({ data: [] });
   }
 
-  // Bound query length to prevent oversized LIKE scans
+  // Bound query length, and strip the user's own %/_ wildcards so they match
+  // literally — otherwise a wildcard-heavy term crashes the query (`LIKE pattern
+  // too complex`, swallowed → lying-empty) and matches wrong rows.
   const bounded = q.trim().slice(0, 100);
-  const searchTerm = `%${bounded}%`;
+  const searchTerm = `%${sanitizeLikeTerm(bounded)}%`;
   const { data } = await dbQuery<SiteSearchRow>(
     c.env.DB,
     "SELECT id, slug, business_name, business_address, google_place_id, status, current_build_version FROM sites WHERE business_name LIKE ? AND deleted_at IS NULL ORDER BY CASE WHEN status = 'published' THEN 0 WHEN status = 'building' THEN 1 ELSE 2 END, created_at DESC LIMIT 5",
@@ -500,7 +503,7 @@ search.get('/api/search/command', async (c) => {
       const { data } = await dbQuery<{ id: string; slug: string; business_name: string }>(
         c.env.DB,
         'SELECT id, slug, business_name FROM sites WHERE org_id = ? AND business_name LIKE ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 5',
-        [orgId, `%${bounded}%`],
+        [orgId, `%${sanitizeLikeTerm(bounded)}%`],
       );
       for (const s of data) {
         results.push({

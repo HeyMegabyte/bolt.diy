@@ -26,6 +26,7 @@
 import type { Env } from '../types/env.js';
 import { gatewayFetch } from './ai_gateway.js';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne, dbUpdate } from './db.js';
+import { sanitizeLikeTerm } from './like_pattern.js';
 import { callDallE3 } from './image_generation.js';
 
 /** Realistic UA used for stock-downloads — most CDNs block default UAs. */
@@ -127,8 +128,10 @@ export async function listAssets(
     params.push(source);
   }
   if (search) {
+    // Strip the user's %/_ wildcards so they match literally — an unstripped
+    // wildcard-heavy term crashes the query ('LIKE pattern too complex').
     wheres.push('(name LIKE ? OR prompt LIKE ?)');
-    const wildcard = `%${search}%`;
+    const wildcard = `%${sanitizeLikeTerm(search)}%`;
     params.push(wildcard, wildcard);
   }
 
