@@ -93,7 +93,7 @@ type Category = (typeof CATEGORIES)[number];
     .tn-add:hover:not(:disabled) { filter: brightness(1.08); }
     .tn-add:disabled { opacity: 0.5; cursor: default; }
     .tn-add:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-    .tn-empty { font-size: 0.8rem; color: rgba(255,255,255,0.45); margin: 0; }
+    .tn-empty { font-size: 0.8rem; color: rgba(255,255,255,0.7); margin: 0; }
     .tn-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
     .tn-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.4rem 0; border-top: 1px solid rgba(255,255,255,0.04); min-width: 0; }
     .tn-item:first-child { border-top: 0; }
