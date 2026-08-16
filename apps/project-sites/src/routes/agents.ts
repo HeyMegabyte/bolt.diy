@@ -29,7 +29,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
 import { requirePro } from '../services/pro.js';
-import { unauthorized, notFound } from '@project-sites/shared';
+import { unauthorized, notFound, internalError } from '@project-sites/shared';
 
 type AgentCtx = Context<{ Bindings: Env; Variables: Variables }>;
 
@@ -97,7 +97,7 @@ agents.post('/api/sites/:siteId/agents', zValidator('json', createSchema), async
   const body = c.req.valid('json');
   const userId = c.get('userId') as string;
   const id = crypto.randomUUID();
-  await dbInsert(c.env.DB, 'agents', {
+  const { error: agentErr } = await dbInsert(c.env.DB, 'agents', {
     id,
     org_id: orgId,
     site_id: siteId,
@@ -114,6 +114,7 @@ agents.post('/api/sites/:siteId/agents', zValidator('json', createSchema), async
     status: 'active',
     created_by: userId,
   });
+  if (agentErr) throw internalError(`Failed to create agent: ${agentErr}`);
   return c.json({ id, status: 'active' }, 201);
 });
 
@@ -191,7 +192,7 @@ agents.post('/api/agents/:id/run', async (c) => {
   }
   const runId = crypto.randomUUID();
   const now = new Date().toISOString();
-  await dbInsert(c.env.DB, 'agent_runs', {
+  const { error: runErr } = await dbInsert(c.env.DB, 'agent_runs', {
     id: runId,
     agent_id: agent.id,
     org_id: agent.org_id,
@@ -200,6 +201,7 @@ agents.post('/api/agents/:id/run', async (c) => {
     status: 'running',
     started_at: now,
   });
+  if (runErr) throw internalError(`Failed to start agent run: ${runErr}`);
   // Run synchronously for now — `ctx.waitUntil` could keep the response sub-100ms.
   c.executionCtx.waitUntil(executeRun(c.env, agent, runId));
   return c.json({ run_id: runId, status: 'running' }, 202);

@@ -23,7 +23,7 @@ import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbInsert } from '../services/db.js';
 import { requirePro } from '../services/pro.js';
 import { getWalletState, manualAdjustment } from '../services/wallet.js';
-import { unauthorized, notFound } from '@project-sites/shared';
+import { unauthorized, notFound, internalError } from '@project-sites/shared';
 
 const templates = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -168,7 +168,7 @@ templates.post(
       });
     }
     const installId = crypto.randomUUID();
-    await dbInsert(c.env.DB, 'template_installs', {
+    const { error: installErr } = await dbInsert(c.env.DB, 'template_installs', {
       id: installId,
       template_id: tpl.id,
       template_version_id: null,
@@ -176,6 +176,7 @@ templates.post(
       org_id: orgId,
       price_paid_cents: tpl.price_cents,
     });
+    if (installErr) throw internalError(`Failed to record template install: ${installErr}`);
     await c.env.DB.prepare('UPDATE templates SET install_count = install_count + 1 WHERE id = ?')
       .bind(tpl.id)
       .run();
@@ -217,7 +218,7 @@ templates.post('/api/templates', zValidator('json', publishSchema), async (c) =>
   if (!orgId || !userId) throw unauthorized();
   const body = c.req.valid('json');
   const id = `tpl_${crypto.randomUUID()}`;
-  await dbInsert(c.env.DB, 'templates', {
+  const { error: tplErr } = await dbInsert(c.env.DB, 'templates', {
     id,
     slug: body.slug,
     name: body.name,
@@ -230,6 +231,7 @@ templates.post('/api/templates', zValidator('json', publishSchema), async (c) =>
     visibility: 'public',
     status: 'live',
   });
+  if (tplErr) throw internalError(`Failed to publish template: ${tplErr}`);
   return c.json({ id, slug: body.slug }, 201);
 });
 

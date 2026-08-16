@@ -23,6 +23,7 @@ import {
   forbidden,
   notFound,
   unauthorized,
+  internalError,
   createIntegrationSchema,
   updateIntegrationSchema,
   formSubmissionInputSchema,
@@ -494,7 +495,7 @@ forms.post('/api/sites/:siteId/integrations', async (c) => {
 
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
-  await dbInsert(c.env.DB, 'newsletter_integrations', {
+  const { error: insErr } = await dbInsert(c.env.DB, 'newsletter_integrations', {
     id,
     site_id: site.id,
     org_id: orgId,
@@ -508,6 +509,9 @@ forms.post('/api/sites/:siteId/integrations', async (c) => {
     created_at: now,
     updated_at: now,
   });
+  // Surface a genuine insert failure instead of a lying-success (the row would be
+  // silently dropped and the caller told the integration saved).
+  if (insErr) throw internalError(`Failed to save newsletter integration: ${insErr}`);
 
   c.executionCtx.waitUntil(
     auditService.writeAuditLog(c.env.DB, {

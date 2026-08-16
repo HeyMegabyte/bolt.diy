@@ -27,7 +27,14 @@ import { suggestVanityWords, type VanityBusinessProfile } from '../services/vani
 import { simulateInbound } from '../services/sms_agent.js';
 import * as auditService from '../services/audit.js';
 import { PROMPT_META } from '../services/voice_agent.js';
-import { AppError, unauthorized, notFound, badRequest, conflict } from '@project-sites/shared';
+import {
+  AppError,
+  unauthorized,
+  notFound,
+  badRequest,
+  conflict,
+  internalError,
+} from '@project-sites/shared';
 
 export const voiceRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -885,12 +892,13 @@ voiceRoutes.put('/api/voice/mcp-attachments', async (c) => {
       [existing.id],
     );
   } else {
-    await dbInsert(c.env.DB, 'voice_agent_settings', {
+    const { error: vErr } = await dbInsert(c.env.DB, 'voice_agent_settings', {
       id: crypto.randomUUID(),
       site_id: body.site_id,
       mcp_connection_ids: voiceJson,
       mcp_sms_connection_ids: smsJson,
     });
+    if (vErr) throw internalError(`Failed to save voice MCP attachments: ${vErr}`);
   }
 
   await auditService.writeAuditLog(c.env.DB, {
@@ -964,11 +972,12 @@ voiceRoutes.put('/api/voice/agent-settings', async (c) => {
   if (existing) {
     await dbUpdate(c.env.DB, 'voice_agent_settings', updates, 'id = ?', [existing.id]);
   } else {
-    await dbInsert(c.env.DB, 'voice_agent_settings', {
+    const { error: vErr } = await dbInsert(c.env.DB, 'voice_agent_settings', {
       id: crypto.randomUUID(),
       site_id: body.siteId,
       ...updates,
     });
+    if (vErr) throw internalError(`Failed to save voice agent settings: ${vErr}`);
   }
 
   await auditService.writeAuditLog(c.env.DB, {

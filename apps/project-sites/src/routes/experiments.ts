@@ -25,7 +25,7 @@ import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbInsert, dbUpdate } from '../services/db.js';
 import { requirePro } from '../services/pro.js';
-import { unauthorized, notFound } from '@project-sites/shared';
+import { unauthorized, notFound, internalError } from '@project-sites/shared';
 
 const experiments = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -247,7 +247,9 @@ experiments.post(
     const body = c.req.valid('json');
     const userId = c.get('userId') as string;
     const expId = crypto.randomUUID();
-    await dbInsert(c.env.DB, 'experiments', {
+    // Persist the experiment first — surface a genuine insert failure rather than
+    // returning a lying 201 for a row that was silently dropped.
+    const { error: expErr } = await dbInsert(c.env.DB, 'experiments', {
       id: expId,
       site_id: siteId,
       name: body.name,
@@ -256,8 +258,9 @@ experiments.post(
       status: 'running',
       created_by: userId,
     });
+    if (expErr) throw internalError(`Failed to create experiment: ${expErr}`);
     for (const v of body.variants) {
-      await dbInsert(c.env.DB, 'variants', {
+      const { error: varErr } = await dbInsert(c.env.DB, 'variants', {
         id: crypto.randomUUID(),
         experiment_id: expId,
         name: v.name,
@@ -267,6 +270,7 @@ experiments.post(
         beta_alpha: 1,
         beta_beta: 1,
       });
+      if (varErr) throw internalError(`Failed to create experiment variant: ${varErr}`);
     }
     return c.json({ id: expId, status: 'running' }, 201);
   },

@@ -169,7 +169,7 @@ agency.post('/api/agency/clients', zValidator('json', inviteSchema), async (c) =
   }
 
   const id = crypto.randomUUID();
-  await dbInsert(c.env.DB, 'agency_invitations', {
+  const { error: inviteErr } = await dbInsert(c.env.DB, 'agency_invitations', {
     id,
     agency_org_id: agencyOrgId,
     client_email: body.email,
@@ -178,6 +178,7 @@ agency.post('/api/agency/clients', zValidator('json', inviteSchema), async (c) =
     token_hash: tokenHash,
     expires_at: expiresAt,
   });
+  if (inviteErr) throw internalError(`Failed to create agency invitation: ${inviteErr}`);
   // Email delivery (sendEmail/Novu) is the remaining enhancement — the caller
   // relays the token meanwhile; the client redeems at the accept route below.
   return c.json({ invitation_id: id, token, expires_at: expiresAt });
@@ -360,14 +361,15 @@ agency.post('/api/invitations/agency/accept', zValidator('json', acceptSchema), 
   const slug = `${slugBase}-${crypto.randomUUID().slice(0, 6)}`;
   const role = membershipRoleForInvite(invite.role);
 
-  await dbInsert(c.env.DB, 'orgs', {
+  const { error: orgErr } = await dbInsert(c.env.DB, 'orgs', {
     id: childOrgId,
     name: invite.client_email,
     slug,
     parent_org_id: invite.agency_org_id,
     deleted_at: null,
   });
-  await dbInsert(c.env.DB, 'memberships', {
+  if (orgErr) throw internalError(`Failed to create client org: ${orgErr}`);
+  const { error: memErr } = await dbInsert(c.env.DB, 'memberships', {
     id: crypto.randomUUID(),
     org_id: childOrgId,
     user_id: userId,
@@ -375,6 +377,7 @@ agency.post('/api/invitations/agency/accept', zValidator('json', acceptSchema), 
     billing_admin: role === 'owner' ? 1 : 0,
     deleted_at: null,
   });
+  if (memErr) throw internalError(`Failed to create client membership: ${memErr}`);
 
   // Close the feedback loop: tell the agency owner their client accepted. Fire-
   // and-forget — notifySiteOwner never throws; waitUntil'd so it never delays the
