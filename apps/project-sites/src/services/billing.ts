@@ -33,7 +33,13 @@
  * @packageDocumentation
  */
 
-import { PRICING, type Entitlements, getEntitlements, badRequest } from '@project-sites/shared';
+import {
+  PRICING,
+  type Entitlements,
+  getEntitlements,
+  badRequest,
+  internalError,
+} from '@project-sites/shared';
 import type { BudgetTier } from '@project-sites/shared/schemas';
 import { dbQueryOne, dbInsert, dbUpdate } from './db.js';
 import { writeAuditLog } from './audit.js';
@@ -153,7 +159,7 @@ export async function getOrCreateStripeCustomer(
   );
 
   // Insert subscription record with free plan defaults
-  await dbInsert(db, 'subscriptions', {
+  const { error: subRowErr } = await dbInsert(db, 'subscriptions', {
     id: crypto.randomUUID(),
     org_id: orgId,
     stripe_customer_id: customer.id,
@@ -165,6 +171,21 @@ export async function getOrCreateStripeCustomer(
     dunning_stage: 0,
     deleted_at: null,
   });
+  // The Stripe customer was already created above (no idempotency key), so a
+  // throw here would make a retry create a DUPLICATE customer. Log the lost
+  // subscription-row write for reconciliation instead of throwing.
+  if (subRowErr) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'billing',
+        message: 'subscription_row_insert_failed',
+        org_id: orgId,
+        stripe_customer_id: customer.id,
+        error: subRowErr,
+      }),
+    );
+  }
 
   return { stripe_customer_id: customer.id };
 }
@@ -706,7 +727,7 @@ export async function handleCheckoutCompleted(
     }),
   );
 
-  await dbUpdate(
+  const { error: subErr } = await dbUpdate(
     db,
     'subscriptions',
     {
@@ -719,11 +740,22 @@ export async function handleCheckoutCompleted(
     'org_id = ?',
     [orgId],
   );
+  // A dropped upgrade leaves a PAID org stuck on 'free' (locked out of what they
+  // bought). Throw so the Stripe webhook route marks the event 'failed' + audits
+  // (observable) instead of a silent 200 with divergent entitlement state.
+  if (subErr) throw internalError(`Failed to activate paid subscription: ${subErr}`);
 
   // Mark the specific site as paid if site_id is present
   const siteId = event.metadata?.site_id;
   if (siteId) {
-    await dbUpdate(db, 'sites', { plan: 'paid' }, 'id = ? AND org_id = ?', [siteId, orgId]);
+    const { error: siteErr } = await dbUpdate(
+      db,
+      'sites',
+      { plan: 'paid' },
+      'id = ? AND org_id = ?',
+      [siteId, orgId],
+    );
+    if (siteErr) throw internalError(`Failed to mark site paid: ${siteErr}`);
     console.warn(
       JSON.stringify({
         level: 'info',
@@ -807,7 +839,7 @@ export async function handleSubscriptionUpdated(
     }),
   );
 
-  await dbUpdate(
+  const { error: subErr } = await dbUpdate(
     db,
     'subscriptions',
     {
@@ -819,6 +851,9 @@ export async function handleSubscriptionUpdated(
     'org_id = ?',
     [orgId],
   );
+  // A dropped sync leaves local entitlement state diverged from Stripe (stale
+  // status / period). Throw → observable 'failed' webhook instead of silent drift.
+  if (subErr) throw internalError(`Failed to sync subscription update: ${subErr}`);
 
   await writeAuditLog(db, {
     org_id: orgId,
@@ -869,7 +904,7 @@ export async function handleSubscriptionDeleted(
     }),
   );
 
-  await dbUpdate(
+  const { error: subErr } = await dbUpdate(
     db,
     'subscriptions',
     {
@@ -880,9 +915,13 @@ export async function handleSubscriptionDeleted(
     'org_id = ?',
     [orgId],
   );
+  // A dropped cancellation leaves a canceled org on the 'paid' plan (revenue leak
+  // — paid entitlements kept for free). Throw → observable 'failed' webhook.
+  if (subErr) throw internalError(`Failed to downgrade canceled subscription: ${subErr}`);
 
   // Downgrade all org sites to free
-  await dbUpdate(db, 'sites', { plan: 'free' }, 'org_id = ?', [orgId]);
+  const { error: siteErr } = await dbUpdate(db, 'sites', { plan: 'free' }, 'org_id = ?', [orgId]);
+  if (siteErr) throw internalError(`Failed to downgrade org sites: ${siteErr}`);
 
   await writeAuditLog(db, {
     org_id: orgId,
@@ -929,7 +968,7 @@ export async function handlePaymentFailed(
     }),
   );
 
-  await dbUpdate(
+  const { error: subErr } = await dbUpdate(
     db,
     'subscriptions',
     {
@@ -939,6 +978,10 @@ export async function handlePaymentFailed(
     'org_id = ?',
     [orgId],
   );
+  // A dropped past_due flip leaves a failed-payment org 'active' (keeps paid
+  // entitlements despite non-payment — revenue leak). Throw → observable 'failed'
+  // webhook so dunning/recovery can act, instead of a silent 200.
+  if (subErr) throw internalError(`Failed to mark subscription past_due: ${subErr}`);
 
   await writeAuditLog(db, {
     org_id: orgId,

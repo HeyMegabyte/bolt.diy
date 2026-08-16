@@ -310,7 +310,7 @@ export async function markWebhookProcessed(
   status: 'processed' | 'failed' = 'processed',
   errorMessage?: string,
 ): Promise<void> {
-  await dbUpdate(
+  const { error } = await dbUpdate(
     db,
     'webhook_events',
     {
@@ -321,4 +321,21 @@ export async function markWebhookProcessed(
     'id = ?',
     [eventId],
   );
+  // This is the webhook OUTCOME marker, called on both the success path AND inside
+  // the route's catch. A throw here would mask the original error (catch-path call)
+  // or turn a fully-processed webhook into a 500 (success-path call) — so never
+  // throw. But a SILENT drop hides the outcome from monitoring, the exact thing
+  // this row exists to record, so surface the write failure to logs.
+  if (error) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'webhook',
+        message: 'mark_webhook_processed_write_failed',
+        event_id: eventId,
+        target_status: status,
+        error,
+      }),
+    );
+  }
 }

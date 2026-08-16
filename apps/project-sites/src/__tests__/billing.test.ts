@@ -97,6 +97,28 @@ describe('getOrCreateStripeCustomer', () => {
     );
   });
 
+  it('WARNS but still returns the customer when the subscription-row insert fails', async () => {
+    // The Stripe customer was already created (no idempotency key) — a throw would
+    // make a retry create a DUPLICATE customer, so log for reconciliation instead.
+    mockQueryOne.mockResolvedValueOnce(null);
+    mockInsert.mockResolvedValueOnce({ error: 'D1_ERROR: disk full' });
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ id: 'cus_new2' }),
+      text: async () => '',
+    });
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await getOrCreateStripeCustomer(mockDb, mockEnv, 'org_1', 'a@b.com');
+
+    expect(result).toEqual({ stripe_customer_id: 'cus_new2' });
+    const logged = warnSpy.mock.calls
+      .map((c) => JSON.parse(c[0]))
+      .find((l) => l.message === 'subscription_row_insert_failed');
+    expect(logged).toMatchObject({ service: 'billing', stripe_customer_id: 'cus_new2' });
+    warnSpy.mockRestore();
+  });
+
   it('throws on Stripe API failure', async () => {
     mockQueryOne.mockResolvedValueOnce(null);
 
@@ -470,6 +492,17 @@ describe('handleCheckoutCompleted', () => {
     expect(body.stripe_subscription_id).toBe('sub_1');
     expect(body.plan).toBe('paid');
   });
+
+  it('THROWS when the upgrade write fails (paid org must not silently stay free)', async () => {
+    mockUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    await expect(
+      handleCheckoutCompleted(mockDb, mockEnv, {
+        customer: 'cus_1',
+        subscription: 'sub_1',
+        metadata: { org_id: 'org_1' },
+      }),
+    ).rejects.toThrow(/activate paid subscription/i);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -541,6 +574,20 @@ describe('handleSubscriptionUpdated', () => {
       ['org_1'],
     );
   });
+
+  it('THROWS when the status-sync write fails (no silent entitlement drift)', async () => {
+    mockUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    await expect(
+      handleSubscriptionUpdated(mockDb, {
+        id: 'sub_1',
+        status: 'active',
+        cancel_at_period_end: false,
+        current_period_start: 1700000000,
+        current_period_end: 1702592000,
+        metadata: { org_id: 'org_1' },
+      }),
+    ).rejects.toThrow(/sync subscription update/i);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -577,6 +624,13 @@ describe('handleSubscriptionDeleted', () => {
     expect(result).toBeUndefined();
     expect(mockUpdate).not.toHaveBeenCalled();
   });
+
+  it('THROWS when the downgrade write fails (canceled org must not stay paid)', async () => {
+    mockUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    await expect(
+      handleSubscriptionDeleted(mockDb, { id: 'sub_1', metadata: { org_id: 'org_1' } }),
+    ).rejects.toThrow(/downgrade canceled subscription/i);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -610,6 +664,13 @@ describe('handlePaymentFailed', () => {
 
     expect(result).toBeUndefined();
     expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('THROWS when the past_due write fails (failed-payment org must not stay active)', async () => {
+    mockUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    await expect(
+      handlePaymentFailed(mockDb, { subscription: 'sub_1', metadata: { org_id: 'org_1' } }),
+    ).rejects.toThrow(/past_due/i);
   });
 });
 

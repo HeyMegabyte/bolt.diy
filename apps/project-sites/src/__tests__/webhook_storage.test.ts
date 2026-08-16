@@ -174,4 +174,25 @@ describe('markWebhookProcessed', () => {
       ['event-uuid-3'],
     );
   });
+
+  it('WARNS but never throws when the outcome write itself fails', async () => {
+    // Called on both the success path AND inside the route's catch — a throw here
+    // would mask the original error, so a failed write must surface to logs only.
+    mockUpdate.mockResolvedValue({ error: 'D1_ERROR: disk full', changes: 0 });
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await expect(
+      markWebhookProcessed(mockDb, 'event-uuid-4', 'failed', 'orig error'),
+    ).resolves.toBeUndefined();
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const logged = JSON.parse(warnSpy.mock.calls[0][0]);
+    expect(logged).toMatchObject({
+      service: 'webhook',
+      message: 'mark_webhook_processed_write_failed',
+      event_id: 'event-uuid-4',
+      target_status: 'failed',
+    });
+    warnSpy.mockRestore();
+  });
 });
