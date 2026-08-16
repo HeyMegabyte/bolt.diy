@@ -23,6 +23,7 @@ import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
 import { dbQuery, dbInsert, dbUpdate } from '../services/db.js';
+import { internalError } from '@project-sites/shared';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -279,7 +280,7 @@ app.post('/api/calendar/events', zValidator('json', EventCreateSchema), async (c
       calendarId = def.data[0]!.id;
     } else {
       calendarId = uuid();
-      await dbInsert(c.env.DB, 'calendar_calendars', {
+      const { error: calErr } = await dbInsert(c.env.DB, 'calendar_calendars', {
         id: calendarId,
         user_id: user.userId,
         org_id: user.orgId,
@@ -287,10 +288,13 @@ app.post('/api/calendar/events', zValidator('json', EventCreateSchema), async (c
         color: '#00E5FF',
         is_default: 1,
       });
+      // Stop before the event insert — an event referencing a calendar row that
+      // never persisted would be an FK orphan (or fail on its own).
+      if (calErr) throw internalError(`Failed to create default calendar: ${calErr}`);
     }
   }
   const id = uuid();
-  await dbInsert(c.env.DB, 'calendar_events', {
+  const { error: evErr } = await dbInsert(c.env.DB, 'calendar_events', {
     id,
     calendar_id: calendarId,
     user_id: user.userId,
@@ -305,6 +309,7 @@ app.post('/api/calendar/events', zValidator('json', EventCreateSchema), async (c
     rrule: body.rrule ?? null,
     attendees: body.attendees ? JSON.stringify(body.attendees) : null,
   });
+  if (evErr) throw internalError(`Failed to create calendar event: ${evErr}`);
   return c.json({ data: { id } }, 201);
 });
 
@@ -400,7 +405,7 @@ app.post('/api/calendar/calendars', zValidator('json', CalendarCreateSchema), as
   if (!user) return c.json({ error: { code: 'UNAUTHORIZED', message: 'sign in' } }, 401);
   const body = c.req.valid('json');
   const id = uuid();
-  await dbInsert(c.env.DB, 'calendar_calendars', {
+  const { error: calErr } = await dbInsert(c.env.DB, 'calendar_calendars', {
     id,
     user_id: user.userId,
     org_id: user.orgId,
@@ -408,6 +413,7 @@ app.post('/api/calendar/calendars', zValidator('json', CalendarCreateSchema), as
     color: body.color,
     is_default: body.is_default ? 1 : 0,
   });
+  if (calErr) throw internalError(`Failed to create calendar: ${calErr}`);
   return c.json({ data: { id } }, 201);
 });
 
@@ -476,29 +482,30 @@ app.post('/api/calendar/bookings', zValidator('json', BookingCreateSchema), asyn
   if (!user) return c.json({ error: { code: 'UNAUTHORIZED', message: 'sign in' } }, 401);
   const body = c.req.valid('json');
   const id = uuid();
-  try {
-    await dbInsert(c.env.DB, 'calendar_bookings', {
-      id,
-      user_id: user.userId,
-      org_id: user.orgId,
-      slug: body.slug,
-      title: body.title,
-      description: body.description ?? null,
-      duration_min: body.duration_min,
-      buffer_min: body.buffer_min,
-      tz: body.tz,
-      weekdays: JSON.stringify(body.weekdays),
-      window_start: body.window_start,
-      window_end: body.window_end,
-      calendar_id: body.calendar_id ?? null,
-      is_active: 1,
-    });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : 'failed';
-    if (/UNIQUE/i.test(msg)) {
+  // dbInsert RETURNS { error } (it never throws), so a UNIQUE-slug collision must be
+  // detected on the returned error. A try/catch here would be dead code, and every
+  // duplicate slug would return a lying 201 for a booking link that was never created.
+  const { error: bookErr } = await dbInsert(c.env.DB, 'calendar_bookings', {
+    id,
+    user_id: user.userId,
+    org_id: user.orgId,
+    slug: body.slug,
+    title: body.title,
+    description: body.description ?? null,
+    duration_min: body.duration_min,
+    buffer_min: body.buffer_min,
+    tz: body.tz,
+    weekdays: JSON.stringify(body.weekdays),
+    window_start: body.window_start,
+    window_end: body.window_end,
+    calendar_id: body.calendar_id ?? null,
+    is_active: 1,
+  });
+  if (bookErr) {
+    if (/UNIQUE/i.test(bookErr)) {
       return c.json({ error: { code: 'CONFLICT', message: 'slug already taken' } }, 409);
     }
-    throw e;
+    throw internalError(`Failed to create booking link: ${bookErr}`);
   }
   return c.json({ data: { id, public_url: `https://projectsites.dev/book/${body.slug}` } }, 201);
 });

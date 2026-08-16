@@ -110,7 +110,7 @@ const LATER = '2026-06-01T11:00:00.000Z';
 beforeEach(() => {
   jest.clearAllMocks();
   mockDbQuery.mockResolvedValue({ data: [] });
-  mockDbInsert.mockResolvedValue(undefined);
+  mockDbInsert.mockResolvedValue({ error: null });
   mockDbUpdate.mockResolvedValue(undefined);
 });
 
@@ -308,6 +308,33 @@ describe('POST /api/calendar/events', () => {
     expect(calInsert[2]['name']).toBe('Personal');
     expect(calInsert[2]['is_default']).toBe(1);
   });
+
+  it('500s (not a lying 201) when the event insert fails', async () => {
+    mockDbQuery.mockResolvedValueOnce({ data: [{ id: 'cal-default' }] }); // default exists → 1 insert
+    mockDbInsert.mockResolvedValueOnce({ error: 'D1_ERROR: disk full' }); // event insert fails
+    const env = makeEnv();
+    const res = await req(makeApp(AUTH), '/api/calendar/events', 'POST', env, {
+      title: 'Launch',
+      start_utc: NOW,
+      end_utc: LATER,
+    });
+    expect(res.status).toBe(500);
+  });
+
+  it('500s + does NOT attempt the event insert when the default-calendar bootstrap fails', async () => {
+    mockDbQuery.mockResolvedValueOnce({ data: [] }); // no default → bootstrap first
+    mockDbInsert.mockResolvedValueOnce({ error: 'D1_ERROR: disk full' }); // bootstrap insert fails
+    const env = makeEnv();
+    const res = await req(makeApp(AUTH), '/api/calendar/events', 'POST', env, {
+      title: 'First',
+      start_utc: NOW,
+      end_utc: LATER,
+    });
+    expect(res.status).toBe(500);
+    // MUST stop after the failed calendar insert — never write an event that would
+    // reference a calendar row that does not exist (FK orphan).
+    expect(mockDbInsert).toHaveBeenCalledTimes(1);
+  });
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -451,6 +478,16 @@ describe('POST /api/calendar/calendars', () => {
     expect(record['org_id']).toBe('org-1');
     expect(record['is_default']).toBe(1);
   });
+
+  it('500s (not a lying 201) when the calendar insert fails', async () => {
+    mockDbInsert.mockResolvedValueOnce({ error: 'D1_ERROR: disk full' });
+    const env = makeEnv();
+    const res = await req(makeApp(AUTH), '/api/calendar/calendars', 'POST', env, {
+      name: 'Work',
+      color: '#112233',
+    });
+    expect(res.status).toBe(500);
+  });
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -537,7 +574,10 @@ describe('POST /api/calendar/bookings', () => {
   });
 
   it('returns 409 CONFLICT when the slug is already taken (UNIQUE violation)', async () => {
-    mockDbInsert.mockRejectedValueOnce(new Error('D1_ERROR: UNIQUE constraint failed'));
+    // dbInsert RETURNS { error } — it does NOT throw. The UNIQUE→409 path must key
+    // off the returned error, not a catch. (A mockRejectedValueOnce here would test
+    // a code path that can never happen in prod.)
+    mockDbInsert.mockResolvedValueOnce({ error: 'D1_ERROR: UNIQUE constraint failed: calendar_bookings.slug' });
     const env = makeEnv();
     const res = await req(makeApp(AUTH), '/api/calendar/bookings', 'POST', env, VALID);
     expect(res.status).toBe(409);
@@ -545,8 +585,8 @@ describe('POST /api/calendar/bookings', () => {
     expect(json.error?.code).toBe('CONFLICT');
   });
 
-  it('propagates a non-UNIQUE insert error to the error handler (500)', async () => {
-    mockDbInsert.mockRejectedValueOnce(new Error('D1_ERROR: disk full'));
+  it('propagates a non-UNIQUE insert error to the error handler (500, not a lying 201)', async () => {
+    mockDbInsert.mockResolvedValueOnce({ error: 'D1_ERROR: disk full' });
     const env = makeEnv();
     const res = await req(makeApp(AUTH), '/api/calendar/bookings', 'POST', env, VALID);
     expect(res.status).toBe(500);
