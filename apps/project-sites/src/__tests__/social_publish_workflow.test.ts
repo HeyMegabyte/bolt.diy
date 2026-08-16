@@ -26,9 +26,11 @@ jest.mock(
 jest.mock('../services/db.js', () => ({
   __esModule: true,
   dbQueryOne: jest.fn(),
-  dbUpdate: jest.fn().mockResolvedValue(undefined),
-  dbInsert: jest.fn().mockResolvedValue(undefined),
-  dbExecute: jest.fn().mockResolvedValue(undefined),
+  // The write helpers return { error, changes } (never undefined) — the workflow
+  // now destructures { error } to detect dropped writes, so mock the real shape.
+  dbUpdate: jest.fn().mockResolvedValue({ error: null, changes: 1 }),
+  dbInsert: jest.fn().mockResolvedValue({ error: null }),
+  dbExecute: jest.fn().mockResolvedValue({ error: null, changes: 1 }),
 }));
 jest.mock('../services/social_account_ctx.js', () => ({
   __esModule: true,
@@ -41,7 +43,7 @@ jest.mock('../services/social_publishers/index.js', () => {
 });
 
 import { SocialPublishWorkflow } from '../workflows/social-publish.js';
-import { dbQueryOne, dbUpdate } from '../services/db.js';
+import { dbQueryOne, dbUpdate, dbExecute } from '../services/db.js';
 import { loadAccountsByIds, markAccountError } from '../services/social_account_ctx.js';
 import { getPublisher, MissingAppCredsError } from '../services/social_publishers/index.js';
 import type { Env } from '../types/env.js';
@@ -49,6 +51,7 @@ import type { WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 
 const dbqo = dbQueryOne as jest.Mock;
 const dbup = dbUpdate as jest.Mock;
+const dbex = dbExecute as jest.Mock;
 const loadAccts = loadAccountsByIds as jest.Mock;
 const getPub = getPublisher as jest.Mock;
 const markErr = markAccountError as jest.Mock;
@@ -99,7 +102,12 @@ const run = (step: WorkflowStep) => {
 beforeEach(() => {
   jest.clearAllMocks();
   jest.spyOn(console, 'warn').mockImplementation(() => {});
-  dbup.mockResolvedValue(undefined);
+  // The write helpers return { error, changes } — the workflow destructures { error }
+  // to detect dropped writes, so the per-test default must be the real shape.
+  // Reset BOTH here (clearAllMocks does not restore mockResolvedValue, so a prior
+  // test's error-injection would otherwise leak into the next).
+  dbup.mockResolvedValue({ error: null, changes: 1 });
+  dbex.mockResolvedValue({ error: null, changes: 1 });
 });
 
 describe('SocialPublishWorkflow.run', () => {
@@ -166,5 +174,68 @@ describe('SocialPublishWorkflow.run', () => {
     dbqo.mockResolvedValue(null);
     const { step } = makeStep();
     await expect(run(step)).rejects.toThrow(/post_not_found/);
+  });
+
+  // ── write-integrity (dropped D1 write must not be a lying success) ──────────
+
+  it('THROWS when the no-accounts "failed" write drops (terminal status must persist)', async () => {
+    dbqo.mockResolvedValue(postRow({ account_ids: null }));
+    dbup.mockResolvedValue({ error: 'D1_ERROR: disk full', changes: 0 });
+    const { step } = makeStep();
+    await expect(run(step)).rejects.toThrow(/mark post failed/i);
+  });
+
+  it('WARNS but does NOT throw when the intermediate "publishing" flip drops (final write corrects it)', async () => {
+    dbqo.mockResolvedValue(postRow());
+    loadAccts.mockResolvedValue([acct('a1', 'twitter')]);
+    getPub.mockReturnValue({
+      publish: jest.fn().mockResolvedValue({ external_id: 'e1', external_url: 'u1' }),
+    });
+    // Fail ONLY the 'publishing' flip (keyed on patch shape, not call order — the
+    // once-queue leaks across clearAllMocks). The final status write still succeeds.
+    dbup.mockImplementation((_db: unknown, _t: unknown, patch: { status?: string }) =>
+      Promise.resolve(
+        patch.status === 'publishing'
+          ? { error: 'D1_ERROR: disk full', changes: 0 }
+          : { error: null, changes: 1 },
+      ),
+    );
+    const { step } = makeStep();
+    const out = await run(step);
+    expect(out).toEqual({ ok: true, succeeded: 1, failed: 0 }); // publish still succeeds
+    const logged = (console.warn as jest.Mock).mock.calls
+      .map((c) => JSON.parse(c[0] as string))
+      .find((l) => l.message === 'publishing_status_flip_failed');
+    expect(logged).toMatchObject({ service: 'social_publish', post_id: 'post1' });
+  });
+
+  it('THROWS when a recordResults publish-ledger upsert drops (step retries idempotently)', async () => {
+    dbqo.mockResolvedValue(postRow());
+    loadAccts.mockResolvedValue([acct('a1', 'twitter')]);
+    getPub.mockReturnValue({
+      publish: jest.fn().mockResolvedValue({ external_id: 'e1', external_url: 'u1' }),
+    });
+    dbex.mockResolvedValue({ error: 'D1_ERROR: disk full', changes: 0 });
+    const { step } = makeStep();
+    await expect(run(step)).rejects.toThrow(/record .*publish result/i);
+  });
+
+  it('THROWS when the final recordResults status write drops (never a stuck-"publishing" post)', async () => {
+    dbqo.mockResolvedValue(postRow());
+    loadAccts.mockResolvedValue([acct('a1', 'twitter')]);
+    getPub.mockReturnValue({
+      publish: jest.fn().mockResolvedValue({ external_id: 'e1', external_url: 'u1' }),
+    });
+    // The 'publishing' flip succeeds; ONLY the final status write (has published_at)
+    // fails — keyed on patch shape, not call order.
+    dbup.mockImplementation((_db: unknown, _t: unknown, patch: { status?: string }) =>
+      Promise.resolve(
+        patch.status === 'publishing'
+          ? { error: null, changes: 1 }
+          : { error: 'D1_ERROR: disk full', changes: 0 },
+      ),
+    );
+    const { step } = makeStep();
+    await expect(run(step)).rejects.toThrow(/final post status/i);
   });
 });

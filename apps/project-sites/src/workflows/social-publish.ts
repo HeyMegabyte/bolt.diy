@@ -15,6 +15,7 @@
 import { WorkflowEntrypoint } from 'cloudflare:workers';
 import type { WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 import type { Env } from '../types/env.js';
+import { internalError } from '@project-sites/shared';
 import { dbExecute, dbInsert, dbQueryOne, dbUpdate } from '../services/db.js';
 import { loadAccountsByIds, markAccountError } from '../services/social_account_ctx.js';
 import { processPostLinks } from '../services/link_shortener.js';
@@ -69,12 +70,38 @@ export class SocialPublishWorkflow extends WorkflowEntrypoint<Env, SocialPublish
       return { row, accountIds };
     });
     if (ctx.accountIds.length === 0) {
-      await dbUpdate(env.DB, 'pulse_posts', { status: 'failed' }, 'id = ?', [post_id]);
+      // Terminal status — the post cannot publish (no accounts) and MUST land as
+      // 'failed' or it's stuck in its prior status forever. Throw so the workflow
+      // retries this idempotent write (no side-effects precede it) instead of a
+      // silent success that orphans the post.
+      const { error } = await dbUpdate(env.DB, 'pulse_posts', { status: 'failed' }, 'id = ?', [
+        post_id,
+      ]);
+      if (error) throw internalError(`Failed to mark post failed (no accounts): ${error}`);
       return { ok: false, succeeded: 0, failed: 0 };
     }
 
-    // Flip → publishing
-    await dbUpdate(env.DB, 'pulse_posts', { status: 'publishing' }, 'id = ?', [post_id]);
+    // Flip → publishing. Intermediate status only — the final recordResults write
+    // sets the terminal status regardless, so a dropped flip self-corrects; log it
+    // (never throw + retry the whole run just for an interim UI state).
+    const { error: flipErr } = await dbUpdate(
+      env.DB,
+      'pulse_posts',
+      { status: 'publishing' },
+      'id = ?',
+      [post_id],
+    );
+    if (flipErr) {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'social_publish',
+          message: 'publishing_status_flip_failed',
+          post_id,
+          error: flipErr,
+        }),
+      );
+    }
 
     // 1.5 refreshTokens — proactively refresh any tokens expiring within 1 hour.
     // Each account's onTokenRefresh callback auto-persists new tokens to D1.
@@ -272,7 +299,7 @@ export class SocialPublishWorkflow extends WorkflowEntrypoint<Env, SocialPublish
       let succeeded = 0;
       let failed = 0;
       for (const r of results) {
-        await dbExecute(
+        const { error: recErr } = await dbExecute(
           env.DB,
           `INSERT INTO social_publishes
              (id, post_id, account_id, platform, status, external_post_id, external_url,
@@ -298,11 +325,15 @@ export class SocialPublishWorkflow extends WorkflowEntrypoint<Env, SocialPublish
             r.status === 'succeeded' ? new Date().toISOString() : null,
           ],
         );
+        // In step.do('recordResults') — retry re-runs only these idempotent DB
+        // writes (platform publishes are separate memoized steps), so throw to let
+        // the step retry rather than silently lose a publish-ledger row.
+        if (recErr) throw internalError(`Failed to record ${r.platform} publish result: ${recErr}`);
         if (r.status === 'succeeded') succeeded++;
         else failed++;
       }
       const finalStatus = failed === 0 ? 'published' : succeeded === 0 ? 'failed' : 'partial';
-      await dbUpdate(
+      const { error: finalErr } = await dbUpdate(
         env.DB,
         'pulse_posts',
         {
@@ -312,6 +343,11 @@ export class SocialPublishWorkflow extends WorkflowEntrypoint<Env, SocialPublish
         'id = ?',
         [post_id],
       );
+      // The terminal status. A dropped write leaves the post stuck 'publishing'
+      // forever even though the platforms were published. Same recordResults step →
+      // throw so the step retries the idempotent writes, never a stuck-'publishing'
+      // post reported as a lying success.
+      if (finalErr) throw internalError(`Failed to write final post status: ${finalErr}`);
       return { succeeded, failed };
     });
 
