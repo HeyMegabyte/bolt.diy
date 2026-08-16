@@ -834,4 +834,78 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
     expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
     expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
   });
+
+  // M3 (cross-system: an admin action in one subsystem → the audit trail in another).
+  // The Cmd+K AI palette (`POST /api/admin/ai/stream/palette`) fires a fire-and-forget
+  // `cmdk.ai.answered` audit write. The shared audit schema used to require a UUID
+  // `org_id` → `.parse` THREW → `writeAuditLog` silently DROPPED the entry for the E2E
+  // org (`org_id: 'e2e-test-org'`, a D1 TEXT id) — a compliance-trail gap invisible to
+  // any render/console gate (it's a server-side log). This journey proves the action
+  // now REACHES the store: press the AI → a FRESH cmdk.ai.answered row lands.
+  test('Cmd+K AI answer lands in the audit trail (M3: non-UUID org audit no longer dropped)', async ({
+    page,
+  }) => {
+    test.skip(!KEY, 'E2E_API_KEY not set');
+    await page.goto('/');
+    await seedAuth(page, KEY);
+    await page.goto('/admin', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2000);
+
+    // Newest created_at across the recent trail — a fresh cmdk row must beat this.
+    const maxTs = (): Promise<string> =>
+      page.evaluate(async () => {
+        const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
+        const r = await fetch('/api/audit/rows?limit=25', {
+          headers: { Authorization: `Bearer ${s.token}` },
+        });
+        if (!r.ok) return 'ERR';
+        const j = await r.json();
+        const rows = (Array.isArray(j) ? j : (j.data ?? j.rows ?? [])) as Array<{
+          created_at?: string;
+        }>;
+        return rows.reduce((m, x) => (x.created_at && x.created_at > m ? x.created_at : m), '');
+      });
+    const freshCmdkSince = (since: string): Promise<boolean> =>
+      page.evaluate(async (sinceTs) => {
+        const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
+        const r = await fetch('/api/audit/rows?limit=25', {
+          headers: { Authorization: `Bearer ${s.token}` },
+        });
+        if (!r.ok) return false;
+        const j = await r.json();
+        const rows = (Array.isArray(j) ? j : (j.data ?? j.rows ?? [])) as Array<{
+          action?: string;
+          created_at?: string;
+        }>;
+        return rows.some((x) => x.action === 'cmdk.ai.answered' && (x.created_at ?? '') > sinceTs);
+      }, since);
+
+    const beforeTs = await maxTs();
+    expect(beforeTs, 'audit rows endpoint must be readable').not.toBe('ERR');
+
+    // Press the Cmd+K AI (app-context fetch — a headless POST is Bot-Fight-challenged).
+    const answered = await page.evaluate(async () => {
+      const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
+      const res = await fetch('/api/admin/ai/stream/palette', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${s.token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: 'how do I add a custom domain' }),
+      });
+      const text = await res.text().catch(() => '');
+      return { status: res.status, streamed: text.includes('data:') };
+    });
+    expect(answered.status, 'cmdk AI palette must answer 200').toBe(200);
+    expect(answered.streamed, 'cmdk AI must stream a real answer').toBe(true);
+
+    // The audit write is fire-and-forget — poll until the FRESH entry appears.
+    let landed = false;
+    for (let i = 0; i < 8 && !landed; i++) {
+      await page.waitForTimeout(1000);
+      landed = await freshCmdkSince(beforeTs);
+    }
+    expect(
+      landed,
+      `a fresh cmdk.ai.answered audit entry must land after the AI answer (non-UUID org write no longer dropped; beforeTs=${beforeTs})`,
+    ).toBe(true);
+  });
 });

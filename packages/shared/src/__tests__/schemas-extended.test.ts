@@ -609,6 +609,21 @@ describe('createAuditLogSchema', () => {
   it('rejects missing org_id', () => {
     expect(() => createAuditLogSchema.parse({ action: 'test', actor_id: null })).toThrow();
   });
+
+  it('accepts non-UUID org_id/actor_id/target_id (D1 TEXT — seed/system/slug ids, not just UUIDs)', () => {
+    // The audit id columns are TEXT; real rows hold non-UUID ids (`e2e-test-org`,
+    // `system`, a slug target). Requiring a UUID made writeAuditLog drop the entry.
+    const result = createAuditLogSchema.parse({
+      org_id: 'e2e-test-org',
+      actor_id: 'system',
+      action: 'cmdk.ai.answered',
+      target_type: 'site',
+      target_id: 'vitos-mens-salon',
+    });
+    expect(result.org_id).toBe('e2e-test-org');
+    expect(result.actor_id).toBe('system');
+    expect(result.target_id).toBe('vitos-mens-salon');
+  });
 });
 
 // ─── webhookEventSchema ──────────────────────────────────────

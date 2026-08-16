@@ -78,6 +78,25 @@ describe('writeAuditLog', () => {
     );
   });
 
+  it('WRITES an entry whose org_id/actor_id are non-UUID (real seed/system orgs, not just UUIDs)', async () => {
+    mockInsert.mockResolvedValue({ error: null });
+    // The E2E key + seed orgs resolve to a real D1 row `org_id: 'e2e-test-org'`
+    // (D1 stores org_id as TEXT, not a UUID). The audit schema used to require a
+    // UUID → `.parse` threw → the entry was DROPPED ("Audit log write threw
+    // unexpectedly"), losing the compliance trail for every non-UUID org.
+    await writeAuditLog(mockDb, {
+      org_id: 'e2e-test-org',
+      actor_id: 'system',
+      action: 'cmdk.ai.answered',
+    } as never);
+
+    expect(mockInsert).toHaveBeenCalledWith(
+      mockDb,
+      'audit_logs',
+      expect.objectContaining({ org_id: 'e2e-test-org', actor_id: 'system', action: 'cmdk.ai.answered' }),
+    );
+  });
+
   it('does not throw on invalid entry (silently logs error)', async () => {
     const invalidEntry = {
       // Missing required org_id

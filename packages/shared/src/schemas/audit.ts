@@ -30,7 +30,7 @@
  * ```
  */
 import { z } from 'zod';
-import { baseFields, uuidSchema, metadataSchema } from './base.js';
+import { baseFields, metadataSchema } from './base.js';
 
 /**
  * Full audit log entry as stored in the `audit_logs` database table.
@@ -50,10 +50,22 @@ import { baseFields, uuidSchema, metadataSchema } from './base.js';
  * - `request_id` -- correlation ID for distributed tracing.
  * - `created_at` -- ISO 8601 timestamp of when the event was recorded.
  */
+/**
+ * Bounded free-form identifier for audit `org_id` / `actor_id` / `target_id`.
+ *
+ * These columns are D1 TEXT, NOT UUID-constrained — real rows legitimately hold
+ * non-UUID ids: seed/test orgs (`org_id: 'e2e-test-org'`), system actors
+ * (`actor_id: 'system'`), and slug/hostname targets. Requiring a UUID here made
+ * `createAuditLogSchema.parse` THROW for every such write, so `writeAuditLog`
+ * silently DROPPED the entry ("Audit log write threw unexpectedly") — a
+ * compliance-trail gap. A UUID is still a valid value; this only widens the set.
+ */
+const auditIdSchema = z.string().min(1).max(128);
+
 export const auditLogSchema = z.object({
   id: baseFields.id,
-  org_id: baseFields.org_id,
-  actor_id: uuidSchema.nullable(),
+  org_id: auditIdSchema,
+  actor_id: auditIdSchema.nullable(),
   action: z.string().min(1).max(100),
   /**
    * Human-readable one-line summary of the event, e.g.
@@ -63,7 +75,7 @@ export const auditLogSchema = z.object({
    */
   message: z.string().min(1).max(500).nullable(),
   target_type: z.string().max(100).nullable(),
-  target_id: uuidSchema.nullable(),
+  target_id: auditIdSchema.nullable(),
   metadata_json: metadataSchema.nullable(),
   ip_address: z.string().max(45).nullable(),
   request_id: z.string().max(255).nullable(),
@@ -80,8 +92,8 @@ export const auditLogSchema = z.object({
  * `created_at`) are omitted and assigned automatically.
  */
 export const createAuditLogSchema = z.object({
-  org_id: uuidSchema,
-  actor_id: uuidSchema.nullable(),
+  org_id: auditIdSchema,
+  actor_id: auditIdSchema.nullable(),
   action: z.string().min(1).max(100),
   /**
    * One-line human-readable summary. Required for new writes — every action
@@ -93,7 +105,7 @@ export const createAuditLogSchema = z.object({
    */
   message: z.string().min(1).max(500).optional(),
   target_type: z.string().max(100).optional(),
-  target_id: uuidSchema.optional(),
+  target_id: auditIdSchema.optional(),
   metadata_json: metadataSchema.optional(),
   ip_address: z.string().max(45).optional(),
   request_id: z.string().max(255).optional(),
