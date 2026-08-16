@@ -97,4 +97,51 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
     expect(await e.xssFired(), 'settings did not execute injected script').toBe(false);
     expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
   });
+
+  test('settings tabs: switching every lazy sub-view stays error-free', async ({ page }) => {
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+    await page.goto('/admin/settings', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
+    // The settings surface is tabbed; each tab mounts a DISTINCT lazy sub-view
+    // (a different data fetch + component). A render-only sweep never enters them
+    // — press every tab and assert none logs an app error / warn / 5xx / pageerror.
+    const TABS = [
+      'Team',
+      'AI Chat',
+      'MCP',
+      'AI Env Vars',
+      'Webhooks',
+      'Email',
+      'Domains',
+      'API Tokens',
+      'General',
+    ];
+    let switched = 0;
+    for (const label of TABS) {
+      const tab = page
+        .getByRole('tab', { name: label })
+        .or(page.locator(`button:has-text("${label}"), [role="tab"]:has-text("${label}")`))
+        .first();
+      if (!(await tab.isVisible().catch(() => false))) continue;
+      await tab.click({ timeout: 3000 }).catch(() => {});
+      switched++;
+      await page.waitForTimeout(600); // lazy chunk + data fetch
+      await assertAlive(page);
+    }
+    console.log(`CHAOS4/settings-tabs switched ${switched}/${TABS.length}`);
+    // Selector drift guard: if fewer than 3 tabs were reachable the surface changed.
+    expect(switched, 'settings tabs reachable').toBeGreaterThan(2);
+    expect(await e.xssFired(), 'no injected script on tab switches').toBe(false);
+    expect(e.pageErrors, `tab pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+    expect(e.serverErrors, `tab 5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+    expect(e.consoleErrors, `tab console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+    expect(
+      e.consoleWarnings,
+      `tab console warnings (DoD=0): ${e.consoleWarnings.join('; ')}`,
+    ).toEqual([]);
+    expect(e.notFoundAssets, `tab missing assets (404): ${e.notFoundAssets.join('; ')}`).toEqual(
+      [],
+    );
+  });
 });
