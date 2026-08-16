@@ -157,6 +157,17 @@ describe('postAskUser', () => {
     expect(rec.default_choice).toBeNull();
     expect(rec.created_by).toBeNull();
   });
+
+  it('THROWS on a dropped insert instead of returning a phantom id (no lying-success)', async () => {
+    // dbInsert returns { error } and NEVER throws. A silently-dropped INSERT would
+    // strand the workflow on a task row that does not exist — `waitForEvent` times
+    // out the full window and the step's retry is defeated. postAskUser must fail
+    // loud so the workflow step RETRIES the post rather than proceeding blind.
+    mockInsert.mockResolvedValueOnce({ error: 'D1_ERROR: database is locked' });
+    await expect(
+      postAskUser(makeEnv(), { orgId: 'org-1', taskKind: 'k', prompt: 'p' }),
+    ).rejects.toThrow(/failed to persist task/);
+  });
 });
 
 // ────────────────────────────────────────────────────────────

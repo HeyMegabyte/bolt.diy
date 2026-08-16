@@ -175,7 +175,7 @@ export async function postAskUser(
   const timeoutMs = args.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const expiresAt = now + timeoutMs;
 
-  await dbInsert(env.DB, 'ai_task_inbox', {
+  const { error } = await dbInsert(env.DB, 'ai_task_inbox', {
     id,
     org_id: args.orgId,
     workflow_instance_id: args.workflowInstanceId ?? null,
@@ -189,6 +189,17 @@ export async function postAskUser(
     created_at: now,
     created_by: args.createdBy ?? null,
   });
+
+  // dbInsert returns { error } and NEVER throws (see db.ts). A dropped INSERT is
+  // a lying-success: the caller pairs this id with a
+  // `step.waitForEvent('task-resolved-${id}')`, but with no row the task never
+  // surfaces in the tray AND `applyExpiredDefaults` never finds it — the workflow
+  // stalls the FULL timeout window on a task that doesn't exist, and the step's
+  // automatic retry is defeated (the step "succeeded" with a phantom id). Fail
+  // loud so the workflow step RETRIES the post instead of proceeding blind.
+  if (error) {
+    throw new Error(`task_inbox.postAskUser: failed to persist task ${id}: ${error}`);
+  }
 
   return { id, expiresAt };
 }
