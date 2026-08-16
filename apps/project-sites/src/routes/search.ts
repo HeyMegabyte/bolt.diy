@@ -124,6 +124,19 @@ search.get('/api/search/businesses', async (c) => {
     }
   }
 
+  // Cache successful business-search results in KV to spare the Google Places daily
+  // SearchTextRequest quota. Popular/repeat queries ("pizza chicago") re-hit the same
+  // text search on every 300ms keystroke-debounce otherwise, and exhausting the daily
+  // cap degrades the whole business-lookup funnel (it falls back to manual entry, but
+  // live search is gone). Mirrors the domain-availability KV cache below. Only successful
+  // non-empty results are cached (errors/empties stay live so recovery + new listings
+  // surface immediately). 6h TTL — business listings are stable.
+  const cacheKey = `bizsearch:${boundedQ.toLowerCase()}:${lat ?? ''}:${lng ?? ''}`;
+  const cachedRaw = await c.env.CACHE_KV?.get(cacheKey).catch(() => null);
+  if (cachedRaw) {
+    return c.json(JSON.parse(cachedRaw) as { data: unknown[] });
+  }
+
   const response = await fetch('https://places.googleapis.com/v1/places:searchText', {
     method: 'POST',
     headers: {
@@ -174,6 +187,13 @@ search.get('/api/search/businesses', async (c) => {
     phone: place.nationalPhoneNumber ?? null,
     website: place.websiteUri ?? null,
   }));
+
+  // Only cache real hits — never an empty/error so recovery + new listings surface live.
+  if (data.length > 0) {
+    await c.env.CACHE_KV?.put(cacheKey, JSON.stringify({ data }), { expirationTtl: 21600 }).catch(
+      () => {},
+    );
+  }
 
   return c.json({ data });
 });

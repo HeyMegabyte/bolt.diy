@@ -40,12 +40,21 @@ const mockSitesBucket = {
   put: jest.fn().mockResolvedValue({}),
 } as unknown as R2Bucket;
 
+// Cache KV: defaults to always-miss (get→null) so the existing tests keep hitting
+// Places once per request; the cache-behaviour tests below override get/put with a
+// stateful Map to prove the KV round-trip.
+const mockCacheKv = {
+  get: jest.fn().mockResolvedValue(null),
+  put: jest.fn().mockResolvedValue(undefined),
+} as unknown as KVNamespace;
+
 const mockEnv = {
   GOOGLE_PLACES_API_KEY: 'test-google-key',
   ENVIRONMENT: 'test',
   QUEUE: { send: mockQueueSend },
   DB: mockDb,
   SITES_BUCKET: mockSitesBucket,
+  CACHE_KV: mockCacheKv,
 } as unknown as Env;
 
 // ─── App setup ──────────────────────────────────────────────────────────────
@@ -232,6 +241,53 @@ describe('GET /api/search/businesses', () => {
     expect(body.data).toEqual([]);
     expect(body._error.code).toBe('SEARCH_PROVIDER_NOT_CONFIGURED');
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  // KV cache spares the Google Places daily SearchTextRequest quota — popular/repeat
+  // queries re-hit the same text search on every keystroke-debounce otherwise, and
+  // exhausting the daily cap degrades the whole business-lookup funnel.
+  it('caches a successful result — a repeat identical query is served from KV (no 2nd Places call)', async () => {
+    const store = new Map<string, string>();
+    mockCacheKv.get = jest.fn(async (k: string) => store.get(k) ?? null) as never;
+    mockCacheKv.put = jest.fn(async (k: string, v: string) => {
+      store.set(k, v);
+    }) as never;
+    const payload = makePlacesResponse([{ id: 'c1', name: 'Cached Cafe', address: '1 Cache St' }]);
+    // Fresh Response per call — a Response body can only be read once.
+    mockFetch.mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify(payload), { status: 200 })),
+    );
+
+    const r1 = await makeRequest('/api/search/businesses?q=repeat+query');
+    expect(r1.status).toBe(200);
+    expect((await r1.json()).data).toHaveLength(1);
+
+    const r2 = await makeRequest('/api/search/businesses?q=repeat+query');
+    expect(r2.status).toBe(200);
+    expect((await r2.json()).data).toHaveLength(1);
+
+    // Second identical query served from cache → Places hit exactly once.
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT cache an upstream 429 — a retry re-hits Places so recovery is immediate', async () => {
+    const store = new Map<string, string>();
+    mockCacheKv.get = jest.fn(async (k: string) => store.get(k) ?? null) as never;
+    mockCacheKv.put = jest.fn(async (k: string, v: string) => {
+      store.set(k, v);
+    }) as never;
+    // First call: quota-exceeded 429 → honest _error, must NOT be cached.
+    mockFetch.mockResolvedValueOnce(new Response('quota exceeded', { status: 429 }));
+    const r1 = await makeRequest('/api/search/businesses?q=flaky+query');
+    expect((await r1.json())._error.code).toBe('SEARCH_PROVIDER_UNAVAILABLE');
+
+    // Retry after recovery → Places is hit AGAIN (error was not cached) and now succeeds.
+    const payload = makePlacesResponse([{ id: 'ok1', name: 'Now Works', address: '2 Ok Ave' }]);
+    mockFetch.mockResolvedValueOnce(new Response(JSON.stringify(payload), { status: 200 }));
+    const r2 = await makeRequest('/api/search/businesses?q=flaky+query');
+    expect((await r2.json()).data).toHaveLength(1);
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 });
 
