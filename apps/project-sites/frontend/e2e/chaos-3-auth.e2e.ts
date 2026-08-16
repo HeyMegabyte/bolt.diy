@@ -178,4 +178,79 @@ test.describe('CHAOS 3 — Locked-Out User (auth + access control)', () => {
       [],
     );
   });
+
+  // M3 — /admin/billing plan/entitlement reconciliation (cross-system: SPA ↔ billing
+  // service ↔ D1 subscriptions). The plan LABEL (from GET /billing/subscription) and the
+  // entitlement CHIPS (from GET /billing/entitlements) must tell the SAME story. Both
+  // derive the effective plan through the shared status gate `status IN ('active',
+  // 'trialing')` (server SSOT `resolveActiveOrgPlan`; the frontend mirrors it). This is a
+  // regression guard for the trialing-drift class: a prior active-ONLY gate on either side
+  // made a TRIALING paid subscriber show a "Free" label beside PAID entitlement chips (10
+  // domains + analytics Included) — a visible lying-UI divergence. It also proves the
+  // entitlements endpoint is LIVE (not dark/404) and returns a self-consistent bundle.
+  test('M3: /admin/billing plan label + entitlement chips reconcile (no trialing-drift divergence, endpoint live)', async ({
+    page,
+  }) => {
+    test.skip(!KEY, 'E2E_API_KEY not set');
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+
+    // A 404/5xx here = the entitlements endpoint is dark → chips would render blank/stale.
+    const entResp = page
+      .waitForResponse((r) => r.url().includes('/api/billing/entitlements'), { timeout: 20_000 })
+      .catch(() => null);
+    await page.goto('/');
+    await page.goto('/admin/billing', { waitUntil: 'domcontentloaded' });
+    const ent = await entResp;
+    expect(ent?.status(), 'GET /api/billing/entitlements must be 200 (live, not dark/404)').toBe(
+      200,
+    );
+
+    // Endpoint self-consistency: getEntitlements(plan) is a deterministic bundle — the three
+    // grants must agree on paid-vs-free (analytics on ⟺ >0 custom domains ⟺ >1 seat).
+    const body = (await ent!.json().catch(() => ({}))) as {
+      data?: { maxCustomDomains?: number; maxTeamSeats?: number; analyticsEnabled?: boolean };
+    };
+    const d = body.data ?? {};
+    const endpointPaid = !!d.analyticsEnabled;
+    expect(
+      (d.maxCustomDomains ?? 0) > 0,
+      `entitlements bundle incoherent: analytics=${d.analyticsEnabled} but customDomains=${d.maxCustomDomains}`,
+    ).toBe(endpointPaid);
+    expect(
+      (d.maxTeamSeats ?? 0) > 1,
+      `entitlements bundle incoherent: analytics=${d.analyticsEnabled} but seats=${d.maxTeamSeats}`,
+    ).toBe(endpointPaid);
+
+    await page.waitForTimeout(3000);
+    await assertAlive(page);
+    await expect(page.locator('[data-testid="subscription-card"]')).toBeVisible({ timeout: 10_000 });
+
+    // DISPLAY reconciliation — the plan LABEL and the analytics CHIP must agree, and both
+    // must match the endpoint. Before the fix a trialing sub showed 'Free' + 'Included'.
+    const planText = (
+      (await page.locator('[data-testid="subscription-plan"]').first().textContent()) ?? ''
+    ).trim();
+    const analyticsChip = (
+      (await page.locator('[data-testid="entitlement-analytics"]').first().textContent()) ?? ''
+    ).trim();
+    const labelPaid = /Pro|\$50/i.test(planText);
+    const chipPaid = /Included/i.test(analyticsChip);
+
+    expect(
+      labelPaid,
+      `plan LABEL ("${planText}") disagrees with analytics CHIP ("${analyticsChip}") — trialing-drift lying-UI divergence`,
+    ).toBe(chipPaid);
+    expect(
+      chipPaid,
+      `analytics CHIP ("${analyticsChip}") disagrees with entitlements ENDPOINT (analyticsEnabled=${d.analyticsEnabled})`,
+    ).toBe(endpointPaid);
+
+    expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+    expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+    expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+    expect(e.consoleWarnings, `console warnings (DoD=0): ${e.consoleWarnings.join('; ')}`).toEqual(
+      [],
+    );
+  });
 });

@@ -2240,7 +2240,18 @@ export class AdminBillingComponent implements OnInit {
       // paid plan value is 'paid' (matches the D1 CHECK + entitlement resolver), NOT
       // 'pro'. Reading a nested `data.subscription.status` (never present) pinned the
       // header badge + Plan section to "Free" on every paid account.
-      next: (r) => this.plan.set(r.data?.plan === 'paid' && r.data?.status === 'active' ? 'paid' : 'free'),
+      //
+      // The paid-eligible gate MUST mirror the server SSOT `resolveActiveOrgPlan`
+      // (`status IN ('active', 'trialing')`). A prior `status === 'active'` check
+      // EXCLUDED trialing → a paying trial user saw the "Free" plan label while the
+      // (server-resolved) entitlement chips showed paid grants (10 domains, analytics
+      // Included) — a visible lying-UI divergence. `past_due`/`canceled` still → free.
+      next: (r) =>
+        this.plan.set(
+          r.data?.plan === 'paid' && (r.data?.status === 'active' || r.data?.status === 'trialing')
+            ? 'paid'
+            : 'free',
+        ),
       error: () => this.plan.set('free'),
     });
     // Rolling 30-day forecast v2 (Bundle B finish — separate route, separate UI).

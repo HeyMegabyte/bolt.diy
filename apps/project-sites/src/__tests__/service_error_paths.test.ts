@@ -120,11 +120,14 @@ describe('Auth Service Error Paths', () => {
       const result = await verifyMagicLink(mockDb, { token });
 
       expect(result.email).toBe('valid@example.com');
+      // Single-use CAS: the mark-used UPDATE gates on `used = 0` so a concurrent
+      // second verification of the same link updates 0 rows and is rejected
+      // (prevents magic-link replay). The where clause MUST carry `AND used = 0`.
       expect(mockUpdate).toHaveBeenCalledWith(
         mockDb,
         'magic_links',
         expect.objectContaining({ used: 1 }),
-        'id = ?',
+        'id = ? AND used = 0',
         ['link-valid'],
       );
     });
@@ -340,7 +343,10 @@ describe('Billing Service Error Paths', () => {
     });
 
     it('returns FREE entitlements when subscription status is past_due', async () => {
-      mockQueryOne.mockResolvedValueOnce({ plan: 'paid', status: 'past_due' });
+      // getOrgEntitlements delegates to resolveActiveOrgPlan, whose SQL filters
+      // `status IN ('active', 'trialing')` — a past_due sub matches no row, so the
+      // (SQL-bypassing) mock returns null, exactly as the real query would.
+      mockQueryOne.mockResolvedValueOnce(null);
 
       const result = await getOrgEntitlements(mockDb, 'org-past-due');
 

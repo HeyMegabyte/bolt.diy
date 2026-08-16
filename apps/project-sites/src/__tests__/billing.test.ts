@@ -678,8 +678,14 @@ describe('handlePaymentFailed', () => {
 // getOrgEntitlements
 // ---------------------------------------------------------------------------
 describe('getOrgEntitlements', () => {
+  // getOrgEntitlements now delegates plan resolution to the shared SSOT
+  // `resolveActiveOrgPlan`, whose query is `SELECT plan FROM subscriptions
+  // WHERE org_id = ? AND status IN ('active', 'trialing')`. The status gate lives
+  // in SQL — so the mocked `dbQueryOne` returns a `{ plan }` row for an
+  // active/trialing sub, and `null` for a past_due/canceled sub (the WHERE clause
+  // excludes it → no row). (build_limits.test.ts locks the SQL itself.)
   it('returns paid entitlements when sub is paid+active', async () => {
-    mockQueryOne.mockResolvedValueOnce({ plan: 'paid', status: 'active' });
+    mockQueryOne.mockResolvedValueOnce({ plan: 'paid' });
 
     const result = await getOrgEntitlements(mockDb, 'org_1');
 
@@ -694,8 +700,32 @@ describe('getOrgEntitlements', () => {
     });
   });
 
+  // THE FIX (trialing-drift, third instance): a TRIALING paid subscriber is entitled
+  // to paid features. Before routing through resolveActiveOrgPlan, getOrgEntitlements
+  // gated on `status !== 'active'` → a paying trial user was handed FREE entitlements
+  // (top bar shown, 0 custom domains, 1 team seat) despite being provisioned paid.
+  // The SSOT SQL includes `trialing`, so a `{ plan: 'paid' }` row comes back → paid.
+  it('returns PAID entitlements when sub is paid+trialing (trialing is entitled, not free)', async () => {
+    let capturedSql = '';
+    mockQueryOne.mockImplementationOnce(async (_db, sql) => {
+      capturedSql = sql;
+      return { plan: 'paid' };
+    });
+
+    const result = await getOrgEntitlements(mockDb, 'org_1');
+
+    // Prove getOrgEntitlements routes through the trialing-inclusive resolver, not a
+    // hand-rolled active-only query that would regress the fix.
+    expect(capturedSql).toContain("status IN ('active', 'trialing')");
+    expect(result.plan).toBe('paid');
+    expect(result.topBarHidden).toBe(true);
+    expect(result.maxCustomDomains).toBe(10);
+    expect(result.analyticsEnabled).toBe(true);
+    expect(result.maxTeamSeats).toBe(10);
+  });
+
   it('returns free entitlements when sub is free', async () => {
-    mockQueryOne.mockResolvedValueOnce({ plan: 'free', status: 'active' });
+    mockQueryOne.mockResolvedValueOnce({ plan: 'free' });
 
     const result = await getOrgEntitlements(mockDb, 'org_1');
 
@@ -728,11 +758,12 @@ describe('getOrgEntitlements', () => {
 
   // Revenue-integrity guard: a delinquent (past_due) or canceled subscriber whose
   // `plan` column still reads 'paid' MUST lose premium entitlements — otherwise a
-  // failed payment leaves them on premium forever (direct revenue leak). The impl
-  // gates on `status === 'active'`; these lock that so a regression to a
-  // plan-only check can't silently keep delinquents premium.
+  // failed payment leaves them on premium forever (direct revenue leak). The SSOT
+  // resolver's `status IN ('active', 'trialing')` filter excludes both statuses →
+  // the query returns NO row (mocked as `null`) → free. These lock that a regression
+  // to a plan-only (status-less) query can't silently keep delinquents premium.
   it('returns FREE entitlements when paid but past_due (failed payment → premium revoked)', async () => {
-    mockQueryOne.mockResolvedValueOnce({ plan: 'paid', status: 'past_due' });
+    mockQueryOne.mockResolvedValueOnce(null);
 
     const result = await getOrgEntitlements(mockDb, 'org_1');
 
@@ -743,7 +774,7 @@ describe('getOrgEntitlements', () => {
   });
 
   it('returns FREE entitlements when paid but canceled (premium revoked on cancel)', async () => {
-    mockQueryOne.mockResolvedValueOnce({ plan: 'paid', status: 'canceled' });
+    mockQueryOne.mockResolvedValueOnce(null);
 
     const result = await getOrgEntitlements(mockDb, 'org_1');
 

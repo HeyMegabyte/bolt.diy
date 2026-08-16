@@ -42,6 +42,7 @@ import {
 } from '@project-sites/shared';
 import type { BudgetTier } from '@project-sites/shared/schemas';
 import { dbQueryOne, dbInsert, dbUpdate } from './db.js';
+import { resolveActiveOrgPlan } from './build_limits.js';
 import { writeAuditLog } from './audit.js';
 import type { Env } from '../types/env.js';
 
@@ -1013,17 +1014,15 @@ export async function handlePaymentFailed(
  * ```
  */
 export async function getOrgEntitlements(db: D1Database, orgId: string): Promise<Entitlements> {
-  const sub = await dbQueryOne<{ plan: string; status: string }>(
-    db,
-    'SELECT plan, status FROM subscriptions WHERE org_id = ? AND deleted_at IS NULL',
-    [orgId],
-  );
-
-  if (!sub || sub.plan !== 'paid' || sub.status !== 'active') {
-    return getEntitlements(orgId, 'free');
-  }
-
-  return getEntitlements(orgId, 'paid');
+  // Route through the shared status-gated plan resolver (SSOT) so entitlement
+  // resolution matches build-quota + site-features:
+  //   - a TRIALING paid sub IS entitled to paid features (was WRONGLY excluded:
+  //     `status !== 'active'` treated trialing as free → a paying trial user got
+  //     free entitlements + free team-seat limits — a paid-feature lockout bug);
+  //   - a past_due / canceled sub (plan still 'paid' in the row) resolves to null
+  //     → free (no entitlement leak after a failed payment).
+  const plan = await resolveActiveOrgPlan(db, orgId);
+  return getEntitlements(orgId, plan === 'paid' ? 'paid' : 'free');
 }
 
 /**
