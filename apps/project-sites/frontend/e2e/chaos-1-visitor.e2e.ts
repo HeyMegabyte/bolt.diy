@@ -76,9 +76,19 @@ test.describe('CHAOS 1 — Skeptical Visitor (marketing + search)', () => {
     expect(ct, `/api 404 should be JSON not HTML shell — got ${ct}`).toContain('json');
   });
 
-  test('nav + footer internal links: none 5xx', async ({ page }) => {
+  test('nav + footer internal links hydrate (≥4) and none 4xx/5xx', async ({ page }) => {
     await page.goto('/');
-    await page.waitForTimeout(1500);
+    // The nav/footer anchors hydrate AFTER the SPA boots. A bare `waitForTimeout`
+    // collected `[]` (links not yet in the DOM) and the 5xx assertion passed
+    // VACUOUSLY — a stub that proved nothing. Wait for the anchors to actually
+    // exist, then require a real minimum count so this can never pass empty again.
+    // (chaos convergence pass 2026-08-16.)
+    await page
+      .waitForFunction(
+        () => document.querySelectorAll('a[href^="/"]:not([href^="//"])').length >= 4,
+        { timeout: 15_000 },
+      )
+      .catch(() => {});
     const hrefs: string[] = await page.evaluate(() =>
       Array.from(document.querySelectorAll('a[href]'))
         .map((a) => (a as HTMLAnchorElement).getAttribute('href') || '')
@@ -86,12 +96,77 @@ test.describe('CHAOS 1 — Skeptical Visitor (marketing + search)', () => {
     );
     const unique = [...new Set(hrefs)].slice(0, 30);
     console.log('CHAOS1/links:', JSON.stringify(unique));
+    // The real nav+footer links (/developers, /blog, /privacy, /terms, /content …)
+    // MUST be present — an empty set means the shell never hydrated its chrome.
+    expect(
+      unique.length,
+      `homepage internal links did not hydrate: ${JSON.stringify(unique)}`,
+    ).toBeGreaterThanOrEqual(4);
+    // A KNOWN nav/footer route that 4xx's is a broken link (not just a 5xx crash).
     const broken: string[] = [];
     for (const h of unique) {
       const r = await page.request.get(new URL(h, 'https://projectsites.dev').toString());
-      if (r.status() >= 500) broken.push(`${h} → ${r.status()}`);
+      if (r.status() >= 400) broken.push(`${h} → ${r.status()}`);
     }
-    expect(broken, `5xx internal links: ${broken.join('; ')}`).toEqual([]);
+    expect(broken, `broken internal links (4xx/5xx): ${broken.join('; ')}`).toEqual([]);
+  });
+
+  test('M1: every homepage nav control responds with its real business result', async ({
+    page,
+  }) => {
+    // "Press EVERY meaningful button + ASSERT the business result" for the M1
+    // zero-to-value entry. The primary nav is BUTTON-based (scroll/route/lang
+    // actions), which the link crawl above can't reach — so drive each one and
+    // assert what it actually does, not merely that it renders.
+    const e = trackErrors(page);
+    await page.goto('/');
+    await expect(page.locator('h1').first()).toBeVisible({ timeout: 20_000 });
+
+    // 1) Section-scroll CTAs (Features / Pricing / FAQ) must scroll the page.
+    for (const label of ['Features', 'Pricing', 'FAQ']) {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.waitForTimeout(200);
+      const btn = page.getByRole('button', { name: new RegExp(`^${label}$`, 'i') }).first();
+      if (await btn.count()) {
+        await btn.click().catch(() => {});
+        await page.waitForTimeout(700);
+        const y = await page.evaluate(() => window.scrollY);
+        expect(y, `nav "${label}" did not scroll to its section`).toBeGreaterThan(50);
+      }
+    }
+
+    // 2) "Get Started" (primary conversion CTA) must start the funnel — it focuses
+    //    the hero business-search input (zero-to-value entry point).
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const getStarted = page.getByRole('button', { name: /get started/i }).first();
+    if (await getStarted.count()) {
+      await getStarted.click().catch(() => {});
+      await page.waitForTimeout(600);
+      const focusedSearch = await page.evaluate(() => {
+        const a = document.activeElement as HTMLInputElement | null;
+        return !!a && a.tagName === 'INPUT' && /business|search/i.test(a.getAttribute('placeholder') || '');
+      });
+      expect(focusedSearch, '"Get Started" did not focus the hero search (dead CTA)').toBe(true);
+    }
+
+    // 3) "Sign In" must route to the sign-in surface.
+    await page.getByRole('button', { name: /^sign in$/i }).first().click().catch(() => {});
+    await page.waitForTimeout(800);
+    expect(page.url(), '"Sign In" did not route to /signin').toContain('/signin');
+
+    // 4) Language toggle (ES) must actually switch <html lang>.
+    await page.goto('/');
+    await page.waitForTimeout(1200);
+    const es = page.getByRole('button', { name: /^es$/i }).first();
+    if (await es.count()) {
+      await es.click().catch(() => {});
+      await page.waitForTimeout(800);
+      const lang = await page.evaluate(() => document.documentElement.lang);
+      expect(lang, 'ES toggle did not switch <html lang> to es').toBe('es');
+    }
+
+    expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+    expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
   });
 
   test('back/forward spam after searching leaves the shell alive', async ({ page }) => {
