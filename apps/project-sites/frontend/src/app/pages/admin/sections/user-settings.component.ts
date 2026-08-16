@@ -948,6 +948,10 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
   displayName = computed<string>(() => {
     const override = this.displayNameOverride().trim();
     if (override) return override;
+    // Server-persisted name (from /api/auth/me) is the cross-device source of truth:
+    // it shows on a fresh device where localStorage has no override yet.
+    const server = this.serverDisplayName().trim();
+    if (server) return server;
     const e = this.auth.email();
     if (!e) return 'Signed-out';
     return (e.split('@')[0] ?? e).replace(/[._-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -959,6 +963,13 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
   displayNameOverride = signal<string>(((): string => {
     try { return localStorage.getItem(AdminUserSettingsComponent.DISPLAY_NAME_KEY) ?? ''; } catch { return ''; }
   })());
+  /**
+   * Server-persisted display name from `GET /api/auth/me` — the cross-device
+   * source of truth. Read once on init so a fresh device (empty localStorage)
+   * shows the saved name instead of reverting to the email-derived default. The
+   * local override (freshest, this device) still wins over it.
+   */
+  serverDisplayName = signal<string>('');
   /** Template-driven draft bound to the profile input (mirrors newKey pattern). */
   profileNameDraft = '';
   savingDisplayName = signal(false);
@@ -1128,9 +1139,37 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.profileNameDraft = this.displayName();
+    this.loadServerDisplayName();
     this.loadApiKeys();
     this.loadSessions();
     this.hydrateNotificationPrefs();
+  }
+
+  /**
+   * Read the server-persisted display name from `GET /api/auth/me` so the saved
+   * name follows the user across devices. `saveDisplayName()` PATCHes it and the
+   * server exposes it here — without this read the write was UI-invisible on any
+   * device whose localStorage lacked the local override. Best-effort: on failure
+   * the local-first override still drives the UI.
+   */
+  private loadServerDisplayName(): void {
+    const token = this.auth.getToken();
+    const headers = token ? new HttpHeaders({ Authorization: `Bearer ${token}` }) : new HttpHeaders();
+    this.http
+      .get<{ data?: { display_name?: string | null } }>('/api/auth/me', { headers })
+      .subscribe({
+        next: (r) => {
+          const name = (r?.data?.display_name ?? '').trim();
+          if (!name) return;
+          this.serverDisplayName.set(name);
+          // No local override yet → the server name is the source of truth; reflect it
+          // in the draft so the input matches the heading and a no-edit Save is a no-op.
+          if (!this.displayNameOverride().trim()) this.profileNameDraft = name;
+        },
+        error: () => {
+          /* best-effort — local-first override still drives the UI offline */
+        },
+      });
   }
 
   /**

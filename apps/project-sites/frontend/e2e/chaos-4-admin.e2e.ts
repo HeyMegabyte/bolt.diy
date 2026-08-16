@@ -599,4 +599,98 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
       [],
     );
   });
+
+  // M2 — cross-device display-name PERSISTENCE (the read-back half). The name saves
+  // to BOTH the server (PATCH /api/admin/profile) + localStorage (local-first). The
+  // server value must ALSO drive the UI on a FRESH device where localStorage is empty
+  // — else the saved name silently reverts to the email-derived default (the server
+  // has it, the UI never reads it). Presses Save, asserts the PATCH 2xx + "Saved"
+  // affordance + heading, then a local-first reload, then simulates a new device
+  // (clears the local cache) and asserts the reload shows the SAVED name from
+  // /api/auth/me — not "Test". Restores the original server name in `finally`.
+  test('User profile: display name round-trips to the server + shows on a fresh device (M2 persistence)', async ({
+    page,
+  }) => {
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+
+    // App-context fetch (real browser fingerprint → not Bot-Fight challenged, unlike
+    // Playwright's `request`) to read + restore the server-persisted name.
+    const readServerName = (): Promise<string | null> =>
+      page.evaluate(async () => {
+        const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
+        const r = await fetch('/api/auth/me', { headers: { Authorization: `Bearer ${s.token}` } });
+        const j = (await r.json().catch(() => ({}))) as { data?: { display_name?: string | null } };
+        return j?.data?.display_name ?? null;
+      });
+    const patchServerName = (name: string): Promise<void> =>
+      page.evaluate(async (nm) => {
+        const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
+        await fetch('/api/admin/profile', {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${s.token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: nm }),
+        }).catch(() => {});
+      }, name);
+
+    await page.goto('/admin/user', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
+    const originalName = await readServerName();
+    const testName = 'Chaos QA Persist ✓';
+
+    try {
+      const input = page.locator('[data-testid="us-display-name-input"]');
+      await expect(input, 'display-name input present').toBeVisible({ timeout: 8000 });
+      await input.fill(testName);
+
+      const save = page.locator('[data-testid="us-display-name-save"]');
+      await expect(save, 'Save enables for a valid name').toBeEnabled({ timeout: 4000 });
+      const [patchResp] = await Promise.all([
+        page.waitForResponse(
+          (r) => /\/api\/admin\/profile\b/.test(r.url()) && r.request().method() === 'PATCH',
+          { timeout: 15_000 },
+        ),
+        save.click(),
+      ]);
+      expect(patchResp.status(), 'profile PATCH persists to the server (2xx)').toBeLessThan(300);
+
+      // Business result: the "Saved" affordance + the heading updates immediately.
+      await expect(
+        page.locator('[data-testid="us-display-name-saved"]'),
+        'shows the Saved confirmation (no silent save)',
+      ).toBeVisible({ timeout: 6000 });
+      await expect(
+        page.locator('[data-testid="us-display-name-heading"]'),
+        'heading reflects the new name',
+      ).toHaveText(testName, { timeout: 6000 });
+
+      // Local-first persistence: a hard reload (localStorage intact) keeps the name.
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(2500);
+      await expect(
+        page.locator('[data-testid="us-display-name-heading"]'),
+        'name survives a hard reload (local-first)',
+      ).toHaveText(testName, { timeout: 8000 });
+
+      // FRESH DEVICE: clear ONLY the local display-name cache (auth stays). The saved
+      // name must come back from the server (/api/auth/me), NOT revert to the email
+      // default — this is the read-back half the write-only PATCH left incomplete.
+      await page.evaluate(() => localStorage.removeItem('ps_display_name'));
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(3000);
+      await expect(
+        page.locator('[data-testid="us-display-name-heading"]'),
+        'saved name shows on a fresh device from the server (not the email-derived default)',
+      ).toHaveText(testName, { timeout: 8000 });
+
+      await assertAlive(page);
+      expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+      expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+      expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+    } finally {
+      // Restore the original server name (or a neutral default) so the account stays clean.
+      const restore = originalName && originalName.trim() && originalName !== testName ? originalName : 'Test';
+      await patchServerName(restore);
+    }
+  });
 });
