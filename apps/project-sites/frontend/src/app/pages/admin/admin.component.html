@@ -353,6 +353,7 @@
               ariaCurrentWhenActive="page"
               [routerLinkActiveOptions]="{ exact: !!item.exact }"
               [attr.data-testid]="navTestId(item)"
+              [attr.aria-label]="item.label"
               (click)="onNavItemClick()"
             >
               <app-nav-icon [name]="item.icon" />
