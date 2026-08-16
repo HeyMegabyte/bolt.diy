@@ -95,9 +95,10 @@ src/
 | Feature | Free | Paid |
 |---------|------|------|
 | `topBarHidden` | false | true |
-| `maxCustomDomains` | 0 | 5 |
+| `maxCustomDomains` | 0 | 10 |
 | `chatEnabled` | true | true |
 | `analyticsEnabled` | false | true |
+| `maxTeamSeats` | 1 | 10 |
 
 ### DOMAINS
 ```typescript
