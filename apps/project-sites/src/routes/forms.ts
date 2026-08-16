@@ -31,6 +31,7 @@ import {
 } from '@project-sites/shared';
 import type { Env, Variables } from '../types/env.js';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
+import { encrypt, decrypt } from '../services/ai_crypto.js';
 import { requireOwnedSite } from '../services/site_ownership.js';
 import { dispatchToIntegrations, type IntegrationRow } from '../services/newsletter_dispatch.js';
 import { improveRouterPrompt } from '../services/form_router.js';
@@ -112,6 +113,15 @@ forms.post('/api/v1/forms/submit', async (c) => {
     [site.id],
   );
 
+  // Decrypt each integration's API key (encrypted at rest) to plaintext before
+  // fan-out; legacy plaintext rows pass through via resolveApiKey's fallback.
+  const integrations = await Promise.all(
+    integrationsResult.data.map(async (row) => ({
+      ...row,
+      api_key_encrypted: await resolveApiKey(c.env, row.api_key_encrypted),
+    })),
+  );
+
   const dispatchResults = await dispatchToIntegrations(
     {
       site_id: site.id,
@@ -124,7 +134,7 @@ forms.post('/api/v1/forms/submit', async (c) => {
       user_agent: userAgent ?? undefined,
       submitted_at: submittedAt,
     },
-    integrationsResult.data,
+    integrations,
   );
 
   const successful = dispatchResults.filter((r) => r.ok);
@@ -505,12 +515,16 @@ forms.post('/api/sites/:siteId/integrations', async (c) => {
 
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
+  // Customer provider API keys are AES-GCM encrypted at rest (the column name has
+  // always promised it; it previously stored plaintext). The masked preview is
+  // derived from the plaintext so the UI still shows a recognizable tail.
+  const encryptedKey = validated.api_key ? await encrypt(c.env, validated.api_key) : null;
   const { error: insErr } = await dbInsert(c.env.DB, 'newsletter_integrations', {
     id,
     site_id: site.id,
     org_id: orgId,
     provider: validated.provider,
-    api_key_encrypted: validated.api_key ?? null,
+    api_key_encrypted: encryptedKey,
     api_key_preview: validated.api_key ? previewKey(validated.api_key) : null,
     list_id: validated.list_id ?? null,
     webhook_url: validated.webhook_url ?? null,
@@ -579,7 +593,7 @@ forms.patch('/api/sites/:siteId/integrations/:id', async (c) => {
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (validated.active !== undefined) updates['active'] = validated.active ? 1 : 0;
   if (validated.api_key !== undefined) {
-    updates['api_key_encrypted'] = validated.api_key;
+    updates['api_key_encrypted'] = await encrypt(c.env, validated.api_key);
     updates['api_key_preview'] = previewKey(validated.api_key);
   }
   if (validated.list_id !== undefined) updates['list_id'] = validated.list_id;
@@ -956,6 +970,24 @@ forms.post('/api/sites/:siteId/form-router/improve', async (c) => {
 function previewKey(key: string): string {
   if (key.length <= 8) return `${key.slice(0, 2)}…${key.slice(-2)}`;
   return `${key.slice(0, 4)}…${key.slice(-4)}`;
+}
+
+/**
+ * Resolve a stored newsletter-integration API key to plaintext for dispatch.
+ *
+ * @remarks
+ * New keys are AES-GCM encrypted at rest ({@link encrypt}); rows created before
+ * encryption landed hold plaintext. Decrypt-with-fallback keeps those legacy rows
+ * working with no data migration — a plaintext value fails AES-GCM decryption and is
+ * returned as-is (it re-encrypts on the owner's next save).
+ */
+async function resolveApiKey(env: Env, stored: string | null): Promise<string | null> {
+  if (!stored) return null;
+  try {
+    return await decrypt(env, stored);
+  } catch {
+    return stored; // legacy plaintext (pre-encryption row)
+  }
 }
 
 function safeJson<T>(raw: string | null, fallback: T): T {

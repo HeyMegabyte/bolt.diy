@@ -33,6 +33,17 @@ jest.mock('../services/newsletter_dispatch.js', () => ({
   dispatchToIntegrations: jest.fn().mockResolvedValue([]),
 }));
 
+// Deterministic AES-GCM stand-in: encrypt prefixes `enc:`, decrypt strips it, and a
+// non-`enc:` (legacy plaintext) value REJECTS — so resolveApiKey's plaintext fallback
+// is exercised exactly as prod's AES-GCM would fail on a plaintext blob.
+jest.mock('../services/ai_crypto.js', () => ({
+  encrypt: (_env: unknown, pt: string) => Promise.resolve(`enc:${pt}`),
+  decrypt: (_env: unknown, blob: string) =>
+    blob.startsWith('enc:')
+      ? Promise.resolve(blob.slice(4))
+      : Promise.reject(new Error('not encrypted')),
+}));
+
 jest.mock('../services/form_router.js', () => ({
   improveRouterPrompt: jest.fn().mockResolvedValue({ mode: 'seed', text: 'seed prompt' }),
 }));
@@ -294,6 +305,54 @@ describe('POST /api/v1/forms/submit', () => {
     expect(mockDbExecute).toHaveBeenCalled();
   });
 
+  it('decrypts each integration API key to plaintext before dispatch (encrypted + legacy)', async () => {
+    mockDbQueryOne.mockResolvedValueOnce(SITE_ROW);
+    mockDbQuery
+      .mockResolvedValueOnce({ data: [], error: null }) // hostnames
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'int-enc',
+            site_id: 'site-1',
+            provider: 'mailchimp',
+            api_key_encrypted: 'enc:mc-live-key',
+            list_id: 'l1',
+          },
+          {
+            id: 'int-legacy',
+            site_id: 'site-1',
+            provider: 'sendgrid',
+            api_key_encrypted: 'legacy-plain-key', // pre-encryption row
+            list_id: 'l2',
+          },
+        ],
+        error: null,
+      });
+    mockDispatch.mockResolvedValueOnce([
+      { integration_id: 'int-enc', provider: 'mailchimp', ok: true, error: null },
+      { integration_id: 'int-legacy', provider: 'sendgrid', ok: true, error: null },
+    ]);
+    await request(
+      makeApp(),
+      '/api/v1/forms/submit',
+      {
+        method: 'POST',
+        headers: { 'X-Site-Slug': 'acme' },
+        body: { form_name: 'newsletter', email: 'x@y.com' },
+      },
+      makeEnv(),
+    );
+    // Dispatch must receive PLAINTEXT keys — the encrypted row is decrypted, the
+    // legacy plaintext row passes through the fallback, never the ciphertext.
+    const passed = mockDispatch.mock.calls[0][1] as Array<{
+      id: string;
+      api_key_encrypted: string | null;
+    }>;
+    const byId = Object.fromEntries(passed.map((r) => [r.id, r.api_key_encrypted]));
+    expect(byId['int-enc']).toBe('mc-live-key');
+    expect(byId['int-legacy']).toBe('legacy-plain-key');
+  });
+
   it('returns status "partial" when some integrations fail', async () => {
     mockDbQueryOne.mockResolvedValueOnce(SITE_ROW);
     mockDbQuery
@@ -454,6 +513,13 @@ describe('integrations CRUD', () => {
     const [, table, record] = mockDbInsert.mock.calls[0];
     expect(table).toBe('newsletter_integrations');
     expect((record as { provider: string }).provider).toBe('mailchimp');
+    // The stored key is CIPHERTEXT, never the raw secret (OWASP #5 — secret at rest).
+    expect((record as { api_key_encrypted: string | null }).api_key_encrypted).toBe(
+      'enc:mc-secret-key',
+    );
+    expect((record as { api_key_encrypted: string | null }).api_key_encrypted).not.toBe(
+      'mc-secret-key',
+    );
     expect(mockAudit).toHaveBeenCalledTimes(1);
   });
 
