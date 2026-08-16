@@ -616,11 +616,15 @@ apps.delete('/api/apps/instances/:id', async (c) => {
     r2BucketName: row.r2_bucket_name,
   });
 
-  await dbExecute(
+  const { error: destroyErr } = await dbExecute(
     c.env.DB,
     `UPDATE app_instances SET status = 'destroyed', deleted_at = ?, updated_at = ? WHERE id = ?`,
     [new Date().toISOString(), new Date().toISOString(), row.id],
   );
+  // The container + aux infra are ALREADY torn down above — the record MUST reflect
+  // that. A silent write failure would leave a live-looking row for a destroyed
+  // instance (a lying "destroyed"); surface it so the inconsistency is visible.
+  if (destroyErr) throw internalError(`Failed to record instance destroy: ${destroyErr}`);
 
   // Phase 1 (scale-to-zero routing): drop the host-map entry so the hostname
   // stops resolving. Best-effort — a KV failure must not fail the destroy.

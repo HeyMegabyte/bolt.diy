@@ -334,19 +334,29 @@ forms.post('/api/v1/forms/submit', async (c) => {
     })(),
   );
 
-  // Update integration health metadata.
+  // Update integration health metadata — best-effort telemetry. A failed health
+  // write must NOT fail the visitor's form submission; log a dropped write so it's
+  // observable instead of silently swallowed.
   for (const result of dispatchResults) {
-    if (result.ok) {
-      await dbExecute(
-        c.env.DB,
-        'UPDATE newsletter_integrations SET last_dispatch_at = ?, last_error = NULL, updated_at = ? WHERE id = ?',
-        [submittedAt, submittedAt, result.integration_id],
-      );
-    } else {
-      await dbExecute(
-        c.env.DB,
-        'UPDATE newsletter_integrations SET last_error = ?, updated_at = ? WHERE id = ?',
-        [String(result.error ?? '').slice(0, 1024), submittedAt, result.integration_id],
+    const health = result.ok
+      ? {
+          sql: 'UPDATE newsletter_integrations SET last_dispatch_at = ?, last_error = NULL, updated_at = ? WHERE id = ?',
+          params: [submittedAt, submittedAt, result.integration_id],
+        }
+      : {
+          sql: 'UPDATE newsletter_integrations SET last_error = ?, updated_at = ? WHERE id = ?',
+          params: [String(result.error ?? '').slice(0, 1024), submittedAt, result.integration_id],
+        };
+    const { error: healthErr } = await dbExecute(c.env.DB, health.sql, health.params);
+    if (healthErr) {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'forms',
+          message: 'integration_health_write_failed',
+          integration_id: result.integration_id,
+          error: healthErr,
+        }),
       );
     }
   }
@@ -579,10 +589,14 @@ forms.patch('/api/sites/:siteId/integrations/:id', async (c) => {
   const keys = Object.keys(updates);
   const setClause = keys.map((k) => `${k} = ?`).join(', ');
   const values = keys.map((k) => updates[k]);
-  await dbExecute(c.env.DB, `UPDATE newsletter_integrations SET ${setClause} WHERE id = ?`, [
-    ...values,
-    id,
-  ]);
+  const { error: updErr } = await dbExecute(
+    c.env.DB,
+    `UPDATE newsletter_integrations SET ${setClause} WHERE id = ?`,
+    [...values, id],
+  );
+  // Ownership pre-guarded above (loadOwnedSite + existing-integration check) →
+  // changes===0 unreachable; surface a real DB failure, never a lying "updated".
+  if (updErr) throw internalError(`Failed to update integration: ${updErr}`);
 
   return c.json({ data: { id, updated: true } });
 });
@@ -857,13 +871,27 @@ forms.post('/api/sites/:siteId/form-submissions/:submissionId/send-reply', async
   );
 
   const nowIso = new Date().toISOString();
-  await dbExecute(
+  const { error: replyErr } = await dbExecute(
     c.env.DB,
     `UPDATE form_submissions
        SET reply_subject = ?, reply_body = ?, replied_at = ?
        WHERE id = ? AND site_id = ?`,
     [parsed.subject, parsed.body, nowIso, submission.id, site.id],
   );
+  // The reply email was ALREADY sent (irreversible) — do NOT throw (that would make
+  // the operator resend → a duplicate email). Log the dropped record-write; the audit
+  // log below still captures that the reply went out.
+  if (replyErr) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'forms.send_reply',
+        message: 'reply_record_write_failed',
+        submission_id: submission.id,
+        error: replyErr,
+      }),
+    );
+  }
 
   c.executionCtx.waitUntil(
     auditService.writeAuditLog(c.env.DB, {

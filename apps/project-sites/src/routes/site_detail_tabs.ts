@@ -14,6 +14,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Env, Variables } from '../types/env.js';
+import { internalError } from '@project-sites/shared';
 import { dbQuery, dbQueryOne, dbExecute } from '../services/db.js';
 import { writeAuditLog } from '../services/audit.js';
 
@@ -84,11 +85,14 @@ tabs.post('/api/sites/:siteId/snapshots/:snapshotId/rollback', async (c) => {
   // The actual R2 path copy + KV invalidation happens in the deploy worker
   // (see site_serving.ts). Here we record the intent + bump the site's
   // updated_at so polling clients see the change.
-  await dbExecute(
+  const { error: rollbackErr } = await dbExecute(
     c.env.DB,
     `UPDATE sites SET updated_at = datetime('now') WHERE id = ?1 AND org_id = ?2`,
     [siteId, orgId],
   );
+  // Pre-guarded (snapshot loaded + org-scoped WHERE) — surface a DB failure instead
+  // of a lying "rollback recorded" that polling clients would act on.
+  if (rollbackErr) throw internalError(`Failed to record rollback: ${rollbackErr}`);
 
   await writeAuditLog(c.env.DB, {
     org_id: orgId,
@@ -244,13 +248,17 @@ tabs.delete('/api/sites/:siteId/integration-providers/:key', async (c) => {
   );
   if (!owned) return c.json({ error: { code: 'NOT_FOUND', message: 'Site not found' } }, 404);
 
-  await dbExecute(
+  const { error: disconnectErr } = await dbExecute(
     c.env.DB,
     `UPDATE mcp_connections
         SET deleted_at = datetime('now')
       WHERE site_id = ?1 AND provider = ?2 AND deleted_at IS NULL`,
     [siteId, provider],
   );
+  // Site ownership is pre-guarded above. changes===0 is a VALID idempotent success
+  // here (the provider was already disconnected) — NOT a 404. Only surface a real
+  // DB error so a failed disconnect never reports success.
+  if (disconnectErr) throw internalError(`Failed to disconnect integration: ${disconnectErr}`);
 
   await writeAuditLog(c.env.DB, {
     org_id: orgId,

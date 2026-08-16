@@ -127,6 +127,7 @@ import {
   DOMAINS,
   badRequest,
   notFound,
+  internalError,
   forbidden,
   conflict,
   unauthorized,
@@ -948,11 +949,15 @@ api.patch('/api/admin/profile', async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const { name } = updateProfileSchema.parse(body);
 
-  await dbExecute(
+  const { error, changes } = await dbExecute(
     c.env.DB,
     "UPDATE users SET display_name = ?, updated_at = datetime('now') WHERE id = ? AND deleted_at IS NULL",
     [name, userId],
   );
+  if (error) throw internalError(`Failed to update profile: ${error}`);
+  // WHERE id = <caller's own id> — 0 rows means the account was soft-deleted mid
+  // session; never report a profile save that didn't persist.
+  if (changes === 0) throw notFound('Profile not found');
 
   return c.json({ data: { display_name: name } });
 });
@@ -10890,11 +10895,14 @@ api.delete('/api/sites/:id/urls/:urlId', async (c) => {
       409,
     );
   }
-  await dbExecute(c.env.DB, 'UPDATE site_urls SET deleted_at = ?, updated_at = ? WHERE id = ?', [
-    new Date().toISOString(),
-    new Date().toISOString(),
-    urlId,
-  ]);
+  const { error: delUrlErr } = await dbExecute(
+    c.env.DB,
+    'UPDATE site_urls SET deleted_at = ?, updated_at = ? WHERE id = ?',
+    [new Date().toISOString(), new Date().toISOString(), urlId],
+  );
+  // Pre-guarded (row loaded + primary-checked above) → changes===0 unreachable;
+  // surface a genuine DB failure instead of a lying "deleted: true".
+  if (delUrlErr) throw internalError(`Failed to remove URL: ${delUrlErr}`);
   return c.json({ data: { id: urlId, deleted: true } });
 });
 
@@ -11485,10 +11493,10 @@ api.post('/api/sites/import-from-url', async (c) => {
   }
 
   // Persist the inventory pointer onto the site so the build context loader
-  // can pick it up without reparsing the URL. Best-effort — the workflow
-  // can re-crawl if the column write fails. `dbExecute` returns a
-  // `{ error }` envelope (never throws) so we just discard the result.
-  await dbExecute(
+  // can pick it up without reparsing the URL. Best-effort — the workflow can
+  // re-crawl if the column write fails, so we DON'T throw; but log a dropped
+  // write so it's observable instead of silently discarded.
+  const { error: pointerErr } = await dbExecute(
     c.env.DB,
     `UPDATE sites
        SET original_prompt = ?,
@@ -11499,6 +11507,17 @@ api.post('/api/sites/import-from-url', async (c) => {
       siteId,
     ],
   );
+  if (pointerErr) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'api',
+        message: 'site_import_pointer_write_failed',
+        site_id: siteId,
+        error: pointerErr,
+      }),
+    );
+  }
 
   // Trigger the AI rebuild workflow with businessWebsite populated so the
   // research phase pulls source content automatically.

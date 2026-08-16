@@ -195,7 +195,7 @@ describe('POST /api/sites/:siteId/snapshots/:snapshotId/rollback', () => {
 
   it('promotes the snapshot, bumps the site, and writes an audit row on success', async () => {
     mockDbQueryOne.mockResolvedValueOnce({ id: 'snap-1', snapshot_name: 'pre-launch' });
-    mockDbExecute.mockResolvedValueOnce(undefined);
+    mockDbExecute.mockResolvedValueOnce({ error: null, changes: 1 });
     const env = makeEnv(makeDb());
     const res = await post(makeApp(AUTH), env);
     expect(res.status).toBe(200);
@@ -210,6 +210,13 @@ describe('POST /api/sites/:siteId/snapshots/:snapshotId/rollback', () => {
       actor_id: 'user-1',
       target_id: SITE,
     });
+  });
+
+  it('returns 500 (not a lying "rolled back") when the updated_at write fails', async () => {
+    mockDbQueryOne.mockResolvedValueOnce({ id: 'snap-1', snapshot_name: 'pre-launch' });
+    mockDbExecute.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    const res = await post(makeApp(AUTH), makeEnv(makeDb()));
+    expect(res.status).toBe(500);
   });
 });
 
@@ -392,9 +399,16 @@ describe('DELETE /api/sites/:siteId/integration-providers/:key', () => {
     expect(mockWriteAuditLog).not.toHaveBeenCalled();
   });
 
+  it('returns 500 (not a lying success) when the disconnect write fails', async () => {
+    mockDbQueryOne.mockResolvedValueOnce({ id: SITE }); // owned
+    mockDbExecute.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    const res = await del(makeApp(AUTH), makeEnv(makeDb()));
+    expect(res.status).toBe(500);
+  });
+
   it('soft-deletes the connection and writes a disconnect audit row', async () => {
     mockDbQueryOne.mockResolvedValueOnce({ id: SITE }); // owned
-    mockDbExecute.mockResolvedValueOnce(undefined);
+    mockDbExecute.mockResolvedValueOnce({ error: null, changes: 1 });
     const env = makeEnv(makeDb());
     const res = await del(makeApp(AUTH), env);
     expect(res.status).toBe(200);

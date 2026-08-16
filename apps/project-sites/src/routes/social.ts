@@ -17,6 +17,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import type { Env, Variables } from '../types/env.js';
+import { internalError } from '@project-sites/shared';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne, dbUpdate } from '../services/db.js';
 import { PLATFORMS, type Platform } from '../services/social_publishers/index.js';
 import { parseRssFeed, buildRssDraftRows } from '../services/rss_import.js';
@@ -825,11 +826,15 @@ socialRoutes.post('/api/social/auto-pilot/run-now', async (c) => {
   // Push the schedule cursor forward so the cron sweep stays consistent.
   const now = Date.now();
   const next = now + cfg.cadence_hours * 3_600_000;
-  await dbExecute(
+  const { error: cursorErr } = await dbExecute(
     c.env.DB,
     `UPDATE social_auto_pilot SET last_run_at = ?, next_run_at = ?, updated_at = ? WHERE org_id = ?`,
     [now, next, now, ctx.orgId],
   );
+  // The cursor MUST advance or the cron sweep re-runs this generation (double-post).
+  // cfg was loaded above (config exists) so changes===0 is unreachable — surface a
+  // real DB failure instead of a lying success.
+  if (cursorErr) throw internalError(`Failed to advance auto-pilot cursor: ${cursorErr}`);
   return c.json({ data: { created, count: created.length } });
 });
 

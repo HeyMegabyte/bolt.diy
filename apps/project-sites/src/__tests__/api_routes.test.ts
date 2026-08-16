@@ -33,9 +33,10 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { api } from '../routes/api.js';
-import { dbQueryOne } from '../services/db.js';
+import { dbQueryOne, dbExecute } from '../services/db.js';
 
 const mockDbQueryOne = dbQueryOne as jest.Mock;
+const mockDbExecute = dbExecute as unknown as jest.Mock;
 
 const originalFetch = global.fetch;
 let mockFetch: jest.Mock;
@@ -346,5 +347,35 @@ describe('GET /api/auth/me', () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.data.is_super_admin).toBe(true);
+  });
+});
+
+describe('PATCH /api/admin/profile (self display-name edit)', () => {
+  const patch = (name: string) => ({
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+
+  it('updates the display name and returns it on success', async () => {
+    mockDbExecute.mockResolvedValueOnce({ error: null, changes: 1 });
+    const { app, env } = createAuthenticatedApp({ userId: 'user-1', requestId: 'req-1' });
+    const res = await makeRequest(app, env, '/api/admin/profile', patch('New Name'));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ data: { display_name: 'New Name' } });
+  });
+
+  it('returns 404 (not a lying save) when the account row is gone (changes===0)', async () => {
+    mockDbExecute.mockResolvedValueOnce({ error: null, changes: 0 });
+    const { app, env } = createAuthenticatedApp({ userId: 'user-1', requestId: 'req-1' });
+    const res = await makeRequest(app, env, '/api/admin/profile', patch('New Name'));
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 500 (never a lying save) when the UPDATE errors', async () => {
+    mockDbExecute.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
+    const { app, env } = createAuthenticatedApp({ userId: 'user-1', requestId: 'req-1' });
+    const res = await makeRequest(app, env, '/api/admin/profile', patch('New Name'));
+    expect(res.status).toBe(500);
   });
 });
