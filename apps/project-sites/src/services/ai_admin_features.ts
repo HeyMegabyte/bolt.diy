@@ -19,6 +19,7 @@
 
 import { z } from 'zod';
 import type { Env } from '../types/env.js';
+import { boundLikePattern } from './like_pattern.js';
 
 /** Workers AI model used for every feature in this module. */
 const MODEL = '@cf/meta/llama-3.1-8b-instruct-fp8' as const;
@@ -319,7 +320,9 @@ export function buildSearchSql(filter: SearchFilter, orgId: string): SearchSqlPl
     const prefix = entity === 'users' ? 'u.' : '';
     if (typeof val === 'string' && val.includes('%')) {
       where.push(`${prefix}${col} LIKE ?`);
-      params.push(val);
+      // Complexity-bound the wildcard pattern: a pathological many-`%` value would
+      // otherwise trip D1's "LIKE pattern too complex" → swallowed → lying-empty.
+      params.push(boundLikePattern(val));
     } else {
       where.push(`${prefix}${col} = ?`);
       params.push(val);

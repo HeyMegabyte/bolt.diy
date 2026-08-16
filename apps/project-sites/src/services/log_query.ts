@@ -18,6 +18,8 @@
  * @packageDocumentation
  */
 
+import { boundLikePattern } from './like_pattern.js';
+
 export interface ParsedQuery {
   levels: string[];
   routes: string[]; // glob-style, * becomes SQL LIKE %
@@ -124,7 +126,11 @@ export function buildWhereClause(
   if (q.routes.length > 0) {
     const routeClauses = q.routes.map(() => 'route LIKE ?');
     conditions.push(`(${routeClauses.join(' OR ')})`);
-    bindings.push(...q.routes.map((r) => r.replace(/\*/g, '%').replace(/\?/g, '_')));
+    // Complexity-bound each glob→LIKE pattern so a many-`*` route filter can't trip
+    // D1's "LIKE pattern too complex" → swallowed → lying-empty log view.
+    bindings.push(
+      ...q.routes.map((r) => boundLikePattern(r.replace(/\*/g, '%').replace(/\?/g, '_'))),
+    );
   }
 
   // Duration

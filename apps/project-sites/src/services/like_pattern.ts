@@ -36,3 +36,36 @@
 export function sanitizeLikeTerm(term: string): string {
   return term.replace(/[\\%_]/g, '');
 }
+
+/**
+ * Bound an INTENTIONAL `LIKE` pattern — one where the caller genuinely WANTS
+ * `%`/`_` wildcards (an LLM-built admin filter, a glob→LIKE route filter) — so it
+ * can never trip SQLite/D1's `LIKE or GLOB pattern too complex` guard.
+ *
+ * Unlike {@link sanitizeLikeTerm} (which strips ALL wildcards for a literal
+ * substring search), this PRESERVES the caller's wildcards up to a safe budget:
+ * 1. length-capped at 128 (defuses megabyte patterns),
+ * 2. runs of `%` collapsed to one (SQLite treats `%%` === `%`; a long run of `%`
+ *    is the classic trigger),
+ * 3. total wildcard count capped (D1 raises "too complex" on the raw `%`/`_` byte
+ *    count BEFORE resolving escapes — verified ~`%_`×30 in prod — so a small
+ *    budget keeps every real query working while a pathological one stays valid).
+ *
+ * A bounded pattern still executes (never throws → never swallowed into a
+ * lying-empty result); it just matches slightly more broadly than the pathological
+ * input asked for — the correct trade for an adversarial/degenerate query.
+ *
+ * @param pattern - A LIKE pattern that legitimately contains `%`/`_`.
+ * @param maxWildcards - Max `%`/`_` characters to keep (default 12; excess dropped).
+ * @returns The pattern with its leading wildcards preserved but complexity bounded.
+ * @example
+ * boundLikePattern('site.%');        // 'site.%'  (unchanged — 1 wildcard)
+ * boundLikePattern('%'.repeat(60));  // '%'       (run collapsed)
+ * boundLikePattern('%_'.repeat(30)); // first 12 wildcards kept, rest dropped
+ */
+export function boundLikePattern(pattern: string, maxWildcards = 12): string {
+  let out = pattern.slice(0, 128).replace(/%{2,}/g, '%');
+  let count = 0;
+  out = out.replace(/[%_]/g, (m) => (++count <= maxWildcards ? m : ''));
+  return out;
+}

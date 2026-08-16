@@ -288,6 +288,21 @@ describe('buildSearchSql', () => {
     const plan = buildSearchSql({ entity: 'audit' }, 'o');
     expect(plan.params[plan.params.length - 1]).toBe(20);
   });
+
+  it('bounds a pathological LIKE value so the search never lies-empty on "too complex"', () => {
+    // An adversarial NL query the LLM echoes as a wildcard-heavy filter value would
+    // otherwise become `email LIKE '%%%…60…%%%'` → D1 "pattern too complex" → dbQuery
+    // swallows → aiSearch returns [] (lying-empty). The value must be complexity-bounded.
+    const plan = buildSearchSql({ entity: 'forms', filters: { email: '%'.repeat(60) } }, 'org-x');
+    expect(plan.sql).toContain('email LIKE ?');
+    const likeParam = plan.params.find((p) => typeof p === 'string' && /[%_]/.test(p)) as string;
+    expect((likeParam.match(/[%_]/g) ?? []).length).toBeLessThanOrEqual(12);
+  });
+
+  it('preserves an intentional single-wildcard LIKE value', () => {
+    const plan = buildSearchSql({ entity: 'forms', filters: { email: '%@gmail.com' } }, 'o');
+    expect(plan.params).toContain('%@gmail.com');
+  });
 });
 
 // ─── #94 aiSearch ────────────────────────────────────────────────────────────

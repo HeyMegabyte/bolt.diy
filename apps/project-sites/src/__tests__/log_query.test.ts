@@ -207,6 +207,14 @@ describe('buildWhereClause', () => {
     expect(bindings).toEqual(['/api/sites/%', '/api/x_']);
   });
 
+  it('bounds a pathological route glob so many-* never trips LIKE "too complex"', () => {
+    // `/**********…60…` → `/%%%…60…` unbounded would swallow into a lying-empty log view.
+    const q = { ...empty(), routes: ['/' + '*'.repeat(60)] };
+    const { bindings } = buildWhereClause(q);
+    const b = bindings[0] as string;
+    expect((b.match(/[%_]/g) ?? []).length).toBeLessThanOrEqual(12);
+  });
+
   it('adds a >= duration condition for a min bound', () => {
     const q = { ...empty(), minDurationMs: 500 };
     const { where, bindings } = buildWhereClause(q);
