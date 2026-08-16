@@ -2,8 +2,8 @@
  * @module services/usage_metering
  * @description Usage metering pipeline (item #99).
  *
- * Records three metrics into `usage_events` and (optionally) forwards
- * Pro+/Scale rows to Stripe via `POST /v1/subscription_items/{si}/usage_records`.
+ * Records metered usage into `usage_events` and forwards it to the active
+ * billing provider (Stripe Billing Meters) through the `meter*` wrappers below.
  *
  * | Metric              | Source                                                |
  * | ------------------- | ----------------------------------------------------- |
@@ -14,7 +14,7 @@
  * @packageDocumentation
  */
 
-import { dbInsert, dbQuery, dbQueryOne, dbUpdate } from './db.js';
+import { dbInsert, dbQuery, dbQueryOne } from './db.js';
 import { USAGE_TIERS, USAGE_METRICS, OVERAGE_MICRO_USD } from '../constants/pricing.js';
 import type { UsageTier, UsageMetric } from '../constants/pricing.js';
 import type { Env } from '../types/env.js';
@@ -174,153 +174,6 @@ export async function computeOverageMicroUsd(
     image_generations_overage: imgOver,
     total_micro_usd: totalMicroUsd,
   };
-}
-
-/**
- * Parsed shape of `env.STRIPE_USAGE_PRICE_IDS`. Returns `null` when the env
- * var is missing or malformed so callers can fall through to D1-only mode.
- */
-export function parseUsagePriceIds(env: Env): Record<UsageMetric, string> | null {
-  if (!env.STRIPE_USAGE_PRICE_IDS) return null;
-  try {
-    const parsed = JSON.parse(env.STRIPE_USAGE_PRICE_IDS) as Record<string, unknown>;
-    const out: Partial<Record<UsageMetric, string>> = {};
-    for (const m of USAGE_METRICS) {
-      const v = parsed[m];
-      if (typeof v === 'string' && v.length > 0) out[m] = v;
-    }
-    if (!out.ai_calls || !out.bytes_egress || !out.image_generations) return null;
-    return out as Record<UsageMetric, string>;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Dispatch unbilled usage rows to Stripe for an org on the Pro/Scale tier.
- *
- * Each metric is reported as a single aggregate quantity per call (the
- * Stripe `subscriptionItems.createUsageRecord` API accepts a quantity per
- * billing period). After a successful POST, matching rows are flipped to
- * `billed=1` in D1.
- *
- * Skips silently when:
- * - Tier is `free` (no metered subscription)
- * - `STRIPE_USAGE_PRICE_IDS` env is missing or malformed
- * - Org has no `stripe_subscription_id`
- *
- * @example
- * ```ts
- * await dispatchUsageToStripe(env, env.DB, orgId);
- * ```
- */
-export async function dispatchUsageToStripe(
-  env: Env,
-  db: D1Database,
-  orgId: string,
-): Promise<{ dispatched: number; skipped_reason?: string }> {
-  const tier = await getOrgTier(db, orgId);
-  if (tier === 'free') return { dispatched: 0, skipped_reason: 'tier_free' };
-
-  const priceIds = parseUsagePriceIds(env);
-  if (!priceIds) return { dispatched: 0, skipped_reason: 'no_price_ids' };
-
-  const sub = await dbQueryOne<{ stripe_subscription_id: string | null }>(
-    db,
-    `SELECT stripe_subscription_id FROM subscriptions
-     WHERE org_id = ? AND deleted_at IS NULL`,
-    [orgId],
-  );
-  if (!sub?.stripe_subscription_id) {
-    return { dispatched: 0, skipped_reason: 'no_subscription' };
-  }
-
-  // Resolve subscription_item per metric.
-  const itemsRes = await fetch(
-    `https://api.stripe.com/v1/subscription_items?subscription=${encodeURIComponent(
-      sub.stripe_subscription_id,
-    )}&limit=20`,
-    { headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` } },
-  );
-  if (!itemsRes.ok) return { dispatched: 0, skipped_reason: `items_${itemsRes.status}` };
-  const itemsJson = (await itemsRes.json()) as {
-    data: { id: string; price: { id: string } }[];
-  };
-  const itemByPrice = new Map(itemsJson.data.map((it) => [it.price.id, it.id]));
-
-  let dispatched = 0;
-  for (const metric of USAGE_METRICS) {
-    const siItem = itemByPrice.get(priceIds[metric]);
-    if (!siItem) continue;
-
-    const sumRow = await dbQueryOne<{ total: number | null }>(
-      db,
-      `SELECT COALESCE(SUM(value), 0) AS total FROM usage_events
-       WHERE org_id = ? AND metric = ? AND billed = 0`,
-      [orgId, metric],
-    );
-    const total = sumRow?.total ?? 0;
-    if (total <= 0) continue;
-
-    const res = await fetch(
-      `https://api.stripe.com/v1/subscription_items/${siItem}/usage_records`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          quantity: String(total),
-          timestamp: String(Math.floor(Date.now() / 1000)),
-          action: 'increment',
-        }),
-      },
-    );
-    if (!res.ok) {
-      const text = await res.text();
-      console.warn(
-        JSON.stringify({
-          level: 'warn',
-          service: 'usage_metering',
-          message: 'stripe usage record failed',
-          metric,
-          status: res.status,
-          body: text,
-        }),
-      );
-      continue;
-    }
-    const { error: markErr, changes: marked } = await dbUpdate(
-      db,
-      'usage_events',
-      { billed: 1, stripe_subscription_item_id: siItem },
-      'org_id = ? AND metric = ? AND billed = 0',
-      [orgId, metric],
-    );
-    // Stripe was ALREADY charged (res.ok above). If the billed=1 mark fails or
-    // touches 0 rows, those events stay billed=0 and the NEXT run re-reports them
-    // to Stripe → DOUBLE-BILL. Don't throw (the metric loop must continue), but
-    // log at error level so an operator can reconcile before the next dispatch.
-    // TODO(usage-idempotency): pass a deterministic Stripe Idempotency-Key on the
-    // usage_records POST so a re-report is a no-op even when this mark is lost.
-    if (markErr || marked === 0) {
-      console.warn(
-        JSON.stringify({
-          level: 'error',
-          service: 'usage_metering',
-          message: 'usage_charged_but_mark_failed_double_bill_risk',
-          org_id: orgId,
-          metric,
-          quantity: total,
-          changes: marked ?? 0,
-          error: markErr ?? null,
-        }),
-      );
-    }
-    dispatched += 1;
-  }
-  return { dispatched };
 }
 
 /** Lightweight wrapper that counts every Workers AI invocation. */

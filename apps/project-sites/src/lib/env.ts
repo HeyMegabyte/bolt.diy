@@ -153,7 +153,6 @@ export const EnvSchema = z.object({
   SALE_WEBHOOK_URL: z.string().url().optional(),
   SALE_WEBHOOK_SECRET: z.string().optional(),
   METERING_PROVIDER: z.string().optional(),
-  STRIPE_USAGE_PRICE_IDS: z.string().optional(),
   WEEKLY_DIGEST_SECRET: z.string().optional(),
   RESEARCH_JSON_PUBLIC: z.string().optional(),
   MCP_ENCRYPTION_KEY: z.string().optional(),

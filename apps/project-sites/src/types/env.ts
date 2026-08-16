@@ -607,10 +607,6 @@ export interface Env {
   BILLING_PROVIDER?: string;
   /** Legacy metering provider identifier — superseded by BILLING_PROVIDER. */
   METERING_PROVIDER?: string;
-  /**
-   * Stripe Price IDs for usage-based metering (one per metric). Legacy — kept for existing D1-only mode.
-   */
-  STRIPE_USAGE_PRICE_IDS?: string;
   /** Stripe Price IDs for base subscriptions. */
   STRIPE_PRICE_BASE_SITE_MONTHLY?: string;
   STRIPE_PRICE_BASE_SITE_YEARLY?: string;

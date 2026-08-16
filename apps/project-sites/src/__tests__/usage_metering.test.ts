@@ -2,14 +2,12 @@
  * @module __tests__/usage_metering
  * @description Unit coverage for the usage-metering pipeline
  * ({@link recordUsage}, {@link getMonthUsage}, {@link getOrgTier},
- * {@link computeOverageMicroUsd}, {@link parseUsagePriceIds},
- * {@link dispatchUsageToStripe}, the three meter* wrappers,
+ * {@link computeOverageMicroUsd}, the three meter* wrappers,
  * {@link getUsagePanelPayload}, {@link aggregateNightly}, and
- * {@link currentMonthPeriod}). D1 and the Stripe REST API (global `fetch`) are
- * mocked so these exercise the branch surface — value guards, per-period sum
- * aggregation, tier resolution, overage math with per-GB rounding, env parsing,
- * Stripe usage-record push + billed-flag flip, idempotency, org+metric scoping,
- * near-limit detection, and error resilience — not the integrations themselves.
+ * {@link currentMonthPeriod}). D1 is mocked so these exercise the branch
+ * surface — value guards, per-period sum aggregation, tier resolution, overage
+ * math with per-GB rounding, org+metric scoping, near-limit detection, and
+ * error resilience — not the integrations themselves.
  *
  * Convergence r28 — additive spec; no source changes.
  */
@@ -18,18 +16,15 @@ jest.mock('../services/db.js', () => ({
   dbInsert: jest.fn().mockResolvedValue({ error: null }),
   dbQuery: jest.fn().mockResolvedValue({ data: [] }),
   dbQueryOne: jest.fn().mockResolvedValue(null),
-  dbUpdate: jest.fn().mockResolvedValue({ error: null, changes: 1 }),
 }));
 
-import { dbInsert, dbQuery, dbQueryOne, dbUpdate } from '../services/db.js';
+import { dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
 import {
   currentMonthPeriod,
   recordUsage,
   getMonthUsage,
   getOrgTier,
   computeOverageMicroUsd,
-  parseUsagePriceIds,
-  dispatchUsageToStripe,
   meterAiCall,
   meterImageGeneration,
   meterEgressBytes,
@@ -42,7 +37,6 @@ import type { Env } from '../types/env.js';
 const mockInsert = dbInsert as unknown as jest.Mock;
 const mockQuery = dbQuery as unknown as jest.Mock;
 const mockQueryOne = dbQueryOne as unknown as jest.Mock;
-const mockUpdate = dbUpdate as unknown as jest.Mock;
 
 const GB = 1024 * 1024 * 1024;
 
@@ -66,7 +60,6 @@ beforeEach(() => {
   mockInsert.mockResolvedValue({ error: null });
   mockQuery.mockResolvedValue({ data: [] });
   mockQueryOne.mockResolvedValue(null);
-  mockUpdate.mockResolvedValue({ error: null, changes: 1 });
 });
 
 describe('currentMonthPeriod', () => {
@@ -243,275 +236,6 @@ describe('computeOverageMicroUsd', () => {
     );
     const out = await computeOverageMicroUsd(db, ORG, 'scale');
     expect(out.total_micro_usd).toBe(0);
-  });
-});
-
-describe('parseUsagePriceIds', () => {
-  it('returns null when env var is missing', () => {
-    expect(parseUsagePriceIds({} as unknown as Env)).toBeNull();
-  });
-
-  it('returns null on malformed JSON', () => {
-    expect(
-      parseUsagePriceIds({ STRIPE_USAGE_PRICE_IDS: '{not json' } as unknown as Env),
-    ).toBeNull();
-  });
-
-  it('returns null when a metric price id is missing', () => {
-    const env = {
-      STRIPE_USAGE_PRICE_IDS: JSON.stringify({ ai_calls: 'price_a', bytes_egress: 'price_b' }),
-    } as unknown as Env;
-    expect(parseUsagePriceIds(env)).toBeNull();
-  });
-
-  it('returns null when a metric price id is an empty string', () => {
-    const env = {
-      STRIPE_USAGE_PRICE_IDS: JSON.stringify({
-        ai_calls: 'price_a',
-        bytes_egress: '',
-        image_generations: 'price_c',
-      }),
-    } as unknown as Env;
-    expect(parseUsagePriceIds(env)).toBeNull();
-  });
-
-  it('returns the full map when all metric price ids are present', () => {
-    const env = {
-      STRIPE_USAGE_PRICE_IDS: JSON.stringify({
-        ai_calls: 'price_a',
-        bytes_egress: 'price_b',
-        image_generations: 'price_c',
-        extra: 'ignored',
-      }),
-    } as unknown as Env;
-    expect(parseUsagePriceIds(env)).toEqual({
-      ai_calls: 'price_a',
-      bytes_egress: 'price_b',
-      image_generations: 'price_c',
-    });
-  });
-
-  it('ignores non-string metric values', () => {
-    const env = {
-      STRIPE_USAGE_PRICE_IDS: JSON.stringify({
-        ai_calls: 123,
-        bytes_egress: 'b',
-        image_generations: 'c',
-      }),
-    } as unknown as Env;
-    expect(parseUsagePriceIds(env)).toBeNull();
-  });
-});
-
-describe('dispatchUsageToStripe', () => {
-  const priceEnv = {
-    DB: db,
-    STRIPE_SECRET_KEY: 'sk_test_123',
-    STRIPE_USAGE_PRICE_IDS: JSON.stringify({
-      ai_calls: 'price_ai',
-      bytes_egress: 'price_eg',
-      image_generations: 'price_img',
-    }),
-  } as unknown as Env;
-
-  afterEach(() => {
-    // @ts-expect-error test teardown
-    delete global.fetch;
-  });
-
-  it('skips with tier_free for a free org', async () => {
-    mockQueryOne.mockResolvedValue(null); // getOrgTier → free
-    const out = await dispatchUsageToStripe(priceEnv, db, ORG);
-    expect(out).toEqual({ dispatched: 0, skipped_reason: 'tier_free' });
-  });
-
-  it('skips with no_price_ids when env is unconfigured', async () => {
-    mockQueryOne.mockResolvedValue({ plan: 'paid', status: 'active' }); // pro
-    const out = await dispatchUsageToStripe(baseEnv, db, ORG);
-    expect(out).toEqual({ dispatched: 0, skipped_reason: 'no_price_ids' });
-  });
-
-  it('skips with no_subscription when org has no stripe_subscription_id', async () => {
-    mockQueryOne
-      .mockResolvedValueOnce({ plan: 'paid', status: 'active' }) // getOrgTier
-      .mockResolvedValueOnce({ stripe_subscription_id: null }); // subscription lookup
-    const out = await dispatchUsageToStripe(priceEnv, db, ORG);
-    expect(out).toEqual({ dispatched: 0, skipped_reason: 'no_subscription' });
-  });
-
-  it('skips with items_<status> when the subscription_items fetch fails', async () => {
-    mockQueryOne
-      .mockResolvedValueOnce({ plan: 'paid', status: 'active' })
-      .mockResolvedValueOnce({ stripe_subscription_id: 'sub_1' });
-    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 403 });
-    const out = await dispatchUsageToStripe(priceEnv, db, ORG);
-    expect(out).toEqual({ dispatched: 0, skipped_reason: 'items_403' });
-  });
-
-  it('dispatches each metric with a positive unbilled total and flips billed=1', async () => {
-    mockQueryOne
-      .mockResolvedValueOnce({ plan: 'paid', status: 'active' }) // getOrgTier
-      .mockResolvedValueOnce({ stripe_subscription_id: 'sub_1' }) // subscription lookup
-      // three per-metric unbilled sums (USAGE_METRICS order: ai_calls, bytes_egress, image_generations)
-      .mockResolvedValueOnce({ total: 42 })
-      .mockResolvedValueOnce({ total: 1000 })
-      .mockResolvedValueOnce({ total: 5 });
-
-    const fetchMock = jest
-      .fn()
-      // subscription_items list
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          data: [
-            { id: 'si_ai', price: { id: 'price_ai' } },
-            { id: 'si_eg', price: { id: 'price_eg' } },
-            { id: 'si_img', price: { id: 'price_img' } },
-          ],
-        }),
-      })
-      // three usage_record POSTs
-      .mockResolvedValue({ ok: true, json: async () => ({}), text: async () => '' });
-    global.fetch = fetchMock;
-
-    const out = await dispatchUsageToStripe(priceEnv, db, ORG);
-    expect(out).toEqual({ dispatched: 3 });
-    expect(mockUpdate).toHaveBeenCalledTimes(3);
-    // first POST goes to the ai subscription_item usage_records endpoint
-    const postUrls = fetchMock.mock.calls.slice(1).map((c) => c[0] as string);
-    expect(postUrls[0]).toContain('/v1/subscription_items/si_ai/usage_records');
-  });
-
-  it('skips a metric when its subscription_item is not present', async () => {
-    mockQueryOne
-      .mockResolvedValueOnce({ plan: 'paid', status: 'active' })
-      .mockResolvedValueOnce({ stripe_subscription_id: 'sub_1' })
-      .mockResolvedValueOnce({ total: 10 }); // ai_calls sum (only the ai item exists)
-
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ data: [{ id: 'si_ai', price: { id: 'price_ai' } }] }),
-      })
-      .mockResolvedValue({ ok: true, json: async () => ({}), text: async () => '' });
-    global.fetch = fetchMock;
-
-    const out = await dispatchUsageToStripe(priceEnv, db, ORG);
-    expect(out).toEqual({ dispatched: 1 });
-    expect(mockUpdate).toHaveBeenCalledTimes(1);
-  });
-
-  it('WARNS at error level (double-bill risk) but still dispatches when the billed=1 mark fails', async () => {
-    mockQueryOne
-      .mockResolvedValueOnce({ plan: 'paid', status: 'active' })
-      .mockResolvedValueOnce({ stripe_subscription_id: 'sub_1' })
-      .mockResolvedValueOnce({ total: 10 }); // ai_calls sum
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ data: [{ id: 'si_ai', price: { id: 'price_ai' } }] }),
-      })
-      .mockResolvedValue({ ok: true, json: async () => ({}), text: async () => '' });
-    global.fetch = fetchMock;
-    // Stripe was charged (res.ok) but the local billed=1 mark drops → the events
-    // stay billed=0 and the NEXT run re-reports them = double-bill. Must be loud.
-    mockUpdate.mockResolvedValueOnce({ error: 'D1_ERROR: disk full', changes: 0 });
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-
-    const out = await dispatchUsageToStripe(priceEnv, db, ORG);
-
-    // Still counts as dispatched — Stripe WAS charged; the bug is the local record.
-    expect(out).toEqual({ dispatched: 1 });
-    const logged = warnSpy.mock.calls
-      .map((c) => JSON.parse(c[0]))
-      .find((l) => l.message === 'usage_charged_but_mark_failed_double_bill_risk');
-    expect(logged).toMatchObject({
-      level: 'error',
-      service: 'usage_metering',
-      metric: 'ai_calls',
-      quantity: 10,
-    });
-    warnSpy.mockRestore();
-  });
-
-  it('skips a metric whose unbilled total is zero (no double-charge)', async () => {
-    mockQueryOne
-      .mockResolvedValueOnce({ plan: 'paid', status: 'active' })
-      .mockResolvedValueOnce({ stripe_subscription_id: 'sub_1' })
-      .mockResolvedValueOnce({ total: 0 }) // ai_calls
-      .mockResolvedValueOnce({ total: 0 }) // bytes_egress
-      .mockResolvedValueOnce({ total: 0 }); // image_generations
-
-    const fetchMock = jest.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        data: [
-          { id: 'si_ai', price: { id: 'price_ai' } },
-          { id: 'si_eg', price: { id: 'price_eg' } },
-          { id: 'si_img', price: { id: 'price_img' } },
-        ],
-      }),
-    });
-    global.fetch = fetchMock;
-
-    const out = await dispatchUsageToStripe(priceEnv, db, ORG);
-    expect(out).toEqual({ dispatched: 0 });
-    expect(mockUpdate).not.toHaveBeenCalled();
-    // only the items-list fetch fired; no usage_record POSTs
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it('continues past a failed usage_record POST without flipping billed', async () => {
-    mockQueryOne
-      .mockResolvedValueOnce({ plan: 'paid', status: 'active' })
-      .mockResolvedValueOnce({ stripe_subscription_id: 'sub_1' })
-      .mockResolvedValueOnce({ total: 7 }) // ai_calls
-      .mockResolvedValueOnce({ total: 0 }) // bytes_egress
-      .mockResolvedValueOnce({ total: 0 }); // image_generations
-
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          data: [
-            { id: 'si_ai', price: { id: 'price_ai' } },
-            { id: 'si_eg', price: { id: 'price_eg' } },
-            { id: 'si_img', price: { id: 'price_img' } },
-          ],
-        }),
-      })
-      .mockResolvedValueOnce({ ok: false, status: 500, text: async () => 'stripe boom' });
-    global.fetch = fetchMock;
-
-    const out = await dispatchUsageToStripe(priceEnv, db, ORG);
-    expect(out).toEqual({ dispatched: 0 });
-    expect(mockUpdate).not.toHaveBeenCalled();
-  });
-
-  it('treats a null unbilled SUM as zero', async () => {
-    mockQueryOne
-      .mockResolvedValueOnce({ plan: 'paid', status: 'active' })
-      .mockResolvedValueOnce({ stripe_subscription_id: 'sub_1' })
-      .mockResolvedValueOnce({ total: null }) // ai_calls
-      .mockResolvedValueOnce({ total: null }) // bytes_egress
-      .mockResolvedValueOnce({ total: null }); // image_generations
-
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        data: [
-          { id: 'si_ai', price: { id: 'price_ai' } },
-          { id: 'si_eg', price: { id: 'price_eg' } },
-          { id: 'si_img', price: { id: 'price_img' } },
-        ],
-      }),
-    });
-
-    const out = await dispatchUsageToStripe(priceEnv, db, ORG);
-    expect(out).toEqual({ dispatched: 0 });
   });
 });
 

@@ -15,8 +15,8 @@
  *
  * @remarks
  * Free is hard-capped at the inclusion (over-quota requests get 402).
- * Pro and Scale meter overages and charge `OVERAGE_*` per unit via Stripe
- * `subscriptionItems.createUsageRecord`.
+ * Pro and Scale meter overages and charge `OVERAGE_*` per unit via the active
+ * billing provider (Stripe Billing Meters).
  *
  * @example
  * ```ts
