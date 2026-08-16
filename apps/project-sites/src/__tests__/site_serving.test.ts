@@ -289,6 +289,61 @@ describe('generateTopBar', () => {
   });
 });
 
+// The ownership modal is the revenue-critical upgrade path injected into EVERY
+// free/branch-preview site. It shipped as a <div> soup with no dialog semantics,
+// no Escape-to-close, and no focus management — a real a11y/UX defect (WCAG 2.1.2
+// keyboard, 2.4.3 focus order, 4.1.2 name/role/value) on every visitor's screen.
+describe('generateTopBar — ownership modal accessibility', () => {
+  it('marks the modal as an accessible dialog (role + aria-modal + labelledby)', () => {
+    const html = generateTopBar('test');
+    expect(html).toContain('role="dialog"');
+    expect(html).toContain('aria-modal="true"');
+    // aria-labelledby must point at a real element id in the same markup.
+    expect(html).toContain('aria-labelledby="ps-modal-title"');
+    expect(html).toContain('id="ps-modal-title"');
+  });
+
+  it('advertises the dialog on the trigger button (aria-haspopup)', () => {
+    const html = generateTopBar('test');
+    expect(html).toMatch(
+      /id="ps-claim-btn"[^>]*aria-haspopup="dialog"|aria-haspopup="dialog"[^>]*id="ps-claim-btn"/,
+    );
+  });
+
+  it('closes on the Escape key (keyboard-dismissible, not mouse-only)', () => {
+    const html = generateTopBar('test');
+    expect(html).toContain("addEventListener('keydown'");
+    expect(html).toMatch(/key===['"]Escape['"]/);
+  });
+
+  it('manages focus — captures the trigger on open and restores it on close', () => {
+    const html = generateTopBar('test');
+    // Trigger element captured so focus can return to it after close.
+    expect(html).toContain('document.activeElement');
+    // Focus is moved (into the modal on open, back to trigger on close).
+    expect(html).toContain('.focus()');
+  });
+
+  it('traps Tab within the modal (no focus escape to the page behind)', () => {
+    const html = generateTopBar('test');
+    // A Tab handler that cycles first<->last focusable inside the modal.
+    expect(html).toMatch(/key===['"]Tab['"]/);
+    expect(html).toContain('shiftKey');
+  });
+
+  it('the injected conversion-flow script is syntactically valid JS (parse gate)', () => {
+    // String-presence tests can pass while the injected IIFE has a syntax error that
+    // silently breaks the ENTIRE modal at runtime. new Function() parses (does not run)
+    // the script body and throws SyntaxError on any unbalanced brace / bad token.
+    const html = generateTopBar('test');
+    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+    expect(scripts.length).toBeGreaterThan(0);
+    for (const body of scripts) {
+      expect(() => new Function(body)).not.toThrow();
+    }
+  });
+});
+
 describe('serveSiteFromR2', () => {
   function createMockEnv(files: Record<string, string> = {}, opts: { status?: string } = {}) {
     return {

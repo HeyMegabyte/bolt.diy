@@ -249,7 +249,7 @@ export function generateConversionFlow(slug: string): string {
     </div>
     <p id="ps-bar-msg"><strong>This website is yours</strong> — make it official</p>
     <div id="ps-bar-right">
-      <button id="ps-claim-btn">Claim for $50/mo</button>
+      <button id="ps-claim-btn" aria-haspopup="dialog">Claim for $50/mo</button>
       <button id="ps-bar-x" aria-label="Dismiss">&times;</button>
     </div>
   </div>
@@ -257,9 +257,9 @@ export function generateConversionFlow(slug: string): string {
 
 <!-- Ownership Modal -->
 <div id="ps-overlay">
-  <div id="ps-modal" style="position:relative">
+  <div id="ps-modal" style="position:relative" role="dialog" aria-modal="true" aria-labelledby="ps-modal-title">
     <button id="ps-close-modal" aria-label="Close">&times;</button>
-    <h2>Make It Yours</h2>
+    <h2 id="ps-modal-title">Make It Yours</h2>
     <p class="ps-sub">${slug}.projectsites.dev</p>
 
     <div class="ps-plan">
@@ -293,7 +293,7 @@ export function generateConversionFlow(slug: string): string {
     <div class="ps-footer">
       <a href="${editUrl}">✏️ Edit with AI first</a>
       <span style="color:rgba(255,255,255,0.1)">·</span>
-      <button onclick="document.getElementById('ps-overlay').classList.remove('ps-open')">Keep free for now</button>
+      <button id="ps-keep-free">Keep free for now</button>
     </div>
   </div>
 </div>
@@ -328,11 +328,28 @@ export function generateConversionFlow(slug: string): string {
     },{passive:true});
   }
 
-  /* Open/close modal */
-  document.getElementById('ps-claim-btn').onclick=function(){overlay.classList.add('ps-open')};
-  document.getElementById('ps-close-modal').onclick=function(){overlay.classList.remove('ps-open')};
-  overlay.onclick=function(e){if(e.target===overlay)overlay.classList.remove('ps-open')};
+  /* Open/close modal — accessible dialog: focus management + keyboard dismiss + Tab trap */
+  var modal=document.getElementById('ps-modal');
+  var lastFocus=null;
+  function focusable(){return modal.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])')}
+  function openModal(){lastFocus=document.activeElement;overlay.classList.add('ps-open');var f=document.getElementById('ps-close-modal');if(f)f.focus()}
+  function closeModal(){overlay.classList.remove('ps-open');if(lastFocus&&lastFocus.focus)lastFocus.focus()}
+  document.getElementById('ps-claim-btn').onclick=openModal;
+  document.getElementById('ps-close-modal').onclick=closeModal;
+  var keepFree=document.getElementById('ps-keep-free');if(keepFree)keepFree.onclick=closeModal;
+  overlay.onclick=function(e){if(e.target===overlay)closeModal()};
   document.getElementById('ps-bar-x').onclick=function(){bar.style.display='none';sessionStorage.setItem('ps-x','1')};
+  /* Escape closes the modal; Tab is trapped inside it (never escapes to the page behind) */
+  document.addEventListener('keydown',function(e){
+    if(!overlay.classList.contains('ps-open'))return;
+    if(e.key==='Escape'){closeModal();return}
+    if(e.key==='Tab'){
+      var f=focusable();if(!f.length)return;
+      var first=f[0],last=f[f.length-1];
+      if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}
+    }
+  });
 
   /* Domain search — checks exact + variations */
   dinput.addEventListener('input',function(){
