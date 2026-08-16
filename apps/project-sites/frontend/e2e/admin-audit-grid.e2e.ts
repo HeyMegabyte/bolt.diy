@@ -19,8 +19,14 @@ import { test, expect, type Page } from '@playwright/test';
  *      an automated RED→GREEN net means the migration can't silently regress the
  *      compliance viewer instead of relying on manual live-QA.
  *
- * Verified GREEN against prod 2026-06-06. Skips gracefully when the test org has
- * no audit rows (then it characterizes the empty-state contract instead).
+ * Verified GREEN against prod 2026-06-06. The test org now HAS audit rows (from
+ * loop-verify site builds), so the POPULATED-grid branches are the live path; the
+ * empty-state branches stay as a defensive net for a freshly-reset org.
+ *
+ * Regression note (2026-08-16): the grid rendered EMPTY despite 8 loaded events
+ * because `onGridReady` applied the org NAME as a `site`-column equals-filter
+ * (matching zero rows). Fixed by starting the grid unfiltered — this master/detail
+ * test is the guard (it needs real rendered rows to find the expand kebab).
  */
 
 const KEY = process.env.E2E_API_KEY ?? '';
@@ -68,10 +74,10 @@ test.describe('admin — audit-log grid behavioural contract', () => {
 
     // Export CSV lives in the header always, but is ENABLED only when there are
     // rows to export (`[disabled]="!canExport()"`, canExport = rows>0) — it never
-    // emits a headers-only CSV. The e2e-test-org has no audit rows (build-derived;
-    // an honest empty), so CSV is correctly DISABLED here. Assert the button
-    // reflects row availability: enabled + clickable when a grid is mounted,
-    // disabled (with its explanatory affordance) when the empty-state shows.
+    // emits a headers-only CSV. The test org now HAS audit rows, so the enabled
+    // branch is the live path; the disabled branch stays as a defensive net for a
+    // freshly-reset org. Assert the button reflects row availability: enabled +
+    // clickable when a grid is mounted, disabled when the empty-state shows.
     const csv = page.getByRole('button', { name: /export csv/i });
     await expect(csv).toBeVisible();
     if ((await grid.count()) > 0) {
@@ -101,7 +107,8 @@ test.describe('admin — audit-log grid behavioural contract', () => {
     await expect(page.locator('.admin-sidebar, nav').first()).toBeVisible({ timeout: 30000 });
 
     const grid = page.locator('[data-testid="audit-grid"]');
-    // No audit rows for the test org → characterize the empty contract instead.
+    // Defensive net: if a freshly-reset org has no rows, characterize the empty
+    // contract instead. The live test org HAS rows, so this branch is rarely hit.
     if ((await grid.count()) === 0) {
       await expect(
         page.locator('[data-testid="audit-empty"], [data-testid="audit-error"]').first(),

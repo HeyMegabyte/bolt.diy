@@ -283,7 +283,8 @@ function actionToFallbackMessage(action: string): string {
     .empty-body { font-size: 0.78rem; color: rgba(255,255,255,0.6); margin: 0 0 0.5rem; max-width: 360px; }
     /* ─── Cell renderer: action code pill (JetBrains Mono) ──────────── */
     :host ::ng-deep .cell-action-pill {
-      display: inline-flex; align-items: center;
+      display: inline-block; max-width: 100%; vertical-align: middle;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       padding: 2px 9px; border-radius: 999px;
       font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 0.66rem; font-weight: 600; letter-spacing: 0.01em;
@@ -519,12 +520,16 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
     {
       headerName: 'Action',
       field: 'action',
-      width: 200,
-      minWidth: 160,
+      width: 220,
+      minWidth: 170,
       filter: 'agTextColumnFilter',
+      // Long action codes (e.g. `billing.subscription_updated`) overflowed the
+      // fixed-width pill/column — the pill now ellipsis-truncates within the cell
+      // and the full code shows on hover via the title tooltip.
+      tooltipValueGetter: (p) => String(p.value ?? ''),
       cellRenderer: (p: ICellRendererParams<AuditRow>): string => {
         const v = String(p.value ?? '');
-        return `<span class="cell-action-pill">${escapeHtml(v)}</span>`;
+        return `<span class="cell-action-pill" title="${escapeHtml(v)}">${escapeHtml(v)}</span>`;
       },
     },
     {
