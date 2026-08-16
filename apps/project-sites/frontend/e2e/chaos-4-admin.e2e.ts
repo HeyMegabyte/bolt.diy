@@ -543,4 +543,60 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
       }
     }
   });
+
+  // M2 — the Social composer's honest-validation + draft-preservation contract.
+  // The E2E org has 0 connected accounts, so "Post now" cannot publish. Pressing it
+  // must give HONEST feedback ("select a platform") — not a dead button, not a 5xx —
+  // and must NOT wipe the draft the user just typed (a failed submit preserves work).
+  // "Discard" then clears the composer. Presses 2 real compose buttons + asserts the
+  // business result of each, with the full console/network DoD.
+  test('Social composer: Post-now with no platform validates honestly + preserves the draft; Discard clears it (M2)', async ({
+    page,
+  }) => {
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+    await page.goto('/admin/social', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(4000);
+
+    const composer = page.locator('[data-testid="social-composer-textarea"]');
+    await expect(composer, 'composer textarea present').toBeVisible({ timeout: 8000 });
+    const draft = 'Grand opening this Saturday — fresh coffee on the house. See you there!';
+    await composer.fill(draft);
+
+    // Press "Post now" with no platform selected (0 connected accounts).
+    await page.getByRole('button', { name: 'Post now', exact: false }).first().click();
+    await page.waitForTimeout(2500);
+
+    // Business result: honest validation message (not a dead button, not a silent no-op).
+    await expect(
+      page.locator('text=/select .* platform|connect .* account|at least one/i').first(),
+      'Post-now with no platform shows an honest "select a platform" message',
+    ).toBeVisible({ timeout: 6000 });
+    // Draft preserved — a failed submit must not wipe the user's typed content.
+    expect(await composer.inputValue(), 'composer draft survives a failed post').toBe(draft);
+
+    // "Discard" is an action-armed confirm toast (cockpit pattern), not a one-click
+    // wipe: pressing it prompts "Discard this post?" with a Discard action that runs
+    // resetComposer(). Press it, confirm via the toast action, assert the draft clears.
+    await page.getByRole('button', { name: 'Discard', exact: false }).first().click();
+    const confirmToast = page
+      .locator('[data-testid="toast-item"]')
+      .filter({ hasText: /discard this post/i });
+    await expect(confirmToast, 'Discard prompts an action-armed confirm toast').toBeVisible({
+      timeout: 6000,
+    });
+    await confirmToast.locator('button.toast-action').first().click();
+    await expect(composer, 'confirming Discard clears the composer draft').toHaveValue('', {
+      timeout: 6000,
+    });
+
+    await assertAlive(page);
+    expect(await e.xssFired(), 'no injected script in the composer flow').toBe(false);
+    expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+    expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+    expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+    expect(e.consoleWarnings, `console warnings (DoD=0): ${e.consoleWarnings.join('; ')}`).toEqual(
+      [],
+    );
+  });
 });
