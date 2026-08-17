@@ -40,7 +40,7 @@ import { RevealDirective } from '../../directives/reveal.directive';
           </header>
           <ul class="tier__list">
             <li>Hosted on Cloudflare's global edge</li>
-            <li>Free SSL + a {{ '{slug}' }}.projectsites.dev address</li>
+            <li>Free SSL + a yoursite.projectsites.dev address</li>
             <li>Visual editor + AI content updates</li>
             <li>Connect your own custom domain</li>
             <li>Contact forms, SEO metadata, analytics</li>
