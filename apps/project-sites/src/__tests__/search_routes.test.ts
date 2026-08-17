@@ -229,6 +229,13 @@ describe('GET /api/search/businesses', () => {
     expect(body.data).toEqual([]);
     expect(body._error.code).toBe('SEARCH_PROVIDER_UNAVAILABLE');
     expect(body._error.status).toBe(403);
+    // The client-facing message must NOT leak the RAW upstream provider error
+    // (GCP billing state, console URLs, provider identity, PERMISSION_DENIED bodies).
+    // That raw text is logged SERVER-SIDE only; the client gets a generic, stable
+    // message. (Info-disclosure hardening — the leaked "You must enable Billing on
+    // the Google Cloud Project…" body was live in prod.)
+    expect(body._error.message).not.toMatch(/billing|permission|google|cloud|console\.cloud|\{/i);
+    expect(body._error.message).toBe('Business search is temporarily unavailable');
   });
 
   it('short-circuits with SEARCH_PROVIDER_NOT_CONFIGURED when the Places key is unset (no fetch)', async () => {
@@ -310,6 +317,10 @@ describe('GET /api/search/address', () => {
     expect(body.data).toEqual([]);
     expect(body._error.code).toBe('SEARCH_PROVIDER_UNAVAILABLE');
     expect(body._error.status).toBe(403);
+    // Same info-disclosure hardening as business search — the raw upstream billing
+    // body must not reach the client; only a generic, stable message.
+    expect(body._error.message).not.toMatch(/billing|permission|google|cloud|console\.cloud|\{/i);
+    expect(body._error.message).toBe('Address lookup is temporarily unavailable');
     expect(mockFetch).toHaveBeenCalledTimes(2); // autocomplete + fallback
   });
 

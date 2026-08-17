@@ -170,7 +170,10 @@ search.get('/api/search/businesses', async (c) => {
       _error: {
         code: 'SEARCH_PROVIDER_UNAVAILABLE',
         status: response.status,
-        message: errorText.slice(0, 200),
+        // Generic, stable, user-safe. The RAW upstream body (GCP billing state,
+        // console URLs, PERMISSION_DENIED payloads) is logged SERVER-SIDE above —
+        // never leaked to the client (info-disclosure hardening).
+        message: 'Business search is temporarily unavailable',
       },
     });
   }
@@ -335,7 +338,8 @@ search.get('/api/search/address', async (c) => {
         _error: {
           code: 'SEARCH_PROVIDER_UNAVAILABLE',
           status: fallbackResponse.status,
-          message: errorText.slice(0, 200),
+          // Generic + user-safe; the raw upstream body is logged server-side above.
+          message: 'Address lookup is temporarily unavailable',
         },
       });
     }
@@ -367,7 +371,8 @@ search.get('/api/search/address', async (c) => {
       _error: {
         code: 'SEARCH_PROVIDER_UNAVAILABLE',
         status: 502,
-        message: err instanceof Error ? err.message.slice(0, 200) : 'address lookup failed',
+        // Generic + user-safe; the thrown error is logged server-side above.
+        message: 'Address lookup is temporarily unavailable',
       },
     });
   }

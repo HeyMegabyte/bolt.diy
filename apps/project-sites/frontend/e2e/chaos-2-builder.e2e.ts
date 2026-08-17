@@ -69,6 +69,54 @@ test.describe('CHAOS 2 — Impatient Builder (create funnel + AI + domains)', ()
     expect(bad5xx).toEqual([]);
   });
 
+  test('M2: business search degrades honestly + never leaks the upstream provider error', async ({
+    page,
+  }) => {
+    // The create-funnel business search calls /api/search/businesses (Google Places).
+    // Places is currently 403-denied in prod (GCP billing disabled — a P0 tracked
+    // separately), so the funnel MUST degrade honestly: no 5xx, no crash, an honest
+    // "temporarily unavailable" affordance, and — critically — the API must NOT leak
+    // the raw upstream provider error (billing state, GCP console URLs) to the client.
+    const e = trackErrors(page);
+    await page.goto('/create', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2000);
+    const biz = page.locator('input[type="text"]').first();
+    await biz.click();
+    await biz.pressSequentially('Starbucks', { delay: 80 }); // triggers the debounced search
+
+    const resp = await page
+      .waitForResponse((r) => r.url().includes('/api/search/businesses'), { timeout: 15_000 })
+      .catch(() => null);
+    if (resp) {
+      expect(resp.status(), 'business search must never 5xx').toBeLessThan(500);
+      const body = (await resp.json().catch(() => ({}))) as { _error?: { message?: string } };
+      const msg = body._error?.message ?? '';
+      // Info-disclosure gate: a generic message only — no raw upstream internals.
+      expect(msg, `_error.message leaks upstream internals: ${msg}`).not.toMatch(
+        /billing|permission|console\.cloud|PERMISSION_DENIED|\{/i,
+      );
+    }
+
+    await page.waitForTimeout(1500);
+    // The user is never stranded: either real suggestions rendered OR the honest
+    // "business lookup temporarily unavailable" affordance is shown.
+    const state = await page.evaluate(() => {
+      const unavail = !!document.querySelector('[data-testid="business-search-unavailable"]');
+      const dropdownItems = document.querySelectorAll(
+        '.absolute [class*="cursor-pointer"], [data-testid="business-suggestion"]',
+      ).length;
+      return { unavail, dropdownItems };
+    });
+    expect(
+      state.unavail || state.dropdownItems > 0,
+      'business search shows suggestions OR an honest unavailable affordance (never a blank dead field)',
+    ).toBe(true);
+
+    await assertAlive(page);
+    expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+    expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+  });
+
   test('AI improve-prompt endpoint never 5xx on hostile/oversized input', async ({ request }) => {
     // Over the 5000-char cap + injection. Bot-Fight may challenge (403) — that's
     // acceptable; a 5xx or a hang is not.
