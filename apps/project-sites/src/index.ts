@@ -1617,9 +1617,7 @@ export default {
             [siteId],
           );
           if (publishUpdate.error) {
-            throw new Error(
-              `Failed to flip site ${siteId} to published: ${publishUpdate.error}`,
-            );
+            throw new Error(`Failed to flip site ${siteId} to published: ${publishUpdate.error}`);
           }
 
           console.warn(

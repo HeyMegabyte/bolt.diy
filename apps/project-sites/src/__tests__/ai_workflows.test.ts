@@ -18,10 +18,7 @@ if (!globalThis.crypto?.subtle) {
 }
 
 import type { Env } from '../types/env.js';
-import {
-  runPrompt,
-  registerAllPrompts,
-} from '../services/ai_workflows.js';
+import { runPrompt, registerAllPrompts } from '../services/ai_workflows.js';
 import { clearRegistry, getStats } from '../prompts/registry.js';
 
 // ─── Mock AI Responses ───────────────────────────────────────────
@@ -208,4 +205,3 @@ describe('runPrompt', () => {
     expect(typeof payload.max_tokens).toBe('number');
   });
 });
-
