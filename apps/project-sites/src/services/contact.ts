@@ -8,7 +8,13 @@
  * 2. Confirmation email to the user acknowledging receipt.
  */
 
-import { BRAND, contactFormSchema, badRequest, internalError, escapeHtml } from '@project-sites/shared';
+import {
+  BRAND,
+  contactFormSchema,
+  badRequest,
+  internalError,
+  escapeHtml,
+} from '@project-sites/shared';
 import type { ContactForm } from '@project-sites/shared';
 import type { Env } from '../types/env.js';
 import { getEmailProvider } from '../platform/email-router.js';
@@ -257,7 +263,9 @@ export async function handleContactForm(env: Env, input: unknown): Promise<void>
   // every email rail failed — a full outage) — never a lying success that
   // silently drops a business lead. The visitor sees a 5xx and can retry.
   if (!persisted && !notified) {
-    throw internalError('We could not record your message right now. Please try again in a moment.');
+    throw internalError(
+      'We could not record your message right now. Please try again in a moment.',
+    );
   }
 
   // Confirmation to the user — guarded by a reply-deliverability check
