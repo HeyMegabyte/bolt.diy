@@ -60,15 +60,28 @@ export interface DailyPoint {
 }
 
 /**
- * AN5 follow-on — per-day traffic series straight from the `analytics_daily`
- * rollup (O(days), not a scan of raw `visitor_events`). Trailing `days` window,
- * ascending by day. Defensive: any D1 error (table missing on a fresh env)
- * degrades to an empty series rather than throwing.
+ * Per-day traffic series over a trailing window, bucketed by UTC calendar day.
+ *
+ * ⚠️ Reads LIVE `visitor_events` (GROUP BY `date(created_at)`), NOT the
+ * `analytics_daily` rollup. The rollup cron only materializes YESTERDAY's row
+ * (06:00 UTC), so a rollup read NEVER contains today (and lacks yesterday until
+ * 06:00) — the chart silently dropped the most recent day(s) AND diverged from
+ * the headline totals, which `getTrafficSummary` computes from LIVE
+ * `visitor_events` (the `analytics_rollup_read` optimization is dark). Reading
+ * the series live keeps the daily bars CURRENT and consistent with the headline
+ * (same source + same metric definitions: pageview / DISTINCT session / conversion),
+ * matching this module's sibling per-window queries (`getConversionsBySection`,
+ * `getVisitorFunnel`, `getFormAnalytics` all scan `visitor_events`). When the
+ * rollup-read flag is promoted, switch BOTH this and `getTrafficSummary` to the
+ * rollup+today-refresh path together (see `getTrafficSummaryFromRollup`).
+ *
+ * Defensive: any D1 error (table missing on a fresh env) degrades to an empty
+ * series rather than throwing.
  *
  * @param env    - Worker env (uses `env.DB`).
  * @param siteId - Site to read.
  * @param days   - Trailing window 1–365 (default 30).
- * @returns `{ days: DailyPoint[] }` ascending by calendar day.
+ * @returns `{ days: DailyPoint[] }` ascending by calendar day, including today.
  *
  * @example
  * const { days } = await getDailySeries(env, 'site_123', 30);
@@ -86,8 +99,15 @@ export async function getDailySeries(
     conversions: number;
   }>(
     env.DB,
-    `SELECT day, pageviews, unique_sessions, conversions FROM analytics_daily
-     WHERE site_id = ? AND day >= date('now', ?) ORDER BY day ASC`,
+    // WHERE on the raw `created_at` (index-usable via idx_visitor_events_site_time);
+    // GROUP BY `date(created_at)` buckets to UTC calendar days incl. today.
+    `SELECT date(created_at) AS day,
+            SUM(CASE WHEN event_type = 'pageview' THEN 1 ELSE 0 END) AS pageviews,
+            COUNT(DISTINCT session_id) AS unique_sessions,
+            SUM(CASE WHEN event_type = 'conversion' THEN 1 ELSE 0 END) AS conversions
+       FROM visitor_events
+      WHERE site_id = ? AND created_at >= datetime('now', ?)
+      GROUP BY date(created_at) ORDER BY day ASC`,
     [siteId, `-${n} days`],
   );
   if (error) return { days: [] };
