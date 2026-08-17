@@ -3089,6 +3089,22 @@ api.post('/api/publish/bolt', async (c) => {
 
   if (existingSlug) {
     slug = existingSlug;
+    // Ownership gate: re-publishing OVER an existing site requires owning it.
+    // Anonymous publish is only for a BRAND-NEW slug (no site row). Without this,
+    // any caller (this endpoint is reachable unauthenticated) could POST files
+    // with slug='<victim>' and overwrite another org's LIVE site — a cross-org
+    // takeover/defacement. Mirror the guarded `:id` sibling: 404 (non-leak) on miss.
+    const existing = await dbQueryOne<{ org_id: string }>(
+      c.env.DB,
+      'SELECT org_id FROM sites WHERE slug = ? AND deleted_at IS NULL LIMIT 1',
+      [existingSlug],
+    );
+    if (existing) {
+      const callerOrgId = c.get('orgId');
+      if (!callerOrgId || existing.org_id !== callerOrgId) {
+        throw notFound('Site not found');
+      }
+    }
   } else {
     slug = await generateSlugFromChat(c.env, chat);
     slug = await ensureUniqueSlug(c.env, slug);
@@ -4856,11 +4872,7 @@ api.post('/api/sites/:id/publish-bolt', async (c) => {
   if (!orgId) throw unauthorized('Not authenticated');
 
   const body = await c.req.json();
-  const {
-    files,
-    chat,
-    slug: providedSlug,
-  } = body as {
+  const { files, chat } = body as {
     files: { path: string; content: string }[];
     chat?: { messages: unknown[]; description?: string; exportDate?: string };
     slug?: string;
@@ -4883,7 +4895,10 @@ api.post('/api/sites/:id/publish-bolt', async (c) => {
   );
   if (!site || site.org_id !== orgId) throw notFound('Site not found');
 
-  const slug = providedSlug || site.slug;
+  // Always publish to the OWNED site's slug. Ownership was verified on the `:id`
+  // path param, NOT on a body-supplied slug — honoring an attacker-supplied
+  // `providedSlug` would let an owner of site A overwrite site B's R2/manifest.
+  const slug = site.slug;
   const version = new Date().toISOString().replace(/[:.]/g, '-');
 
   const mimeTypes: Record<string, string> = {
