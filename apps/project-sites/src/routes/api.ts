@@ -9787,19 +9787,25 @@ api.post('/api/sites/:siteId/domains/ai-search', async (c) => {
 
   const siteId = c.req.param('siteId');
   // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // ⚠️ Select ONLY real `sites` columns. `business_type` does NOT exist (the
+  // columns are business_name/phone/email/address/website) — selecting it threw
+  // `no such column`, which dbQueryOne SWALLOWS → null → requireOwnedSite 404'd
+  // EVERY site (owned or not), so ai-search was 100% broken in prod (a silent
+  // schema-drift-as-404, per the swallowed-SQL-error class).
   const site = await requireOwnedSite<{
     id: string;
     business_name: string | null;
-    business_type: string | null;
     business_address: string | null;
-  }>(c.env, orgId, siteId, 'id, business_name, business_type, business_address');
+  }>(c.env, orgId, siteId, 'id, business_name, business_address');
 
   const body = (await c.req.json().catch(() => ({}))) as { query?: unknown };
   const query = typeof body.query === 'string' ? body.query.trim().slice(0, 200) : '';
 
   const sitePrompt = await readSiteAiPrompt(c.env.DB, siteId);
   const businessName = site.business_name ?? 'the business';
-  const businessType = site.business_type ?? 'small business';
+  // No business_type column exists; the designer query + brand-voice prompt below
+  // carry the domain-naming specificity. Default keeps the AI context well-formed.
+  const businessType = 'small business';
   const address = site.business_address ?? '';
 
   const baseContext = [
@@ -9874,7 +9880,27 @@ api.post('/api/sites/:siteId/domains/ai-search', async (c) => {
     return c.json({ data: { available: [], unavailable: [] } });
   }
 
-  const availabilityResult = await domainService.checkDomainAvailability(c.env, allNames);
+  // The availability provider (CF Registrar) is SECONDARY enrichment on top of the
+  // AI-generated candidates. It currently 502s (the registrar API returns 404), and
+  // it THROWS an AppError rather than returning a non-array — so the intended
+  // soft-failure below never triggered and the whole search 502'd, hiding every AI
+  // suggestion. Catch it: the primary value (the domain ideas) still ships; each row
+  // just shows "availability unknown" instead of a price/available flag.
+  let availabilityResult: Awaited<
+    ReturnType<typeof domainService.checkDomainAvailability>
+  > | null = null;
+  try {
+    availabilityResult = await domainService.checkDomainAvailability(c.env, allNames);
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'ai_domain_search',
+        message: 'availability_check_failed',
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+  }
 
   // Soft failure: surface every candidate as "availability unknown" rather
   // than empty.

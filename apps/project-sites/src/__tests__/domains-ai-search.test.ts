@@ -145,7 +145,6 @@ describe('POST /api/sites/:siteId/domains/ai-search', () => {
       .mockResolvedValueOnce({
         id: TEST_SITE_ID,
         business_name: "Vito's Mens Salon",
-        business_type: 'salon',
         business_address: '74 N Beverwyck Rd, Lake Hiawatha, NJ',
       })
       .mockResolvedValueOnce({ chat_system_prompt: 'Sharp. Punchy. Old-school barbershop voice.' });
@@ -195,6 +194,18 @@ describe('POST /api/sites/:siteId/domains/ai-search', () => {
       env,
     );
     expect(res.status).toBe(200);
+
+    // SCHEMA-DRIFT GUARD: the site-ownership lookup must select ONLY real `sites`
+    // columns. `business_type` does NOT exist — selecting it threw `no such column`,
+    // which dbQueryOne swallows → null → requireOwnedSite 404'd EVERY site (owned or
+    // not), making ai-search 100% broken in prod. This mock returns a row regardless
+    // of columns, so it can't catch a bad column at runtime — assert the SQL instead.
+    const siteLookupSql = String(mockDbQueryOne.mock.calls[0]?.[1] ?? '');
+    expect(siteLookupSql).toMatch(/FROM sites/i);
+    expect(siteLookupSql).not.toMatch(/business_type/);
+    expect(siteLookupSql).toContain('business_name');
+    expect(siteLookupSql).toContain('business_address');
+
     const body = (await res.json()) as {
       data: {
         available: Array<{ name: string; strategy: string; price_usd: number }>;
@@ -262,5 +273,37 @@ describe('POST /api/sites/:siteId/domains/ai-search', () => {
     // Every candidate should be marked unavailable when CF is down.
     expect(body.data.available).toEqual([]);
     expect(body.data.unavailable.length).toBeGreaterThan(0);
+  });
+
+  it('degrades to all-unknown when the availability check THROWS (CF Registrar 404) — was 502ing the whole search', async () => {
+    // Prod reality: the CF Registrar availability API returns 404, and
+    // checkDomainAvailability THROWS an AppError(502) on 404 (unlike 5xx, which it
+    // returns-gracefully). Before the handler wrapped it in try/catch, that throw
+    // propagated → 502 → every AI-generated candidate was hidden. The AI suggestions
+    // are the PRIMARY value; availability is secondary enrichment → must still 200.
+    mockDbQueryOne
+      .mockResolvedValueOnce({ id: TEST_SITE_ID, business_name: 'Acme', business_address: null })
+      .mockResolvedValueOnce(null);
+
+    const { app, env } = createAuthenticatedApp();
+    (env.AI.run as jest.Mock).mockResolvedValue({ response: 'acmecafe.com\nbeanbar.io\n' });
+
+    // 404 with success:false — the shape that makes checkDomainAvailability throw.
+    globalThis.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: jest.fn().mockResolvedValue({ result: null, success: false, errors: [{ code: 7003 }] }),
+      text: jest.fn().mockResolvedValue('{"result":null,"success":false}'),
+    }) as unknown as typeof fetch;
+
+    const res = await app.request(
+      `/api/sites/${TEST_SITE_ID}/domains/ai-search`,
+      { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query: '' }) },
+      env,
+    );
+    expect(res.status).toBe(200); // NOT 502 — the search still returns its candidates
+    const body = (await res.json()) as { data: { available: unknown[]; unavailable: unknown[] } };
+    expect(body.data.available).toEqual([]);
+    expect(body.data.unavailable.length).toBeGreaterThan(0); // AI candidates surfaced as unknown
   });
 });
