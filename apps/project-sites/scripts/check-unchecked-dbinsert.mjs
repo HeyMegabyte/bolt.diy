@@ -66,10 +66,21 @@ function walk(dir) {
 /** The ~90 chars before an index that captures an assignment head (`const { error } = await `). */
 const ASSIGNED_RE = /(?:const|let|var)\s*(?:\{[^}]*\}|[\w$]+)\s*=\s*(?:await\s+)?$/;
 
+/**
+ * Blank `//` line + block comments to equal-length spaces (newlines preserved) so a
+ * `dbInsert(` token that appears only in PROSE (e.g. a JSDoc/inline comment explaining
+ * the pattern) is never matched as a call. Length + line preservation keeps every
+ * `m.index` / reported line number exact. Prefers false-negatives (a `//` inside a
+ * string literal blanks the line tail) per validator-precision-discipline.
+ */
+function stripComments(src) {
+  return src.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (m) => m.replace(/[^\n]/g, ' '));
+}
+
 const findings = [];
 for (const dir of SCAN_DIRS) {
   for (const file of walk(dir)) {
-    const text = readFileSync(file, 'utf8');
+    const text = stripComments(readFileSync(file, 'utf8'));
     if (!text.includes('dbInsert')) continue;
     const rel = relative(APP_DIR, file);
     // Resolve aliased imports (`const { dbInsert: dbIns } = …`) so calls via the

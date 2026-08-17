@@ -49,8 +49,24 @@ export async function recordUsage(
   opts: { orgId: string; metric: UsageMetric; value: number; siteId?: string | null },
 ): Promise<void> {
   if (opts.value <= 0) return;
+  const warn = (error: string): void =>
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'usage_metering',
+        message: 'failed to record usage',
+        org_id: opts.orgId,
+        metric: opts.metric,
+        error,
+      }),
+    );
   try {
-    await dbInsert(db, 'usage_events', {
+    // `dbInsert` returns `{ error }` and NEVER throws on a D1 failure — capturing that
+    // error is the ONLY way the drop is observable. A bare `await dbInsert(...)` silently
+    // drops the event AND logs nothing (the JSDoc "failures are logged" was false: the
+    // catch below only fires on a genuine JS throw, which this insert never produces).
+    // Fire-and-forget by design — log the drop, never break the originating request.
+    const { error } = await dbInsert(db, 'usage_events', {
       id: crypto.randomUUID(),
       org_id: opts.orgId,
       site_id: opts.siteId ?? null,
@@ -60,17 +76,9 @@ export async function recordUsage(
       billed: 0,
       stripe_subscription_item_id: null,
     });
+    if (error) warn(error);
   } catch (err) {
-    console.warn(
-      JSON.stringify({
-        level: 'warn',
-        service: 'usage_metering',
-        message: 'failed to record usage',
-        org_id: opts.orgId,
-        metric: opts.metric,
-        error: err instanceof Error ? err.message : String(err),
-      }),
-    );
+    warn(err instanceof Error ? err.message : String(err));
   }
 }
 
@@ -174,38 +182,6 @@ export async function computeOverageMicroUsd(
     image_generations_overage: imgOver,
     total_micro_usd: totalMicroUsd,
   };
-}
-
-/** Lightweight wrapper that counts every Workers AI invocation. */
-export async function meterAiCall(
-  env: Env,
-  db: D1Database,
-  orgId: string,
-  siteId?: string | null,
-): Promise<void> {
-  await recordUsage(env, db, { orgId, metric: 'ai_calls', value: 1, siteId });
-}
-
-/** Lightweight wrapper that meters image-generation success calls. */
-export async function meterImageGeneration(
-  env: Env,
-  db: D1Database,
-  orgId: string,
-  siteId?: string | null,
-): Promise<void> {
-  await recordUsage(env, db, { orgId, metric: 'image_generations', value: 1, siteId });
-}
-
-/** Wrapper for response-body egress metering. */
-export async function meterEgressBytes(
-  env: Env,
-  db: D1Database,
-  orgId: string,
-  bytes: number,
-  siteId?: string | null,
-): Promise<void> {
-  if (bytes <= 0) return;
-  await recordUsage(env, db, { orgId, metric: 'bytes_egress', value: bytes, siteId });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

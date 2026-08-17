@@ -25,9 +25,6 @@ import {
   getMonthUsage,
   getOrgTier,
   computeOverageMicroUsd,
-  meterAiCall,
-  meterImageGeneration,
-  meterEgressBytes,
   getUsagePanelPayload,
   aggregateNightly,
 } from '../services/usage_metering.js';
@@ -119,7 +116,7 @@ describe('recordUsage', () => {
     expect(mockInsert).not.toHaveBeenCalled();
   });
 
-  it('swallows D1 write failures without throwing', async () => {
+  it('swallows an unexpected JS throw from the insert (belt-and-suspenders catch)', async () => {
     mockInsert.mockRejectedValueOnce(new Error('d1 down'));
     await expect(
       recordUsage(baseEnv, db, { orgId: ORG, metric: 'ai_calls', value: 1 }),
@@ -131,6 +128,37 @@ describe('recordUsage', () => {
     await expect(
       recordUsage(baseEnv, db, { orgId: ORG, metric: 'bytes_egress', value: 100 }),
     ).resolves.toBeUndefined();
+  });
+
+  it('LOGS the drop when dbInsert returns { error } — the real D1-failure mode (no throw)', async () => {
+    // `dbInsert` returns `{ error }` and does NOT throw on a D1 failure; the previous
+    // bare `await dbInsert(...)` silently dropped the event AND logged nothing (the
+    // catch only fires on a JS throw, which this insert never produces). Assert the drop
+    // is now observable (warned) and that recordUsage still never throws (fire-and-forget).
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockInsert.mockResolvedValueOnce({ error: 'D1_ERROR: database is locked' });
+    await expect(
+      recordUsage(baseEnv, db, { orgId: ORG, metric: 'ai_calls', value: 1, siteId: 'site-1' }),
+    ).resolves.toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    const logged = JSON.parse(warnSpy.mock.calls[0][0] as string);
+    expect(logged).toMatchObject({
+      level: 'warn',
+      service: 'usage_metering',
+      message: 'failed to record usage',
+      org_id: ORG,
+      metric: 'ai_calls',
+      error: 'D1_ERROR: database is locked',
+    });
+    warnSpy.mockRestore();
+  });
+
+  it('does NOT log when dbInsert succeeds ({ error: null })', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockInsert.mockResolvedValueOnce({ error: null });
+    await recordUsage(baseEnv, db, { orgId: ORG, metric: 'image_generations', value: 1 });
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });
 
@@ -251,37 +279,6 @@ describe('computeOverageMicroUsd', () => {
     );
     const out = await computeOverageMicroUsd(db, ORG, 'scale');
     expect(out.total_micro_usd).toBe(0);
-  });
-});
-
-describe('meter* wrappers', () => {
-  it('meterAiCall records one ai_call', async () => {
-    await meterAiCall(baseEnv, db, ORG, 'site-x');
-    expect(mockInsert.mock.calls[0][2]).toMatchObject({
-      metric: 'ai_calls',
-      value: 1,
-      site_id: 'site-x',
-    });
-  });
-
-  it('meterImageGeneration records one image_generation', async () => {
-    await meterImageGeneration(baseEnv, db, ORG);
-    expect(mockInsert.mock.calls[0][2]).toMatchObject({ metric: 'image_generations', value: 1 });
-  });
-
-  it('meterEgressBytes records the byte count', async () => {
-    await meterEgressBytes(baseEnv, db, ORG, 2048, 'site-y');
-    expect(mockInsert.mock.calls[0][2]).toMatchObject({ metric: 'bytes_egress', value: 2048 });
-  });
-
-  it('meterEgressBytes no-ops on zero bytes (guard)', async () => {
-    await meterEgressBytes(baseEnv, db, ORG, 0);
-    expect(mockInsert).not.toHaveBeenCalled();
-  });
-
-  it('meterEgressBytes no-ops on negative bytes (guard)', async () => {
-    await meterEgressBytes(baseEnv, db, ORG, -1);
-    expect(mockInsert).not.toHaveBeenCalled();
   });
 });
 

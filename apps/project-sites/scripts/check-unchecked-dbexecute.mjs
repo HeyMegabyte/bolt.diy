@@ -69,10 +69,21 @@ const MUTATION_RE = /dbExecute\s*\(\s*[^,]+,\s*[`'"]\s*(INSERT\s+INTO|UPDATE|DEL
 /** Grab the mutated table name for the report. */
 const TABLE_RE = /(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+([A-Za-z_][A-Za-z0-9_]*)/i;
 
+/**
+ * Blank `//` line + block comments to equal-length spaces (newlines preserved) so a
+ * `dbExecute('UPDATE …')` token that appears only in PROSE (a JSDoc/inline comment
+ * explaining the pattern) is never matched as a call. Length + line preservation keeps
+ * every `m.index` / reported line number exact. Prefers false-negatives per
+ * validator-precision-discipline.
+ */
+function stripComments(src) {
+  return src.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (m) => m.replace(/[^\n]/g, ' '));
+}
+
 const findings = [];
 for (const dir of SCAN_DIRS) {
   for (const file of walk(dir)) {
-    const text = readFileSync(file, 'utf8');
+    const text = stripComments(readFileSync(file, 'utf8'));
     if (!text.includes('dbExecute(')) continue;
     const rel = relative(APP_DIR, file);
     const re = /\bdbExecute\s*\(/g;
