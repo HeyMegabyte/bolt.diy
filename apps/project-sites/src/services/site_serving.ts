@@ -848,7 +848,14 @@ export async function serveSiteFromR2(
         );
         const status = known && !known.has(normalizeRoute(requestPath)) ? 404 : 200;
         serveLog.debug('serve_spa_fallback', { slug: site.slug, requestPath, status });
-        return buildSiteResponse(fallback, site, 'text/html; charset=utf-8', env, status, requestPath);
+        return buildSiteResponse(
+          fallback,
+          site,
+          'text/html; charset=utf-8',
+          env,
+          status,
+          requestPath,
+        );
       }
     }
 
