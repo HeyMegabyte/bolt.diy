@@ -886,7 +886,15 @@ export class AdminDashboardComponent {
    */
   readonly siteStatusSummary = computed(() => {
     const buckets: Record<string, number> = { published: 0, building: 0, draft: 0, error: 0 };
-    for (const s of this.state.sites()) buckets[this.state.getStatusClass(s.status)] = (buckets[this.state.getStatusClass(s.status)] ?? 0) + 1;
+    for (const s of this.state.sites()) {
+      let cls = this.state.getStatusClass(s.status);
+      // A 'published' site with NO build serves the branded 503 ("the last build
+      // didn't finish") — it is NOT live/serving. Count it as needs-attention so
+      // the strip reflects real health (never "Live · published + serving" for a
+      // site that 503s). Mirrors the public-search lying-published guard.
+      if (cls === 'published' && !s.current_build_version) cls = 'error';
+      buckets[cls] = (buckets[cls] ?? 0) + 1;
+    }
     const defs: { key: string; label: string; interp: string; tone: string }[] = [
       { key: 'error', label: 'Needs attention', interp: 'build failed — open to retry', tone: 'error' },
       { key: 'published', label: 'Live', interp: 'published + serving', tone: 'published' },

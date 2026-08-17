@@ -85,7 +85,9 @@ describe('AdminDashboardComponent (site-status command-center strip)', () => {
     collecting: 'building', generating: 'building', uploading: 'building',
     error: 'error', failed: 'error', draft: 'draft',
   };
-  function buildWith(statuses: string[]): AdminDashboardComponent {
+  function buildFromSites(
+    sites: { status: string; current_build_version?: string | null }[],
+  ): AdminDashboardComponent {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [AdminDashboardComponent],
@@ -93,7 +95,7 @@ describe('AdminDashboardComponent (site-status command-center strip)', () => {
         {
           provide: AdminStateService,
           useValue: {
-            sites: signal(statuses.map((status, i) => ({ id: `s${i}`, status }))),
+            sites: signal(sites.map((s, i) => ({ id: `s${i}`, ...s }))),
             getStatusClass: (s: string) => STATUS_MAP[s] ?? 'draft',
           },
         },
@@ -102,6 +104,17 @@ describe('AdminDashboardComponent (site-status command-center strip)', () => {
     });
     TestBed.overrideComponent(AdminDashboardComponent, { set: { template: '<div></div>', imports: [] } });
     return TestBed.createComponent(AdminDashboardComponent).componentInstance;
+  }
+  // A real "Live" site HAS a build — attach one to every published fixture so the
+  // status-class assertions reflect genuinely-serving sites (a published site with
+  // NO build serves a 503 and is asserted separately below).
+  function buildWith(statuses: string[]): AdminDashboardComponent {
+    return buildFromSites(
+      statuses.map((status) => ({
+        status,
+        current_build_version: status === 'published' ? 'v1' : null,
+      })),
+    );
   }
   afterEach(() => TestBed.resetTestingModule());
 
@@ -124,5 +137,21 @@ describe('AdminDashboardComponent (site-status command-center strip)', () => {
 
   it('is empty when there are no sites', () => {
     expect(buildWith([]).siteStatusSummary()).toEqual([]);
+  });
+
+  // A `published` site with NO build serves the branded 503 ("the last build
+  // didn't finish") on its subdomain — it is NOT live/serving. It must count as
+  // "Needs attention", never "Live", or the dashboard lies about site health.
+  // (Reconciled live 2026-08-17: e2e-test-org's acme-bakery + green-thumb are
+  // published/null-build → 503, yet were shown as "2 Live · published + serving".)
+  it('counts a published-but-unbuilt site as Needs attention, not Live', () => {
+    const c = buildFromSites([
+      { status: 'published', current_build_version: 'v3' }, // real Live site
+      { status: 'published', current_build_version: null }, // 503 stub — needs attention
+      { status: 'published', current_build_version: null }, // 503 stub — needs attention
+      { status: 'draft', current_build_version: null },
+    ]);
+    const byKey = Object.fromEntries(c.siteStatusSummary().map((b) => [b.key, b.count]));
+    expect(byKey).toEqual({ published: 1, error: 2, draft: 1 });
   });
 });
