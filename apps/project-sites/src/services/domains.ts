@@ -801,23 +801,25 @@ function priceForTld(tld: string): number {
 }
 
 /**
- * Bulk-check domain availability via the Cloudflare Registrar
- * `domains/check` endpoint.
+ * Bulk-check domain availability via free RDAP (RFC 7480) — NOT the Cloudflare
+ * Registrar `/registrar/domains/check` endpoint, which 404s (Cloudflare exposes
+ * no public bulk-availability API for arbitrary domains).
  *
- * Soft-fails on 5xx so the AI-search aggregator can keep partial results.
- * Hard-fails (`AppError` with code `DOMAIN_PROVISIONING_ERROR`) on 4xx
- * because that signals a bad token / malformed request that won't fix itself
- * on retry.
+ * Never throws on a registry/egress hiccup: `checkBatch` returns `unknown` for
+ * any domain it can't resolve, and both `taken` and `unknown` map to
+ * `available: false` (conservative — never advertise a possibly-taken domain as
+ * free). Pricing comes from the per-TLD table (`priceForTld`).
  *
- * @param env   - Worker environment (uses `CF_API_TOKEN` + `CF_ACCOUNT_ID`).
+ * @param env   - Worker environment (RDAP needs no CF credentials).
  * @param names - List of domains to check (max ~50 per call).
- * @returns Either an array of availability records or a soft-failure marker.
+ * @returns Array of availability records (one per input name). The
+ *   `RegistrarSoftFailure` arm is retained for callsite compatibility but is no
+ *   longer produced by this path.
  *
  * @example
  * ```ts
  * const r = await checkDomainAvailability(env, ['acme.com', 'acme.dev']);
- * if ('ok' in r) console.warn('cf 5xx', r.error);
- * else r.forEach(d => console.log(d.name, d.available));
+ * if (Array.isArray(r)) r.forEach(d => console.log(d.name, d.available));
  * ```
  */
 export async function checkDomainAvailability(
@@ -825,41 +827,25 @@ export async function checkDomainAvailability(
   names: readonly string[],
 ): Promise<DomainAvailability[] | RegistrarSoftFailure> {
   if (names.length === 0) return [];
-  const accountId = resolveAccountId(env);
-  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/registrar/domains/check?names=${encodeURIComponent(names.join(','))}`;
-
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${env.CF_API_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (response.status >= 500) {
-    return { ok: false, error: `cf_registrar_5xx_${response.status}` };
-  }
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => '');
-    throw new AppError({
-      code: 'DOMAIN_PROVISIONING_ERROR',
-      message: `Cloudflare availability check failed (${response.status})`,
-      statusCode: 502,
-      details: { body: body.slice(0, 500) },
-    });
-  }
-
-  const data = (await response.json().catch(() => ({}))) as {
-    result?: Array<{ name?: string; available?: boolean; price?: number }>;
-  };
-
-  const result = data.result ?? [];
+  // Availability via free RDAP (RFC 7480) — NOT the CF Registrar
+  // `/registrar/domains/check` endpoint. That path 404s: Cloudflare exposes no
+  // public bulk-availability API for arbitrary domains (the token only manages
+  // domains the account already OWNS), so this used to throw AppError(502) on
+  // EVERY call — availability was globally broken (see the ai-domain-search
+  // incident: search 502'd until wrapped, then showed all-unknown). RDAP is the
+  // keystone the domain-picker + domain_suggester already rely on:
+  // `GET rdap.org/domain/{name}` → 404 = available, 200 = taken, with a resilient
+  // `unknown` on any egress/registry hiccup (checkBatch NEVER throws). Pricing
+  // falls back to the per-TLD table (CF wholesale pricing isn't reachable either).
+  const { checkBatch } = await import('./rdap_availability.js');
+  const rdap = await checkBatch(env, [...names]);
+  const byDomain = new Map(rdap.map((r) => [r.domain, r]));
   return names.map<DomainAvailability>((name) => {
     const tld = tldOf(name);
-    const row = result.find((r) => r.name === name);
-    const available = row?.available ?? false;
-    const price_usd = row?.price && row.price > 0 ? row.price : priceForTld(tld);
-    return { name, tld, available, price_usd };
+    // Definitive `available` only; `taken` AND transient `unknown` both map to
+    // not-available (conservative — never advertise a possibly-taken domain as free).
+    const available = byDomain.get(name)?.status === 'available';
+    return { name, tld, available, price_usd: priceForTld(tld) };
   });
 }
 

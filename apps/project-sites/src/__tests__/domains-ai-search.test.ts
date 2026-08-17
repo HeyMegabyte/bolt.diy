@@ -5,10 +5,12 @@
  * Verifies that:
  *  1. Workers AI fan-out aggregates candidates across multiple strategies.
  *  2. Duplicate candidates from different strategies are deduped.
- *  3. The Cloudflare Registrar bulk-check merges availability + pricing
+ *  3. RDAP availability (via `checkBatch`) merges availability + pricing
  *     correctly and slots each candidate into `available` vs `unavailable`.
- *  4. Soft-failures (5xx from CF Registrar) degrade to "all unknown" rather
- *     than throwing.
+ *     (The CF Registrar `/registrar/domains/check` endpoint 404s and is NOT a
+ *     public API — `checkDomainAvailability` routes through RDAP instead.)
+ *  4. When availability enrichment returns all-unknown OR throws, the search
+ *     still 200s with every AI candidate surfaced (availability is secondary).
  *
  * @packageDocumentation
  */
@@ -38,13 +40,28 @@ jest.mock('../lib/posthog.js', () => ({
   trackBilling: jest.fn(),
 }));
 
+// Availability is proven by RDAP (checkDomainAvailability now routes through
+// checkBatch — the CF Registrar /check endpoint 404s). Mock it per-domain.
+jest.mock('../services/rdap_availability.js', () => ({
+  checkBatch: jest.fn(),
+}));
+
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { api } from '../routes/api.js';
 import { dbQueryOne } from '../services/db.js';
+import { checkBatch } from '../services/rdap_availability.js';
 
 const mockDbQueryOne = dbQueryOne as jest.Mock;
+const mockCheckBatch = checkBatch as jest.Mock;
+/** Build an RdapResult row for a domain. */
+const rdap = (domain: string, status: 'available' | 'taken' | 'unknown') => ({
+  domain,
+  available: status === 'available',
+  status,
+  source: status === 'unknown' ? 'rdap-error' : 'rdap',
+});
 
 const TEST_SITE_ID = 'site-ai-1';
 const TEST_ORG_ID = 'org-ai-1';
@@ -168,21 +185,14 @@ describe('POST /api/sites/:siteId/domains/ai-search', () => {
       return Promise.resolve({ response: '' });
     });
 
-    // Mock the Cloudflare Registrar bulk-check.
-    globalThis.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: jest.fn().mockResolvedValue({
-        result: [
-          { name: 'vitossalon.com', available: false, price: 9.77 },
-          { name: 'mensbarber.com', available: true, price: 9.77 },
-          { name: 'ironpaw.com', available: true, price: 9.77 },
-          { name: 'blademaster.dev', available: true, price: 14.0 },
-          { name: 'sharpfade.io', available: false, price: 39.0 },
-        ],
-      }),
-      text: jest.fn().mockResolvedValue(''),
-    }) as unknown as typeof fetch;
+    // Mock the RDAP availability batch (the real availability provider).
+    mockCheckBatch.mockResolvedValue([
+      rdap('vitossalon.com', 'taken'),
+      rdap('mensbarber.com', 'available'),
+      rdap('ironpaw.com', 'available'),
+      rdap('blademaster.dev', 'available'),
+      rdap('sharpfade.io', 'taken'),
+    ]);
 
     const res = await app.request(
       `/api/sites/${TEST_SITE_ID}/domains/ai-search`,
@@ -230,19 +240,20 @@ describe('POST /api/sites/:siteId/domains/ai-search', () => {
     const sharpfade = body.data.unavailable.find((c) => c.name === 'sharpfade.io');
     expect(sharpfade?.strategy).toBe('compound');
 
-    // CF Registrar was called exactly once with the deduped candidate list.
-    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
-    const callUrl = (globalThis.fetch as jest.Mock).mock.calls[0]?.[0] as string;
-    expect(callUrl).toContain('/registrar/domains/check');
-    expect(callUrl).toContain('vitossalon.com');
+    // RDAP availability was checked exactly once with the deduped candidate list.
+    expect(mockCheckBatch).toHaveBeenCalledTimes(1);
+    const checkedNames = mockCheckBatch.mock.calls[0]?.[1] as string[];
+    expect(checkedNames).toContain('vitossalon.com');
+    expect(checkedNames).toContain('sharpfade.io');
+    // Deduped: 5 unique candidates from 6 raw suggestions.
+    expect(checkedNames).toHaveLength(5);
   });
 
-  it('degrades to all-unknown when Cloudflare Registrar returns 5xx', async () => {
+  it('degrades to all-unavailable when RDAP cannot determine availability (all unknown)', async () => {
     mockDbQueryOne
       .mockResolvedValueOnce({
         id: TEST_SITE_ID,
         business_name: 'Acme',
-        business_type: 'cafe',
         business_address: null,
       })
       .mockResolvedValueOnce(null);
@@ -250,12 +261,11 @@ describe('POST /api/sites/:siteId/domains/ai-search', () => {
     const { app, env } = createAuthenticatedApp();
     (env.AI.run as jest.Mock).mockResolvedValue({ response: 'acmecafe.com\nbeanbar.io\n' });
 
-    globalThis.fetch = jest.fn().mockResolvedValue({
-      ok: false,
-      status: 503,
-      json: jest.fn().mockResolvedValue({}),
-      text: jest.fn().mockResolvedValue('upstream timeout'),
-    }) as unknown as typeof fetch;
+    // RDAP hiccup → every domain comes back `unknown` (checkBatch never throws).
+    mockCheckBatch.mockResolvedValue([
+      rdap('acmecafe.com', 'unknown'),
+      rdap('beanbar.io', 'unknown'),
+    ]);
 
     const res = await app.request(
       `/api/sites/${TEST_SITE_ID}/domains/ai-search`,
@@ -270,17 +280,18 @@ describe('POST /api/sites/:siteId/domains/ai-search', () => {
     const body = (await res.json()) as {
       data: { available: unknown[]; unavailable: unknown[] };
     };
-    // Every candidate should be marked unavailable when CF is down.
+    // Unknown availability is treated as not-confirmed-available → all unavailable.
     expect(body.data.available).toEqual([]);
     expect(body.data.unavailable.length).toBeGreaterThan(0);
   });
 
-  it('degrades to all-unknown when the availability check THROWS (CF Registrar 404) — was 502ing the whole search', async () => {
-    // Prod reality: the CF Registrar availability API returns 404, and
-    // checkDomainAvailability THROWS an AppError(502) on 404 (unlike 5xx, which it
-    // returns-gracefully). Before the handler wrapped it in try/catch, that throw
-    // propagated → 502 → every AI-generated candidate was hidden. The AI suggestions
-    // are the PRIMARY value; availability is secondary enrichment → must still 200.
+  it('degrades gracefully when the availability check THROWS — must NOT 502 the whole search', async () => {
+    // Availability enrichment is SECONDARY to the AI-generated candidates. If the
+    // provider throws (RDAP fetch error, dynamic-import failure, provider rewire),
+    // the handler's try/catch must swallow it and still 200 with every candidate —
+    // never let a secondary-enrichment failure 502 the primary value. (Historic
+    // prod bug: the old CF Registrar path threw AppError(502) on 404 and, before the
+    // try/catch, hid every AI suggestion.)
     mockDbQueryOne
       .mockResolvedValueOnce({ id: TEST_SITE_ID, business_name: 'Acme', business_address: null })
       .mockResolvedValueOnce(null);
@@ -288,13 +299,8 @@ describe('POST /api/sites/:siteId/domains/ai-search', () => {
     const { app, env } = createAuthenticatedApp();
     (env.AI.run as jest.Mock).mockResolvedValue({ response: 'acmecafe.com\nbeanbar.io\n' });
 
-    // 404 with success:false — the shape that makes checkDomainAvailability throw.
-    globalThis.fetch = jest.fn().mockResolvedValue({
-      ok: false,
-      status: 404,
-      json: jest.fn().mockResolvedValue({ result: null, success: false, errors: [{ code: 7003 }] }),
-      text: jest.fn().mockResolvedValue('{"result":null,"success":false}'),
-    }) as unknown as typeof fetch;
+    // checkBatch rejects — checkDomainAvailability propagates → handler try/catch swallows.
+    mockCheckBatch.mockRejectedValue(new Error('rdap unreachable'));
 
     const res = await app.request(
       `/api/sites/${TEST_SITE_ID}/domains/ai-search`,

@@ -9880,12 +9880,14 @@ api.post('/api/sites/:siteId/domains/ai-search', async (c) => {
     return c.json({ data: { available: [], unavailable: [] } });
   }
 
-  // The availability provider (CF Registrar) is SECONDARY enrichment on top of the
-  // AI-generated candidates. It currently 502s (the registrar API returns 404), and
-  // it THROWS an AppError rather than returning a non-array — so the intended
-  // soft-failure below never triggered and the whole search 502'd, hiding every AI
-  // suggestion. Catch it: the primary value (the domain ideas) still ships; each row
-  // just shows "availability unknown" instead of a price/available flag.
+  // The availability provider (RDAP via checkDomainAvailability) is SECONDARY
+  // enrichment on top of the AI-generated candidates — the domain IDEAS are the
+  // primary value. checkBatch never throws on an RDAP hiccup (returns 'unknown'),
+  // but keep the try/catch as defense-in-depth: a dynamic-import failure or future
+  // provider rewire must NOT 502 the whole search. On any failure each row just
+  // shows "availability unknown" instead of a price/available flag.
+  // (Historic bug: the old CF Registrar path 404'd and THREW AppError(502), hiding
+  // every suggestion until this catch was added.)
   let availabilityResult: Awaited<ReturnType<typeof domainService.checkDomainAvailability>> | null =
     null;
   try {
@@ -9949,7 +9951,7 @@ api.post('/api/sites/:siteId/domains/ai-search', async (c) => {
 });
 
 /**
- * Single-domain availability + pricing probe via Cloudflare Registrar.
+ * Single-domain availability + pricing probe via RDAP (checkDomainAvailability).
  *
  * @route GET /api/sites/:siteId/domains/availability
  * @auth Bearer required. Site ownership enforced.
