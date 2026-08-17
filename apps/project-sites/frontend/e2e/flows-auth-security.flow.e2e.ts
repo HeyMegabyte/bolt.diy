@@ -263,10 +263,12 @@ test.describe('Full-flow · auth-security', () => {
     const refreshFallback = page.getByRole('button', { name: /refresh/i }).first();
     const btn = (await refreshBtn.count()) ? refreshBtn : refreshFallback;
 
-    if (!(await btn.count())) {
-      test.skip(true, 'Refresh button not present in DOM');
-      return;
-    }
+    // The Refresh button is a core sessions-panel control (tests 03/05 click it) —
+    // ASSERT it renders rather than SKIP if absent, so a regression that removes it
+    // fails loudly instead of passing silently as a skipped test.
+    await expect(btn, 'Refresh button renders in the sessions panel').toBeVisible({
+      timeout: 10_000,
+    });
 
     await btn.focus();
     const focused = await btn.evaluate((el) => el === document.activeElement);
@@ -348,11 +350,10 @@ test.describe('Full-flow · auth-security', () => {
     const enrollFallback = page.getByRole('button', { name: /enable two.?factor/i }).first();
     const btn = (await enrollBtn.count()) ? enrollBtn : enrollFallback;
 
-    if (!(await btn.count())) {
-      test.skip(true, 'Enable two-factor button not rendered — cannot test dismiss flow');
-      return;
-    }
-    await expect(btn).toBeVisible({ timeout: 10_000 });
+    // Core 2FA control (test 05 opens its dialog) — the redundant skip-if-absent
+    // guard is removed so a regression that removes the button FAILS here (via the
+    // toBeVisible assert) instead of silently skipping.
+    await expect(btn, 'Enable-two-factor button renders').toBeVisible({ timeout: 10_000 });
     await btn.click();
 
     // Give the surface time to mount.
