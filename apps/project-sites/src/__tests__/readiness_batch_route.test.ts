@@ -131,9 +131,7 @@ describe('GET /api/readiness (batch readiness)', () => {
       }),
     );
     // s2: 0 checks pass → grade F / passing false.
-    expect(data['s2']).toEqual(
-      expect.objectContaining({ grade: 'F', score: 0, passing: false }),
-    );
+    expect(data['s2']).toEqual(expect.objectContaining({ grade: 'F', score: 0, passing: false }));
     expect(data['s3']).toBeNull();
 
     // The live scorer ran for each owned site (never for the unowned s3).
