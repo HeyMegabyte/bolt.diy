@@ -402,9 +402,16 @@ search.get('/api/sites/search', async (c) => {
   // too complex`, swallowed → lying-empty) and matches wrong rows.
   const bounded = q.trim().slice(0, 100);
   const searchTerm = `%${sanitizeLikeTerm(bounded)}%`;
+  // Exclude LYING-PUBLISHED rows: a `status='published'` site with a NULL
+  // `current_build_version` is not a real, viewable site — its subdomain serves
+  // the branded 503 ("the last build didn't finish"). Such rows (e.g. e2e/mock
+  // seed stubs) otherwise leak into this PUBLIC "pre-built sites" discovery search
+  // and present a fake/dead business as an existing site. Non-published rows
+  // (building/draft/error — also null-build) still surface (a build-in-progress is
+  // legitimately discoverable); real published sites (with a build) still surface.
   const { data } = await dbQuery<SiteSearchRow>(
     c.env.DB,
-    "SELECT id, slug, business_name, business_address, google_place_id, status, current_build_version FROM sites WHERE business_name LIKE ? AND deleted_at IS NULL ORDER BY CASE WHEN status = 'published' THEN 0 WHEN status = 'building' THEN 1 ELSE 2 END, created_at DESC LIMIT 5",
+    "SELECT id, slug, business_name, business_address, google_place_id, status, current_build_version FROM sites WHERE business_name LIKE ? AND deleted_at IS NULL AND (status != 'published' OR current_build_version IS NOT NULL) ORDER BY CASE WHEN status = 'published' THEN 0 WHEN status = 'building' THEN 1 ELSE 2 END, created_at DESC LIMIT 5",
     [searchTerm],
   );
 

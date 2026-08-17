@@ -831,3 +831,27 @@ describe('GET /api/sites/search — LIKE wildcard sanitizing', () => {
     expect(params[0]).toBe('%%'); // all wildcards stripped → just the outer wrap
   });
 });
+
+// ─── Search excludes lying-published (no-build) dead stubs ────────────────────
+// A `status='published'` row with `current_build_version IS NULL` is NOT a real,
+// viewable site — its subdomain serves the branded 503 ("the last build didn't
+// finish"). Such rows (e.g. the e2e/mock seed stubs acme-bakery, green-thumb,
+// mock-restaurant, verified live 2026-08-17) leaked into the PUBLIC "pre-built
+// sites" discovery search, presenting a fake/dead business as an existing site.
+// The guard lives in the SQL WHERE clause (source of truth) so every consumer
+// (homepage + /search page) is protected in one place. Non-published sites
+// (building/draft/error — also null build) still surface; real published sites
+// (with a build) still surface.
+describe('GET /api/sites/search — excludes lying-published (no-build) dead stubs', () => {
+  it('WHERE clause excludes published rows that have a null current_build_version', async () => {
+    mockDbQuery.mockResolvedValueOnce({ data: [], error: null });
+    const res = await makeRequest('/api/sites/search?q=bakery');
+    expect(res.status).toBe(200);
+    const [, sql] = mockDbQuery.mock.calls[0] as [unknown, string, unknown[]];
+    // Accept either idiom: `status != 'published' OR current_build_version IS NOT NULL`
+    // or `NOT (status = 'published' AND current_build_version IS NULL)`.
+    expect(sql).toMatch(
+      /(status\s*(?:!=|<>)\s*'published'\s+OR\s+current_build_version\s+IS NOT NULL)|(NOT\s*\(\s*status\s*=\s*'published'\s+AND\s+current_build_version\s+IS NULL\s*\))/i,
+    );
+  });
+});
