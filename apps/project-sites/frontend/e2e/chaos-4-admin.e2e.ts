@@ -1657,4 +1657,55 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
       expect(r.scoped.data.length, 'the owning site returns its own connection').toBeGreaterThan(0);
     }
   });
+
+  test('Voice: saving agent-settings does NOT wipe the MCP attachments set on the MCPs tab (M4 data-integrity)', async ({
+    page,
+  }) => {
+    // Cross-tab clobber regression: the voice agent-settings PUT used to write
+    // mcp_connection_ids UNCONDITIONALLY (nulling it), but the agent-settings tab
+    // never sends it — so every settings save WIPED the voice MCP attachments set
+    // via the dedicated /voice/mcp-attachments tab. Mutate on one tab → save on the
+    // other → assert the first tab's state PERSISTED.
+    await seedAuth(page, KEY);
+    await page.goto('/admin/voice', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1200);
+
+    const SID = 'e2e-site-3';
+    const MARK = 'e2e-chaos-mcp-attach';
+    const r = await page.evaluate(
+      async ([sid, mark]) => {
+        const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
+        const H = {
+          Authorization: `Bearer ${s.token}`,
+          'Content-Type': 'application/json',
+        } as Record<string, string>;
+        const jput = (path: string, body: unknown) =>
+          fetch(path, { method: 'PUT', headers: H, body: JSON.stringify(body) }).then((r) => r.status);
+        // 1) Attach an MCP connection on the MCPs tab.
+        const setStatus = await jput('/api/voice/mcp-attachments', { site_id: sid, voice: [mark], sms: [] });
+        // 2) Save the agent-settings tab WITHOUT mcp_connection_ids (as the UI does).
+        const saveStatus = await jput('/api/voice/agent-settings', {
+          siteId: sid,
+          voice_system_prompt: 'Chaos persistence probe.',
+        });
+        // 3) Read the attachments back — must still contain the mark.
+        const readRes = await fetch(`/api/voice/mcp-attachments?siteId=${sid}`, {
+          headers: { Authorization: `Bearer ${s.token}` },
+        });
+        const read = (await readRes.json().catch(() => ({}))) as { data?: { voice?: string[] } };
+        // 4) Cleanup — clear the test attachment so the shared site is left pristine.
+        await jput('/api/voice/mcp-attachments', { site_id: sid, voice: [], sms: [] });
+        return { setStatus, saveStatus, voice: read?.data?.voice ?? [] };
+      },
+      [SID, MARK] as const,
+    );
+
+    expect(r.setStatus, 'mcp-attachments PUT succeeded').toBe(200);
+    expect(r.saveStatus, 'agent-settings PUT succeeded').toBe(200);
+    // The core assertion: the attachment SURVIVED the agent-settings save.
+    expect(
+      r.voice,
+      'agent-settings save wiped the MCP attachment (cross-tab clobber regression)',
+    ).toContain(MARK);
+  });
 });

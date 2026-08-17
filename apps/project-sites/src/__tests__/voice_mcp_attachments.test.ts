@@ -158,6 +158,49 @@ describe('PUT /api/voice/mcp-attachments — value domains (TDD #10)', () => {
   });
 });
 
+describe('PUT /api/voice/agent-settings — must NOT clobber mcp_connection_ids', () => {
+  const putAgent = (body: unknown): Promise<Response> =>
+    app().request('/api/voice/agent-settings', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+  it('a save WITHOUT mcp_connection_ids leaves the column UNTOUCHED (does not null it)', async () => {
+    once(siteRow); // membership
+    once({ id: 'vas-1' }); // existing settings → update path
+    // The voice agent-settings tab sends prompts/models/etc but NEVER
+    // mcp_connection_ids — that column is OWNED by the dedicated mcp-attachments
+    // tab. An unconditional write here NULLED it on every settings save, WIPING
+    // the user's voice MCP attachments. It must be omitted from the update set.
+    const res = await putAgent({ siteId: SITE, voice_system_prompt: 'Hi there' });
+    expect(res.status).toBe(200);
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    const updates = mockUpdate.mock.calls[0][2] as Record<string, unknown>;
+    expect('mcp_connection_ids' in updates).toBe(false); // NOT clobbered
+    expect(updates.voice_system_prompt).toBe('Hi there'); // provided field still written
+  });
+
+  it('a save WITH an explicit mcp_connection_ids still sets it (explicit control preserved)', async () => {
+    once(siteRow);
+    once({ id: 'vas-1' });
+    const res = await putAgent({ siteId: SITE, mcp_connection_ids: ['mc-a', 'mc-b'] });
+    expect(res.status).toBe(200);
+    const updates = mockUpdate.mock.calls[0][2] as Record<string, unknown>;
+    expect(updates.mcp_connection_ids).toBe(JSON.stringify(['mc-a', 'mc-b']));
+  });
+
+  it('INSERT path (no existing row) without mcp_connection_ids omits it too', async () => {
+    once(siteRow);
+    once(null); // no existing settings → insert
+    const res = await putAgent({ siteId: SITE, voice_system_prompt: 'Hello' });
+    expect(res.status).toBe(200);
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    const row = mockInsert.mock.calls[0][2] as Record<string, unknown>;
+    expect('mcp_connection_ids' in row).toBe(false); // DB default (null), not an explicit wipe
+  });
+});
+
 describe('GET /api/voice/mcp-attachments — read-back', () => {
   it('parses both columns → {voice, sms}; tolerates malformed JSON', async () => {
     once(siteRow); // membership

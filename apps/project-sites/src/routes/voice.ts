@@ -965,11 +965,18 @@ voiceRoutes.put('/api/voice/agent-settings', async (c) => {
     max_call_seconds: body.max_call_seconds ?? 600,
     recording_enabled: body.recording_enabled === false ? 0 : 1,
     video_browse_enabled: body.video_browse_enabled === false ? 0 : 1,
-    mcp_connection_ids: body.mcp_connection_ids ? JSON.stringify(body.mcp_connection_ids) : null,
     escalation_phone: body.escalation_phone ?? null,
     business_hours_json: body.business_hours_json ?? null,
     knowledge_base_urls: body.knowledge_base_urls ? JSON.stringify(body.knowledge_base_urls) : null,
   };
+  // `mcp_connection_ids` is OWNED by the dedicated PUT /api/voice/mcp-attachments
+  // endpoint (which manages BOTH the voice + sms channels). The agent-settings tab
+  // NEVER sends it, so writing it UNCONDITIONALLY here NULLED the column on every
+  // settings save — silently WIPING the user's voice MCP attachments. Only touch it
+  // when the caller EXPLICITLY provides it; otherwise leave the column untouched.
+  if (body.mcp_connection_ids !== undefined) {
+    updates.mcp_connection_ids = JSON.stringify(body.mcp_connection_ids);
+  }
 
   const existing = await dbQueryOne<{ id: string }>(
     c.env.DB,
