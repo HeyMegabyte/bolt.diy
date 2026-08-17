@@ -309,7 +309,6 @@ export class VoiceTestConsoleComponent implements OnDestroy {
   smsBody = '';
   smsSending = signal(false);
   smsThread = signal<SmsTurn[]>([]);
-  private smsConvId?: string;
 
   private readonly siteEffect = effect(() => {
     const site = this.state.selectedSite();
@@ -513,16 +512,22 @@ export class VoiceTestConsoleComponent implements OnDestroy {
     this.smsBody = '';
     this.smsSending.set(true);
 
-    this.api.post<{ data: { reply: string; conversation_id: string } }>('/voice/test/sms', {
-      // Worker Zod (testSmsBody) requires `siteId` — `site_id` 400d every SMS test.
+    this.api.post<{ replyText?: string; signal?: string }>('/voice/test/sms', {
+      // Worker Zod (testSmsBody) accepts { siteId, body } ONLY — from_number and
+      // conversation_id were stripped server-side (simulateInbound is a stateless
+      // dry-run), so they never did anything. siteId (camelCase) — site_id 400d.
       siteId: this.state.selectedSite()?.id,
-      from_number: this.smsFromNumber,
-      conversation_id: this.smsConvId ?? null,
       body,
     }).subscribe({
       next: (r) => {
-        this.smsConvId = r.data?.conversation_id;
-        this.smsThread.update((t) => [...t, { role: 'agent', text: r.data?.reply ?? '(no reply)', at: Date.now() }]);
+        // Worker returns simulateInbound's shape `{ replyText, signal, model_used }` at the
+        // TOP level — NOT `{ data: { reply, conversation_id } }`. Reading `r.data.reply`
+        // made the console show "(no reply)" on EVERY send despite a real backend reply
+        // (response-key-mismatch lying-empty).
+        this.smsThread.update((t) => [
+          ...t,
+          { role: 'agent', text: r.replyText ?? '(no reply)', at: Date.now() },
+        ]);
         this.smsSending.set(false);
       },
       error: () => {
