@@ -256,14 +256,26 @@ describe('GET /api/audit-logs', () => {
     // already return meta.total; audit-logs was the un-upgraded {data}-only outlier).
     const rows: MockRow[] = [
       {
-        id: 'r1', action: 'site.created', target_type: 'site', target_id: SITE_ID,
-        actor_id: 'user-1', metadata_json: null, request_id: 'req-1',
-        created_at: '2026-05-21T12:00:00.000Z', site_slug: SITE_SLUG,
+        id: 'r1',
+        action: 'site.created',
+        target_type: 'site',
+        target_id: SITE_ID,
+        actor_id: 'user-1',
+        metadata_json: null,
+        request_id: 'req-1',
+        created_at: '2026-05-21T12:00:00.000Z',
+        site_slug: SITE_SLUG,
       },
       {
-        id: 'r2', action: 'site.deployed', target_type: 'site', target_id: SITE_ID,
-        actor_id: 'user-1', metadata_json: null, request_id: 'req-2',
-        created_at: '2026-05-21T11:00:00.000Z', site_slug: SITE_SLUG,
+        id: 'r2',
+        action: 'site.deployed',
+        target_type: 'site',
+        target_id: SITE_ID,
+        actor_id: 'user-1',
+        metadata_json: null,
+        request_id: 'req-2',
+        created_at: '2026-05-21T11:00:00.000Z',
+        site_slug: SITE_SLUG,
       },
     ];
     const { db } = makeMockDb(rows, 4200);
@@ -284,9 +296,15 @@ describe('GET /api/audit-logs', () => {
   it('meta.has_more is false when the whole store fits in the page', async () => {
     const rows: MockRow[] = [
       {
-        id: 'r1', action: 'site.created', target_type: 'site', target_id: SITE_ID,
-        actor_id: 'user-1', metadata_json: null, request_id: 'req-1',
-        created_at: '2026-05-21T12:00:00.000Z', site_slug: SITE_SLUG,
+        id: 'r1',
+        action: 'site.created',
+        target_type: 'site',
+        target_id: SITE_ID,
+        actor_id: 'user-1',
+        metadata_json: null,
+        request_id: 'req-1',
+        created_at: '2026-05-21T12:00:00.000Z',
+        site_slug: SITE_SLUG,
       },
     ];
     const { db } = makeMockDb(rows, 1);
