@@ -215,3 +215,48 @@ describe('POST install-template — paid template wallet debit', () => {
     expect(mockInsert).not.toHaveBeenCalled();
   });
 });
+
+// ─── Marketplace visibility gate (list-vs-detail drift fix) ──────────────────
+describe('template visibility gate — a private/draft template is NOT publicly readable/installable by slug', () => {
+  beforeEach(() => {
+    mockQuery.mockReset().mockResolvedValue({ data: [], error: null } as never);
+    mockQueryOne.mockReset().mockResolvedValue(null as never);
+    mockInsert.mockReset().mockResolvedValue({ error: null } as never);
+  });
+
+  const norm = (s: unknown) => String(s ?? '').replace(/\s+/g, ' ');
+
+  it('GET /api/templates/:slug scopes the read to visibility IN (public, unlisted) AND status = live', async () => {
+    const { request } = app();
+    await request('/api/templates/some-slug');
+    const sql = norm(mockQueryOne.mock.calls[0]?.[1]);
+    expect(sql).toContain("visibility IN ('public', 'unlisted')");
+    expect(sql).toContain("status = 'live'");
+  });
+
+  it('GET /api/templates/:slug 404s when the gated read returns null (private/draft filtered out)', async () => {
+    mockQueryOne.mockResolvedValue(null as never); // gate filtered it → null
+    const { request } = app();
+    const res = await request('/api/templates/private-one');
+    expect(res.status).toBe(404);
+  });
+
+  it('POST install-template gates the template lookup on visibility/status OR author_org_id (bound to caller org)', async () => {
+    mockQueryOne
+      .mockResolvedValueOnce({ org_id: 'o1' } as never) // site owned by caller
+      .mockResolvedValueOnce({ id: 't1', price_cents: 0 } as never); // free template
+    const { request } = app({ userId: 'u1', orgId: 'o1' });
+    await request(INSTALL, {
+      method: 'POST',
+      headers: json,
+      body: JSON.stringify({ template_slug: 'x' }),
+    });
+    // The template lookup is the call referencing `FROM templates` (robust to ordering).
+    const call = mockQueryOne.mock.calls.find((c) => norm(c[1]).includes('FROM templates'));
+    const sql = norm(call?.[1]);
+    const params = (call?.[2] as unknown[]) ?? [];
+    expect(sql).toContain("visibility IN ('public', 'unlisted')");
+    expect(sql).toContain('author_org_id = ?');
+    expect(params).toContain('o1');
+  });
+});

@@ -67,11 +67,16 @@ templates.get('/api/templates/:slug', async (c) => {
   const slug = c.req.param('slug');
   const tpl = await dbQueryOne(
     c.env.DB,
+    // Honor the SAME visibility/status gate the marketplace LIST enforces — a public
+    // (no-auth) detail read must NOT expose a private/draft/archived template (its
+    // metadata + `base_files_r2_prefix` R2 source path) just because the slug is known.
+    // `unlisted` IS accessible by direct link (that's its purpose); `private` is not.
     `SELECT id, slug, name, description, category, tags_json, thumbnail_r2_key,
             preview_url, price_cents, install_count, rating_avg, rating_count,
             base_files_r2_prefix
        FROM templates
-       WHERE slug = ? AND deleted_at IS NULL LIMIT 1`,
+       WHERE slug = ? AND visibility IN ('public', 'unlisted') AND status = 'live'
+         AND deleted_at IS NULL LIMIT 1`,
     [slug],
   );
   if (!tpl) throw notFound('Template not found');
@@ -120,10 +125,17 @@ templates.post(
     );
     // 404 for both missing AND foreign-org (never 403 — don't leak that the site exists).
     if (!site || site.org_id !== orgId) throw notFound('Site not found');
+    // Same visibility gate as the detail read: only an INSTALLABLE template (public /
+    // unlisted-live) — OR one the caller's own org authored (so an author can install
+    // their own private/draft) — can be installed. Blocks installing another org's
+    // private/draft template by slug. 404 (non-leak) on miss.
     const tpl = await dbQueryOne<{ id: string; price_cents: number }>(
       c.env.DB,
-      'SELECT id, price_cents FROM templates WHERE slug = ? AND deleted_at IS NULL LIMIT 1',
-      [body.template_slug],
+      `SELECT id, price_cents FROM templates
+        WHERE slug = ? AND deleted_at IS NULL
+          AND ((visibility IN ('public', 'unlisted') AND status = 'live') OR author_org_id = ?)
+        LIMIT 1`,
+      [body.template_slug, orgId],
     );
     if (!tpl) throw notFound('Template not found');
     // Paid templates require Pro AND a wallet debit of price_cents.
