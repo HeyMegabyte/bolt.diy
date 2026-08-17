@@ -250,78 +250,82 @@ features.get('/accessibility', (c, next) => {
 });
 
 features.get('/.well-known/mcp', (c, next) =>
-  !isMarketingHost(c) ? next() : c.json({
-    name: 'projectsites.dev',
-    version: '0.1.0',
-    description:
-      'Model Context Protocol server for Project Sites — manage AI-generated websites from Claude, Cursor, or any MCP client.',
-    capabilities: { tools: { listChanged: false } },
-    tools: [
-      {
-        name: 'list_sites',
-        description: 'List all sites owned by the authenticated user',
-        input_schema: { type: 'object', properties: {} },
-      },
-      {
-        name: 'create_site',
-        description: 'Create a new site from a prompt + business profile',
-        input_schema: {
-          type: 'object',
-          required: ['prompt'],
-          properties: {
-            prompt: { type: 'string' },
-            industry: { type: 'string' },
-            city: { type: 'string' },
+  !isMarketingHost(c)
+    ? next()
+    : c.json({
+        name: 'projectsites.dev',
+        version: '0.1.0',
+        description:
+          'Model Context Protocol server for Project Sites — manage AI-generated websites from Claude, Cursor, or any MCP client.',
+        capabilities: { tools: { listChanged: false } },
+        tools: [
+          {
+            name: 'list_sites',
+            description: 'List all sites owned by the authenticated user',
+            input_schema: { type: 'object', properties: {} },
           },
-        },
-      },
-      {
-        name: 'deploy_site',
-        description: 'Publish a site (runs CWV + axe gates)',
-        input_schema: {
-          type: 'object',
-          required: ['site_id'],
-          properties: { site_id: { type: 'string' } },
-        },
-      },
-      {
-        name: 'get_site_metrics',
-        description: 'CWV + axe + visitor analytics for a site',
-        input_schema: {
-          type: 'object',
-          required: ['site_id'],
-          properties: { site_id: { type: 'string' } },
-        },
-      },
-      {
-        name: 'regenerate_section',
-        description: 'Regenerate a section via the AI pipeline',
-        input_schema: {
-          type: 'object',
-          required: ['site_id', 'section'],
-          properties: {
-            site_id: { type: 'string' },
-            section: { type: 'string', enum: ['hero', 'features', 'pricing', 'faq', 'cta'] },
+          {
+            name: 'create_site',
+            description: 'Create a new site from a prompt + business profile',
+            input_schema: {
+              type: 'object',
+              required: ['prompt'],
+              properties: {
+                prompt: { type: 'string' },
+                industry: { type: 'string' },
+                city: { type: 'string' },
+              },
+            },
           },
-        },
-      },
-    ],
-    transport: { type: 'sse', endpoint: 'https://projectsites.dev/api/mcp/sse' },
-    authorization_server: 'https://projectsites.dev/.well-known/oauth-protected-resource',
-  }),
+          {
+            name: 'deploy_site',
+            description: 'Publish a site (runs CWV + axe gates)',
+            input_schema: {
+              type: 'object',
+              required: ['site_id'],
+              properties: { site_id: { type: 'string' } },
+            },
+          },
+          {
+            name: 'get_site_metrics',
+            description: 'CWV + axe + visitor analytics for a site',
+            input_schema: {
+              type: 'object',
+              required: ['site_id'],
+              properties: { site_id: { type: 'string' } },
+            },
+          },
+          {
+            name: 'regenerate_section',
+            description: 'Regenerate a section via the AI pipeline',
+            input_schema: {
+              type: 'object',
+              required: ['site_id', 'section'],
+              properties: {
+                site_id: { type: 'string' },
+                section: { type: 'string', enum: ['hero', 'features', 'pricing', 'faq', 'cta'] },
+              },
+            },
+          },
+        ],
+        transport: { type: 'sse', endpoint: 'https://projectsites.dev/api/mcp/sse' },
+        authorization_server: 'https://projectsites.dev/.well-known/oauth-protected-resource',
+      }),
 );
 
 features.get('/.well-known/oauth-protected-resource', (c, next) =>
-  !isMarketingHost(c) ? next() : c.json({
-    resource: 'https://projectsites.dev',
-    // The AS issuer (RFC 8414) — clients fetch metadata at
-    // {issuer}/.well-known/oauth-authorization-server (served by mcp_oauth_provider).
-    // Must be the bare issuer, NOT a /oauth subpath, or discovery 404s.
-    authorization_servers: ['https://projectsites.dev'],
-    bearer_methods_supported: ['header'],
-    resource_documentation: 'https://projectsites.dev/docs/mcp',
-    scopes_supported: ['sites:read', 'sites:write', 'sites:publish', 'metrics:read'],
-  }),
+  !isMarketingHost(c)
+    ? next()
+    : c.json({
+        resource: 'https://projectsites.dev',
+        // The AS issuer (RFC 8414) — clients fetch metadata at
+        // {issuer}/.well-known/oauth-authorization-server (served by mcp_oauth_provider).
+        // Must be the bare issuer, NOT a /oauth subpath, or discovery 404s.
+        authorization_servers: ['https://projectsites.dev'],
+        bearer_methods_supported: ['header'],
+        resource_documentation: 'https://projectsites.dev/docs/mcp',
+        scopes_supported: ['sites:read', 'sites:write', 'sites:publish', 'metrics:read'],
+      }),
 );
 
 features.get('/api/openapi.json', (c) =>

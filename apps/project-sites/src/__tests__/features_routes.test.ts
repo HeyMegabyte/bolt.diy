@@ -119,11 +119,22 @@ describe('platform-discovery routes are host-gated (no cross-tenant leak on cust
     app.all('*', (c) => c.text(FALLTHROUGH, 200));
     return app;
   }
-  const DISCOVERY = ['/robots.txt', '/llms.txt', '/llms-full.txt', '/accessibility', '/.well-known/mcp', '/.well-known/oauth-protected-resource'];
+  const DISCOVERY = [
+    '/robots.txt',
+    '/llms.txt',
+    '/llms-full.txt',
+    '/accessibility',
+    '/.well-known/mcp',
+    '/.well-known/oauth-protected-resource',
+  ];
 
   for (const path of DISCOVERY) {
     it(`${path} on a CUSTOMER subdomain falls through to site-serving (not the platform copy)`, async () => {
-      const res = await appWithFallthrough().request(`https://acme.projectsites.dev${path}`, {}, env);
+      const res = await appWithFallthrough().request(
+        `https://acme.projectsites.dev${path}`,
+        {},
+        env,
+      );
       expect(await res.text()).toBe(FALLTHROUGH); // fell through — did NOT leak platform content
     });
 
