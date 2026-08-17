@@ -152,8 +152,16 @@ de-hoists it).
 
 ## Verification checklist (live, real browser, as brian — E2E_API_KEY + Browserbase)
 
-Both grids need a POPULATED grid to test (E2E_API_KEY's e2e-test-org is empty — seed
-a temp row per [[ag-grid-critical-axe-known-tracked]], or use the brian sweep).
+Both grids need a POPULATED grid to test. ✅ **VERIFICATION UNBLOCKED (re-probed 2026-08-17):**
+`/admin/audit` renders **22 populated rows** under the E2E auth (`seedAuth` ps_session +
+E2E_API_KEY, identifier `test@megabyte.space`) — the earlier "e2e-test-org is empty" note
+is STALE. So the audit grid can be verified end-to-end directly with `E2E_API_KEY` (no temp-row
+seeding needed). ai-logs is per-site (`GET /api/sites/:id/ai-logs`) — verify against a site
+that has traces, or seed one. **Axe RE-CONFIRMED live 2026-08-17** on prod `/admin/audit`:
+AxeBuilder (`.include('.ag-root')`, wcag2a/2aa/21aa/22aa) → exactly 1 critical
+`aria-required-children` on `.ag-root[role="grid"]` ("children which are not allowed:
+[role=presentation]") — unchanged, still fundamental (band-aid stripping the presentation
+descendants does NOT clear it; only removing ag-grid does).
 - [ ] Rows render populated (audit: brian's real audit_logs; ai-logs: brian's traces).
 - [ ] Sort every sortable column (asc/desc); `?sort=` survives refresh.
 - [ ] Pagination: change page + page size [25/50/100/250].
