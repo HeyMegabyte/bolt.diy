@@ -31,7 +31,9 @@ test.describe('CHAOS 2 — Impatient Builder (create funnel + AI + domains)', ()
     const e = trackErrors(page);
     await page.goto('/create');
     await page.waitForTimeout(2000);
-    const inputs = page.locator('input[type="text"], input:not([type]), textarea, input[type="search"]');
+    const inputs = page.locator(
+      'input[type="text"], input:not([type]), textarea, input[type="search"]',
+    );
     const n = Math.min(await inputs.count(), 8);
     for (let i = 0; i < n; i++) {
       const inp = inputs.nth(i);
@@ -69,23 +71,27 @@ test.describe('CHAOS 2 — Impatient Builder (create funnel + AI + domains)', ()
     expect(bad5xx).toEqual([]);
   });
 
-  test('M2: business search degrades honestly + never leaks the upstream provider error', async ({
+  test('M2: business search degrades honestly + never leaks the upstream error + never strands the user', async ({
     page,
   }) => {
     // The create-funnel business search calls /api/search/businesses (Google Places).
-    // Places is currently 403-denied in prod (GCP billing disabled — a P0 tracked
-    // separately), so the funnel MUST degrade honestly: no 5xx, no crash, an honest
-    // "temporarily unavailable" affordance, and — critically — the API must NOT leak
-    // the raw upstream provider error (billing state, GCP console URLs) to the client.
+    // Places is currently unavailable in prod (GCP billing — a P0 tracked separately), so
+    // the funnel MUST degrade honestly: no 5xx, no crash, an honest "temporarily
+    // unavailable" affordance, no raw upstream error leaked, AND the customer is never
+    // stranded — /create IS the manual-entry funnel, so they can proceed regardless.
     const e = trackErrors(page);
     await page.goto('/create', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(2000);
-    const biz = page.locator('input[type="text"]').first();
+    // Stable selector — the business-name field by id, NEVER positional `.first()`. The
+    // prior `input[type="text"].first()` + a fixed `waitForTimeout(1500)` + a one-shot
+    // `evaluate` is what flaked under parallel load: the snapshot read the DOM before the
+    // Angular signal→change-detection update for the affordance had landed.
+    const biz = page.locator('#create-name');
+    await expect(biz).toBeVisible({ timeout: 15_000 });
     await biz.click();
     await biz.pressSequentially('Starbucks', { delay: 80 }); // triggers the debounced search
 
     const resp = await page
-      .waitForResponse((r) => r.url().includes('/api/search/businesses'), { timeout: 15_000 })
+      .waitForResponse((r) => r.url().includes('/api/search/businesses'), { timeout: 20_000 })
       .catch(() => null);
     if (resp) {
       expect(resp.status(), 'business search must never 5xx').toBeLessThan(500);
@@ -97,20 +103,29 @@ test.describe('CHAOS 2 — Impatient Builder (create funnel + AI + domains)', ()
       );
     }
 
-    await page.waitForTimeout(1500);
-    // The user is never stranded: either real suggestions rendered OR the honest
-    // "business lookup temporarily unavailable" affordance is shown.
-    const state = await page.evaluate(() => {
-      const unavail = !!document.querySelector('[data-testid="business-search-unavailable"]');
-      const dropdownItems = document.querySelectorAll(
-        '.absolute [class*="cursor-pointer"], [data-testid="business-suggestion"]',
-      ).length;
-      return { unavail, dropdownItems };
-    });
-    expect(
-      state.unavail || state.dropdownItems > 0,
-      'business search shows suggestions OR an honest unavailable affordance (never a blank dead field)',
-    ).toBe(true);
+    // Deterministic (web-first, auto-retrying) — poll until EITHER the honest unavailable
+    // affordance renders OR real suggestions appear. Robust to BOTH prod states (Places
+    // down → affordance; Places restored → suggestions) with no fixed sleep.
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const unavail = !!document.querySelector('[data-testid="business-search-unavailable"]');
+            const items = document.querySelectorAll('.absolute [class*="cursor-pointer"]').length;
+            return unavail || items > 0;
+          }),
+        {
+          timeout: 15_000,
+          message:
+            'business search shows suggestions OR an honest unavailable affordance (never a blank dead field)',
+        },
+      )
+      .toBe(true);
+
+    // Not a dead-end: the customer can still proceed via MANUAL entry — the funnel kept
+    // the typed value and the next field (address) is present + editable.
+    await expect(biz).toHaveValue(/Starbucks/);
+    await expect(page.locator('#create-address')).toBeVisible();
 
     await assertAlive(page);
     expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
