@@ -556,7 +556,10 @@ describe('POST /api/social/:platform/paste', () => {
       app_password: 'abcd1234efgh',
     });
     expect(res.status).toBe(500);
-    const json = (await res.json()) as { data?: { connected?: boolean }; error?: { code?: string } };
+    const json = (await res.json()) as {
+      data?: { connected?: boolean };
+      error?: { code?: string };
+    };
     expect(json.data?.connected).toBeUndefined();
     expect(json.error?.code).toBe('PERSIST_FAILED');
   });
