@@ -10,6 +10,7 @@ import {
   validateColorScheme,
   validateCanonical,
   validateSitemapLastmod,
+  validateSitemapRoutesExist,
   validateBannedWords,
   validateJsBundleSize,
   validateLightboxPresence,
@@ -365,6 +366,49 @@ describe('validateSitemapLastmod', () => {
       ),
     ];
     expect(validateSitemapLastmod(f)).toEqual([]);
+  });
+});
+
+describe('validateSitemapRoutesExist', () => {
+  const sm = (paths: string[]) =>
+    `<urlset>${paths
+      .map((p) => `<url><loc>https://acme.test${p}</loc><lastmod>2026-01-01</lastmod></url>`)
+      .join('')}</urlset>`;
+
+  it('flags a sitemap route with no page (SPA soft-404 → duplicate homepage content)', () => {
+    const files = [
+      file('sitemap.xml', sm(['/', '/about', '/services'])),
+      file('index.html', '<html><title>Home</title></html>'),
+      file('about.html', '<html><title>About</title></html>'),
+      // NO services page → the SPA fallback serves the homepage shell at /services.
+    ];
+    const v = validateSitemapRoutesExist(files);
+    const orphan = v.find((x) => x.code === 'sitemap.orphan_route');
+    expect(orphan).toBeDefined();
+    expect(orphan?.severity).toBe('error');
+    expect(orphan?.detail).toBe('/services');
+    // The pages that DO exist are not flagged.
+    expect(v.filter((x) => x.code === 'sitemap.orphan_route')).toHaveLength(1);
+  });
+
+  it('passes when every sitemap route has a page (all 3 resolution conventions)', () => {
+    const files = [
+      file('sitemap.xml', sm(['/', '/about', '/services/', '/blog/launch'])),
+      file('index.html', '<html></html>'), //         /            → index.html
+      file('about.html', '<html></html>'), //         /about        → about.html
+      file('services/index.html', '<html></html>'), //  /services/  → services/index.html
+      file('blog-launch.html', '<html></html>'), //   /blog/launch → flat blog-launch.html fallback
+    ];
+    expect(validateSitemapRoutesExist(files)).toEqual([]);
+  });
+
+  it('is a no-op when there is no sitemap (validateSitemapLastmod owns that error)', () => {
+    expect(validateSitemapRoutesExist([file('index.html', '<html></html>')])).toEqual([]);
+  });
+
+  it('dedupes so a route listed twice is flagged once', () => {
+    const files = [file('sitemap.xml', sm(['/ghost', '/ghost'])), file('index.html', '<html></html>')];
+    expect(validateSitemapRoutesExist(files).filter((x) => x.code === 'sitemap.orphan_route')).toHaveLength(1);
   });
 });
 

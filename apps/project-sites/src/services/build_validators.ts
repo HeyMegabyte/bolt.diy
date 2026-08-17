@@ -626,6 +626,55 @@ export const validateSitemapLastmod = (files: BuildFile[]): Violation[] => {
   return out;
 };
 
+/**
+ * Sitemap ↔ build-routes drift guard (per `drift-detection.md § Build-artifact
+ * drift guards`). `validateSitemapLastmod` proves the sitemap EXISTS + every
+ * `<url>` has a `<lastmod>` — but NOT that each `<loc>` route actually has a page
+ * in the build. A sitemap that lists `/services` when the build shipped no
+ * `services.html` / `services/index.html` is worse than a plain 404: the SPA
+ * fallback in `serveSiteFromR2` returns the HOMEPAGE shell with a **200** for any
+ * sitemap-listed extensionless route (see the soft-404 guard there) → crawlers
+ * follow the sitemap, get 200, and index DUPLICATE homepage content under that
+ * URL (self-competing, crawl-budget waste). This flags every sitemap route with
+ * no dedicated HTML file, mirroring `serveSiteFromR2`'s resolution order exactly
+ * (`X/index.html` → `X.html` → flat `a-b.html` for `/a/b`).
+ */
+export const validateSitemapRoutesExist = (files: BuildFile[]): Violation[] => {
+  const sitemap = files.find((f) => f.path === 'sitemap.xml');
+  if (!sitemap?.text) return []; // validateSitemapLastmod owns the missing-sitemap error
+  const htmlPaths = new Set(files.filter((f) => isHtml(f.path)).map((f) => f.path));
+  const out: Violation[] = [];
+  const seen = new Set<string>();
+  for (const raw of sitemap.text.match(/<loc>[^<]+<\/loc>/g) ?? []) {
+    const url = raw.replace(/<\/?loc>/g, '').trim();
+    let pathname: string;
+    try {
+      pathname = new URL(url).pathname;
+    } catch {
+      pathname = url.startsWith('/') ? url : `/${url}`;
+    }
+    const route = pathname.replace(/\/+$/, '') || '/'; // strip trailing slash; '' → '/'
+    if (seen.has(route)) continue;
+    seen.add(route);
+    // Candidate dist files that would serve this route (mirror serveSiteFromR2).
+    const bare = route.replace(/^\//, '');
+    const candidates =
+      route === '/'
+        ? ['index.html']
+        : [`${bare}.html`, `${bare}/index.html`, `${bare.replace(/\//g, '-')}.html`];
+    if (!candidates.some((c) => htmlPaths.has(c))) {
+      out.push({
+        code: 'sitemap.orphan_route',
+        severity: 'error',
+        message: `sitemap lists ${route} but the build has no page for it — the SPA fallback soft-404s it (200 homepage shell), so crawlers index duplicate homepage content under this URL`,
+        file: 'sitemap.xml',
+        detail: route,
+      });
+    }
+  }
+  return out;
+};
+
 /** Banned slop words anywhere in HTML body text. */
 export const validateBannedWords = (files: BuildFile[]): Violation[] => {
   const out: Violation[] = [];
@@ -815,6 +864,7 @@ export const validateBuild = (
     ...validateColorScheme(files),
     ...validateCanonical(files),
     ...validateSitemapLastmod(files),
+    ...validateSitemapRoutesExist(files),
     ...validateBannedWords(files),
     ...validateJsBundleSize(files),
     ...validateLightboxPresence(files),
