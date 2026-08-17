@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { RollingCounterComponent } from '../../components/rolling-counter/rolling-counter.component';
 import { RevealDirective } from '../../directives/reveal.directive';
+import { TranslateModule } from '@ngx-translate/core';
 
 /**
  * Public pricing page — the $50/month base offer + the $500/year annual offer.
@@ -16,67 +17,57 @@ import { RevealDirective } from '../../directives/reveal.directive';
   selector: 'app-pricing',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, RollingCounterComponent, RevealDirective],
+  imports: [RouterLink, RollingCounterComponent, RevealDirective, TranslateModule],
   template: `
     <main class="pricing">
       <section class="pricing__hero" appReveal>
-        <p class="pricing__eyebrow">Simple, honest pricing</p>
-        <h1 class="pricing__title">One price. Your whole site, delivered.</h1>
-        <p class="pricing__sub">
-          We don't sell websites — we deliver them. Live, hosted, SSL'd, and yours.
-          No setup fees, no tiers to decode. Cancel anytime.
-        </p>
+        <p class="pricing__eyebrow">{{ 'pricingPage.eyebrow' | translate }}</p>
+        <h1 class="pricing__title">{{ 'pricingPage.title' | translate }}</h1>
+        <p class="pricing__sub">{{ 'pricingPage.sub' | translate }}</p>
       </section>
 
-      <section class="pricing__grid" aria-label="Plans">
+      <section class="pricing__grid" [attr.aria-label]="'pricingPage.plansAria' | translate">
         <article class="tier" appReveal>
           <header class="tier__head">
-            <h2 class="tier__name">Monthly</h2>
+            <h2 class="tier__name">{{ 'pricingPage.monthly.name' | translate }}</h2>
             <p class="tier__price">
               <app-rolling-counter [value]="50" prefix="$" />
-              <span class="tier__per">/month</span>
+              <span class="tier__per">{{ 'pricingPage.monthly.per' | translate }}</span>
             </p>
-            <p class="tier__note">per active site, billed monthly</p>
+            <p class="tier__note">{{ 'pricingPage.monthly.note' | translate }}</p>
           </header>
           <ul class="tier__list">
-            <li>Hosted on Cloudflare's global edge</li>
-            <li>Free SSL + a yoursite.projectsites.dev address</li>
-            <li>Visual editor + AI content updates</li>
-            <li>Connect your own custom domain</li>
-            <li>Contact forms, SEO metadata, analytics</li>
+            @for (f of $any('pricingPage.monthly.features' | translate); track f) {
+              <li>{{ f }}</li>
+            }
           </ul>
           <a class="tier__cta" routerLink="/search" data-testid="pricing-cta-monthly">
-            Claim your site →
+            {{ 'pricingPage.monthly.cta' | translate }}
           </a>
         </article>
 
         <article class="tier tier--featured" appReveal [revealDelay]="80">
-          <span class="tier__badge">Save $100</span>
+          <span class="tier__badge">{{ 'pricingPage.annual.badge' | translate }}</span>
           <header class="tier__head">
-            <h2 class="tier__name">Annual</h2>
+            <h2 class="tier__name">{{ 'pricingPage.annual.name' | translate }}</h2>
             <p class="tier__price">
               <app-rolling-counter [value]="500" prefix="$" />
-              <span class="tier__per">/year</span>
+              <span class="tier__per">{{ 'pricingPage.annual.per' | translate }}</span>
             </p>
-            <p class="tier__note">per active site — two months free</p>
+            <p class="tier__note">{{ 'pricingPage.annual.note' | translate }}</p>
           </header>
           <ul class="tier__list">
-            <li>Everything in Monthly</li>
-            <li>Two months free vs paying monthly</li>
-            <li>Priority build queue</li>
-            <li>Locked-in annual rate</li>
-            <li>One invoice a year</li>
+            @for (f of $any('pricingPage.annual.features' | translate); track f) {
+              <li>{{ f }}</li>
+            }
           </ul>
           <a class="tier__cta tier__cta--primary" routerLink="/search" data-testid="pricing-cta-annual">
-            Start annual →
+            {{ 'pricingPage.annual.cta' | translate }}
           </a>
         </article>
       </section>
 
-      <p class="pricing__addons" appReveal>
-        Add-ons available on any plan: Local SEO, email capture, booking, social
-        autoposting, AI concierge, and donation pages.
-      </p>
+      <p class="pricing__addons" appReveal>{{ 'pricingPage.addons' | translate }}</p>
     </main>
   `,
   styles: [

@@ -206,5 +206,39 @@
     "magicLinkSent": "Revisa tu bandeja de entrada",
     "googleSignIn": "Continuar con Google",
     "emailPlaceholder": "tu@ejemplo.com"
+  },
+  "pricingPage": {
+    "eyebrow": "Precios simples y honestos",
+    "title": "Un precio. Todo tu sitio, entregado.",
+    "sub": "No vendemos sitios web — los entregamos. En vivo, alojado, con SSL y tuyo. Sin cuotas de instalación, sin niveles que descifrar. Cancela cuando quieras.",
+    "plansAria": "Planes",
+    "monthly": {
+      "name": "Mensual",
+      "per": "/mes",
+      "note": "por sitio activo, facturado mensualmente",
+      "cta": "Reclama tu sitio →",
+      "features": [
+        "Alojado en la red global de Cloudflare",
+        "SSL gratis + una dirección tusitio.projectsites.dev",
+        "Editor visual + actualizaciones de contenido con IA",
+        "Conecta tu propio dominio personalizado",
+        "Formularios de contacto, metadatos SEO, analíticas"
+      ]
+    },
+    "annual": {
+      "badge": "Ahorra $100",
+      "name": "Anual",
+      "per": "/año",
+      "note": "por sitio activo — dos meses gratis",
+      "cta": "Empezar anual →",
+      "features": [
+        "Todo lo del plan Mensual",
+        "Dos meses gratis frente al pago mensual",
+        "Cola de construcción prioritaria",
+        "Tarifa anual fija",
+        "Una factura al año"
+      ]
+    },
+    "addons": "Complementos disponibles en cualquier plan: SEO local, captura de correos, reservas, autopublicación en redes, conserje con IA y páginas de donaciones."
   }
 }

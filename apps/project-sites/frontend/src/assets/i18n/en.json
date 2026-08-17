@@ -278,5 +278,39 @@
   },
   "common2": {
     "close": "Close"
+  },
+  "pricingPage": {
+    "eyebrow": "Simple, honest pricing",
+    "title": "One price. Your whole site, delivered.",
+    "sub": "We don't sell websites — we deliver them. Live, hosted, SSL'd, and yours. No setup fees, no tiers to decode. Cancel anytime.",
+    "plansAria": "Plans",
+    "monthly": {
+      "name": "Monthly",
+      "per": "/month",
+      "note": "per active site, billed monthly",
+      "cta": "Claim your site →",
+      "features": [
+        "Hosted on Cloudflare's global edge",
+        "Free SSL + a yoursite.projectsites.dev address",
+        "Visual editor + AI content updates",
+        "Connect your own custom domain",
+        "Contact forms, SEO metadata, analytics"
+      ]
+    },
+    "annual": {
+      "badge": "Save $100",
+      "name": "Annual",
+      "per": "/year",
+      "note": "per active site — two months free",
+      "cta": "Start annual →",
+      "features": [
+        "Everything in Monthly",
+        "Two months free vs paying monthly",
+        "Priority build queue",
+        "Locked-in annual rate",
+        "One invoice a year"
+      ]
+    },
+    "addons": "Add-ons available on any plan: Local SEO, email capture, booking, social autoposting, AI concierge, and donation pages."
   }
 }
