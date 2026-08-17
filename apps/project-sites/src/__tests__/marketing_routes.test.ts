@@ -103,6 +103,8 @@ const SHELL = [
   '<meta property="og:title" content="ProjectSites - Your Website, Handled. Finally.">',
   '<meta property="og:description" content="AI-powered websites for small businesses.">',
   '<meta property="og:url" content="https://projectsites.dev/">',
+  '<meta name="twitter:title" content="ProjectSites - Your Website, Handled. Finally.">',
+  '<meta name="twitter:description" content="AI builds your business website in minutes.">',
   '</head><body></body></html>',
 ].join('\n');
 
@@ -121,6 +123,15 @@ describe('applyMarketingMeta — per-route <head> (SEO de-index fix)', () => {
     expect(out).toContain(`<title>${m.title}</title>`);
     expect(out).toContain(m.description);
     expect(out).not.toContain('We deliver websites in minutes'); // homepage title gone
+  });
+
+  it('rewrites the twitter:title + twitter:description card (not just og:*) so X shares match the route', () => {
+    const out = applyMarketingMeta(SHELL, '/pricing', 'https://projectsites.dev/pricing');
+    const m = MARKETING_META['/pricing'];
+    expect(out).toContain(`<meta name="twitter:title" content="${m.title}">`);
+    expect(out).toContain(`<meta name="twitter:description" content="${m.description}">`);
+    // The homepage twitter card copy must be GONE.
+    expect(out).not.toContain('AI builds your business website in minutes.');
   });
 
   it('home keeps its default title but the canonical stays self-referential (no map entry)', () => {

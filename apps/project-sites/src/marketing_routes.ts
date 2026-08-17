@@ -166,7 +166,12 @@ export function applyMarketingMeta(html: string, pathname: string, pageUrl: stri
       .replace(/<title>[\s\S]*?<\/title>/i, `<title>${t}</title>`)
       .replace(/(<meta\s+name="description"\s+content=")[^"]*(")/i, `$1${d}$2`)
       .replace(/(<meta\s+property="og:title"\s+content=")[^"]*(")/i, `$1${t}$2`)
-      .replace(/(<meta\s+property="og:description"\s+content=")[^"]*(")/i, `$1${d}$2`);
+      .replace(/(<meta\s+property="og:description"\s+content=")[^"]*(")/i, `$1${d}$2`)
+      // Twitter/X cards are SEPARATE `name="twitter:*"` tags — rewriting only the
+      // og:* tags left a /pricing link shared on X showing the HOMEPAGE title +
+      // description. Rewrite them too so the social card matches the route.
+      .replace(/(<meta\s+name="twitter:title"\s+content=")[^"]*(")/i, `$1${t}$2`)
+      .replace(/(<meta\s+name="twitter:description"\s+content=")[^"]*(")/i, `$1${d}$2`);
   }
   return out;
 }
