@@ -149,6 +149,33 @@ socialOauthRoutes.get('/api/social/:platform/connect', async (c) => {
  * @throws 404 NOT_FOUND when `platform` isn't a known publisher.
  * @throws 502 BAD_GATEWAY when the upstream token exchange fails.
  */
+/**
+ * Popup-bridge page for the social OAuth callback: `postMessage`s the opener (the
+ * admin tab that launched the connect popup) with the real result — the
+ * `/admin/social` listener already handles `social-oauth-success` /
+ * `social-oauth-error` — then self-closes, rather than 302-redirecting the POPUP
+ * into the full SPA (which never triggered those listeners). Falls back to
+ * navigating `returnUrl` when there is no opener (full-page flow) or `window.close()`
+ * is blocked. No user-controlled interpolation: `platform` is a validated enum and
+ * `returnUrl` is a `safeRelativePath`.
+ *
+ * @param ok - Whether the connection was persisted (`false` → `social-oauth-error`).
+ * @param platform - The validated platform id.
+ * @param returnUrl - Safe relative return path.
+ * @returns HTML document string.
+ */
+function socialOauthResultPage(ok: boolean, platform: string, returnUrl: string): string {
+  const type = ok ? 'social-oauth-success' : 'social-oauth-error';
+  const dot = ok ? '✓' : '✕';
+  const color = ok ? '#00e5ff' : '#ff6b6b';
+  const text = ok
+    ? `${platform} connected. You can close this window.`
+    : `Couldn't save the ${platform} connection. Close this window and try again.`;
+  const payload = JSON.stringify({ type, platform });
+  const url = `https://projectsites.dev${returnUrl}?${ok ? 'connected' : 'error'}=${platform}`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${ok ? 'Connected' : 'Connection failed'}</title><style>body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#060610;color:#f4f4ff;display:grid;place-items:center;min-height:100vh;margin:0}.c{text-align:center;max-width:24rem;padding:1.5rem}.dot{color:${color};font-size:2rem;line-height:1}p{opacity:.8;font-size:.9rem;margin:.6rem 0 0}</style></head><body><div class="c"><div class="dot">${dot}</div><p>${text}</p></div><script>(function(){var payload=${payload};var returnUrl=${JSON.stringify(url)};try{if(window.opener){window.opener.postMessage(payload,"https://projectsites.dev");}}catch(e){}setTimeout(function(){try{window.close();}catch(e){}setTimeout(function(){try{window.location.replace(returnUrl);}catch(e){}},500);},120);})();</script></body></html>`;
+}
+
 socialOauthRoutes.get('/api/social/:platform/callback', async (c) => {
   const platform = c.req.param('platform');
   if (!isPlatform(platform))
@@ -211,7 +238,7 @@ socialOauthRoutes.get('/api/social/:platform/callback', async (c) => {
     ? new Date(Date.now() + exch.expires_in * 1000).toISOString()
     : null;
 
-  await dbExecute(
+  const { error: persistErr } = await dbExecute(
     c.env.DB,
     `INSERT INTO social_accounts
        (id, org_id, created_by, platform, external_id, handle, display_name, avatar_url,
@@ -246,7 +273,14 @@ socialOauthRoutes.get('/api/social/:platform/callback', async (c) => {
   );
   await c.env.CACHE_KV.delete(`social-oauth-state:${state}`);
 
-  return Response.redirect(`https://projectsites.dev${ctx.return_url}?connected=${platform}`, 302);
+  // The token exchange succeeded, but if PERSISTING the connection FAILED (dbExecute
+  // returns `{ error }` — it NEVER throws), do NOT signal success. A bare `await`
+  // here previously redirected `?connected=…` regardless → the opener toasted
+  // "Connected" for a `social_accounts` row that was never written (a lying-success;
+  // the accounts list then showed "Not connected" with no explanation). Bridge the
+  // REAL outcome to the opener's existing `social-oauth-success` / `social-oauth-error`
+  // listener (which the old 302-redirect never triggered), then self-close.
+  return c.html(socialOauthResultPage(!persistErr, platform, ctx.return_url));
 });
 
 // ── POST /api/social/:platform/paste — paste-key/login flow ──

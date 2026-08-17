@@ -22,7 +22,7 @@ jest.mock('../services/ai_crypto.js', () => ({
 }));
 
 jest.mock('../services/db.js', () => ({
-  dbExecute: jest.fn().mockResolvedValue({ success: true }),
+  dbExecute: jest.fn().mockResolvedValue({ error: null, changes: 1 }),
 }));
 
 jest.mock('../services/social_publishers/index.js', () => {
@@ -350,10 +350,14 @@ describe('GET /api/social/:platform/callback', () => {
       makeCtx(),
     );
 
-    expect(res.status).toBe(302);
-    expect(res.headers.get('location')).toBe(
-      'https://projectsites.dev/admin/social?connected=twitter',
-    );
+    // Success now bridges to the opener's `social-oauth-success` listener + self-closes
+    // (the old 302-redirect never triggered that FE listener) — a 200 HTML page, not a
+    // full-page redirect of the popup.
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain('social-oauth-success');
+    expect(html).toContain('twitter');
+    expect(html).not.toContain('social-oauth-error');
 
     // Code exchange used the stored PKCE verifier + redirect URI.
     expect(exchangeCode).toHaveBeenCalledTimes(1);
@@ -396,12 +400,35 @@ describe('GET /api/social/:platform/callback', () => {
       env,
       makeCtx(),
     );
-    expect(res.status).toBe(302);
+    expect(res.status).toBe(200);
     // refresh token never encrypted when absent.
     expect(mockEncrypt).toHaveBeenCalledTimes(1);
     expect(mockEncrypt).toHaveBeenCalledWith(expect.anything(), 'A');
     const [, , params] = mockDbExecute.mock.calls[0];
     expect(params as unknown[]).toContain(null);
+  });
+
+  it('bridges social-oauth-ERROR (not success) when the social_accounts INSERT is dropped', async () => {
+    // dbExecute returns { error } (it never throws). The old bare `await` ignored a
+    // failed persist and redirected `?connected` anyway → the opener toasted
+    // "Connected" for a row that was never written (lying-success). The callback MUST
+    // now bridge `social-oauth-error` so the opener toasts a failure instead.
+    const exchangeCode = jest.fn(async () => ({ access_token: 'A', external_id: 'e1' }));
+    mockGetPublisher.mockReturnValue({ exchangeCode });
+    mockDbExecute.mockResolvedValueOnce({ error: 'D1_ERROR: no such table', changes: 0 });
+    const env = makeEnv({
+      CACHE_KV: makeKv({ 'social-oauth-state:s1': storedStateFor('twitter') }),
+    });
+    const res = await makeApp().request(
+      '/api/social/twitter/callback?code=c&state=s1',
+      { redirect: 'manual' },
+      env,
+      makeCtx(),
+    );
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain('social-oauth-error');
+    expect(html).not.toContain('social-oauth-success');
   });
 
   it('returns 501 APP_CREDS_MISSING when the exchange throws MissingAppCredsError', async () => {
