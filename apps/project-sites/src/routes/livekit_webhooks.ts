@@ -130,12 +130,27 @@ livekitWebhookRoutes.post('/webhooks/livekit', async (c) => {
     return c.json({ duplicate: true, received: true }, 200);
   }
 
-  const { id: storedId } = await storeWebhookEvent(c.env.DB, {
+  const stored = await storeWebhookEvent(c.env.DB, {
     event_id: event.id,
     event_type: event.event,
     payload_hash: expectedHash,
     provider: 'livekit',
   });
+  // `dbInsert` RETURNS `{error}` (never throws). A UNIQUE(provider,event_id) violation means a
+  // CONCURRENT delivery already claimed this event → ack as duplicate WITHOUT reprocessing;
+  // any other store error → 500 so LiveKit RETRIES (never silently drop). Same swallowed-error
+  // class as the Stripe route — kept consistent so the future recording/transcript side-effects
+  // can't double-fire.
+  if (stored.error) {
+    if (/UNIQUE constraint failed/i.test(stored.error)) {
+      return c.json({ duplicate: true, received: true }, 200);
+    }
+    return c.json(
+      { error: { code: 'INTERNAL_ERROR', message: 'Failed to store webhook event' } },
+      500,
+    );
+  }
+  const storedId = stored.id;
 
   // Structured log (console.warn per project no-console rule). Recording→R2 +
   // transcript→conversations wiring follows in the recording slice.

@@ -47,7 +47,7 @@ import { handleWalletStripeEvent } from '../services/wallet_webhook.js';
 import { tryEmitEvent } from '../services/emit_event.js';
 import { safeWaitUntil } from '../lib/wait-until.js';
 import type { EventType } from '../services/event_bus.js';
-import { sha256Hex, badRequest } from '@project-sites/shared';
+import { sha256Hex, badRequest, internalError } from '@project-sites/shared';
 import { createLogger } from '../observability/index.js';
 
 const webhooks = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -178,6 +178,18 @@ webhooks.post('/webhooks/stripe', async (c) => {
       payload_hash: payloadHash,
       status: 'processing',
     });
+    // `dbInsert` RETURNS `{error}` (it never throws). A UNIQUE(provider,event_id) violation
+    // here means a CONCURRENT delivery of this same event already claimed the row — treat it
+    // as a duplicate and ack WITHOUT processing, else BOTH deliveries fall through and
+    // credit the wallet / activate billing twice (double-spend). Any OTHER store error is a
+    // genuine failure → 500 so Stripe RETRIES (never silently drop → charged-but-not-
+    // provisioned). Either way we MUST NOT fall through to step 5 on a failed claim.
+    if (stored.error) {
+      if (/UNIQUE constraint failed/i.test(stored.error)) {
+        return c.json({ received: true, duplicate: true }, 200);
+      }
+      throw internalError(`Failed to store webhook event: ${stored.error}`);
+    }
     webhookEventId = stored.id ?? undefined;
   }
 

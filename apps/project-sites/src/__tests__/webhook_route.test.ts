@@ -225,6 +225,50 @@ describe('POST /webhooks/stripe - idempotency', () => {
     expect(mockCheckoutCompleted).not.toHaveBeenCalled();
     expect(mockStore).not.toHaveBeenCalled();
   });
+
+  it('does NOT process when storeWebhookEvent loses the UNIQUE(provider,event_id) race', async () => {
+    // The double-spend guard. Two concurrent deliveries of the SAME event both pass the
+    // SELECT idempotency check (no row yet), then both INSERT — the loser hits
+    // UNIQUE(provider,event_id). dbInsert RETURNS {error} (never throws), so
+    // storeWebhookEvent returns {id:null,error}. The handler MUST treat that as a
+    // duplicate and NOT process — otherwise the losing delivery also credits the
+    // wallet / activates billing (double-spend). Regression for the swallowed-error bug.
+    mockIdempotency.mockResolvedValue({ isDuplicate: false });
+    mockStore.mockResolvedValue({
+      id: null,
+      error: 'D1_ERROR: UNIQUE constraint failed: webhook_events.provider, webhook_events.event_id',
+    });
+    const app = createApp();
+    const event = makeStripeEvent('checkout.session.completed', {
+      customer: 'cus_test',
+      subscription: 'sub_test',
+      metadata: { org_id: 'org-1' },
+    });
+    const res = await postWebhook(app, event);
+    const body = await res.json();
+
+    expect(res.status).toBe(200); // ack so Stripe stops retrying THIS (losing) delivery
+    expect(body.duplicate).toBe(true);
+    expect(mockCheckoutCompleted).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 (Stripe retries) when storeWebhookEvent fails for a NON-uniqueness reason', async () => {
+    // A transient store failure must NOT be swallowed as a duplicate — that would DROP
+    // the event (Stripe stops retrying → charged-but-not-provisioned). It must 500 so
+    // Stripe redelivers; still MUST NOT process on this failed-store delivery.
+    mockIdempotency.mockResolvedValue({ isDuplicate: false });
+    mockStore.mockResolvedValue({ id: null, error: 'D1_ERROR: database is locked' });
+    const app = createApp();
+    const event = makeStripeEvent('checkout.session.completed', {
+      customer: 'cus_test',
+      subscription: 'sub_test',
+      metadata: { org_id: 'org-1' },
+    });
+    const res = await postWebhook(app, event);
+
+    expect(res.status).toBe(500);
+    expect(mockCheckoutCompleted).not.toHaveBeenCalled();
+  });
 });
 
 // ─── Event processing ──────────────────────────────────────────
