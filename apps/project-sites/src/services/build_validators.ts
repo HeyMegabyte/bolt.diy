@@ -246,12 +246,13 @@ export const validateAppleTouchIcon = (files: BuildFile[]): Violation[] => {
       ];
 };
 
-const titleLength = (html: string): number => {
+const titleText = (html: string): string => {
   const m = html.match(/<title[^>]*>([^<]*)<\/title>/i);
-  return m ? m[1].trim().length : 0;
+  return m ? m[1].trim() : '';
 };
+const titleLength = (html: string): number => titleText(html).length;
 
-const metaDescLength = (html: string): number => {
+const metaDescText = (html: string): string => {
   // Find the description meta tag (any attribute order), then extract its
   // `content` value respecting the value's OWN delimiter via a backreference.
   // The old /content=["']([^"']*)["']/ stopped the capture at the first
@@ -259,10 +260,11 @@ const metaDescLength = (html: string): number => {
   // value like content="Vito's Salon…" truncated to "Vito" (len 4) and produced
   // a FALSE meta.description_length violation on every possessive/contraction.
   const tag = html.match(/<meta\s+[^>]*\bname=["']description["'][^>]*>/i);
-  if (!tag) return 0;
+  if (!tag) return '';
   const c = tag[0].match(/\bcontent=(["'])([\s\S]*?)\1/i);
-  return c ? c[2].trim().length : 0;
+  return c ? c[2].trim() : '';
 };
+const metaDescLength = (html: string): number => metaDescText(html).length;
 
 /** Title 50-60, description 120-156. */
 export const validateMetaLengths = (files: BuildFile[]): Violation[] => {
@@ -285,6 +287,66 @@ export const validateMetaLengths = (files: BuildFile[]): Violation[] => {
         severity: 'error',
         message: `meta description must be 120-156 chars (got ${d})`,
         file: file.path,
+      });
+    }
+  }
+  return out;
+};
+
+/**
+ * Per-page `<title>` + `<meta description>` UNIQUENESS across a multi-page build.
+ *
+ * `validateMetaLengths` checks LENGTH (50-60 / 120-156 chars) but NOT uniqueness,
+ * so a build where every route ships the HOMEPAGE's title/description passes every
+ * gate while being an SEO duplicate-content failure — search engines collapse
+ * duplicate `<title>`s, so sub-pages never rank for their OWN keywords, and browser
+ * tabs / share cards all read the homepage label. This is a REAL generation defect:
+ * megabytespace `/about`, `/services`, `/pricing`, `/maker-lab`, `/contact` all
+ * shipped the identical homepage `<title>` (the canonical/og:url were per-route via
+ * the worker rewrite, but title/description are baked at generation).
+ *
+ * Flags a title (error) or description (warn) shared by ≥2 DISTINCT HTML pages.
+ * Comparison collapses whitespace + lowercases so trivial formatting differences
+ * don't mask a real duplicate. Single-page sites can't collide → no-op.
+ */
+export const validateUniquePageTitles = (files: BuildFile[]): Violation[] => {
+  const out: Violation[] = [];
+  const htmlFiles = files.filter((f) => isHtml(f.path) && f.text);
+  if (htmlFiles.length < 2) return out; // no cross-page collision possible
+
+  const norm = (s: string): string => s.replace(/\s+/g, ' ').trim().toLowerCase();
+  const push = (map: Map<string, string[]>, key: string, path: string): void => {
+    const list = map.get(key);
+    if (list) list.push(path);
+    else map.set(key, [path]);
+  };
+
+  const byTitle = new Map<string, string[]>();
+  const byDesc = new Map<string, string[]>();
+  for (const f of htmlFiles) {
+    const title = titleText(f.text as string);
+    const desc = metaDescText(f.text as string);
+    if (title) push(byTitle, norm(title), f.path);
+    if (desc) push(byDesc, norm(desc), f.path);
+  }
+
+  for (const paths of byTitle.values()) {
+    if (paths.length >= 2) {
+      out.push({
+        code: 'meta.title_duplicate',
+        severity: 'error',
+        message: `${paths.length} pages share the identical <title> — each route needs a unique, keyword-targeted title for SEO`,
+        file: paths.slice(0, 6).join(', '),
+      });
+    }
+  }
+  for (const paths of byDesc.values()) {
+    if (paths.length >= 2) {
+      out.push({
+        code: 'meta.description_duplicate',
+        severity: 'warn',
+        message: `${paths.length} pages share the identical meta description — each route needs a unique description`,
+        file: paths.slice(0, 6).join(', '),
       });
     }
   }
@@ -746,6 +808,7 @@ export const validateBuild = (
     ...validateOgImage(files),
     ...validateAppleTouchIcon(files),
     ...validateMetaLengths(files),
+    ...validateUniquePageTitles(files),
     ...validateJsonLdCount(files),
     ...validateJsonLdStructure(files),
     ...validateH1InShell(files),

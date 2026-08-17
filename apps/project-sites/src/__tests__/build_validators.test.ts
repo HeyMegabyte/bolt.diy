@@ -4,6 +4,7 @@ import {
   validateOgImage,
   validateAppleTouchIcon,
   validateMetaLengths,
+  validateUniquePageTitles,
   validateJsonLdCount,
   validateH1InShell,
   validateColorScheme,
@@ -190,6 +191,60 @@ describe('validateMetaLengths', () => {
     ];
     const v = validateMetaLengths(f);
     expect(v.some((x) => x.code === 'meta.description_length')).toBe(false);
+  });
+});
+
+describe('validateUniquePageTitles', () => {
+  const page = (title: string, desc: string) =>
+    `<!DOCTYPE html><html lang="en"><head><title>${title}</title>` +
+    `<meta name="description" content="${desc}"></head><body><h1>${title}</h1></body></html>`;
+  const HOME_TITLE = 'Megabyte Space — Coworking & Maker Space Phoenix AZ';
+  const HOME_DESC =
+    'Phoenix premier tech coworking and maker space with hot desks, private offices, 3D printers, and a builder community shipping products.';
+
+  it('flags an ERROR when ≥2 pages share the identical <title> (homepage-title-on-every-page defect)', () => {
+    const files = [
+      file('index.html', page(HOME_TITLE, HOME_DESC)),
+      file('about.html', page(HOME_TITLE, 'About our story — how the space grew from a garage into a maker community.')),
+      file('services.html', page(HOME_TITLE, 'Our services — hot desks, private offices, meeting rooms, and 24/7 fabrication access.')),
+    ];
+    const v = validateUniquePageTitles(files);
+    const dup = v.find((x) => x.code === 'meta.title_duplicate');
+    expect(dup).toBeDefined();
+    expect(dup?.severity).toBe('error');
+    expect(dup?.message).toContain('3 pages');
+    expect(dup?.file).toContain('index.html');
+    expect(dup?.file).toContain('about.html');
+  });
+
+  it('flags a WARN (not error) when ≥2 pages share the identical meta description but titles differ', () => {
+    const files = [
+      file('index.html', page('Home — Megabyte Space Phoenix Coworking Maker', HOME_DESC)),
+      file('about.html', page('About — Megabyte Space Phoenix Coworking Maker', HOME_DESC)),
+    ];
+    const v = validateUniquePageTitles(files);
+    expect(v.find((x) => x.code === 'meta.description_duplicate')?.severity).toBe('warn');
+    expect(v.find((x) => x.code === 'meta.title_duplicate')).toBeUndefined();
+  });
+
+  it('passes when every page has a unique title + description', () => {
+    const files = [
+      file('index.html', page('Home — Megabyte Space Phoenix Coworking', HOME_DESC)),
+      file('about.html', page('About — Ten Years Building a Maker Community', 'How the space grew from a garage into the city largest maker community. Meet the team and the mission.')),
+    ];
+    expect(validateUniquePageTitles(files)).toEqual([]);
+  });
+
+  it('is a no-op for a single-page build (no cross-page collision possible)', () => {
+    expect(validateUniquePageTitles([file('index.html', page(HOME_TITLE, HOME_DESC))])).toEqual([]);
+  });
+
+  it('normalizes case + whitespace so near-identical duplicate titles still trip', () => {
+    const files = [
+      file('index.html', page('Megabyte Space — Coworking', HOME_DESC)),
+      file('about.html', page('  MEGABYTE   SPACE — Coworking  ', 'A wholly different description long enough to never collide with the homepage description text.')),
+    ];
+    expect(validateUniquePageTitles(files).some((x) => x.code === 'meta.title_duplicate')).toBe(true);
   });
 });
 
