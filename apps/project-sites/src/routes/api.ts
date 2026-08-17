@@ -2869,7 +2869,20 @@ api.get('/api/sites/:id/logs', async (c) => {
   const offset = Math.max(Number(c.req.query('offset') ?? '0'), 0);
 
   const result = await auditService.getSiteAuditLogs(c.env.DB, orgId, siteId, { limit, offset });
-  return c.json({ data: result.data });
+  const total = result.total ?? (result.data as unknown[]).length;
+  // `meta` matches the documented contract (docs.component.ts) which promised
+  // `{ limit, offset, total }` — the handler previously returned only `{ data }`,
+  // so a caller silently capped at `limit` with no way to know more rows existed.
+  // `has_more` is the paginate-again signal.
+  return c.json({
+    data: result.data,
+    meta: {
+      limit,
+      offset,
+      total,
+      has_more: offset + (result.data as unknown[]).length < total,
+    },
+  });
 });
 
 /**
@@ -7976,7 +7989,11 @@ api.post('/api/feedback', async (c) => {
     const userId = c.get('userId') ?? null;
     const orgId = c.get('orgId') ?? null;
 
-    await dbInsert(c.env.DB, 'feedback', {
+    // `dbInsert` returns `{ error }` and NEVER throws (D1 errors are caught
+    // internally), so the surrounding try/catch is DEAD for a write failure — a
+    // bare await here would return a lying 201 while the feedback row silently
+    // dropped. Surface the drop as an honest 500 so the submitter can retry.
+    const { error: feedbackErr } = await dbInsert(c.env.DB, 'feedback', {
       id: crypto.randomUUID(),
       org_id: orgId,
       user_id: userId,
@@ -7985,6 +8002,28 @@ api.post('/api/feedback', async (c) => {
       comment,
       status: 'pending',
     });
+    if (feedbackErr) {
+      console.warn(
+        JSON.stringify({
+          level: 'error',
+          service: 'api',
+          route: 'POST /api/feedback',
+          message: 'feedback_persist_failed',
+          request_id: requestId,
+          error: feedbackErr,
+        }),
+      );
+      return c.json(
+        {
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to submit feedback',
+            request_id: requestId,
+          },
+        },
+        500,
+      );
+    }
 
     return c.json({ data: { submitted: true } }, 201);
   } catch (err) {

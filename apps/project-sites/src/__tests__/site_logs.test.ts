@@ -147,6 +147,37 @@ describe('getSiteAuditLogs', () => {
     expect(result.error).toBeNull();
   });
 
+  it('returns the TOTAL matching count (not just the page) so callers can paginate', async () => {
+    // A full page of 100 rows, but 353 match in the store — the classic silent-cap:
+    // the page is capped at `limit` while 253 rows are invisible unless `total` is exposed.
+    const page = Array.from({ length: 100 }, (_, i) => ({ id: `log-${i}`, target_id: siteId }));
+    mockDbQuery
+      .mockResolvedValueOnce({ data: page, error: null }) // SELECT … LIMIT 100
+      .mockResolvedValueOnce({ data: [{ n: 353 }], error: null }); // COUNT(*)
+
+    const result = await getSiteAuditLogs(mockDb, orgId, siteId, { limit: 100, offset: 0 });
+
+    expect(result.data).toHaveLength(100);
+    expect(result.total).toBe(353);
+    // COUNT must use the SAME filter (target_id OR metadata LIKE) WITHOUT limit/offset.
+    expect(mockDbQuery).toHaveBeenCalledWith(mockDb, expect.stringContaining('COUNT(*)'), [
+      orgId,
+      siteId,
+      `%"site_id":"${siteId}"%`,
+    ]);
+  });
+
+  it('falls back total to page length when the COUNT query returns nothing', async () => {
+    // Defensive: a swallowed COUNT error must not make total NaN/undefined.
+    mockDbQuery
+      .mockResolvedValueOnce({ data: [{ id: 'log-1', target_id: siteId }], error: null })
+      .mockResolvedValueOnce({ data: [], error: null });
+
+    const result = await getSiteAuditLogs(mockDb, orgId, siteId);
+
+    expect(result.total).toBe(1);
+  });
+
   it('uses default limit=100 and offset=0', async () => {
     mockDbQuery.mockResolvedValueOnce({ data: [], error: null });
 
@@ -282,6 +313,28 @@ describe('GET /api/sites/:id/logs', () => {
     const body = (await res.json()) as { data: typeof mockLogs };
     expect(body.data).toEqual(mockLogs);
     expect(body.data).toHaveLength(2);
+  });
+
+  it('exposes meta.total + has_more (documented contract, never silently caps)', async () => {
+    const page = Array.from({ length: 100 }, (_, i) => ({ id: `log-${i}`, target_id: siteId }));
+    mockDbQueryOne.mockResolvedValueOnce({ id: siteId }); // ownership check
+    mockDbQuery
+      .mockResolvedValueOnce({ data: page, error: null }) // SELECT page
+      .mockResolvedValueOnce({ data: [{ n: 353 }], error: null }); // COUNT(*)
+
+    const { app, env } = createAuthenticatedApp({ userId, orgId });
+    const res = await makeRequest(app, env, `/api/sites/${siteId}/logs?limit=100&offset=0`);
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: unknown[];
+      meta: { total: number; has_more: boolean; limit: number; offset: number };
+    };
+    expect(body.data).toHaveLength(100);
+    expect(body.meta.total).toBe(353);
+    expect(body.meta.has_more).toBe(true); // 0 + 100 < 353
+    expect(body.meta.limit).toBe(100);
+    expect(body.meta.offset).toBe(0);
   });
 
   it('returns empty array when site has no logs', async () => {

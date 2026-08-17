@@ -168,9 +168,10 @@ export async function getSiteAuditLogs(
   orgId: string,
   siteId: string,
   options: { limit?: number; offset?: number } = {},
-): Promise<{ data: unknown[]; error: string | null }> {
+): Promise<{ data: unknown[]; total: number; error: string | null }> {
   const limit = Math.min(options.limit ?? 100, 200);
   const offset = Math.max(options.offset ?? 0, 0);
+  const like = `%"site_id":"${siteId}"%`;
 
   const result = await dbQuery<unknown>(
     db,
@@ -179,8 +180,23 @@ export async function getSiteAuditLogs(
        AND (target_id = ? OR metadata_json LIKE ?)
      ORDER BY created_at DESC
      LIMIT ? OFFSET ?`,
-    [orgId, siteId, `%"site_id":"${siteId}"%`, limit, offset],
+    [orgId, siteId, like, limit, offset],
   );
 
-  return { data: result.data, error: result.error };
+  // Total matching rows (unpaginated), so the endpoint can expose `total`/`has_more`
+  // and a caller can page instead of silently capping at `limit`. Same WHERE as the
+  // page query, no LIMIT/OFFSET. Without this a site with 353 logs looks like it has
+  // exactly `limit` (verify-against-source-of-truth: display must reconcile to the store).
+  const countResult = await dbQuery<{ n: number }>(
+    db,
+    `SELECT COUNT(*) AS n FROM audit_logs
+     WHERE org_id = ?
+       AND (target_id = ? OR metadata_json LIKE ?)`,
+    [orgId, siteId, like],
+  );
+  const total = Number(
+    (countResult.data?.[0] as { n?: number } | undefined)?.n ?? result.data.length,
+  );
+
+  return { data: result.data, total, error: result.error };
 }
