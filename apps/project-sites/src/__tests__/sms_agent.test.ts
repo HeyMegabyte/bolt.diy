@@ -240,9 +240,9 @@ describe('replyToInbound — STOP / opt-out handling', () => {
     // retries the idempotent inbound until it persists. Never send the "unsubscribed"
     // confirmation (nor keep messaging) on a lost write.
     mockUpdate.mockResolvedValue({ error: 'D1_ERROR: database is locked', changes: 0 });
-    await expect(
-      replyToInbound(env, inbound({ body: 'STOP' }), profile, settings),
-    ).rejects.toThrow(/opt_out_persist_failed/);
+    await expect(replyToInbound(env, inbound({ body: 'STOP' }), profile, settings)).rejects.toThrow(
+      /opt_out_persist_failed/,
+    );
     expect(mockSendSms).not.toHaveBeenCalled();
   });
 
