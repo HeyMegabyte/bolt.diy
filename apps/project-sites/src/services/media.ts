@@ -255,6 +255,23 @@ export async function uploadAsset(env: Env, args: UploadAssetArgs): Promise<Medi
     // missing — we want the epoch-ms integers, so pass them explicitly above.
   });
   if (error) {
+    // The R2 object was already written (external side-effect) but the D1 row
+    // dropped — compensate by deleting the orphaned object BEFORE throwing, so a
+    // failed upload never leaks an unreferenced R2 object (invisible to
+    // listAssets, never cleaned up, wasted storage). Saga/compensating-action
+    // pattern (cf. domains.ts hostname rollback). Best-effort: log if the cleanup
+    // itself fails (the orphan then needs manual removal) but still throw.
+    await env.SITES_BUCKET.delete(r2Key).catch((delErr) => {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'media',
+          message: 'uploadAsset_r2_orphan_cleanup_failed',
+          r2_key: r2Key,
+          error: delErr instanceof Error ? delErr.message : String(delErr),
+        }),
+      );
+    });
     console.warn('[media] uploadAsset insert failed:', error);
     throw new Error(`MEDIA_INSERT_FAILED: ${error}`);
   }

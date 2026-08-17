@@ -93,8 +93,27 @@ function createR2Stub() {
       if (!buf) return null;
       return { body: buf, size: buf.byteLength } as unknown;
     }),
+    delete: jest.fn(async (key: string) => {
+      objects.delete(key);
+    }),
     objects,
   };
+}
+
+/** D1 stub whose media_assets INSERT fails (dbExecute → { error }, never throws). */
+function createDbInsertFailStub(): D1Database {
+  return {
+    prepare: (sql: string) => ({
+      bind: () => ({
+        all: async () => ({ results: [], success: true, meta: { changes: 0 } }) as unknown,
+        first: async () => null,
+        run: async () => {
+          if (/^INSERT INTO media_assets/i.test(sql)) throw new Error('D1_ERROR: disk I/O');
+          return { meta: { changes: 0 } } as unknown;
+        },
+      }),
+    }),
+  } as unknown as D1Database;
 }
 
 describe('services/media', () => {
@@ -134,6 +153,29 @@ describe('services/media', () => {
 
       const after = await listAssets(env, 'org-1', { kind: 'image' });
       expect(after).toHaveLength(0);
+    });
+
+    it('deletes the R2 object when the D1 insert fails (no orphan) and rethrows', async () => {
+      // The put succeeds but the media_assets INSERT drops → the R2 object would
+      // be orphaned (invisible to listAssets, wasted storage). uploadAsset must
+      // compensate: delete the object before throwing MEDIA_INSERT_FAILED.
+      const r2 = createR2Stub();
+      const env = {
+        DB: createDbInsertFailStub(),
+        SITES_BUCKET: r2 as unknown as R2Bucket,
+        AI: {} as Ai,
+      } as unknown as Env;
+
+      const bytes = new TextEncoder().encode('fake-bytes').buffer;
+      await expect(
+        uploadAsset(env, { orgId: 'org-1', name: 'hero.png', mime: 'image/png', bytes }),
+      ).rejects.toThrow(/MEDIA_INSERT_FAILED/);
+
+      // The object was written then compensated — same key put + deleted, no orphan.
+      expect(r2.put).toHaveBeenCalledTimes(1);
+      expect(r2.delete).toHaveBeenCalledTimes(1);
+      expect(r2.delete.mock.calls[0][0]).toBe(r2.put.mock.calls[0][0]);
+      expect(r2.objects.size).toBe(0);
     });
   });
 
