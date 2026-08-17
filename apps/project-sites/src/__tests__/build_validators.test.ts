@@ -205,8 +205,20 @@ describe('validateUniquePageTitles', () => {
   it('flags an ERROR when ≥2 pages share the identical <title> (homepage-title-on-every-page defect)', () => {
     const files = [
       file('index.html', page(HOME_TITLE, HOME_DESC)),
-      file('about.html', page(HOME_TITLE, 'About our story — how the space grew from a garage into a maker community.')),
-      file('services.html', page(HOME_TITLE, 'Our services — hot desks, private offices, meeting rooms, and 24/7 fabrication access.')),
+      file(
+        'about.html',
+        page(
+          HOME_TITLE,
+          'About our story — how the space grew from a garage into a maker community.',
+        ),
+      ),
+      file(
+        'services.html',
+        page(
+          HOME_TITLE,
+          'Our services — hot desks, private offices, meeting rooms, and 24/7 fabrication access.',
+        ),
+      ),
     ];
     const v = validateUniquePageTitles(files);
     const dup = v.find((x) => x.code === 'meta.title_duplicate');
@@ -230,7 +242,13 @@ describe('validateUniquePageTitles', () => {
   it('passes when every page has a unique title + description', () => {
     const files = [
       file('index.html', page('Home — Megabyte Space Phoenix Coworking', HOME_DESC)),
-      file('about.html', page('About — Ten Years Building a Maker Community', 'How the space grew from a garage into the city largest maker community. Meet the team and the mission.')),
+      file(
+        'about.html',
+        page(
+          'About — Ten Years Building a Maker Community',
+          'How the space grew from a garage into the city largest maker community. Meet the team and the mission.',
+        ),
+      ),
     ];
     expect(validateUniquePageTitles(files)).toEqual([]);
   });
@@ -242,9 +260,17 @@ describe('validateUniquePageTitles', () => {
   it('normalizes case + whitespace so near-identical duplicate titles still trip', () => {
     const files = [
       file('index.html', page('Megabyte Space — Coworking', HOME_DESC)),
-      file('about.html', page('  MEGABYTE   SPACE — Coworking  ', 'A wholly different description long enough to never collide with the homepage description text.')),
+      file(
+        'about.html',
+        page(
+          '  MEGABYTE   SPACE — Coworking  ',
+          'A wholly different description long enough to never collide with the homepage description text.',
+        ),
+      ),
     ];
-    expect(validateUniquePageTitles(files).some((x) => x.code === 'meta.title_duplicate')).toBe(true);
+    expect(validateUniquePageTitles(files).some((x) => x.code === 'meta.title_duplicate')).toBe(
+      true,
+    );
   });
 });
 
