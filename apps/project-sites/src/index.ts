@@ -1676,41 +1676,20 @@ export default {
       );
     }
 
-    // Unstick stuck builds — any site in 'building' status for > 30 minutes gets marked as 'error'
+    // Unstick stalled builds — any in-progress build whose workflow died (no
+    // `updated_at` progress in 30 min; the workflow heartbeats every ~30s) is flipped
+    // to 'error' so the serve layer stops looping the "Building…" page forever. The
+    // status set (incl. `collecting`, which the old inline list MISSED → stranded
+    // research-phase builds) + the {error}-observed UPDATE live in the testable SSOT.
     try {
-      const { dbQuery, dbExecute } = await import('./services/db.js');
-      const stuckSites = await dbQuery<{ id: string; slug: string; business_name: string }>(
-        env.DB,
-        `SELECT id, slug, business_name FROM sites
-         WHERE status IN ('building', 'queued', 'generating', 'imaging', 'uploading')
-         AND updated_at < datetime('now', '-30 minutes')
-         AND deleted_at IS NULL`,
-        [],
-      );
-
-      if (stuckSites.data.length > 0) {
-        for (const site of stuckSites.data) {
-          await dbExecute(
-            env.DB,
-            `UPDATE sites SET status = 'error', updated_at = datetime('now') WHERE id = ?`,
-            [site.id],
-          );
-          console.warn(
-            JSON.stringify({
-              level: 'warn',
-              service: 'cron',
-              message: 'Unstuck build',
-              siteId: site.id,
-              slug: site.slug,
-              businessName: site.business_name,
-            }),
-          );
-        }
+      const { unstickStalledBuilds } = await import('./services/stuck_builds.js');
+      const recovered = await unstickStalledBuilds(env);
+      if (recovered > 0) {
         console.warn(
           JSON.stringify({
             level: 'info',
             service: 'cron',
-            message: `Unstuck ${stuckSites.data.length} builds`,
+            message: `Unstuck ${recovered} stalled builds`,
           }),
         );
       }
