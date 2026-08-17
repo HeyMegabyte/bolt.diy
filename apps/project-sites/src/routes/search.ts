@@ -1300,7 +1300,20 @@ search.post('/api/contact-form/:slug', async (c) => {
       }
     }
 
-    const toEmail = site.contact_email || '';
+    // Resolve the owner's notification address. The admin Settings "Contact
+    // Email" field writes `ai_site_settings.contact_email` (the user-configured,
+    // AUTHORITATIVE value — see ai_admin.ts ai-settings PUT); `sites.contact_email`
+    // is the build/research-populated legacy fallback. Reading ONLY
+    // `sites.contact_email` ignored a configured address → the owner silently
+    // never got emailed their leads even after setting it in admin (a cross-system
+    // source-drift: admin writes ai_site_settings, this read sites). Prefer the
+    // configured value, fall back to the build value.
+    const aiSettings = await dbQueryOne<{ contact_email?: string | null }>(
+      c.env.DB,
+      'SELECT contact_email FROM ai_site_settings WHERE site_id = ?',
+      [site.id],
+    );
+    const toEmail = aiSettings?.contact_email || site.contact_email || '';
 
     // Escape every untrusted field BEFORE interpolation (the message keeps its
     // line breaks via <br>, applied AFTER escaping so injected markup is inert).

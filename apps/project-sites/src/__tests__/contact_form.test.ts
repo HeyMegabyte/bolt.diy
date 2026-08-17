@@ -227,3 +227,77 @@ describe('POST /api/contact-form/:slug — persist-first, delivery is best-effor
     expect(res.status).toBe(200); // email is best-effort; the persisted lead is the durable success
   });
 });
+
+// ---------------------------------------------------------------------------
+// Contact-email SOURCE resolution: the admin Settings "Contact Email" field
+// writes ai_site_settings.contact_email; sites.contact_email is the build/legacy
+// fallback. Reading only sites.contact_email ignored the configured address →
+// the owner silently never got emailed their leads. This is a cross-system
+// source-drift (admin writes ai_site_settings, the form read sites).
+// ---------------------------------------------------------------------------
+describe('POST /api/contact-form/:slug — owner email resolves from ai_site_settings first', () => {
+  /** SQL-aware D1 stub: distinct rows for the `sites` vs `ai_site_settings` reads. */
+  function makeSplitDb(
+    sitesRow: Record<string, unknown> | null,
+    aiRow: Record<string, unknown> | null,
+  ): D1Database {
+    return {
+      prepare: jest.fn((sql: string) => {
+        const isAi = /ai_site_settings/i.test(sql);
+        const row = isAi ? aiRow : sitesRow;
+        return {
+          bind: jest.fn(() => ({
+            all: jest.fn().mockResolvedValue({ results: row ? [row] : [] }),
+            first: jest.fn().mockResolvedValue(row),
+            run: jest.fn().mockResolvedValue({ meta: { changes: 1 } }),
+          })),
+        };
+      }),
+    } as unknown as D1Database;
+  }
+
+  it('emails the admin-configured ai_site_settings.contact_email when sites.contact_email is null', async () => {
+    // The owner set their Contact Email in /admin (→ ai_site_settings), but
+    // sites.contact_email is null. The form MUST email the configured address —
+    // not fall to the "no contact email → bell only" degrade that lost the lead.
+    const db = makeSplitDb(
+      { id: 'site-1', org_id: 'org-1', business_name: 'Biz', contact_email: null },
+      { contact_email: 'configured@owner.com' },
+    );
+    const fetchSpy = jest.fn(async () => new Response('', { status: 202 }));
+    global.fetch = fetchSpy as unknown as typeof fetch;
+    const env = { ENVIRONMENT: 'test', DB: db, SENDGRID_API_KEY: 'sg_test' } as unknown as Env;
+
+    const res = await submit(env, {
+      name: 'Lead',
+      email: 'lead@x.com',
+      message: 'I would like a quote please.',
+    });
+
+    expect(res.status).toBe(200);
+    const sgCall = fetchSpy.mock.calls.find((c) => String(c[0]).includes('sendgrid'));
+    expect(sgCall).toBeTruthy(); // owner was emailed the lead (SendGrid called)
+    // lead routed to the admin-configured address (not the empty sites column)
+    expect(JSON.stringify(sgCall?.[1])).toContain('configured@owner.com');
+  });
+
+  it('falls back to sites.contact_email when ai_site_settings has none (build/legacy path)', async () => {
+    const db = makeSplitDb(
+      { id: 'site-1', org_id: 'org-1', business_name: 'Biz', contact_email: 'legacy@owner.com' },
+      null,
+    );
+    const fetchSpy = jest.fn(async () => new Response('', { status: 202 }));
+    global.fetch = fetchSpy as unknown as typeof fetch;
+    const env = { ENVIRONMENT: 'test', DB: db, SENDGRID_API_KEY: 'sg_test' } as unknown as Env;
+
+    const res = await submit(env, {
+      name: 'Lead',
+      email: 'lead@x.com',
+      message: 'I would like a quote please.',
+    });
+
+    expect(res.status).toBe(200);
+    const sgCall = fetchSpy.mock.calls.find((c) => String(c[0]).includes('sendgrid'));
+    expect(JSON.stringify(sgCall?.[1])).toContain('legacy@owner.com');
+  });
+});
