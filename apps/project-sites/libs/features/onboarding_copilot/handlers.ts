@@ -63,7 +63,10 @@ onboardingCopilot.get('/checklist', async (c) => {
     ),
     dbQueryOne<{ n: number }>(
       c.env.DB,
-      "SELECT COUNT(*) as n FROM sites WHERE org_id = ? AND status = 'published' AND deleted_at IS NULL",
+      // `current_build_version IS NOT NULL` — a published row with no build serves a
+      // 503, so it must NOT satisfy the "publish your site" onboarding step (else the
+      // checklist marks a lying-published 503 stub as a completed publish).
+      "SELECT COUNT(*) as n FROM sites WHERE org_id = ? AND status = 'published' AND current_build_version IS NOT NULL AND deleted_at IS NULL",
       [orgId],
     ),
     dbQueryOne<{ n: number }>(

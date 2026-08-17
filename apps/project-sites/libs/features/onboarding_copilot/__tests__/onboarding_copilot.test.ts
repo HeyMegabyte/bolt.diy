@@ -32,11 +32,15 @@ const mockCacheKV = { get: mockKvGet, put: mockKvPut };
 // App factory — mounts onboardingCopilot at /api/onboarding matching src/index
 // ---------------------------------------------------------------------------
 function app(orgId: string | null = null) {
-  const a = new Hono<{ Bindings: { DB: unknown; CACHE_KV: typeof mockCacheKV }; Variables: { orgId: string } }>();
+  const a = new Hono<{
+    Bindings: { DB: unknown; CACHE_KV: typeof mockCacheKV };
+    Variables: { orgId: string };
+  }>();
   a.use('*', async (c, next) => {
     // Inject KV stub into env
     (c.env as Record<string, unknown>).CACHE_KV = mockCacheKV;
-    if (orgId !== null) (c as unknown as { set: (k: string, v: string) => void }).set('orgId', orgId);
+    if (orgId !== null)
+      (c as unknown as { set: (k: string, v: string) => void }).set('orgId', orgId);
     await next();
   });
   a.route('/api/onboarding', onboardingCopilot);
@@ -71,7 +75,12 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 describe('buildChecklist()', () => {
   it('marks all steps incomplete when org is brand new', () => {
-    const result = buildChecklist({ hasSite: false, hasPublished: false, hasDomain: false, dismissed: false });
+    const result = buildChecklist({
+      hasSite: false,
+      hasPublished: false,
+      hasDomain: false,
+      dismissed: false,
+    });
     expect(result.complete).toBe(false);
     expect(result.dismissed).toBe(false);
     expect(result.steps[0].id).toBe('create_site');
@@ -81,7 +90,12 @@ describe('buildChecklist()', () => {
   });
 
   it('marks create_site done and advances next to publish_site', () => {
-    const result = buildChecklist({ hasSite: true, hasPublished: false, hasDomain: false, dismissed: false });
+    const result = buildChecklist({
+      hasSite: true,
+      hasPublished: false,
+      hasDomain: false,
+      dismissed: false,
+    });
     expect(result.steps[0].done).toBe(true);
     expect(result.steps[0].next).toBe(false);
     expect(result.steps[1].id).toBe('publish_site');
@@ -89,7 +103,12 @@ describe('buildChecklist()', () => {
   });
 
   it('marks first two steps done, advances next to add_custom_domain', () => {
-    const result = buildChecklist({ hasSite: true, hasPublished: true, hasDomain: false, dismissed: false });
+    const result = buildChecklist({
+      hasSite: true,
+      hasPublished: true,
+      hasDomain: false,
+      dismissed: false,
+    });
     expect(result.steps[0].done).toBe(true);
     expect(result.steps[1].done).toBe(true);
     expect(result.steps[2].id).toBe('add_custom_domain');
@@ -97,7 +116,12 @@ describe('buildChecklist()', () => {
   });
 
   it('reflects dismissed flag in response', () => {
-    const result = buildChecklist({ hasSite: false, hasPublished: false, hasDomain: false, dismissed: true });
+    const result = buildChecklist({
+      hasSite: false,
+      hasPublished: false,
+      hasDomain: false,
+      dismissed: true,
+    });
     expect(result.dismissed).toBe(true);
   });
 
@@ -122,7 +146,7 @@ describe('GET /api/onboarding/checklist — flag gate', () => {
     mockIsFlagOn.mockResolvedValue(false);
     const res = await GET_CHECKLIST();
     expect(res.status).toBe(404);
-    const body = await res.json() as { error: { code: string } };
+    const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe('NOT_FOUND');
   });
 });
@@ -135,7 +159,7 @@ describe('GET /api/onboarding/checklist — auth', () => {
     mockIsFlagOn.mockResolvedValue(true);
     const res = await GET_CHECKLIST(null);
     expect(res.status).toBe(401);
-    const body = await res.json() as { error: { code: string } };
+    const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe('UNAUTHORIZED');
   });
 });
@@ -153,7 +177,11 @@ describe('GET /api/onboarding/checklist — happy path', () => {
     const res = await GET_CHECKLIST();
     expect(res.status).toBe(200);
 
-    const body = await res.json() as { dismissed: boolean; complete: boolean; steps: Array<{ id: string; done: boolean; next: boolean }> };
+    const body = (await res.json()) as {
+      dismissed: boolean;
+      complete: boolean;
+      steps: Array<{ id: string; done: boolean; next: boolean }>;
+    };
     expect(body.dismissed).toBe(false);
     expect(body.complete).toBe(false);
     expect(body.steps).toHaveLength(4);
@@ -169,8 +197,22 @@ describe('GET /api/onboarding/checklist — happy path', () => {
 
     const res = await GET_CHECKLIST();
     expect(res.status).toBe(200);
-    const body = await res.json() as { dismissed: boolean };
+    const body = (await res.json()) as { dismissed: boolean };
     expect(body.dismissed).toBe(true);
+  });
+
+  it('the publish step counts only BUILT published sites (excludes lying-published 503 stubs)', async () => {
+    mockIsFlagOn.mockResolvedValue(true);
+    mockDbQueryOne.mockResolvedValue({ n: 0 });
+    mockKvGet.mockResolvedValue(null);
+    await GET_CHECKLIST();
+    // A published row with a NULL current_build_version serves a 503 → it must NOT
+    // satisfy the "publish your site" step. The count query must require a real build.
+    const publishedCountCall = mockDbQueryOne.mock.calls.find((c) =>
+      String(c[1]).includes("status = 'published'"),
+    );
+    expect(publishedCountCall).toBeTruthy();
+    expect(String(publishedCountCall[1])).toContain('current_build_version IS NOT NULL');
   });
 });
 
@@ -182,7 +224,7 @@ describe('POST /api/onboarding/dismiss — flag gate', () => {
     mockIsFlagOn.mockResolvedValue(false);
     const res = await POST_DISMISS();
     expect(res.status).toBe(404);
-    const body = await res.json() as { error: { code: string } };
+    const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe('NOT_FOUND');
   });
 });
@@ -195,7 +237,7 @@ describe('POST /api/onboarding/dismiss — auth', () => {
     mockIsFlagOn.mockResolvedValue(true);
     const res = await POST_DISMISS(null);
     expect(res.status).toBe(401);
-    const body = await res.json() as { error: { code: string } };
+    const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe('UNAUTHORIZED');
   });
 });
@@ -211,12 +253,10 @@ describe('POST /api/onboarding/dismiss — happy path', () => {
     const res = await POST_DISMISS();
     expect(res.status).toBe(200);
 
-    const body = await res.json() as { dismissed: boolean };
+    const body = (await res.json()) as { dismissed: boolean };
     expect(body.dismissed).toBe(true);
-    expect(mockKvPut).toHaveBeenCalledWith(
-      dismissedKey('org-123'),
-      '1',
-      { expirationTtl: DISMISS_TTL },
-    );
+    expect(mockKvPut).toHaveBeenCalledWith(dismissedKey('org-123'), '1', {
+      expirationTtl: DISMISS_TTL,
+    });
   });
 });

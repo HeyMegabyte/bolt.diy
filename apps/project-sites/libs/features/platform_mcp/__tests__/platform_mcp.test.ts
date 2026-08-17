@@ -211,6 +211,14 @@ describe('platform_mcp JSON-RPC', () => {
     expect(payload.live_url).toBe('https://acme.projectsites.dev');
     expect(payload.preview_url).toMatch(/^https:\/\/acme-d[0-9a-f]{8}\.projectsites\.dev$/);
     expect(env.SITES_BUCKET.put).toHaveBeenCalled();
+    // The status UPDATE MUST also set current_build_version — a published row with
+    // a NULL build is the lying-published 503 class (D1 must stay the authoritative
+    // build indicator so search/dashboard/readiness classify this deploy as live).
+    const updateCall = (dbExecute as jest.Mock).mock.calls.find((c) =>
+      String(c[1]).includes('UPDATE sites'),
+    );
+    expect(updateCall).toBeTruthy();
+    expect(String(updateCall[1])).toContain('current_build_version = ?');
   });
 
   it('create_site creates a draft + returns the slug', async () => {

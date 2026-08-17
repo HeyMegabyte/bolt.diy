@@ -80,12 +80,12 @@ export function scoreToGrade(score: number): ReadinessGrade {
  *
  * @throws Never — R2 head errors are caught internally and treated as a fail.
  */
-export async function computeReadiness(
-  env: Env,
-  site: SiteRow,
-): Promise<ReadinessResponse> {
+export async function computeReadiness(env: Env, site: SiteRow): Promise<ReadinessResponse> {
   // ── Check 1: published ──────────────────────────────────────────────────
-  const isPublished = site.status === 'published';
+  // Requires a real build: a `published` row with NULL current_build_version
+  // serves a 503 (no R2 manifest) — it is not genuinely live, so it must not
+  // earn the "published" points ("lying-published" class).
+  const isPublished = site.status === 'published' && !!site.current_build_version;
 
   // ── Check 2: custom domain ──────────────────────────────────────────────
   const hostnamesResult = await dbQuery<HostnameRow>(
@@ -100,8 +100,7 @@ export async function computeReadiness(
   const hasCustomDomain = hostnamesResult.data.length > 0;
 
   // ── Check 3: performance ────────────────────────────────────────────────
-  const hasGoodPerf =
-    site.lighthouse_score !== null && site.lighthouse_score >= 90;
+  const hasGoodPerf = site.lighthouse_score !== null && site.lighthouse_score >= 90;
 
   // ── Check 4: sitemap present in R2 ─────────────────────────────────────
   let hasSitemap = false;
@@ -121,9 +120,7 @@ export async function computeReadiness(
       name: 'published',
       pass: isPublished,
       weight: 25,
-      hint: isPublished
-        ? 'Site is live.'
-        : 'Publish this site so visitors can reach it.',
+      hint: isPublished ? 'Site is live.' : 'Publish this site so visitors can reach it.',
     },
     {
       name: 'custom_domain',
@@ -151,10 +148,7 @@ export async function computeReadiness(
     },
   ];
 
-  const score = checks.reduce(
-    (sum, c) => sum + (c.pass ? c.weight : 0),
-    0,
-  );
+  const score = checks.reduce((sum, c) => sum + (c.pass ? c.weight : 0), 0);
 
   return { score, grade: scoreToGrade(score), checks };
 }

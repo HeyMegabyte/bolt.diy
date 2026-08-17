@@ -412,8 +412,14 @@ export async function dispatchPlatformTool(
       const result = await publishSiteFiles(env, site.slug, files);
       const { error: statusError } = await dbExecute(
         db,
-        `UPDATE sites SET status = 'published', updated_at = datetime('now') WHERE id = ?`,
-        [site_id],
+        // Set `current_build_version` (the version publishSiteFiles just wrote)
+        // ALONGSIDE status — a published row with a NULL build version is the
+        // "lying-published" 503 class. This keeps D1 the authoritative build
+        // indicator (mirrors the normal site-generation publish) so search /
+        // dashboard / readiness / onboarding all classify this MCP-deployed site
+        // as genuinely live, not "unbuilt".
+        `UPDATE sites SET status = 'published', current_build_version = ?, updated_at = datetime('now') WHERE id = ?`,
+        [result.version, site_id],
       );
       if (statusError) {
         // publishSiteFiles already succeeded (the files ARE live); only the status

@@ -148,7 +148,11 @@ describe('GET /api/sites/:siteId/readiness', () => {
   it('returns score 100, grade A when all four checks pass', async () => {
     const res = await getReadiness();
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { score: number; grade: string; checks: { name: string; pass: boolean }[] };
+    const body = (await res.json()) as {
+      score: number;
+      grade: string;
+      checks: { name: string; pass: boolean }[];
+    };
     expect(body.score).toBe(100);
     expect(body.grade).toBe('A');
     expect(body.checks).toHaveLength(4);
@@ -177,15 +181,34 @@ describe('GET /api/sites/:siteId/readiness', () => {
       site: {
         ...BASE_SITE,
         lighthouse_score: 80, // <90 → fails performance check
-        current_build_version: null, // no sitemap check possible
+        current_build_version: 'v1', // BUILT → published passes; sitemap still missing (bucket null) below
       },
       hostnames: [{ type: 'custom_cname', status: 'active' }],
-      bucket: makeBucket(null),
+      bucket: makeBucket(null), // sitemap not found → sitemap check fails
     });
     const body = (await res.json()) as { score: number; grade: string };
     // published(25) + custom_domain(25) = 50
     expect(body.score).toBe(50);
     expect(body.grade).toBe('F');
+  });
+
+  it('does NOT award the published check to a published-but-unbuilt (503 stub) site', async () => {
+    // A `published` row with a NULL current_build_version serves a 503 — not
+    // genuinely live, so it must earn 0 for the published check (lying-published).
+    const res = await getReadiness({
+      site: {
+        ...BASE_SITE,
+        status: 'published',
+        current_build_version: null,
+        lighthouse_score: null,
+      },
+      hostnames: [],
+      bucket: makeBucket(null),
+    });
+    const body = (await res.json()) as { score: number };
+    // published fails (no build) + domain fail + perf fail + sitemap fail = 0
+    // (before the fix, status==='published' alone wrongly earned 25).
+    expect(body.score).toBe(0);
   });
 
   it('treats a null lighthouse_score as a performance check failure', async () => {

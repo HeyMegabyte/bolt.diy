@@ -1,5 +1,28 @@
-import { redactBuildLogSecrets, toBuildLogLine } from './waiting.component';
+import { redactBuildLogSecrets, toBuildLogLine, resolveBuildOutcome } from './waiting.component';
 import type { LogEntry } from '../../services/api.service';
+
+describe('resolveBuildOutcome (build-progress terminal state)', () => {
+  it('published WITH a build → live', () => {
+    expect(resolveBuildOutcome('published', true)).toBe('live');
+  });
+
+  it('published WITHOUT a build → failed (503 stub, never announced live)', () => {
+    // The lying-published guard: a published row with a null current_build_version
+    // serves a 503 — the visitor must not be told "Your site is live!".
+    expect(resolveBuildOutcome('published', false)).toBe('failed');
+  });
+
+  it('error → failed (regardless of build)', () => {
+    expect(resolveBuildOutcome('error', false)).toBe('failed');
+    expect(resolveBuildOutcome('error', true)).toBe('failed');
+  });
+
+  it('in-progress statuses → pending (keep polling)', () => {
+    for (const s of ['building', 'generating', 'draft', 'queued', 'collecting']) {
+      expect(resolveBuildOutcome(s, false)).toBe('pending');
+    }
+  });
+});
 
 describe('redactBuildLogSecrets', () => {
   it('redacts an ANTHROPIC_AUTH_TOKEN=sk-... leak', () => {

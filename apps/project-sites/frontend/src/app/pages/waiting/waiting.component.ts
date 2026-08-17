@@ -75,6 +75,26 @@ export interface BuildPhaseChip {
 }
 
 /**
+ * Terminal-state decision for the build-progress poll. A `published` row is only
+ * "live" once its build actually landed (`hasBuild`) — a published row with NO
+ * `current_build_version` never finished uploading and serves a 503, so it is a
+ * FAILED build, not a live site (the lying-published class). Pure + exported so
+ * the decision is unit-tested without instantiating the polling component.
+ *
+ * @param status - The site's lifecycle status from the poll.
+ * @param hasBuild - Whether `current_build_version` is set (a real R2 build exists).
+ * @returns `'live'` (announce + stop), `'failed'` (retry + stop), or `'pending'` (keep polling).
+ */
+export function resolveBuildOutcome(
+  status: string,
+  hasBuild: boolean,
+): 'live' | 'failed' | 'pending' {
+  if (status === 'published' && hasBuild) return 'live';
+  if (status === 'error' || (status === 'published' && !hasBuild)) return 'failed';
+  return 'pending';
+}
+
+/**
  * Scrub anything secret-shaped out of a build-log line BEFORE it reaches the DOM.
  * The container streams real Claude Code output; a leaked key/token must never be
  * rendered. Pure + exported for unit coverage.
@@ -218,7 +238,11 @@ export class WaitingComponent implements OnInit, OnDestroy {
           this.logs.set(logs);
           this.updateStatusFromLogs(logs, site.status);
 
-          if (site.status === 'published') {
+          // A published row is "live" ONLY once its build landed — a published +
+          // null-build row serves a 503, so it's a FAILED build (lying-published),
+          // never announced as live. Decision extracted to resolveBuildOutcome().
+          const outcome = resolveBuildOutcome(site.status, !!site.current_build_version);
+          if (outcome === 'live') {
             this.alive = false;
             this.statusMessage.set('Your site is live!');
             this.currentStep.set(TOTAL_STEPS);
@@ -227,7 +251,7 @@ export class WaitingComponent implements OnInit, OnDestroy {
             return;
           }
 
-          if (site.status === 'error') {
+          if (outcome === 'failed') {
             this.alive = false;
             this.statusMessage.set('Build failed. Please try again.');
             this.toast.error('Build failed.');
