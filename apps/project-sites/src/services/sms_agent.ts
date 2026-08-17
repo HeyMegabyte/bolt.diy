@@ -96,7 +96,13 @@ export async function replyToInbound(
   const lower = msg.body.trim().toLowerCase();
   if (/^(stop|stopall|unsubscribe|cancel|end|quit)$/.test(lower)) {
     ctx.opted_out_sms = true;
-    await persistSession(env, session.id, ctx);
+    // Compliance-critical (TCPA/CAN-SPAM): the opt-out MUST durably persist BEFORE we
+    // confirm the unsubscribe. A silently-dropped write would keep the agent messaging an
+    // opted-out user AND send a lying "unsubscribed" confirmation. Throw on failure so the
+    // webhook 5xxes → Twilio retries the (idempotent) inbound until the opt-out persists.
+    if (!(await persistSession(env, session.id, ctx))) {
+      throw new Error(`sms_opt_out_persist_failed: session ${session.id}`);
+    }
     const confirmText =
       'You are unsubscribed. You will not receive further messages. Reply START to re-subscribe.';
     const sent = await safeSendSms(env, msg.toNumber, msg.fromNumber, confirmText);
@@ -178,13 +184,27 @@ async function loadOrCreateSession(
   );
   if (existing) return existing;
   const id = crypto.randomUUID();
-  await dbInsert(env.DB, 'voice_sessions', {
+  const { error } = await dbInsert(env.DB, 'voice_sessions', {
     id,
     site_id: siteId,
     from_number: fromNumber,
     last_active_at: new Date().toISOString(),
     context_json: JSON.stringify({ turns: [], facts: {} } satisfies SessionContext),
   });
+  // A dropped create → a phantom session whose later `persistSession` UPDATEs match 0
+  // rows (opt-out silently lost on the compliance path). Make the drop observable; the
+  // opt-out path's changes===0 fail-closed then forces a Twilio retry.
+  if (error) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'sms_agent',
+        message: 'session_create_failed',
+        site_id: siteId,
+        error,
+      }),
+    );
+  }
   return { id, context_json: JSON.stringify({ turns: [], facts: {} }) };
 }
 
@@ -204,8 +224,8 @@ function parseContext(raw: string | null): SessionContext {
   }
 }
 
-async function persistSession(env: Env, sessionId: string, ctx: SessionContext): Promise<void> {
-  await dbUpdate(
+async function persistSession(env: Env, sessionId: string, ctx: SessionContext): Promise<boolean> {
+  const { error, changes } = await dbUpdate(
     env.DB,
     'voice_sessions',
     {
@@ -215,6 +235,24 @@ async function persistSession(env: Env, sessionId: string, ctx: SessionContext):
     'id = ?',
     [sessionId],
   );
+  // `dbUpdate` returns { error, changes } and NEVER throws — a bare await silently drops
+  // the write. `changes === 0` means the session row is missing (a dropped create).
+  // Surface BOTH: the session context IS the conversation's memory (incl. the SMS
+  // opt-out flag), and on the opt-out path a lost write is a TCPA/CAN-SPAM failure.
+  if (error || changes === 0) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'sms_agent',
+        message: 'session_persist_failed',
+        session_id: sessionId,
+        error: error ?? null,
+        changes,
+      }),
+    );
+    return false;
+  }
+  return true;
 }
 
 async function safeSendSms(

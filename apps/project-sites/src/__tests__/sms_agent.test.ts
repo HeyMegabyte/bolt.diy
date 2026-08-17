@@ -235,6 +235,27 @@ describe('replyToInbound — STOP / opt-out handling', () => {
     expect(res.ai_reply_sid).toBeUndefined();
   });
 
+  it('THROWS + sends NO confirmation when the opt-out session write DROPS (D1 error) — TCPA fail-closed', async () => {
+    // A silently-dropped opt-out write must NOT succeed: the webhook 5xxes so Twilio
+    // retries the idempotent inbound until it persists. Never send the "unsubscribed"
+    // confirmation (nor keep messaging) on a lost write.
+    mockUpdate.mockResolvedValue({ error: 'D1_ERROR: database is locked', changes: 0 });
+    await expect(
+      replyToInbound(env, inbound({ body: 'STOP' }), profile, settings),
+    ).rejects.toThrow(/opt_out_persist_failed/);
+    expect(mockSendSms).not.toHaveBeenCalled();
+  });
+
+  it('THROWS on opt-out when the session row is missing (changes===0 phantom session)', async () => {
+    // A prior dropped session-create leaves a phantom id → the UPDATE matches 0 rows.
+    // On the compliance path that must fail-closed (retry), never lying-succeed.
+    mockUpdate.mockResolvedValue({ error: null, changes: 0 });
+    await expect(
+      replyToInbound(env, inbound({ body: 'unsubscribe' }), profile, settings),
+    ).rejects.toThrow(/opt_out_persist_failed/);
+    expect(mockSendSms).not.toHaveBeenCalled();
+  });
+
   it('silently drops messages from an already-opted-out number (no reply)', async () => {
     mockQueryOne.mockResolvedValue({
       id: 'sess-opted',
