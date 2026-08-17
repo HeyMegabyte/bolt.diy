@@ -61,7 +61,25 @@ sesWebhooks.post('/webhooks/ses', async (c) => {
   const suppressions = parseSesNotification(body);
   const result = suppressions.length
     ? await recordSuppressions(c.env.DB, suppressions)
-    : { suppressed: 0 };
+    : { suppressed: 0, failed: 0 };
+
+  // A dropped suppression WRITE (D1 outage/schema drift) must NOT be acked as
+  // success: SNS/Hookdeck only retries on a non-2xx. Return 500 so the idempotent
+  // notification is redelivered until the suppression actually persists — otherwise
+  // the address is never suppressed and we keep emailing a hard bounce/complaint
+  // (SES reputation + account-suspension risk). Webhook-idempotency: ack 200 only
+  // on TERMINAL success, never on receipt.
+  if (result.failed > 0) {
+    return c.json(
+      {
+        status: 'partial_failure',
+        parsed: suppressions.length,
+        suppressed: result.suppressed,
+        failed: result.failed,
+      },
+      500,
+    );
+  }
 
   return c.json({ status: 'ok', parsed: suppressions.length, suppressed: result.suppressed }, 200);
 });

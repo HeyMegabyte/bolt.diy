@@ -5,7 +5,7 @@
  * parseSesNotification → recordSuppressions. recordSuppressions is mocked.
  */
 jest.mock('../services/email_suppressions.js', () => ({
-  recordSuppressions: jest.fn(async () => ({ suppressed: 1 })),
+  recordSuppressions: jest.fn(async () => ({ suppressed: 1, failed: 0 })),
 }));
 
 import { Hono } from 'hono';
@@ -98,6 +98,14 @@ describe('POST /webhooks/ses', () => {
     const res = await post(body);
     expect(res.status).toBe(400);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when a suppression write is DROPPED, so SNS retries (never acks a lost suppression)', async () => {
+    // recordSuppressions reports a dropped compliance-critical write (D1 outage).
+    mockRecord.mockResolvedValueOnce({ suppressed: 0, failed: 1 });
+    const res = await post(permanentBounce);
+    expect(res.status).toBe(500);
+    expect(await res.json()).toMatchObject({ status: 'partial_failure', failed: 1 });
   });
 
   it('returns 200 with zero suppressions for a delivery notification', async () => {

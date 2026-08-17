@@ -31,9 +31,12 @@ export interface SuppressionRow {
  *
  * @param db - The platform D1 binding.
  * @param records - Normalized suppressions from {@link parseSesNotification}.
- * @returns `{ suppressed }` — the count of NEWLY-suppressed addresses (rows that
- *   already existed are no-ops via `INSERT OR IGNORE`, so a replayed webhook is
- *   safe).
+ * @returns `{ suppressed, failed }` — `suppressed` counts NEWLY-suppressed
+ *   addresses (existing rows are no-ops via `INSERT OR IGNORE`, so a replayed
+ *   webhook is safe); `failed` counts suppression WRITES that ERRORED (D1
+ *   outage/schema drift). A `failed > 0` result MUST be surfaced as a non-2xx by
+ *   the SES webhook so SNS/Hookdeck retries the idempotent notification — the
+ *   suppression is compliance-critical and must never be silently lost.
  *
  * @example
  * await recordSuppressions(env.DB, parseSesNotification(snsBody));
@@ -41,8 +44,9 @@ export interface SuppressionRow {
 export async function recordSuppressions(
   db: D1Database,
   records: readonly SesSuppression[],
-): Promise<{ suppressed: number }> {
+): Promise<{ suppressed: number; failed: number }> {
   let suppressed = 0;
+  let failed = 0;
   for (const r of records) {
     const now = new Date().toISOString();
     // INSERT OR IGNORE keeps the FIRST suppression reason — idempotent replay.
@@ -52,7 +56,28 @@ export async function recordSuppressions(
        VALUES (?, ?, ?, ?, ?)`,
       [r.email, r.reason, r.subType, r.sourceMessageId, now],
     );
-    if (ins.changes > 0) suppressed++;
+    // The suppression WRITE is compliance-critical: a dropped row means we keep
+    // emailing a hard-bounced/complained address (SES reputation + account-suspension
+    // risk). `dbExecute` NEVER throws — it swallows the D1 error and returns `{ error }`
+    // — so a bare `if (ins.changes > 0)` silently lost the drop (INVERTED severity vs the
+    // audit write below, which WAS error-logged). Count it as `failed` so the SES webhook
+    // 5xxes → SNS retries the idempotent notification (INSERT OR IGNORE = safe replay),
+    // and LOG it (email masked — PII) so the drop is observable.
+    if (ins.error) {
+      failed++;
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'email_suppressions',
+          message: 'dropped email_suppressions write',
+          reason: r.reason,
+          source_message_id: r.sourceMessageId,
+          error: ins.error,
+        }),
+      );
+    } else if (ins.changes > 0) {
+      suppressed++;
+    }
     // Append every notification to the audit log regardless of dedup.
     const audit = await dbExecute(
       db,
@@ -75,7 +100,7 @@ export async function recordSuppressions(
       );
     }
   }
-  return { suppressed };
+  return { suppressed, failed };
 }
 
 /**

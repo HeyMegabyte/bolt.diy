@@ -43,13 +43,29 @@ describe('recordSuppressions', () => {
       .mockResolvedValueOnce({ error: null, changes: 0 }) // suppression insert (dup)
       .mockResolvedValueOnce({ error: null, changes: 1 }); // event log
     const out = await recordSuppressions(db, [rec, { ...rec, email: 'dup@example.com' }]);
-    expect(out).toEqual({ suppressed: 1 });
+    expect(out).toEqual({ suppressed: 1, failed: 0 });
   });
 
   it('does nothing on an empty list', async () => {
     const out = await recordSuppressions(db, []);
-    expect(out).toEqual({ suppressed: 0 });
+    expect(out).toEqual({ suppressed: 0, failed: 0 });
     expect(mockExecute).not.toHaveBeenCalled();
+  });
+
+  it('counts a DROPPED suppression write as failed + logs it (never silently loses the compliance-critical write)', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    // The suppression INSERT errors (D1 outage/schema drift); the audit write still succeeds.
+    mockExecute
+      .mockResolvedValueOnce({ error: 'D1_ERROR: database is locked', changes: 0 }) // suppression insert FAILS
+      .mockResolvedValueOnce({ error: null, changes: 1 }); // event-log audit ok
+    const out = await recordSuppressions(db, [rec]);
+    // A dropped suppression is surfaced (failed:1) so the webhook can 5xx → SNS retries.
+    expect(out).toEqual({ suppressed: 0, failed: 1 });
+    const logged = warn.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(logged).toContain('dropped email_suppressions write');
+    // Email is PII — the log carries reason/message-id/error only, never the address.
+    expect(logged).not.toContain('gone@example.com');
+    warn.mockRestore();
   });
 });
 
