@@ -102,9 +102,9 @@ type Category = (typeof CATEGORIES)[number];
     .tn-chip--marketing { color: #a78bfa; background: color-mix(in oklch, #a78bfa 16%, transparent); }
     .tn-chip--incident { color: #f87171; background: color-mix(in oklch, #f87171 14%, transparent); }
     .tn-chip--other { color: var(--ps-accent, #00e5ff); background: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent); }
-    .tn-date { flex-shrink: 0; font-size: 0.7rem; color: rgba(255,255,255,0.45); font-variant-numeric: tabular-nums; }
+    .tn-date { flex-shrink: 0; font-size: 0.7rem; color: rgba(255,255,255,0.72); font-variant-numeric: tabular-nums; }
     .tn-note { flex: 1; min-width: 0; font-size: 0.82rem; color: var(--ps-ink, #f4f4ff); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .tn-del { flex-shrink: 0; background: transparent; border: 0; color: rgba(255,255,255,0.35); cursor: pointer; font-size: 0.8rem; padding: 2px 6px; border-radius: 6px; }
+    .tn-del { flex-shrink: 0; background: transparent; border: 0; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 0.8rem; padding: 2px 6px; border-radius: 6px; }
     .tn-del:hover { color: #f87171; }
     .tn-del:focus-visible { outline: 2px solid #f87171; outline-offset: 1px; }
   `],
