@@ -42,4 +42,29 @@ test.describe('CHAOS 8 — Keyboard focus visibility (WCAG 2.4.7)', () => {
       `no visible keyboard focus indicator on the hero search wrapper (${JSON.stringify(ind)})`,
     ).toBe(true);
   });
+
+  // Sibling instances of the same class: the /create funnel + /contact form inputs
+  // are `outline-none` and were suppressed by the same global rule — they showed NO
+  // keyboard focus ring (confirmed live: every text input ring:false). A box-shadow
+  // ring is restored globally for all outline-none inputs.
+  for (const url of ['/create', '/contact']) {
+    test(`form inputs on ${url} show a keyboard focus ring (WCAG 2.4.7)`, async ({ page }) => {
+      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      // First visible text control that is NOT the icon-flanked hero search.
+      const input = page
+        .locator('input:visible, textarea:visible')
+        .filter({ hasNot: page.locator('.hero-search-shell *') })
+        .first();
+      await expect(input).toBeVisible({ timeout: 15000 });
+      const hasRing = await input.evaluate((el: HTMLElement) => {
+        el.focus();
+        const cs = getComputedStyle(el);
+        return (
+          (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0) ||
+          (cs.boxShadow !== 'none' && cs.boxShadow.trim() !== '')
+        );
+      });
+      expect(hasRing, `no keyboard focus ring on the first form input of ${url}`).toBe(true);
+    });
+  }
 });

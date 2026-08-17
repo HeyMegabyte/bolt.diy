@@ -153,17 +153,18 @@ input, textarea, [contenteditable] {
   outline-offset: 2px;
 }
 
-// Inputs that explicitly opt out of the global focus ring (Tailwind `outline-none`)
-// must NOT show the cyan focus outline. Without this override, the global
-// `*:focus-visible` rule paints a 2px cyan ring that renders as thin vertical
-// stripes flanking adjacent SVG icons / loaders inside the input wrapper.
-input.outline-none:focus,
+// Inputs that opt out of the global OUTLINE (Tailwind `outline-none`) must not show
+// the 2px outline — on icon-flanked search inputs it rendered as thin vertical
+// stripes beside the inline SVG icon. But they STILL need a visible keyboard focus
+// ring (WCAG 2.4.7) — the old rule suppressed focus entirely, leaving /create,
+// /contact, and every search input with no indicator. Replace the outline with a
+// box-shadow ring (a soft ring around the whole control — no stripe artifact).
 input.outline-none:focus-visible,
-textarea.outline-none:focus,
 textarea.outline-none:focus-visible {
   outline: none !important;
   outline-offset: 0 !important;
-  box-shadow: none !important;
+  box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.9) !important;
+  border-color: #00e5ff !important;
 }
 
 // WCAG 2.4.7 (Focus Visible): the rule above suppresses the focus ring on
