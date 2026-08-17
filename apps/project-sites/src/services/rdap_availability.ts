@@ -29,7 +29,66 @@ import type { Env } from '../types/env.js';
 const REAL_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
+/** The rdap.org bootstrap aggregator — the FALLBACK path for unmapped TLDs only. */
 const RDAP_BASE = 'https://rdap.org/domain';
+
+/**
+ * TLD → AUTHORITATIVE RDAP registry base (trailing slash; domain path is
+ * `${base}domain/${fqdn}`). Queried DIRECTLY to bypass the rdap.org aggregator,
+ * whose Cloudflare edge 429/403-throttles the shared CF Worker egress IP — the
+ * confirmed root cause of the "AI domain search returns 0 available for every
+ * query" defect (iter-91: rdap.org refused the Worker subrequest; every candidate
+ * resolved `unknown` → `available:false`). These registries run on their own
+ * infrastructure (Verisign / PIR / Google / Identity Digital / Radix / CentralNic
+ * / GMO / nic.*), NOT behind the rdap.org shared-egress throttle. Bases are the
+ * IANA RDAP bootstrap values (`data.iana.org/rdap/dns.json`), verified live to
+ * return 404 (available) / 200 (taken). Unmapped TLDs fall back to rdap.org.
+ */
+const REGISTRY_RDAP_BASE: Readonly<Record<string, string>> = {
+  com: 'https://rdap.verisign.com/com/v1/',
+  net: 'https://rdap.verisign.com/net/v1/',
+  org: 'https://rdap.publicinterestregistry.org/rdap/',
+  dev: 'https://pubapi.registry.google/rdap/',
+  app: 'https://pubapi.registry.google/rdap/',
+  xyz: 'https://rdap.centralnic.com/xyz/',
+  shop: 'https://rdap.gmoregistry.net/rdap/',
+  biz: 'https://rdap.nic.biz/',
+  club: 'https://rdap.nic.club/',
+  design: 'https://rdap.nic.design/',
+  online: 'https://rdap.radix.host/rdap/',
+  site: 'https://rdap.radix.host/rdap/',
+  store: 'https://rdap.radix.host/rdap/',
+  tech: 'https://rdap.radix.host/rdap/',
+  info: 'https://rdap.identitydigital.services/rdap/',
+  ai: 'https://rdap.identitydigital.services/rdap/',
+  studio: 'https://rdap.identitydigital.services/rdap/',
+  agency: 'https://rdap.identitydigital.services/rdap/',
+  digital: 'https://rdap.identitydigital.services/rdap/',
+  life: 'https://rdap.identitydigital.services/rdap/',
+  world: 'https://rdap.identitydigital.services/rdap/',
+  group: 'https://rdap.identitydigital.services/rdap/',
+  pro: 'https://rdap.identitydigital.services/rdap/',
+  live: 'https://rdap.identitydigital.services/rdap/',
+  company: 'https://rdap.identitydigital.services/rdap/',
+  solutions: 'https://rdap.identitydigital.services/rdap/',
+};
+
+/**
+ * Build the RDAP probe URL for a normalized FQDN, routing to the TLD's
+ * authoritative registry when known, else the rdap.org aggregator fallback.
+ *
+ * @param normalized - Already trimmed + lowercased domain (e.g. `"vito.com"`).
+ * @returns Full RDAP domain-lookup URL.
+ * @example resolveRdapUrl('vito.com') // 'https://rdap.verisign.com/com/v1/domain/vito.com'
+ * @example resolveRdapUrl('x.madeuptld') // 'https://rdap.org/domain/x.madeuptld'
+ */
+function resolveRdapUrl(normalized: string): string {
+  const tld = normalized.slice(normalized.lastIndexOf('.') + 1);
+  const base = REGISTRY_RDAP_BASE[tld];
+  return base
+    ? `${base}domain/${encodeURIComponent(normalized)}`
+    : `${RDAP_BASE}/${encodeURIComponent(normalized)}`;
+}
 /**
  * Cache TTL for a DEFINITIVE verdict (`available` / `taken`) — 1h. These answers
  * don't change minute-to-minute, so a long TTL keeps us polite to registries.
@@ -85,7 +144,7 @@ interface ProbeAttempt {
  */
 async function probeOnce(normalized: string): Promise<ProbeAttempt> {
   try {
-    const res = await fetch(`${RDAP_BASE}/${encodeURIComponent(normalized)}`, {
+    const res = await fetch(resolveRdapUrl(normalized), {
       method: 'GET',
       headers: {
         'User-Agent': REAL_UA,

@@ -238,14 +238,15 @@ describe('checkAvailability — retry-once on transient unknown', () => {
 // Query build + normalization
 // ────────────────────────────────────────────────────────────
 describe('checkAvailability — query build & normalization', () => {
-  it('queries the rdap.org bootstrap aggregator with a real-browser UA + rdap+json Accept', async () => {
+  it('queries the authoritative registry with a real-browser UA + rdap+json Accept', async () => {
     const { kv } = makeKv();
     fetchMock().mockResolvedValue(resp(404));
 
     await checkAvailability(makeEnv(kv), 'vito.com');
 
     const [url, init] = fetchMock().mock.calls[0];
-    expect(url).toBe('https://rdap.org/domain/vito.com');
+    // .com routes to Verisign directly (NOT the throttled rdap.org aggregator).
+    expect(url).toBe('https://rdap.verisign.com/com/v1/domain/vito.com');
     expect(init.method).toBe('GET');
     expect(init.headers['User-Agent']).toContain('Mozilla/5.0');
     expect(init.headers.Accept).toContain('application/rdap+json');
@@ -259,7 +260,7 @@ describe('checkAvailability — query build & normalization', () => {
     const r = await checkAvailability(makeEnv(kv), '  VITO.COM  ');
 
     expect(r.domain).toBe('vito.com');
-    expect(fetchMock().mock.calls[0][0]).toBe('https://rdap.org/domain/vito.com');
+    expect(fetchMock().mock.calls[0][0]).toBe('https://rdap.verisign.com/com/v1/domain/vito.com');
   });
 
   it('URL-encodes the normalized domain (IDN / punctuation safe)', async () => {
@@ -268,7 +269,66 @@ describe('checkAvailability — query build & normalization', () => {
 
     await checkAvailability(makeEnv(kv), 'a b.com');
 
-    expect(fetchMock().mock.calls[0][0]).toBe('https://rdap.org/domain/a%20b.com');
+    expect(fetchMock().mock.calls[0][0]).toBe(
+      'https://rdap.verisign.com/com/v1/domain/a%20b.com',
+    );
+  });
+});
+
+// ────────────────────────────────────────────────────────────
+// Authoritative-registry routing (bypasses the throttled rdap.org aggregator)
+// ────────────────────────────────────────────────────────────
+describe('checkAvailability — authoritative-registry routing', () => {
+  // ROOT CAUSE (iter-91 + confirmed live iter-…): the shared CF Worker egress IP
+  // is 429/403-throttled by rdap.org's own Cloudflare edge, so EVERY probe
+  // resolved `unknown` → `available:false` → the AI domain search returned 0
+  // available for every query. Durable fix: query the TLD's AUTHORITATIVE RDAP
+  // registry directly (Verisign/PIR/Google/…), which is NOT the rdap.org CF-edge
+  // throttle path. rdap.org stays only as the fallback for unmapped TLDs.
+  it('.com → queries the authoritative Verisign registry, NOT rdap.org', async () => {
+    const { kv } = makeKv();
+    fetchMock().mockResolvedValue(resp(404));
+
+    await checkAvailability(makeEnv(kv), 'vito.com');
+
+    expect(fetchMock().mock.calls[0][0]).toBe('https://rdap.verisign.com/com/v1/domain/vito.com');
+  });
+
+  it('.net → Verisign net registry', async () => {
+    const { kv } = makeKv();
+    fetchMock().mockResolvedValue(resp(200));
+    await checkAvailability(makeEnv(kv), 'acme.net');
+    expect(fetchMock().mock.calls[0][0]).toBe('https://rdap.verisign.com/net/v1/domain/acme.net');
+  });
+
+  it('.org → Public Interest Registry', async () => {
+    const { kv } = makeKv();
+    fetchMock().mockResolvedValue(resp(404));
+    await checkAvailability(makeEnv(kv), 'charity.org');
+    expect(fetchMock().mock.calls[0][0]).toBe(
+      'https://rdap.publicinterestregistry.org/rdap/domain/charity.org',
+    );
+  });
+
+  it('.dev / .app → Google Registry', async () => {
+    const { kv } = makeKv();
+    fetchMock().mockResolvedValue(resp(404));
+    await checkAvailability(makeEnv(kv), 'cool.dev');
+    expect(fetchMock().mock.calls[0][0]).toBe('https://pubapi.registry.google/rdap/domain/cool.dev');
+  });
+
+  it('an UNMAPPED TLD falls back to the rdap.org aggregator (still resolvable)', async () => {
+    const { kv } = makeKv();
+    fetchMock().mockResolvedValue(resp(404));
+    await checkAvailability(makeEnv(kv), 'thing.madeuptld');
+    expect(fetchMock().mock.calls[0][0]).toBe('https://rdap.org/domain/thing.madeuptld');
+  });
+
+  it('routing is case/whitespace-insensitive on the TLD (VITO.COM → Verisign)', async () => {
+    const { kv } = makeKv();
+    fetchMock().mockResolvedValue(resp(404));
+    await checkAvailability(makeEnv(kv), '  VITO.COM  ');
+    expect(fetchMock().mock.calls[0][0]).toBe('https://rdap.verisign.com/com/v1/domain/vito.com');
   });
 });
 
