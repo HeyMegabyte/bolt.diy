@@ -166,6 +166,20 @@ textarea.outline-none:focus-visible {
   box-shadow: none !important;
 }
 
+// WCAG 2.4.7 (Focus Visible): the rule above suppresses the focus ring on
+// `outline-none` inputs (the global cyan outline rendered as thin stripes on the
+// full-width borderless hero search) — but left keyboard focus INVISIBLE. Restore
+// it on the WRAPPER (`.hero-search-shell`, focus-within) instead of the input, so
+// the ring is not clipped by the input's wrapper. Global (not component-scoped) so
+// it reliably lands in the served CSS; outline + box-shadow both, `!important` to
+// beat the resets. The wrapper's own overflow-hidden does not clip its outline.
+.hero-search-shell:focus-within {
+  outline: 2px solid #00e5ff !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px rgba(0, 229, 255, 0.3) !important;
+  border-color: #00e5ff !important;
+}
+
 // Scrollbar
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: #060610; }
