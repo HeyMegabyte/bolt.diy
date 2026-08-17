@@ -131,7 +131,7 @@ import { recordPageviewFromRequest } from '../libs/features/visitor_events_core/
 import { abuseTakedown } from '../libs/features/abuse_takedown/handlers.js'; // abuse + takedown intake (flag: abuse_takedown)
 import { platformMcp } from '../libs/features/platform_mcp/handlers.js'; // platform MCP server for Claude Code etc. (flag: platform_mcp)
 import { oauthProvider } from '../libs/features/mcp_oauth_provider/handlers.js'; // OAuth 2.1 AS for MCP one-click connect (flag: mcp_oauth_provider)
-import { prodReadinessScore } from '../libs/features/prod_readiness_score/handlers.js'; // GET /api/sites/:siteId/readiness — 0-100 readiness score (flag: prod_readiness_score)
+import { prodReadinessScore } from '../libs/features/prod_readiness_score/handlers.js'; // GET /api/sites/:siteId/readiness — 0-100 readiness score (flag: site_doctor — prod_readiness_score was folded into that anchor in migration 0628)
 import { onboardingCopilot } from '../libs/features/onboarding_copilot/handlers.js'; // /api/onboarding/{checklist,dismiss} — PLG activation checklist (flag: onboarding_copilot)
 import { auditTrailExport } from '../libs/features/audit_trail_export/handlers.js'; // GET /api/audit/export — filterable audit-log JSON/CSV export (flag: audit_trail_export)
 import { modelRegistry } from '../libs/features/model_registry/handlers.js'; // GET /v1/models — OpenAI-compatible model/provider alias catalog (flag: model_registry)
@@ -750,7 +750,7 @@ app.route('/', webhooksAdmin); // /api/sites/:siteId/webhooks — outbound webho
 // ── IDEAS-50 wave 3 mounts — must precede `api` so :id/* suffixes + /r/:code + /gallery win
 app.route('/', abuseTakedown); // /api/abuse/* — abuse + takedown intake (flag: abuse_takedown)
 app.route('/', oauthProvider); // OAuth 2.1 AS: /.well-known/oauth-authorization-server + /oauth/{register,authorize,token} (flag: mcp_oauth_provider)
-app.route('/', prodReadinessScore); // GET /api/sites/:siteId/readiness (flag: prod_readiness_score) — must precede `api`
+app.route('/', prodReadinessScore); // GET /api/sites/:siteId/readiness (flag: site_doctor) — must precede `api` (fully shadows the deleted audit-based handler)
 app.route('/api/onboarding', onboardingCopilot); // /api/onboarding/{checklist,dismiss} (flag: onboarding_copilot)
 app.route('/api/audit/export', auditTrailExport); // GET /api/audit/export (flag: audit_trail_export)
 app.route('/', modelRegistry); // GET /v1/models — OpenAI-compatible alias catalog (flag: model_registry) — must precede the site-serving catch-all

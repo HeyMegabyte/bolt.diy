@@ -186,6 +186,14 @@ import { indexSiteFiles, resolvePublishOrgId } from '../services/rag_publish.js'
 import { semanticSearch } from '../services/rag.js';
 import { encrypt, decryptOrPassthrough } from '../services/ai_crypto.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
+// The batch readiness endpoint reuses the SAME live scorer as the per-item
+// readiness (the prod_readiness_score feature module) so the readiness badge and
+// the readiness panel never disagree. No duplicate scorer (per the site_doctor
+// registry note).
+import {
+  computeReadiness,
+  type SiteRow as ReadinessSiteRow,
+} from '../../libs/features/prod_readiness_score/service.js';
 
 const api = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -2885,59 +2893,26 @@ api.get('/api/sites/:id/logs', async (c) => {
   });
 });
 
-/**
- * `GET /api/sites/:id/readiness` — the latest Production-Readiness grade for a
- * site (backlog #9). Reads the most recent `workflow.build_validation` audit row
- * and surfaces the readiness fields the build pipeline recorded. Org-scoped like
- * the logs route; returns `{ data: null }` for sites with no scored build yet
- * (e.g. built before #9 landed). Never throws on a malformed metadata blob.
- */
-api.get('/api/sites/:id/readiness', async (c) => {
-  const orgId = c.get('orgId');
-  if (!orgId) throw unauthorized('Must be authenticated');
-  const siteId = c.req.param('id');
-
-  const site = await dbQueryOne<Record<string, unknown>>(
-    c.env.DB,
-    'SELECT id FROM sites WHERE id = ? AND org_id = ?',
-    [siteId, orgId],
-  );
-  if (!site) throw notFound('Site not found');
-
-  const row = await dbQueryOne<{ metadata_json: string | null; created_at: string }>(
-    c.env.DB,
-    "SELECT metadata_json, created_at FROM audit_logs WHERE org_id = ? AND target_id = ? AND action = 'workflow.build_validation' ORDER BY created_at DESC LIMIT 1",
-    [orgId, siteId],
-  );
-  if (!row?.metadata_json) return c.json({ data: null });
-
-  let meta: Record<string, unknown> = {};
-  try {
-    meta = JSON.parse(row.metadata_json) as Record<string, unknown>;
-  } catch {
-    return c.json({ data: null });
-  }
-  if (meta['readiness_grade'] === undefined) return c.json({ data: null });
-
-  return c.json({
-    data: {
-      grade: meta['readiness_grade'],
-      score: meta['readiness_score'] ?? null,
-      passing: meta['readiness_passing'] ?? null,
-      breakdown: meta['readiness_breakdown'] ?? [],
-      summary: typeof meta['summary'] === 'string' ? meta['summary'] : null,
-      checkedAt: row.created_at,
-    },
-  });
-});
+// NOTE: `GET /api/sites/:id/readiness` is served by the `prod_readiness_score`
+// feature module (libs/features/prod_readiness_score/handlers.ts), mounted BEFORE
+// this router in src/index.ts. It computes readiness LIVE (published / custom
+// domain / performance / sitemap) instead of reading a stale build-validation
+// audit. The old audit-based handler that used to live here was fully shadowed
+// (the module returns 404 when its flag is off — it never falls through) and has
+// been deleted. The batch endpoint below now reuses the module's live scorer so
+// the badge (batch) and the panel (per-item) agree.
 
 /**
  * `GET /api/readiness?ids=a,b,c` — batch Production-Readiness grades for up to
  * 100 sites in ONE request (backlog #9 follow-on). Replaces N per-row badge
- * fetches in the sites list with a single call. Org-scoped by construction: the
- * `audit_logs.org_id` filter means an id the caller does not own simply returns
- * `null` — never another org's data. Returns `{ data: { [id]: ReadinessData | null } }`;
- * every requested id is present in the map (unknown/unscored → null).
+ * fetches in the sites list with a single call. Reuses the SAME live scorer as
+ * `GET /api/sites/:id/readiness` (the prod_readiness_score module) so the badge
+ * and panel never disagree — previously this read the `workflow.build_validation`
+ * audit, which was null for any site without a new-style build → the badge
+ * rendered nothing while the panel showed a live grade. Org-scoped by
+ * construction: the `sites.org_id` filter means an id the caller does not own
+ * simply returns `null`. Returns `{ data: { [id]: ReadinessData | null } }`;
+ * every requested id is present in the map (unowned/missing → null).
  */
 api.get('/api/readiness', async (c) => {
   const orgId = c.get('orgId');
@@ -2953,37 +2928,30 @@ api.get('/api/readiness', async (c) => {
   for (const id of ids) out[id] = null;
   if (ids.length === 0) return c.json({ data: out });
 
+  // Load the owned site rows in ONE query, then run the live readiness scorer per
+  // site (same scorer as the per-item route). An id the caller does not own is
+  // absent from the result → stays null. deleted_at IS NULL excludes soft-deletes.
   const placeholders = ids.map(() => '?').join(',');
-  const rows = await dbQuery<{
-    target_id: string;
-    metadata_json: string | null;
-    created_at: string;
-  }>(
+  const rows = await dbQuery<ReadinessSiteRow>(
     c.env.DB,
-    `SELECT target_id, metadata_json, MAX(created_at) AS created_at
-       FROM audit_logs
-      WHERE org_id = ? AND action = 'workflow.build_validation' AND target_id IN (${placeholders})
-      GROUP BY target_id`,
+    `SELECT id, slug, status, lighthouse_score, current_build_version, org_id
+       FROM sites
+      WHERE org_id = ? AND deleted_at IS NULL AND id IN (${placeholders})`,
     [orgId, ...ids],
   );
 
-  for (const row of rows.data ?? []) {
-    if (!row.metadata_json) continue;
-    let meta: Record<string, unknown> = {};
-    try {
-      meta = JSON.parse(row.metadata_json) as Record<string, unknown>;
-    } catch {
-      continue;
-    }
-    if (meta['readiness_grade'] === undefined) continue;
-    out[row.target_id] = {
-      grade: meta['readiness_grade'],
-      score: meta['readiness_score'] ?? null,
-      passing: meta['readiness_passing'] ?? null,
-      summary: typeof meta['summary'] === 'string' ? meta['summary'] : null,
-      checkedAt: row.created_at,
-    };
-  }
+  await Promise.all(
+    (rows.data ?? []).map(async (site) => {
+      const r = await computeReadiness(c.env, site);
+      const passed = r.checks.filter((ch) => ch.pass).length;
+      out[site.id] = {
+        grade: r.grade,
+        score: r.score,
+        passing: r.grade !== 'F',
+        summary: `${passed}/${r.checks.length} readiness checks passing`,
+      };
+    }),
+  );
 
   return c.json({ data: out });
 });
