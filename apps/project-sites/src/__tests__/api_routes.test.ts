@@ -33,10 +33,11 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { api } from '../routes/api.js';
-import { dbQueryOne, dbExecute } from '../services/db.js';
+import { dbQueryOne, dbExecute, dbInsert } from '../services/db.js';
 
 const mockDbQueryOne = dbQueryOne as jest.Mock;
 const mockDbExecute = dbExecute as unknown as jest.Mock;
+const mockDbInsert = dbInsert as unknown as jest.Mock;
 
 const originalFetch = global.fetch;
 let mockFetch: jest.Mock;
@@ -381,5 +382,51 @@ describe('PATCH /api/admin/profile (self display-name edit)', () => {
     const { app, env } = createAuthenticatedApp({ userId: 'user-1', requestId: 'req-1' });
     const res = await makeRequest(app, env, '/api/admin/profile', patch('New Name'));
     expect(res.status).toBe(500);
+  });
+});
+
+// ─── Feedback ingestion ─────────────────────────────────────
+// `dbInsert` returns { error } and never throws, so the handler's try/catch is
+// dead for a write failure — a bare await returned a lying 201 while the
+// feedback row silently dropped. It must surface an honest 500 instead.
+describe('POST /api/feedback', () => {
+  const submit = (body: unknown): RequestInit => ({
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  it('persists valid feedback → 201 submitted', async () => {
+    const { app, env } = createApp();
+    const res = await makeRequest(
+      app,
+      env,
+      '/api/feedback',
+      submit({ rating: 5, comment: 'Build was great.', page_url: '/site/x' }),
+    );
+    expect(res.status).toBe(201);
+    expect(mockDbInsert).toHaveBeenCalledTimes(1);
+    expect(mockDbInsert.mock.calls[0][1]).toBe('feedback');
+    const body = (await res.json()) as { data: { submitted: boolean } };
+    expect(body.data.submitted).toBe(true);
+  });
+
+  it('returns 500 (NOT a lying 201) when the feedback row drops', async () => {
+    mockDbInsert.mockResolvedValueOnce({ error: 'D1_ERROR: disk I/O' });
+    const { app, env } = createApp();
+    const res = await makeRequest(
+      app,
+      env,
+      '/api/feedback',
+      submit({ rating: 4, comment: 'Dropped write must not lie.', page_url: '/site/y' }),
+    );
+    expect(res.status).toBe(500);
+  });
+
+  it('rejects an out-of-range rating with 400 before any write', async () => {
+    const { app, env } = createApp();
+    const res = await makeRequest(app, env, '/api/feedback', submit({ rating: 9 }));
+    expect(res.status).toBe(400);
+    expect(mockDbInsert).not.toHaveBeenCalled();
   });
 });
