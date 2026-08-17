@@ -85,7 +85,11 @@ function makeApp(env: Env, caller: { orgId?: string; userId?: string }) {
   return (path: string, body: unknown) =>
     app.request(
       path,
-      { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      },
       { ...({} as Env), ...env } as Env,
       ctx,
     );
@@ -97,11 +101,14 @@ const CHAT = { messages: [], description: 'X', exportDate: '2026-01-01' };
 describe('POST /api/publish/bolt — cross-org overwrite guard', () => {
   it('404s + writes nothing when a DIFFERENT org publishes over an existing site', async () => {
     const { env, r2Puts, kvDeletes } = makeEnv({ siteBySlugOrg: 'victim-org' });
-    const res = await makeApp(env, { orgId: 'attacker-org', userId: 'attacker' })('/api/publish/bolt', {
-      files: FILES,
-      chat: CHAT,
-      slug: 'victim-slug',
-    });
+    const res = await makeApp(env, { orgId: 'attacker-org', userId: 'attacker' })(
+      '/api/publish/bolt',
+      {
+        files: FILES,
+        chat: CHAT,
+        slug: 'victim-slug',
+      },
+    );
     expect(res.status).toBe(404);
     expect(r2Puts).toEqual([]); // never touched the victim's R2
     expect(kvDeletes).toEqual([]); // never purged the victim's cache
@@ -144,7 +151,12 @@ describe('POST /api/publish/bolt — cross-org overwrite guard', () => {
 describe('POST /api/sites/:id/publish-bolt — write target is the OWNED slug, not the body slug', () => {
   it('ignores an attacker-supplied body slug and writes only to the owned site slug', async () => {
     const { env, r2Puts, kvDeletes } = makeEnv({
-      siteById: { id: 'site-a-id', slug: 'site-a-slug', org_id: 'attacker-org', business_name: 'A' },
+      siteById: {
+        id: 'site-a-id',
+        slug: 'site-a-slug',
+        org_id: 'attacker-org',
+        business_name: 'A',
+      },
     });
     const res = await makeApp(env, { orgId: 'attacker-org', userId: 'attacker' })(
       '/api/sites/site-a-id/publish-bolt',
