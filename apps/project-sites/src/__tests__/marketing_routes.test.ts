@@ -198,7 +198,9 @@ describe('applyMarketingMeta — /blog/:slug posts get the POST title/desc (not 
   it('sitemap /blog URLs and BLOG_POST_META are in lock-step (no dead URLs, no missing posts)', () => {
     const xml = readRepoFile('frontend/public/sitemap.xml');
     if (!xml) return;
-    const sitemapSlugs = [...xml.matchAll(/<loc>[^<]*\/blog\/([a-z0-9-]+)<\/loc>/g)].map((m) => m[1]);
+    const sitemapSlugs = [...xml.matchAll(/<loc>[^<]*\/blog\/([a-z0-9-]+)<\/loc>/g)].map(
+      (m) => m[1],
+    );
     const metaSlugs = Object.keys(BLOG_POST_META);
     const deadInSitemap = sitemapSlugs.filter((s) => !metaSlugs.includes(s));
     const missingFromSitemap = metaSlugs.filter((s) => !sitemapSlugs.includes(s));
