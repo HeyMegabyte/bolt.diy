@@ -1570,10 +1570,17 @@ export default {
 
           // Upload generated files to R2
           const siteId = String(payload.site_id);
-          const slug = String(payload.slug ?? payload.business_name ?? 'site')
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-|-$/g, '');
+          // Prefer the authoritative slug the producer forwards (from
+          // ensureUniqueSlug) so the R2 upload prefix matches what the serving path
+          // resolves by the D1 `sites.slug`. Only derive from business_name for
+          // legacy messages that predate the `slug` field (else the recomputed slug
+          // can miss the unique `-N` suffix → published site 404s).
+          const slug = payload.slug
+            ? String(payload.slug)
+            : String(payload.business_name ?? 'site')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-|-$/g, '');
           const version = new Date().toISOString().replace(/[:.]/g, '-');
 
           // Upload main page, privacy page, and terms page in parallel
@@ -1595,8 +1602,11 @@ export default {
             ),
           ]);
 
-          // Update site record in D1
-          await dbUpdate(
+          // Update site record in D1. dbUpdate NEVER throws — it returns {error}.
+          // A bare await would ACK the message with the bundle already in R2 but the
+          // row still 'generating' (a lying-success the customer sees as "building
+          // forever"). Throw on error so the catch below calls message.retry().
+          const publishUpdate = await dbUpdate(
             env.DB,
             'sites',
             {
@@ -1606,6 +1616,11 @@ export default {
             'id = ?',
             [siteId],
           );
+          if (publishUpdate.error) {
+            throw new Error(
+              `Failed to flip site ${siteId} to published: ${publishUpdate.error}`,
+            );
+          }
 
           console.warn(
             JSON.stringify({

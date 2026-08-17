@@ -764,11 +764,20 @@ search.post('/api/sites/create-from-search', async (c) => {
     });
     workflowInstanceId = instance.id;
   } else if (c.env.QUEUE) {
-    // Fallback to queue if workflow binding is unavailable
+    // Fallback to queue if workflow binding is unavailable. The message MUST carry
+    // the SAME authoritative fields SITE_WORKFLOW.create receives — most critically
+    // the unique `slug` (from ensureUniqueSlug, may carry a `-N` suffix). The queue
+    // consumer uploads the build to `sites/${slug}/${version}/…`; if `slug` is omitted
+    // it recomputes one from business_name → a DIFFERENT prefix than the serving path
+    // resolves by the D1 `sites.slug` → the "published" site 404s. Address + phone
+    // feed V2 research; dropping them silently degrades the generated site.
     await c.env.QUEUE.send({
       job_name: 'generate_site',
       site_id: siteId,
+      slug,
       business_name: sanitizedName,
+      business_address: businessAddress ?? null,
+      business_phone: businessPhone ?? null,
       google_place_id: googlePlaceId ?? null,
       additional_context: additionalContext,
     });

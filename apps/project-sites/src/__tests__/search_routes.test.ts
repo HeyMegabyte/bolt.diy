@@ -525,6 +525,60 @@ describe('POST /api/sites/create-from-search', () => {
     expect(writeAuditLog).toHaveBeenCalled();
   });
 
+  it('enqueues the AUTHORITATIVE slug + address + phone so the queue fallback build matches the D1 site record', async () => {
+    // The queue consumer (default.queue in index.ts) uploads the generated bundle
+    // to `sites/${slug}/${version}/…` and feeds address+phone into V2 research.
+    // If the producer omits `slug`, the consumer recomputes it from business_name
+    // → a DIFFERENT R2 prefix than the serving path resolves by the D1 `sites.slug`
+    // → the "published" site 404s. Omitting address/phone silently degrades the
+    // research. The queue message MUST carry the same authoritative fields that
+    // `SITE_WORKFLOW.create` receives (slug, businessAddress, businessPhone).
+    mockDbInsert.mockResolvedValueOnce({ error: null });
+
+    const authedApp = makeAuthenticatedApp({
+      orgId: '00000000-0000-4000-8000-000000000001',
+      userId: '00000000-0000-4000-8000-000000000002',
+      requestId: 'req-queue-contract',
+    });
+
+    const requestBody = {
+      mode: 'business',
+      additional_context: 'Wood-fired pizza',
+      business: {
+        name: 'Napoli Pizza',
+        address: '200 Market St, San Francisco',
+        place_id: 'ChIJ_napoli',
+        phone: '+1-415-555-0100',
+        types: ['restaurant', 'food'],
+      },
+    };
+
+    const res = await authedApp.request(
+      '/api/sites/create-from-search',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      },
+      mockEnv,
+    );
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+
+    expect(mockQueueSend).toHaveBeenCalledTimes(1);
+    expect(mockQueueSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        job_name: 'generate_site',
+        site_id: body.data.site_id,
+        slug: body.data.slug, // authoritative slug → R2 upload prefix == serving prefix
+        business_name: 'Napoli Pizza',
+        business_address: '200 Market St, San Francisco',
+        business_phone: '+1-415-555-0100',
+      }),
+    );
+  });
+
   it('creates site from nested v2 payload format (business object)', async () => {
     mockDbInsert.mockResolvedValueOnce({ error: null });
 
