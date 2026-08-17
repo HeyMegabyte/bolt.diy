@@ -297,10 +297,9 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
 
     await promptBox.fill(newPrompt);
     const putP = page
-      .waitForResponse(
-        (r) => r.url().includes('/ai-settings') && r.request().method() === 'PUT',
-        { timeout: 15_000 },
-      )
+      .waitForResponse((r) => r.url().includes('/ai-settings') && r.request().method() === 'PUT', {
+        timeout: 15_000,
+      })
       .catch(() => null);
     await saveBtn.click();
     const put = await putP;
@@ -1467,9 +1466,10 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
       );
       await page.locator('[data-testid="timeline-note-add"]').click({ timeout: 5000 });
       const cr = await createResp;
-      expect(cr.status(), 'annotation create must 201 (not a lying success on a dropped INSERT)').toBe(
-        201,
-      );
+      expect(
+        cr.status(),
+        'annotation create must 201 (not a lying success on a dropped INSERT)',
+      ).toBe(201);
       const row = page
         .locator('[data-testid="timeline-note-item"]')
         .filter({ hasText: marker })
@@ -1686,9 +1686,15 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
           'Content-Type': 'application/json',
         } as Record<string, string>;
         const jput = (path: string, body: unknown) =>
-          fetch(path, { method: 'PUT', headers: H, body: JSON.stringify(body) }).then((r) => r.status);
+          fetch(path, { method: 'PUT', headers: H, body: JSON.stringify(body) }).then(
+            (r) => r.status,
+          );
         // 1) Attach an MCP connection on the MCPs tab.
-        const setStatus = await jput('/api/voice/mcp-attachments', { site_id: sid, voice: [mark], sms: [] });
+        const setStatus = await jput('/api/voice/mcp-attachments', {
+          site_id: sid,
+          voice: [mark],
+          sms: [],
+        });
         // 2) Save the agent-settings tab WITHOUT mcp_connection_ids (as the UI does).
         const saveStatus = await jput('/api/voice/agent-settings', {
           siteId: sid,
@@ -1713,5 +1719,56 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
       r.voice,
       'agent-settings save wiped the MCP attachment (cross-tab clobber regression)',
     ).toContain(MARK);
+  });
+
+  // Verify-against-source-of-truth for the owner Features control plane (Layer 2). The worker
+  // SITE_FEATURE_CATALOG was emptied 2026-08-13, so GET /api/site-features returns
+  // {features:[]} → the page MUST honestly reflect that (0 toggles), NEVER the stale read-only
+  // FALLBACK (the frontend SITE_FEATURE_CATALOG_DISPLAY still lists the REMOVED features as
+  // fake, non-functional toggles — enterFallbackMode only fires on a 404/non-JSON, but a
+  // regression that surfaces it on an empty 200 would be a LYING control plane). This
+  // reconciles the VISIBLE toggle count with the API and asserts the degraded banner is absent
+  // on a 200 — so the stale fallback can never masquerade as the real catalog undetected.
+  test('Site Features: the owner control plane reconciles with GET /api/site-features (no stale lying-fallback) (M3)', async ({
+    page,
+  }) => {
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+    const respP = page.waitForResponse(
+      (r) => /\/api\/site-features(\?|$)/.test(r.url()) && r.request().method() === 'GET',
+      { timeout: 20_000 },
+    );
+    await page.goto('/admin/site-features', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-testid="sf-root"]')).toBeVisible({ timeout: 15_000 });
+
+    const resp = await respP;
+    expect(resp.status(), 'GET /api/site-features must serve JSON (200), not a 404/HTML').toBe(200);
+    const body = JSON.parse(await resp.text()) as { features?: unknown[] };
+    const apiCount = Array.isArray(body.features) ? body.features.length : -1;
+    expect(apiCount, 'API returned a real features array').toBeGreaterThanOrEqual(0);
+
+    await page.waitForTimeout(1500); // let the signal→CD render settle before counting
+
+    // RECONCILIATION (the lying-fallback tripwire): one sf-toggle per feature card, so the
+    // visible count MUST equal the API's features length. The stale fallback would render
+    // SITE_FEATURE_CATALOG_DISPLAY entries (>0) while the API returned 0 → a mismatch fails.
+    const uiCount = await page.locator('[data-testid="sf-toggle"]').count();
+    expect(
+      uiCount,
+      `UI feature toggles (${uiCount}) must reconcile with API features (${apiCount}) — never the stale fallback catalog`,
+    ).toBe(apiCount);
+
+    // On a healthy 200 the degraded/read-only FALLBACK banner MUST be absent (it only shows the
+    // stale removed-feature catalog on a route-not-provisioned 404/non-JSON).
+    const fallbackBanner = page.getByText('The catalog below is read-only', { exact: false });
+    expect(
+      await fallbackBanner.count(),
+      'stale read-only fallback banner must NOT show on a 200 response',
+    ).toBe(0);
+
+    await assertAlive(page);
+    expect(e.consoleErrors, e.consoleErrors.join('\n')).toEqual([]);
+    expect(e.pageErrors, e.pageErrors.join('\n')).toEqual([]);
+    expect(e.serverErrors, e.serverErrors.join('\n')).toEqual([]);
   });
 });
