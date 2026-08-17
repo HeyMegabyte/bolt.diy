@@ -42,7 +42,13 @@ test.describe('CHAOS 6 — Conversion + i18n (uncovered UI interactions)', () =>
     page,
   }) => {
     const e = trackErrors(page);
-    await page.goto('/');
+    // Force the NON-control hero variant B via the product's own `?debug=ab&variant=`
+    // override (resolveHeroVariant). The variant is otherwise a random per-session seed,
+    // so without pinning it this test only exercises the untranslated-English B/C
+    // variants 2/3 of the time — flaky-by-design. Variant B's hero copy is hardcoded
+    // English, the deterministic worst case: it MUST still translate on ES (else 2/3 of
+    // Spanish visitors get an English hero).
+    await page.goto('/?debug=ab&variant=B');
     const h1 = page.getByRole('heading', { level: 1 }).first();
     await expect(h1).toBeVisible();
     const enText = (await h1.innerText()).trim();

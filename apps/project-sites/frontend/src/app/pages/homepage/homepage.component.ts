@@ -488,24 +488,35 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
     this.telemetry.track('hero.variant_assigned', { variant: resolved, source: 'flag' });
   }
 
-  /** Human-readable A/B headline copy, switched on `heroVariant()`. */
+  /**
+   * Human-readable A/B headline copy, switched on `heroVariant()`.
+   *
+   * The B/C variants are ENGLISH conversion-copy experiments. On a non-English
+   * locale we ALWAYS return `''` so the template's `@else … | translate` renders
+   * the localized control (`hero.title`) — otherwise 2/3 of Spanish visitors (the
+   * random B/C seed) get a hardcoded-English hero that never translates. The A/B
+   * test only runs for English. (chaos-6 i18n)
+   */
   heroHeadline(): string {
+    if (this.currentLang() !== 'en') return '';
     const v = this.heroVariant();
     if (v === 'B') return "Tell us your business. We'll build your website.";
     if (v === 'C') return 'Skip the agency. Ship in 4 minutes.';
     return ''; // A — translation pipe handles the control headline
   }
 
-  /** Sub-headline copy paired with each variant. */
+  /** Sub-headline copy paired with each variant (English-only A/B — see {@link heroHeadline}). */
   heroSubheadline(): string {
+    if (this.currentLang() !== 'en') return '';
     const v = this.heroVariant();
     if (v === 'B') return 'Search your business, sign in, get a gorgeous AI-generated site — hosted, SSL, live.';
     if (v === 'C') return 'AI builds, optimizes, and ships your business site in the time it takes to drink an espresso.';
     return '';
   }
 
-  /** CTA copy paired with each variant. */
+  /** CTA copy paired with each variant (English-only A/B — see {@link heroHeadline}). */
   heroCta(): string {
+    if (this.currentLang() !== 'en') return '';
     const v = this.heroVariant();
     if (v === 'B') return 'Build mine →';
     if (v === 'C') return 'Ship in 4 min →';
