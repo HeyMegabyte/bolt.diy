@@ -568,4 +568,47 @@ describe('GET /api/mcp/connections', () => {
     expect(select!.sql).not.toMatch(/access_token_encrypted/i);
     expect(select!.sql).not.toMatch(/refresh_token_encrypted/i);
   });
+
+  // Scope filters: env-vars-attachment + voice/mcps both fetch connections
+  // "scoped to this site" but the endpoint used to IGNORE the site param → both
+  // surfaces showed EVERY org connection. These assert the SELECT is now scoped.
+  it('honors the ?site_id filter (env-vars-attachment) — scopes the SELECT to that site', async () => {
+    const db = makeDb({ allRows: [] });
+    const env = makeEnv({ DB: db });
+    const res = await req(makeApp(AUTH), '/api/mcp/connections?site_id=site-9', env);
+    expect(res.status).toBe(200);
+    const select = db._statements.find((s) => /FROM mcp_connections/i.test(s.sql));
+    expect(select).toBeDefined();
+    expect(select!.sql).toMatch(/site_id = \?/i);
+    expect(select!.params).toEqual(['org-1', 'site-9']);
+  });
+
+  it('honors the ?siteId filter too (voice/mcps sends camelCase)', async () => {
+    const db = makeDb({ allRows: [] });
+    const env = makeEnv({ DB: db });
+    const res = await req(makeApp(AUTH), '/api/mcp/connections?siteId=site-9', env);
+    expect(res.status).toBe(200);
+    const select = db._statements.find((s) => /FROM mcp_connections/i.test(s.sql));
+    expect(select!.params).toEqual(['org-1', 'site-9']);
+  });
+
+  it('honors the ?provider filter, AND-combined with the org scope', async () => {
+    const db = makeDb({ allRows: [] });
+    const env = makeEnv({ DB: db });
+    const res = await req(makeApp(AUTH), '/api/mcp/connections?provider=resend', env);
+    expect(res.status).toBe(200);
+    const select = db._statements.find((s) => /FROM mcp_connections/i.test(s.sql));
+    expect(select!.sql).toMatch(/provider = \?/i);
+    expect(select!.params).toEqual(['org-1', 'resend']);
+  });
+
+  it('stays org-wide when no scope param is present (original contract preserved)', async () => {
+    const db = makeDb({ allRows: [] });
+    const env = makeEnv({ DB: db });
+    const res = await req(makeApp(AUTH), '/api/mcp/connections', env);
+    expect(res.status).toBe(200);
+    const select = db._statements.find((s) => /FROM mcp_connections/i.test(s.sql));
+    expect(select!.params).toEqual(['org-1']);
+    expect(select!.sql).not.toMatch(/site_id = \?/i);
+  });
 });

@@ -1610,4 +1610,51 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
         .catch(() => {});
     }
   });
+
+  test('MCP connections are site-scoped: ?site_id filters honestly, a bogus site returns none (M3)', async ({
+    page,
+  }) => {
+    // Regression guard for the "ignored scope filter" bug: GET /api/mcp/connections
+    // ACCEPTED a site_id/siteId query but ignored it, so the env-var-attachment +
+    // voice MCP pickers showed EVERY org connection regardless of the site in
+    // context. The endpoint now honors the filter. Data-driven (no hardcoded ids).
+    await seedAuth(page, KEY);
+    await page.goto('/admin/mcp', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1500);
+
+    const r = await page.evaluate(async () => {
+      const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
+      const auth = { headers: { Authorization: `Bearer ${s.token}` } };
+      const get = async (qs: string) => {
+        const res = await fetch(`/api/mcp/connections${qs}`, auth);
+        const j = (await res.json().catch(() => ({}))) as { data?: Array<{ site_id?: string }> };
+        return { status: res.status, data: Array.isArray(j?.data) ? j.data : [] };
+      };
+      const all = await get('');
+      const siteWith = all.data[0]?.site_id ?? null;
+      const scoped = siteWith
+        ? await get(`?site_id=${encodeURIComponent(siteWith)}`)
+        : { status: 200, data: [] as Array<{ site_id?: string }> };
+      const bogus = await get('?site_id=__no_such_site__zzz');
+      return { all, siteWith, scoped, bogus };
+    });
+
+    expect(r.all.status, 'org-wide connections list is 200').toBe(200);
+    // The core invariant the fix restores: a filter for a NON-EXISTENT site must
+    // return zero connections. Before the fix this leaked EVERY org connection.
+    expect(
+      r.bogus.data.length,
+      'a bogus site_id must return 0 connections (filter honored, not ignored)',
+    ).toBe(0);
+    // Every connection returned for ?site_id=X actually belongs to X.
+    for (const c of r.scoped.data) {
+      expect(c.site_id, `?site_id=${r.siteWith} leaked a foreign site's connection`).toBe(
+        r.siteWith,
+      );
+    }
+    // If the org has any connection, its owning site round-trips a non-empty list.
+    if (r.siteWith) {
+      expect(r.scoped.data.length, 'the owning site returns its own connection').toBeGreaterThan(0);
+    }
+  });
 });

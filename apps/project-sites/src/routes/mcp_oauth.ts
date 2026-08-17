@@ -428,24 +428,54 @@ mcpOauth.post('/api/mcp/:provider/paste', async (c) => {
 });
 
 /**
- * `GET /api/mcp/connections` — list the caller org's MCP connections across all
- * its sites. Returns safe columns ONLY — encrypted access/refresh tokens are
- * never selected, so a leak here exposes nothing sensitive. Newest first.
+ * `GET /api/mcp/connections` — list the caller org's MCP connections. Returns
+ * safe columns ONLY — encrypted access/refresh tokens are never selected, so a
+ * leak here exposes nothing sensitive. Newest first.
  *
- * @remarks Powers the v2 admin Integrations/MCP surface. Org-scoped via the
- * session `orgId` (no `x-org-id` header dependency).
+ * Optional scope filters (all AND-combined with the org scope):
+ * - `site_id` OR `siteId` — restrict to one site. Consumers disagree on casing
+ *   (env-vars-attachment sends `site_id`; voice/mcps sends `siteId`), so BOTH are
+ *   accepted. Previously ignored → both surfaces showed EVERY org connection
+ *   regardless of the site in context (a contract mismatch each worked around as
+ *   "best-effort"). Now honored so the connection list is truly site-scoped.
+ * - `provider` — restrict to one provider (mailchimp/stripe/resend/…).
+ *
+ * With NO filter the endpoint stays org-wide (its original contract). Only
+ * `site_id`/`provider` are real `mcp_connections` columns; `endpoint_id`/`agent_id`
+ * (which env-vars-attachment sends for those kinds) are not — connections aren't
+ * scoped to endpoints/agents, so those params are intentionally not filters.
+ *
+ * @remarks Powers the v2 admin Integrations/MCP surface + the env-var attachment
+ * picker + the voice MCP-attachment picker. Org-scoped via the session `orgId`
+ * (no `x-org-id` header dependency).
  * @throws 401 UNAUTHORIZED when org context is missing.
  */
 mcpOauth.get('/api/mcp/connections', async (c) => {
   const orgId = c.get('orgId') as string | undefined;
   if (!orgId) return c.json({ error: { message: 'auth required' } }, 401);
+
+  // Optional scope filters. Accept both casings for the site filter (two
+  // consumers, two conventions). Absent filters → org-wide (original contract).
+  const siteId = c.req.query('site_id') ?? c.req.query('siteId');
+  const provider = c.req.query('provider');
+  const where: string[] = ['org_id = ?'];
+  const binds: unknown[] = [orgId];
+  if (siteId) {
+    where.push('site_id = ?');
+    binds.push(siteId);
+  }
+  if (provider) {
+    where.push('provider = ?');
+    binds.push(provider);
+  }
+
   const rows = await c.env.DB.prepare(
     `SELECT id, site_id, provider, display_name, status, scopes_json,
             token_expires_at, connected_at, updated_at
-       FROM mcp_connections WHERE org_id = ?
+       FROM mcp_connections WHERE ${where.join(' AND ')}
        ORDER BY connected_at DESC`,
   )
-    .bind(orgId)
+    .bind(...binds)
     .all<Record<string, unknown>>();
   const data = (rows.results ?? []).map((r) => ({
     ...r,
