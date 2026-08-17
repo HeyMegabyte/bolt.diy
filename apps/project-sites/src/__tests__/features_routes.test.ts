@@ -13,6 +13,7 @@
  * against a null-returning D1 + KV stub (their documented safe fallback).
  */
 
+import { Hono } from 'hono';
 import features from '../routes/features.js';
 
 // D1 + KV stub whose reads all resolve empty → resolveFlag returns registry
@@ -99,6 +100,39 @@ describe('features public discovery routes (LIVE flag surfaces)', () => {
     expect(res.status).toBe(200);
     expect(((await res.json()) as { commands: string[] }).commands).toContain('deploy');
   });
+});
+
+// The platform-discovery surfaces (robots/llms/accessibility/.well-known) describe
+// projectsites.dev ITSELF. On a CUSTOMER subdomain ({slug}.projectsites.dev) they
+// must NOT serve — or every generated site leaks the platform's robots (with
+// `Sitemap: https://projectsites.dev/sitemap.xml`), llms.txt (platform branding),
+// and accessibility page, SHADOWING that site's own R2-built copy. They must fall
+// through to the site-serving catch-all instead. (Prod bug: a no-op host middleware
+// let all 6 serve on every host — megabytespace.projectsites.dev/robots.txt returned
+// byte-identical platform content.)
+describe('platform-discovery routes are host-gated (no cross-tenant leak on customer subdomains)', () => {
+  const FALLTHROUGH = 'SITE_SERVING_FALLTHROUGH';
+  function appWithFallthrough() {
+    const app = new Hono();
+    app.route('/', features);
+    // Stands in for the real site-serving catch-all mounted AFTER `features`.
+    app.all('*', (c) => c.text(FALLTHROUGH, 200));
+    return app;
+  }
+  const DISCOVERY = ['/robots.txt', '/llms.txt', '/llms-full.txt', '/accessibility', '/.well-known/mcp', '/.well-known/oauth-protected-resource'];
+
+  for (const path of DISCOVERY) {
+    it(`${path} on a CUSTOMER subdomain falls through to site-serving (not the platform copy)`, async () => {
+      const res = await appWithFallthrough().request(`https://acme.projectsites.dev${path}`, {}, env);
+      expect(await res.text()).toBe(FALLTHROUGH); // fell through — did NOT leak platform content
+    });
+
+    it(`${path} on the marketing apex STILL serves the platform copy`, async () => {
+      const res = await appWithFallthrough().request(`https://projectsites.dev${path}`, {}, env);
+      expect(res.status).toBe(200);
+      expect(await res.text()).not.toBe(FALLTHROUGH); // real platform content served
+    });
+  }
 });
 
 describe('GET /api/feature-flags (registry list + trim regression guard)', () => {

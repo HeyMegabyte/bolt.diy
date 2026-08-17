@@ -34,16 +34,39 @@ import { FLAG_DOCS, getDocs } from '../modules/feature_flags/docs.js';
 
 const features = new Hono<{ Bindings: Env }>();
 
-features.use('*', async (c, next) => {
-  const hostname = c.req.header('host') ?? '';
-  const isMarketingRoot =
+/**
+ * `true` only on the PLATFORM apex (`projectsites.dev` / `www` / `localhost` /
+ * `*.workers.dev`). The platform-discovery surfaces below (`/robots.txt`,
+ * `/llms.txt`, `/accessibility`, `/.well-known/*`) describe projectsites.dev
+ * itself — on a CUSTOMER subdomain (`{slug}.projectsites.dev`) they must NOT
+ * serve, or every generated site leaks the platform's robots (with
+ * `Sitemap: https://projectsites.dev/sitemap.xml`), llms.txt, and accessibility
+ * page (wrong canonical + platform branding) and SHADOWS the customer's own
+ * R2-built copy. Each discovery handler `return next()`s on a customer host,
+ * falling through to the site-serving catch-all.
+ *
+ * (Prod bug fixed here: the prior `features.use('*')` host middleware was a
+ * no-op — both branches `return next()` — so all 6 served on every host.
+ * megabytespace.projectsites.dev/robots.txt returned byte-identical platform
+ * content.)
+ */
+function isMarketingHost(c: Context<{ Bindings: Env }>): boolean {
+  // Prefer the URL hostname (always present, HTTP/2-safe) with a Host-header
+  // fallback — `Host` is absent under HTTP/2 (:authority) + in test harnesses.
+  let hostname = '';
+  try {
+    hostname = new URL(c.req.url).hostname;
+  } catch {
+    /* malformed URL — fall back to the header */
+  }
+  if (!hostname) hostname = c.req.header('host') ?? '';
+  return (
     hostname === DOMAINS.SITES_BASE ||
     hostname === `www.${DOMAINS.SITES_BASE}` ||
     hostname.startsWith('localhost') ||
-    hostname.endsWith('.workers.dev');
-  if (!isMarketingRoot) return next();
-  return next();
-});
+    hostname.endsWith('.workers.dev')
+  );
+}
 
 /** Body for POST /api/approval/link — site_id required (org comes from auth). */
 const ApprovalLinkBody = z
@@ -66,7 +89,8 @@ function requireFlag(flagKey: string) {
 
 // ─── Public discovery (stable flags default-on) ──────────────────────
 
-features.get('/llms.txt', () => {
+features.get('/llms.txt', (c, next) => {
+  if (!isMarketingHost(c)) return next(); // customer subdomain → serve its own R2 llms.txt
   const body = `# Project Sites — projectsites.dev
 
 > Your website—handled. Finally. Projectsites.dev generates and hosts
@@ -96,7 +120,8 @@ features.get('/llms.txt', () => {
   });
 });
 
-features.get('/llms-full.txt', () => {
+features.get('/llms-full.txt', (c, next) => {
+  if (!isMarketingHost(c)) return next(); // customer subdomain → its own R2 copy (or 404)
   const body = `# Project Sites — Full Content Snapshot
 
 ## What Project Sites does
@@ -126,7 +151,8 @@ Project Sites is an AI website builder for solo founders and small agencies. Cus
   });
 });
 
-features.get('/robots.txt', () => {
+features.get('/robots.txt', (c, next) => {
+  if (!isMarketingHost(c)) return next(); // customer subdomain → serve THAT site's robots.txt
   // Per `always.md` § robots.txt: split AI crawlers by PURPOSE. Allow
   // search/retrieval bots (keeps projectsites.dev cited in ChatGPT/Perplexity/
   // Google AI Overviews → discovery → signups). Disallow training-only bots
@@ -187,7 +213,8 @@ Sitemap: https://projectsites.dev/sitemap.xml
   });
 });
 
-features.get('/accessibility', () => {
+features.get('/accessibility', (c, next) => {
+  if (!isMarketingHost(c)) return next(); // customer subdomain → its own accessibility page
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -222,8 +249,8 @@ features.get('/accessibility', () => {
   });
 });
 
-features.get('/.well-known/mcp', (c) =>
-  c.json({
+features.get('/.well-known/mcp', (c, next) =>
+  !isMarketingHost(c) ? next() : c.json({
     name: 'projectsites.dev',
     version: '0.1.0',
     description:
@@ -284,8 +311,8 @@ features.get('/.well-known/mcp', (c) =>
   }),
 );
 
-features.get('/.well-known/oauth-protected-resource', (c) =>
-  c.json({
+features.get('/.well-known/oauth-protected-resource', (c, next) =>
+  !isMarketingHost(c) ? next() : c.json({
     resource: 'https://projectsites.dev',
     // The AS issuer (RFC 8414) — clients fetch metadata at
     // {issuer}/.well-known/oauth-authorization-server (served by mcp_oauth_provider).
