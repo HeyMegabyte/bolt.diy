@@ -3310,12 +3310,28 @@ search.get('/api/public-data/:table', async (c) => {
   }
 });
 
+/**
+ * IDOR guard for the `/api/sites/:siteId/data/*` family: every handler scopes its
+ * query by the `:siteId` PATH param alone, so without verifying that site belongs to
+ * the caller's org a user could read/write/delete ANOTHER org's `site_data` by passing
+ * a foreign siteId (orgId was only used for the 401 auth check). Returns false → 404. (fire 18)
+ */
+async function ownsSiteData(db: D1Database, siteId: string, orgId: string): Promise<boolean> {
+  const row = await db
+    .prepare('SELECT 1 AS ok FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL')
+    .bind(siteId, orgId)
+    .first();
+  return !!row;
+}
+
 /** Authenticated endpoint for admin to read/write site data */
 search.get('/api/sites/:siteId/data/:table', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId)
     return c.json({ error: { code: 'UNAUTHORIZED', message: 'Must be authenticated' } }, 401);
   const { siteId, table } = c.req.param();
+  if (!(await ownsSiteData(c.env.DB, siteId, orgId)))
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Site not found' } }, 404);
   if (!ALLOWED_PUBLIC_TABLES.has(table)) {
     return c.json({ error: { code: 'BAD_REQUEST', message: 'Unknown table' } }, 400);
   }
@@ -3347,6 +3363,8 @@ search.put('/api/sites/:siteId/data/:table/:rowId', async (c) => {
   if (!orgId)
     return c.json({ error: { code: 'UNAUTHORIZED', message: 'Must be authenticated' } }, 401);
   const { siteId, table, rowId } = c.req.param();
+  if (!(await ownsSiteData(c.env.DB, siteId, orgId)))
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Site not found' } }, 404);
   if (!ALLOWED_PUBLIC_TABLES.has(table)) {
     return c.json({ error: { code: 'BAD_REQUEST', message: 'Unknown table' } }, 400);
   }
@@ -3381,6 +3399,8 @@ search.delete('/api/sites/:siteId/data/:table/:rowId', async (c) => {
   if (!orgId)
     return c.json({ error: { code: 'UNAUTHORIZED', message: 'Must be authenticated' } }, 401);
   const { siteId, table, rowId } = c.req.param();
+  if (!(await ownsSiteData(c.env.DB, siteId, orgId)))
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Site not found' } }, 404);
 
   await c.env.DB.prepare(
     `UPDATE site_data SET deleted_at = datetime('now') WHERE id = ? AND site_id = ? AND table_name = ?`,
@@ -3397,6 +3417,8 @@ search.get('/api/sites/:siteId/data', async (c) => {
   if (!orgId)
     return c.json({ error: { code: 'UNAUTHORIZED', message: 'Must be authenticated' } }, 401);
   const siteId = c.req.param('siteId');
+  if (!(await ownsSiteData(c.env.DB, siteId, orgId)))
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Site not found' } }, 404);
 
   const result = await c.env.DB.prepare(
     `SELECT DISTINCT table_name, COUNT(*) as row_count FROM site_data WHERE site_id = ? AND deleted_at IS NULL GROUP BY table_name ORDER BY table_name`,
