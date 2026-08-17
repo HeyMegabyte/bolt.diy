@@ -270,7 +270,18 @@ app.post('/api/calendar/events', zValidator('json', EventCreateSchema), async (c
   if (!user) return c.json({ error: { code: 'UNAUTHORIZED', message: 'sign in' } }, 401);
   const body = c.req.valid('json');
   let calendarId = body.calendar_id;
-  if (!calendarId) {
+  if (calendarId) {
+    // A caller-supplied calendar_id MUST belong to the caller — otherwise a user could
+    // attach an event to ANOTHER user's calendar (cross-owner FK injection). PATCH/DELETE
+    // already gate on `user_id`; create must too. 404 (non-leak) when not owned.
+    const owned = await dbQuery<{ id: string }>(
+      c.env.DB,
+      `SELECT id FROM calendar_calendars WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1`,
+      [calendarId, user.userId],
+    );
+    if (!owned.data.length)
+      return c.json({ error: { code: 'NOT_FOUND', message: 'calendar not found' } }, 404);
+  } else {
     const def = await dbQuery<{ id: string }>(
       c.env.DB,
       `SELECT id FROM calendar_calendars WHERE user_id=? AND deleted_at IS NULL ORDER BY is_default DESC, created_at ASC LIMIT 1`,
@@ -483,15 +494,21 @@ app.get('/api/calendar/bookings', async (c) => {
 });
 
 /**
- * `POST /api/calendar/bookings` — Public booking creation endpoint (used
- * by the embedded booking widget on user sites).
+ * `POST /api/calendar/bookings` — Create a bookable-link CONFIG (the owner's
+ * "book a time with me" settings: slug, duration, availability window). Returns
+ * the public `/book/:slug` URL clients would use.
  *
  * @remarks
- * Body: {@link BookingCreateSchema}. No caller auth — the booking is
- * scoped to the target calendar's owner.
+ * Body: {@link BookingCreateSchema}. AUTHED — owner-scoped to `user.userId`.
+ * This creates the LINK config, NOT a visitor's appointment (the prior JSDoc
+ * wrongly said "no caller auth / public booking" — the code has always required
+ * auth). ⚠️ The public `/book/:slug` page + the visitor-facing appointment-
+ * creation endpoint are NOT yet built (backend-only, no frontend UI), so the
+ * returned `public_url` currently 404s — see `.claude/refactor-state.md`.
  *
- * @throws 400 BAD_REQUEST when payload validation fails or slot collides.
- * @throws 404 NOT_FOUND when the target `calendar_id` doesn't exist.
+ * @throws 401 UNAUTHORIZED when the caller isn't signed in.
+ * @throws 409 CONFLICT when the slug is already taken (UNIQUE collision).
+ * @throws 500 INTERNAL_ERROR on a write failure.
  */
 app.post('/api/calendar/bookings', zValidator('json', BookingCreateSchema), async (c) => {
   const user = requireUser(c);

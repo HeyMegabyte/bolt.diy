@@ -309,6 +309,42 @@ describe('POST /api/calendar/events', () => {
     expect(calInsert[2]['is_default']).toBe(1);
   });
 
+  const VICTIM_CAL = '00000000-0000-4000-8000-0000000000aa';
+  const MINE_CAL = '00000000-0000-4000-8000-0000000000bb';
+
+  it('404s + inserts NOTHING when calendar_id belongs to another user (cross-owner FK injection)', async () => {
+    mockDbQuery.mockResolvedValueOnce({ data: [] }); // ownership check: id+user_id matches nothing
+    const env = makeEnv();
+    const res = await req(makeApp(AUTH), '/api/calendar/events', 'POST', env, {
+      title: 'Injected',
+      start_utc: NOW,
+      end_utc: LATER,
+      calendar_id: VICTIM_CAL,
+    });
+    expect(res.status).toBe(404);
+    expect(mockDbInsert).not.toHaveBeenCalled(); // never attached to the foreign calendar
+  });
+
+  it('creates the event when calendar_id belongs to the caller', async () => {
+    mockDbQuery.mockResolvedValueOnce({ data: [{ id: MINE_CAL }] }); // ownership check passes
+    const env = makeEnv();
+    const res = await req(makeApp(AUTH), '/api/calendar/events', 'POST', env, {
+      title: 'Mine',
+      start_utc: NOW,
+      end_utc: LATER,
+      calendar_id: MINE_CAL,
+    });
+    expect(res.status).toBe(201);
+    const [, table, record] = mockDbInsert.mock.calls[0]! as [
+      unknown,
+      string,
+      Record<string, unknown>,
+    ];
+    expect(table).toBe('calendar_events');
+    expect(record['calendar_id']).toBe(MINE_CAL);
+    expect(record['user_id']).toBe('user-1');
+  });
+
   it('500s (not a lying 201) when the event insert fails', async () => {
     mockDbQuery.mockResolvedValueOnce({ data: [{ id: 'cal-default' }] }); // default exists → 1 insert
     mockDbInsert.mockResolvedValueOnce({ error: 'D1_ERROR: disk full' }); // event insert fails
