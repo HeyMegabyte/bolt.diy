@@ -224,7 +224,9 @@ test.describe('CHAOS 3 — Locked-Out User (auth + access control)', () => {
 
     await page.waitForTimeout(3000);
     await assertAlive(page);
-    await expect(page.locator('[data-testid="subscription-card"]')).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('[data-testid="subscription-card"]')).toBeVisible({
+      timeout: 10_000,
+    });
 
     // DISPLAY reconciliation — the plan LABEL and the analytics CHIP must agree, and both
     // must match the endpoint. Before the fix a trialing sub showed 'Free' + 'Included'.
@@ -245,6 +247,78 @@ test.describe('CHAOS 3 — Locked-Out User (auth + access control)', () => {
       chipPaid,
       `analytics CHIP ("${analyticsChip}") disagrees with entitlements ENDPOINT (analyticsEnabled=${d.analyticsEnabled})`,
     ).toBe(endpointPaid);
+
+    expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+    expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+    expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+    expect(e.consoleWarnings, `console warnings (DoD=0): ${e.consoleWarnings.join('; ')}`).toEqual(
+      [],
+    );
+  });
+
+  // M3 — /admin/deliverability is a cross-system integration: the SPF/DKIM/DMARC wizard
+  // resolves LIVE DNS for the entered domain via GET /api/sites/:id/deliverability. Guards
+  // two things at once: (1) the integration is LIVE (a configured domain scores > 0 and
+  // renders the SPF/DKIM/DMARC breakdown), and (2) it reflects REAL DNS — a NONEXISTENT
+  // domain MUST score 0. A regression to a lying constant (an always-100 stub) would pass a
+  // naive "renders a score" check but FAIL the nonexistent→0 tripwire ([[verify-against-source-of-truth]]).
+  test('M3: /admin/deliverability resolves real DNS (configured domain scores; nonexistent → 0, not a lying constant)', async ({
+    page,
+  }) => {
+    test.skip(!KEY, 'E2E_API_KEY not set');
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+    await page.goto('/');
+    await page.goto('/admin/deliverability', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(3000);
+    await assertAlive(page);
+
+    const input = page.locator('[data-testid="deliverability-domain"]');
+    const btn = page.locator('[data-testid="deliverability-check-btn"]');
+    // Flag-off (email_deliverability_wizard) renders a calm gate, not the input — skip then.
+    test.skip(
+      !(await input.isVisible().catch(() => false)),
+      'deliverability wizard flag off (calm gate) — nothing to drive',
+    );
+
+    const runCheck = async (domain: string): Promise<{ status: number; score: number }> => {
+      await input.fill('');
+      await input.fill(domain);
+      await page.waitForTimeout(400);
+      const respP = page
+        .waitForResponse((r) => /\/deliverability\?/.test(r.url()), { timeout: 20_000 })
+        .catch(() => null);
+      await btn.click().catch(() => {});
+      const resp = await respP;
+      await page.waitForTimeout(1500);
+      const scoreText = (
+        (await page
+          .locator('[data-testid="deliverability-score"]')
+          .first()
+          .textContent()
+          .catch(() => '')) ?? ''
+      ).trim();
+      return { status: resp?.status() ?? 0, score: Number.parseInt(scoreText || 'NaN', 10) };
+    };
+
+    // (1) A configured, real sending domain resolves LIVE (200) and scores > 0, with the
+    //     SPF / DKIM / DMARC breakdown rendered.
+    const configured = await runCheck('megabyte.space');
+    expect(configured.status, 'deliverability check must be 200 (live integration)').toBe(200);
+    expect(configured.score, 'a configured domain must score > 0').toBeGreaterThan(0);
+    await expect(page.locator('[data-testid="deliverability-result"]')).toBeVisible();
+    for (const tid of ['deliverability-spf', 'deliverability-dkim', 'deliverability-dmarc']) {
+      await expect(page.locator(`[data-testid="${tid}"]`)).toBeVisible();
+    }
+
+    // (2) THE anti-lying-constant tripwire: a nonexistent domain has no DNS → MUST score 0.
+    //     An always-100 stub (or a check that ignores the domain) would fail here.
+    const missing = await runCheck('nonexistent-zzz-9182734-chaos.com');
+    expect(missing.status, 'nonexistent-domain check still 200 (graceful)').toBe(200);
+    expect(
+      missing.score,
+      `a nonexistent domain must score 0 (got ${missing.score}) — a nonzero score means a lying constant, not real DNS`,
+    ).toBe(0);
 
     expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
     expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
