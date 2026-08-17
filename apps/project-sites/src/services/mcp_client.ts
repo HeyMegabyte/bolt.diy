@@ -1168,9 +1168,21 @@ export async function loadConnections(
  *  Providers without a worker adapter (cal_com / sentry / pagerduty / posthog /
  *  vercel / netlify in 2026) are silently skipped — they OAuth-connect but
  *  expose no tools to the LLM router yet. */
-export async function loadAvailableTools(env: Env, siteId: string): Promise<ToolDescriptor[]> {
+export async function loadAvailableTools(
+  env: Env,
+  siteId: string,
+  enabledProviders?: string[],
+): Promise<ToolDescriptor[]> {
   const conns = await loadConnections(env, siteId);
-  return conns.flatMap((c) => ADAPTERS[c.provider]?.tools() ?? []);
+  // When the operator has narrowed the form router to a subset of connected MCPs
+  // (the designer's "enable for routing" pills → `ai_site_settings.enabled_mcps_json`),
+  // expose ONLY those providers' tools. Empty/undefined = no restriction (all connected
+  // MCPs) — preserves prior behavior for sites that never touched the selection.
+  const scoped =
+    enabledProviders && enabledProviders.length > 0
+      ? conns.filter((c) => enabledProviders.includes(c.provider))
+      : conns;
+  return scoped.flatMap((c) => ADAPTERS[c.provider]?.tools() ?? []);
 }
 
 /**

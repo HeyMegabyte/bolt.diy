@@ -431,7 +431,7 @@ aiAdmin.get('/api/sites/:siteId/ai-settings', async (c) => {
   const row = await c.env.DB.prepare(
     `SELECT chat_persona, chat_system_prompt, form_router_prompt, reply_email,
             contact_email, brand_tone, brand_primary, brand_accent, timezone,
-            default_locale, search_synonyms_json, updated_at,
+            default_locale, search_synonyms_json, enabled_mcps_json, updated_at,
             allow_web_research, drive_folder_id, drive_folder_name,
             drive_last_synced_at,
             CASE WHEN drive_access_token_enc IS NOT NULL THEN 1 ELSE 0 END AS drive_connected
@@ -449,6 +449,17 @@ aiAdmin.get('/api/sites/:siteId/ai-settings', async (c) => {
       chat_system_prompt_default: DEFAULT_CHAT_SYSTEM_PROMPT,
       form_router_prompt: (row?.form_router_prompt as string | null) ?? null,
       form_router_prompt_default: DEFAULT_ROUTER_PROMPT,
+      // The forms-designer MCP selection (which connected MCPs the router may use).
+      // Returned so the designer's pills reflect the SERVER value cross-device, not
+      // just the localStorage cache.
+      enabled_mcps: ((): string[] => {
+        try {
+          const arr = JSON.parse((row?.enabled_mcps_json as string | null) ?? '[]');
+          return Array.isArray(arr) ? arr.filter((v): v is string => typeof v === 'string') : [];
+        } catch {
+          return [];
+        }
+      })(),
       reply_email: (row?.reply_email as string | null) ?? null,
       contact_email: (row?.contact_email as string | null) ?? null,
       brand_tone: (row?.brand_tone as string | null) ?? null,
@@ -520,6 +531,16 @@ aiAdmin.put('/api/sites/:siteId/ai-settings', async (c) => {
   }
   if ('search_synonyms' in body)
     fields['search_synonyms_json'] = JSON.stringify(body['search_synonyms']);
+  // The forms-designer MCP selection — an array of connected-provider ids the form
+  // router may use. Was silently dropped before (not allow-listed) → a lying-success:
+  // the pills toasted "Saved" but the selection never persisted + the router ignored
+  // it. Store as JSON; the router filters `loadAvailableTools` by it.
+  if ('enabled_mcps' in body) {
+    const arr = Array.isArray(body['enabled_mcps'])
+      ? (body['enabled_mcps'] as unknown[]).filter((v): v is string => typeof v === 'string')
+      : [];
+    fields['enabled_mcps_json'] = JSON.stringify(arr);
+  }
   const existing = await c.env.DB.prepare(`SELECT 1 FROM ai_site_settings WHERE site_id = ?`)
     .bind(siteId)
     .first();

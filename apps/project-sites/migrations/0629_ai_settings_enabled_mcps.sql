@@ -1,0 +1,12 @@
+-- 0629 — Persist the forms-designer MCP selection.
+--
+-- The forms designer's "MCP integrations available to this prompt" pills write an
+-- `enabled_mcps` array (the subset of connected MCPs the operator wants the form
+-- router to consider). Previously PUT /api/sites/:id/ai-settings SILENTLY DROPPED it
+-- (not in the allow-list, no column), so the selection lived only in localStorage and
+-- the form router ignored it (`loadAvailableTools` returned ALL connected tools) — a
+-- lying-success stub. This column stores the selection server-side so the PUT persists
+-- it, the GET returns it (cross-device), and the router filters tools by it.
+--
+-- NULL / empty array = no restriction (router uses all connected MCPs — prior behavior).
+ALTER TABLE ai_site_settings ADD COLUMN enabled_mcps_json TEXT;

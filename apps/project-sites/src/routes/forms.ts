@@ -236,17 +236,31 @@ forms.post('/api/v1/forms/submit', async (c) => {
         return;
       }
       const settings = await c.env.DB.prepare(
-        `SELECT form_router_prompt, reply_email FROM ai_site_settings WHERE site_id = ?`,
+        `SELECT form_router_prompt, reply_email, enabled_mcps_json FROM ai_site_settings WHERE site_id = ?`,
       )
         .bind(site.id)
-        .first<{ form_router_prompt: string | null; reply_email: string | null }>();
+        .first<{
+          form_router_prompt: string | null;
+          reply_email: string | null;
+          enabled_mcps_json: string | null;
+        }>();
       const contextRows = await c.env.DB.prepare(
         `SELECT extracted_text FROM ai_chat_context_files WHERE site_id = ? AND enabled = 1
          AND extracted_text IS NOT NULL ORDER BY created_at DESC LIMIT 5`,
       )
         .bind(site.id)
         .all<{ extracted_text: string }>();
-      const tools = await loadAvailableTools(c.env, site.id as string);
+      // The operator's per-site MCP selection (forms designer "enable for routing"
+      // pills) gates which connected MCPs the router may use. Empty/absent = all.
+      const enabledMcps = ((): string[] => {
+        try {
+          const arr = JSON.parse(settings?.enabled_mcps_json ?? '[]');
+          return Array.isArray(arr) ? arr.filter((v): v is string => typeof v === 'string') : [];
+        } catch {
+          return [];
+        }
+      })();
+      const tools = await loadAvailableTools(c.env, site.id as string, enabledMcps);
       const businessName =
         (site as { business_name?: string }).business_name ?? (site.slug as string);
       // ── Assemble the template context exposed to `{{ }}` placeholders in

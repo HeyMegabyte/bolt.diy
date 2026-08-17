@@ -170,6 +170,32 @@ describe('loadAvailableTools', () => {
     const { env } = envWithRows([]);
     expect(await loadAvailableTools(env, 'site-1')).toEqual([]);
   });
+
+  it('filters to ONLY the enabled providers when a selection is given (router gating)', async () => {
+    // The forms-designer "enable for routing" selection (ai_site_settings.enabled_mcps_json)
+    // narrows which connected MCPs the router may use. Two providers connected; a
+    // selection of ['stripe'] must expose stripe's tools and NONE of mailchimp's.
+    mockDecrypt.mockResolvedValue('t');
+    const { env } = envWithRows([
+      { provider: 'mailchimp', access_token_encrypted: 'ct', account_metadata_json: null },
+      { provider: 'stripe', access_token_encrypted: 'ct', account_metadata_json: null },
+    ]);
+    const all = await loadAvailableTools(env, 'site-1');
+    const scoped = await loadAvailableTools(env, 'site-1', ['stripe']);
+    expect(scoped.length).toBeGreaterThan(0); // stripe still contributes tools
+    expect(scoped.length).toBeLessThan(all.length); // mailchimp's tools are dropped
+    expect(scoped.some((t) => t.name === 'add_to_mailchimp')).toBe(false);
+  });
+
+  it('an empty / absent selection means NO restriction (all connected tools)', async () => {
+    mockDecrypt.mockResolvedValue('t');
+    const { env } = envWithRows([
+      { provider: 'mailchimp', access_token_encrypted: 'ct', account_metadata_json: null },
+    ]);
+    const all = await loadAvailableTools(env, 'site-1');
+    expect(await loadAvailableTools(env, 'site-1', [])).toEqual(all);
+    expect(await loadAvailableTools(env, 'site-1', undefined)).toEqual(all);
+  });
 });
 
 describe('executeTool — dispatch', () => {

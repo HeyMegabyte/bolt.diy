@@ -74,6 +74,8 @@ interface Settings {
   form_router_prompt: string | null;
   form_router_prompt_default: string;
   reply_email: string | null;
+  /** Server-persisted forms-designer MCP selection (which connected MCPs the router may use). */
+  enabled_mcps?: string[];
 }
 
 /**
@@ -1540,6 +1542,18 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
           form_router_prompt_default: r.data?.form_router_prompt_default ?? '',
           reply_email: r.data?.reply_email ?? '',
         };
+        // Seed the MCP-selection pills from the SERVER value (authoritative + cross-
+        // device), not just the localStorage cache — the write-only-field lesson: the
+        // server is the source of truth once the PUT persists enabled_mcps. Mirror it
+        // back into the cache so the next cold paint is instant.
+        if (Array.isArray(r.data?.enabled_mcps)) {
+          this.promptMcps.set(r.data.enabled_mcps);
+          try {
+            localStorage.setItem('ps_form_prompt_mcps', JSON.stringify(r.data.enabled_mcps));
+          } catch {
+            /* best-effort cache */
+          }
+        }
       },
       error: () => {
         /* api.service already surfaced the toast — keep current settings */

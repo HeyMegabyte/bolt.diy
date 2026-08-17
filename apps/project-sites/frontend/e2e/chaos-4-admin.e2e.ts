@@ -1548,4 +1548,66 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
       }
     }
   });
+
+  // M2 (persist) — the forms-designer MCP selection round-trips to the SERVER. The
+  // "MCP integrations available to this prompt" pills PUT `enabled_mcps` to
+  // /sites/:id/ai-settings, which SILENTLY DROPPED it (not in the allow-list, no column)
+  // → a lying-success stub: it toasted "Saved" but the selection never persisted (lived
+  // only in localStorage) and the form router ignored it (`loadAvailableTools` returned
+  // ALL tools). This proves the fix (migration 0629 + PUT allow-list + GET return +
+  // router filter): PUT a selection → GET echoes it back. App-context fetch (real
+  // cf_clearance) since a headless PUT is WAF-challenged. Self-restoring (clears the
+  // selection in finally so the shared E2E site stays unrestricted).
+  test('Forms designer MCP selection round-trips to the SERVER (enabled_mcps persist, not a lying-success) (M2)', async ({
+    page,
+  }) => {
+    await seedAuth(page, KEY);
+    await page.goto('/admin', { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1200); // acquire cf_clearance for app-context mutations
+    const SID = 'e2e-site-1';
+    const sel = ['stripe', 'resend'];
+    try {
+      const out = await page.evaluate(
+        async ({ sid, selection }) => {
+          const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
+          const H = { Authorization: `Bearer ${s.token}`, 'Content-Type': 'application/json' };
+          const put = await fetch(`/api/sites/${sid}/ai-settings`, {
+            method: 'PUT',
+            headers: H,
+            body: JSON.stringify({ enabled_mcps: selection }),
+          });
+          const getRes = await fetch(`/api/sites/${sid}/ai-settings`, { headers: H });
+          const body = (await getRes.json().catch(() => ({}))) as {
+            data?: { enabled_mcps?: string[] };
+          };
+          return {
+            putStatus: put.status,
+            getStatus: getRes.status,
+            enabled: body?.data?.enabled_mcps ?? null,
+          };
+        },
+        { sid: SID, selection: sel },
+      );
+      expect(out.putStatus, 'ai-settings PUT accepts enabled_mcps (200)').toBe(200);
+      expect(out.getStatus, 'ai-settings GET (200)').toBe(200);
+      expect(Array.isArray(out.enabled), 'GET returns an enabled_mcps array (not dropped)').toBe(
+        true,
+      );
+      expect(out.enabled, 'the selection persisted server-side (round-trip)').toEqual(
+        expect.arrayContaining(sel),
+      );
+    } finally {
+      // Restore the empty selection so the shared E2E site is left unrestricted.
+      await page
+        .evaluate(async (sid) => {
+          const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
+          await fetch(`/api/sites/${sid}/ai-settings`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${s.token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled_mcps: [] }),
+          }).catch(() => {});
+        }, SID)
+        .catch(() => {});
+    }
+  });
 });
