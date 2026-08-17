@@ -163,15 +163,31 @@ aiAdmin.get('/api/sites/:siteId/form-submissions', async (c) => {
   const { orgId } = need(c);
   const siteId = c.req.param('siteId');
   await siteOwned(c, orgId, siteId);
+  const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 200), 1), 500);
+  const offset = Math.max(Number(c.req.query('offset') ?? 0), 0);
   const rows = await c.env.DB.prepare(
     `SELECT id, form_name, email, payload, status, ip_address, origin_url, created_at
      FROM form_submissions WHERE site_id = ?
-     ORDER BY created_at DESC LIMIT 200`,
+     ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+  )
+    .bind(siteId, limit, offset)
+    .all<Record<string, unknown>>();
+  // True count so a business owner can reach EVERY lead (offset-page) and the
+  // count pill shows the real total — a hardcoded LIMIT with no total silently
+  // hides leads (= revenue) past the cap once a site gets popular.
+  const countRow = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM form_submissions WHERE site_id = ?`,
   )
     .bind(siteId)
-    .all<Record<string, unknown>>();
+    .first<{ n: number }>();
+  const data = (rows.results ?? []).map((r) => ({
+    ...r,
+    fields: safeJson(r['payload'] as string),
+  }));
+  const total = Number(countRow?.n ?? data.length);
   return c.json({
-    data: (rows.results ?? []).map((r) => ({ ...r, fields: safeJson(r['payload'] as string) })),
+    data,
+    meta: { limit, offset, total, has_more: offset + data.length < total },
   });
 });
 

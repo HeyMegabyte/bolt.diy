@@ -185,6 +185,35 @@ describe('ai_admin — site org scoping (404 non-leak)', () => {
     expect(json.data[0].fields).toEqual({ email: 'a@b.c' });
   });
 
+  it('exposes meta.total + has_more so leads past the page stay reachable (no silent cap)', async () => {
+    // A full page of 200, but 213 exist — a business owner must be able to reach
+    // the other 13 leads AND see the true count (leads = revenue; never silently hide).
+    const page = Array.from({ length: 200 }, (_, i) => ({ id: `f${i}`, payload: '{}' }));
+    const env = makeEnv(
+      makeDb([
+        OWNED_SITE,
+        { match: 'COUNT(*)', resp: { first: { n: 213 } } },
+        { match: 'FROM form_submissions', resp: { all: page } },
+      ]),
+    );
+    const res = await req(
+      makeApp(AUTH),
+      'GET',
+      '/api/sites/s1/form-submissions?limit=200&offset=0',
+      env,
+    );
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      data: unknown[];
+      meta: { total: number; has_more: boolean; limit: number; offset: number };
+    };
+    expect(json.data).toHaveLength(200);
+    expect(json.meta.total).toBe(213);
+    expect(json.meta.has_more).toBe(true); // 0 + 200 < 213
+    expect(json.meta.limit).toBe(200);
+    expect(json.meta.offset).toBe(0);
+  });
+
   it('returns 404 for a missing single form submission on an owned site', async () => {
     const env = makeEnv(
       makeDb([OWNED_SITE, { match: 'FROM form_submissions WHERE id = ?', resp: { first: null } }]),
