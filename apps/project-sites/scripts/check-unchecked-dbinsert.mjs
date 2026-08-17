@@ -30,9 +30,21 @@ const SCAN_DIRS = [join(APP_DIR, 'src'), join(APP_DIR, 'libs')];
 
 /** Tables holding user-generated rows the admin later displays — a dropped insert is user-visible data loss. */
 const INGESTION_TABLES = new Set([
-  'contacts', 'form_submissions', 'newsletter_subscribers', 'leads', 'scanned_leads',
-  'donations', 'pulse_posts', 'social_publishes', 'social_posts', 'social_analytics_snapshots',
-  'voice_calls', 'voice_recordings', 'voice_numbers', 'storefront_products', 'orders',
+  'contacts',
+  'form_submissions',
+  'newsletter_subscribers',
+  'leads',
+  'scanned_leads',
+  'donations',
+  'pulse_posts',
+  'social_publishes',
+  'social_posts',
+  'social_analytics_snapshots',
+  'voice_calls',
+  'voice_recordings',
+  'voice_numbers',
+  'storefront_products',
+  'orders',
 ]);
 
 /** Recursively collect .ts files (skip .d.ts + __tests__). */
@@ -58,9 +70,17 @@ const findings = [];
 for (const dir of SCAN_DIRS) {
   for (const file of walk(dir)) {
     const text = readFileSync(file, 'utf8');
-    if (!text.includes('dbInsert(')) continue;
+    if (!text.includes('dbInsert')) continue;
     const rel = relative(APP_DIR, file);
-    const re = /\bdbInsert\s*\(/g;
+    // Resolve aliased imports (`const { dbInsert: dbIns } = …`) so calls via the
+    // alias (`await dbIns(...)`) are scanned too. A literal-only `dbInsert(` regex
+    // missed them — the site_snapshots create used `dbIns`/`snpInsert` aliases and
+    // slipped this CI gate (a real lying-success bug, fire 16).
+    const aliases = new Set(['dbInsert']);
+    const aliasRe = /\{[^}]*\bdbInsert\s*:\s*([A-Za-z_$][\w$]*)/g;
+    let am;
+    while ((am = aliasRe.exec(text)) !== null) aliases.add(am[1]);
+    const re = new RegExp(`\\b(?:${[...aliases].join('|')})\\s*\\(`, 'g');
     let m;
     while ((m = re.exec(text)) !== null) {
       const before = text.slice(Math.max(0, m.index - 90), m.index);
@@ -69,12 +89,12 @@ for (const dir of SCAN_DIRS) {
       // resolved from a same-file `const TABLE = 'literal'` (the lead_store.ts:57
       // case the literal-only regex missed → a false-negative on an ingestion table).
       const after = text.slice(m.index, m.index + 160);
-      const litM = after.match(/dbInsert\s*\(\s*[^,]+,\s*['"]([^'"]+)['"]/);
+      const litM = after.match(/[\w$]+\s*\(\s*[^,]+,\s*['"]([^'"]+)['"]/);
       let table = '(dynamic)';
       if (litM) {
         table = litM[1];
       } else {
-        const identM = after.match(/dbInsert\s*\(\s*[^,]+,\s*([A-Za-z_$][\w$]*)\s*[,)]/);
+        const identM = after.match(/[\w$]+\s*\(\s*[^,]+,\s*([A-Za-z_$][\w$]*)\s*[,)]/);
         if (identM) {
           const constM = text.match(
             new RegExp(`(?:const|let|var)\\s+${identM[1]}\\s*=\\s*['"]([^'"]+)['"]`),
@@ -97,15 +117,23 @@ const high = findings.filter((f) => f.severity === 'HIGH');
 const low = findings.filter((f) => f.severity === 'low');
 
 if (process.argv.includes('--json')) {
-  process.stdout.write(JSON.stringify({ total: findings.length, high: high.length, findings }, null, 2) + '\n');
+  process.stdout.write(
+    JSON.stringify({ total: findings.length, high: high.length, findings }, null, 2) + '\n',
+  );
 } else if (findings.length === 0) {
   console.log('✅ check-unchecked-dbinsert: clean — every dbInsert result is captured.');
 } else {
-  console.log(`⚠️  check-unchecked-dbinsert: ${findings.length} bare dbInsert call(s) (${high.length} HIGH ingestion):`);
+  console.log(
+    `⚠️  check-unchecked-dbinsert: ${findings.length} bare dbInsert call(s) (${high.length} HIGH ingestion):`,
+  );
   for (const f of [...high, ...low]) {
-    console.log(`   ${f.severity === 'HIGH' ? 'HIGH' : 'low '} ${f.file}:${f.line} → ${f.table}${f.severity === 'HIGH' ? '  (ingestion — capture { error } and surface it)' : ''}`);
+    console.log(
+      `   ${f.severity === 'HIGH' ? 'HIGH' : 'low '} ${f.file}:${f.line} → ${f.table}${f.severity === 'HIGH' ? '  (ingestion — capture { error } and surface it)' : ''}`,
+    );
   }
-  console.log('   Fix: `const { error } = await dbInsert(...)` then log/throw on error — never a bare await.');
+  console.log(
+    '   Fix: `const { error } = await dbInsert(...)` then log/throw on error — never a bare await.',
+  );
 }
 
 process.exit(process.argv.includes('--ci') && high.length > 0 ? 1 : 0);

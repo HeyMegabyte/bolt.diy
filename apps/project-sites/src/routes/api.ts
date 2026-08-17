@@ -4753,7 +4753,7 @@ api.post('/api/sites/:id/deploy', async (c) => {
     if (existing) snapshotName = `${snapshotName}-${Date.now().toString(36).slice(-4)}`;
 
     const { dbInsert: snpInsert } = await import('../services/db.js');
-    await snpInsert(c.env.DB, 'site_snapshots', {
+    const autoSnap = await snpInsert(c.env.DB, 'site_snapshots', {
       id: crypto.randomUUID(),
       site_id: siteId,
       snapshot_name: snapshotName,
@@ -4761,6 +4761,8 @@ api.post('/api/sites/:id/deploy', async (c) => {
       description: `AI Edit — ${uploadedFiles.length} files updated`,
       created_by: c.get('userId') || null,
     });
+    if (autoSnap.error)
+      console.warn('[publish] auto-snapshot insert failed (non-blocking):', autoSnap.error);
   } catch (snapErr) {
     console.warn('[publish] Snapshot creation failed (non-blocking):', snapErr);
   }
@@ -7269,7 +7271,7 @@ api.post('/api/sites/:siteId/snapshots', async (c) => {
 
   const { dbInsert: dbIns } = await import('../services/db.js');
   const id = crypto.randomUUID();
-  await dbIns(c.env.DB, 'site_snapshots', {
+  const snapIns = await dbIns(c.env.DB, 'site_snapshots', {
     id,
     site_id: siteId,
     snapshot_name: snapshotName,
@@ -7277,6 +7279,12 @@ api.post('/api/sites/:siteId/snapshots', async (c) => {
     description: body.description || null,
     created_by: userId || null,
   });
+  // UNIQUE(site_id, snapshot_name): an ignored error here was a lying-success — a
+  // duplicate name returned 200 with NOTHING persisted AND still fired the quality
+  // workflow below. Surface it as a 409 so the caller picks another name.
+  if (snapIns.error) {
+    throw conflict(`A snapshot named '${snapshotName}' already exists for this site`);
+  }
 
   const snapshotUrl = `https://${site.slug}-${snapshotName}${DOMAINS.SITES_SUFFIX}`;
 
@@ -7543,7 +7551,7 @@ api.post('/api/sites/:siteId/snapshots/revert', async (c) => {
   // Create a D1 snapshot record for the revert
   const { dbInsert: dbIns } = await import('../services/db.js');
   const snapshotId = crypto.randomUUID();
-  await dbIns(c.env.DB, 'site_snapshots', {
+  const revertSnap = await dbIns(c.env.DB, 'site_snapshots', {
     id: snapshotId,
     site_id: siteId,
     snapshot_name: `revert-${body.commit_id.substring(0, 8)}`,
@@ -7551,6 +7559,8 @@ api.post('/api/sites/:siteId/snapshots/revert', async (c) => {
     description: `Reverted to commit ${body.commit_id.substring(0, 8)}`,
     created_by: userId || null,
   });
+  if (revertSnap.error)
+    console.warn('[revert] snapshot record insert failed (non-blocking):', revertSnap.error);
 
   // Invalidate KV cache
   await c.env.CACHE_KV.delete(`host:${site.slug}${DOMAINS.SITES_SUFFIX}`).catch(() => {});
