@@ -202,6 +202,13 @@ function actionToFallbackMessage(action: string): string {
         }
       </div>
 
+      @if (hasHiddenEvents()) {
+        <p class="text-[0.7rem] text-amber-300/90 mt-1" role="status" data-testid="audit-cap-note"
+           title="The grid + stats above cover the {{ rows().length }} most recent events. Older ones are still stored.">
+          Showing the latest {{ rows().length }} of {{ totalCount() }} events — older events are still stored.
+        </p>
+      }
+
       @if (loadError(); as err) {
         <app-error-card data-testid="audit-error" class="block"
           title="Couldn't load audit events"
@@ -392,6 +399,15 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
    *  loaded stat-card markup. */
   readonly statLabels = ['Events', 'Unique actions', 'Last 24h', 'Actors'] as const;
   rows = signal<AuditRow[]>([]);
+  /** Raw `meta.total` from the last load (a worker COUNT(*)); 0 when unknown. */
+  private readonly metaTotal = signal(0);
+  /** TRUE org-wide audit-event count from the worker (independent of the ≤500-row
+   *  page loaded). Falls back to the loaded length for an older worker w/o meta;
+   *  never reports fewer than what's on screen. */
+  readonly totalCount = computed(() => Math.max(this.metaTotal(), this.rows().length));
+  /** True when the store holds more events than the loaded page — drives the honest
+   *  "showing latest N of M" note so the operator knows the grid/stats are a capped window. */
+  readonly hasHiddenEvents = computed(() => this.totalCount() > this.rows().length);
   loading = signal(false);
   /** Set when /audit-logs fails so we show a distinct error card instead of the
    *  misleading "No audit events yet" empty state (a security log must never
@@ -691,9 +707,18 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
     this.loadError.set(null);
     this.loadErrorRef.set('');
     const params: Record<string, string> = { limit: '500' };
-    this.api.get<{ data: AuditRow[] }>('/audit-logs', params, { silent: true }).subscribe({
+    this.api
+      .get<{ data: AuditRow[]; meta?: { total?: number; has_more?: boolean } }>(
+        '/audit-logs',
+        params,
+        { silent: true },
+      )
+      .subscribe({
       next: (r) => {
         this.rows.set(r.data ?? []);
+        // TRUE org-wide count so the operator knows when the 500-row window hides
+        // events; metaTotal=0 (older worker) falls back to the loaded length.
+        this.metaTotal.set(r.meta?.total ?? 0);
         this.loading.set(false);
         this.lastSyncAt.set(Date.now());
         this.consecutiveErrors.set(0); // success → resume auto-poll

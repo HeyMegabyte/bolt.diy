@@ -101,6 +101,29 @@ describe('AdminAuditComponent (load + KPI logic)', () => {
     expect(c.canExport()).toBeTrue();
   });
 
+  // The endpoint caps the page at 500 rows but returns the TRUE org-wide total in
+  // meta.total (a COUNT). The count/note must reflect reality — else an active org
+  // with >500 audit events sees a capped window with no signal that older
+  // (compliance/security) events exist.
+  it('totalCount reflects the server meta.total (not the loaded page); hasHiddenEvents fires when events are hidden', () => {
+    const c = make(
+      jasmine.createSpy('get').and.returnValue(
+        of({ data: [ROW(), ROW({ id: 'r2' })], meta: { total: 4200, has_more: true } }),
+      ),
+    );
+    c.load();
+    expect(c.rows().length).toBe(2); // the loaded page
+    expect(c.totalCount()).toBe(4200); // TRUE org-wide count from meta
+    expect(c.hasHiddenEvents()).toBeTrue();
+  });
+
+  it('no hidden-events note when the whole store is loaded (meta absent → total === loaded)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [ROW()] })));
+    c.load();
+    expect(c.totalCount()).toBe(1);
+    expect(c.hasHiddenEvents()).toBeFalse();
+  });
+
   // The stats skeleton must persist the real KPI labels (not a generic
   // "Loading" header ×4) so the muted-h text — and the card widths — don't
   // reflow when the first fetch resolves. Mirrors the site-dna stats skeleton

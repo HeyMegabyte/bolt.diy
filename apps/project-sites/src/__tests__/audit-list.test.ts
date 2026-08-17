@@ -62,19 +62,30 @@ const SITE_SLUG = 'vitos-mens-salon';
  * // ...invoke handler...
  * expect(captured.sql).toContain('FROM audit_logs');
  */
-function makeMockDb(rows: MockRow[]): {
+function makeMockDb(
+  rows: MockRow[],
+  total?: number,
+): {
   db: D1Database;
   captured: { sql: string; params: unknown[] };
 } {
   const captured: { sql: string; params: unknown[] } = { sql: '', params: [] };
+  // The handler prepares the main list query FIRST, then a COUNT(*) query. Capture
+  // ONLY the first (main) prepare so the SQL/param assertions below stay stable, and
+  // support `.first()` on every bind chain so the COUNT query resolves to `total`
+  // (defaults to the loaded row count when a test doesn't specify a larger store).
+  let prepareCount = 0;
   const db = {
     prepare: jest.fn((sql: string) => {
-      captured.sql = sql;
+      const isMain = prepareCount === 0;
+      prepareCount += 1;
+      if (isMain) captured.sql = sql;
       return {
         bind: jest.fn((...params: unknown[]) => {
-          captured.params = params;
+          if (isMain) captured.params = params;
           return {
             all: jest.fn().mockResolvedValue({ results: rows, success: true }),
+            first: jest.fn().mockResolvedValue({ n: total ?? rows.length }),
           };
         }),
       };
@@ -237,6 +248,53 @@ describe('GET /api/audit-logs', () => {
       data: Array<{ metadata: Record<string, unknown> | null }>;
     };
     expect(body.data[0].metadata).toEqual({ field: 'business_name', old: 'A', new: 'B' });
+  });
+
+  it('returns meta.total (a COUNT) + has_more so the count cannot lie past the 500-row cap', async () => {
+    // 2 rows loaded but 4200 stored → the endpoint MUST expose the true total so
+    // the admin count reflects reality (mirrors form-submissions + /logs, which
+    // already return meta.total; audit-logs was the un-upgraded {data}-only outlier).
+    const rows: MockRow[] = [
+      {
+        id: 'r1', action: 'site.created', target_type: 'site', target_id: SITE_ID,
+        actor_id: 'user-1', metadata_json: null, request_id: 'req-1',
+        created_at: '2026-05-21T12:00:00.000Z', site_slug: SITE_SLUG,
+      },
+      {
+        id: 'r2', action: 'site.deployed', target_type: 'site', target_id: SITE_ID,
+        actor_id: 'user-1', metadata_json: null, request_id: 'req-2',
+        created_at: '2026-05-21T11:00:00.000Z', site_slug: SITE_SLUG,
+      },
+    ];
+    const { db } = makeMockDb(rows, 4200);
+    const { app, env } = createAuthedApp(db);
+    const res = await app.request('/api/audit-logs?limit=2', {}, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: unknown[];
+      meta?: { total?: number; has_more?: boolean; limit?: number; offset?: number };
+    };
+    expect(body.data).toHaveLength(2);
+    expect(body.meta?.total).toBe(4200);
+    expect(body.meta?.has_more).toBe(true);
+    expect(body.meta?.limit).toBe(2);
+    expect(body.meta?.offset).toBe(0);
+  });
+
+  it('meta.has_more is false when the whole store fits in the page', async () => {
+    const rows: MockRow[] = [
+      {
+        id: 'r1', action: 'site.created', target_type: 'site', target_id: SITE_ID,
+        actor_id: 'user-1', metadata_json: null, request_id: 'req-1',
+        created_at: '2026-05-21T12:00:00.000Z', site_slug: SITE_SLUG,
+      },
+    ];
+    const { db } = makeMockDb(rows, 1);
+    const { app, env } = createAuthedApp(db);
+    const res = await app.request('/api/audit-logs', {}, env);
+    const body = (await res.json()) as { meta?: { total?: number; has_more?: boolean } };
+    expect(body.meta?.total).toBe(1);
+    expect(body.meta?.has_more).toBe(false);
   });
 
   it('returns 401 when caller has no orgId', async () => {

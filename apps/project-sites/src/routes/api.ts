@@ -2754,8 +2754,10 @@ api.get('/api/audit-logs', async (c) => {
     );
     scopedSiteId = siteRow?.id ?? null;
     // If the slug doesn't resolve to a site in this org, return empty —
-    // never fall back to "all rows" (would be a tenant-isolation leak).
-    if (!scopedSiteId) return c.json({ data: [] });
+    // never fall back to "all rows" (would be a tenant-isolation leak). Carry the
+    // `meta` envelope so the FE contract is uniform (total 0, no more pages).
+    if (!scopedSiteId)
+      return c.json({ data: [], meta: { limit, offset, total: 0, has_more: false } });
   }
 
   // Build SQL with optional site scope. The LEFT JOIN populates `site` for
@@ -2833,7 +2835,26 @@ api.get('/api/audit-logs', async (c) => {
     };
   });
 
-  return c.json({ data });
+  // True count of matching rows (unpaginated) so the admin count reflects reality
+  // and the grid can paginate past the 500-row cap — a hardcoded LIMIT with no
+  // total silently hides audit events (compliance/security records) once an org
+  // gets active. Mirrors form-submissions + /sites/:id/logs, which already return
+  // `meta.total`; audit-logs was the un-upgraded {data}-only outlier.
+  const countSql = scopedSiteId
+    ? `SELECT COUNT(*) AS n FROM audit_logs a WHERE a.org_id = ? AND (a.target_id = ? OR a.metadata_json LIKE ?)`
+    : `SELECT COUNT(*) AS n FROM audit_logs a WHERE a.org_id = ?`;
+  const countParams: (string | number)[] = scopedSiteId
+    ? [orgId, scopedSiteId, `%"site_id":"${scopedSiteId}"%`]
+    : [orgId];
+  const countRow = await c.env.DB.prepare(countSql)
+    .bind(...countParams)
+    .first<{ n: number }>();
+  const total = Number(countRow?.n ?? data.length);
+
+  return c.json({
+    data,
+    meta: { limit, offset, total, has_more: offset + data.length < total },
+  });
 });
 
 // ─── Site-Specific Logs ─────────────────────────────────────
