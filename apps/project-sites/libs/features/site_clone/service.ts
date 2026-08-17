@@ -13,7 +13,17 @@ export async function cloneSite(env: Env, orgId: string, sourceSiteId: string, t
   const now = new Date().toISOString();
   // sites has no `name` column — it's `business_name`. (Was `name` → the INSERT
   // threw `no such column` → cloneSite 500'd on every call.)
-  await dbExecute(env.DB, `INSERT INTO sites (id, org_id, slug, business_name, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?)`, [newId, orgId, targetSlug, targetName, 'draft', now, now]);
+  //
+  // dbExecute NEVER throws — it returns `{ error }`. A bare `await` here ignored a
+  // failed INSERT and still returned `{ id, slug, name }` below → a LYING-SUCCESS:
+  // the handler 201'd "site cloned" with a fresh id that has NO row in `sites`.
+  // Capture the error and throw so the handler returns a real failure, not a phantom.
+  const { error } = await dbExecute(
+    env.DB,
+    `INSERT INTO sites (id, org_id, slug, business_name, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?)`,
+    [newId, orgId, targetSlug, targetName, 'draft', now, now],
+  );
+  if (error) throw new Error('clone_failed');
 
   // No `pages`/`site_pages` table exists in prod — per-site page content lives
   // in R2 (sites/{slug}/{version}/…), not D1. The old SELECT was swallowed to

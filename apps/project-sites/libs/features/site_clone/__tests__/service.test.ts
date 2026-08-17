@@ -10,7 +10,7 @@ const srcSite = { id: 'src-1', org_id: 'org-1', status: 'published' };
 describe('cloneSite', () => {
   it('clones the source site row (pages live in R2, not a D1 pages table)', async () => {
     (dbQueryOne as jest.Mock).mockResolvedValueOnce(srcSite).mockResolvedValueOnce(null);
-    (dbExecute as jest.Mock).mockResolvedValue(undefined);
+    (dbExecute as jest.Mock).mockResolvedValue({ error: null, changes: 1 });
     const r = await cloneSite(env(), 'org-1', 'src-1', 'clone-slug', 'Clone');
     expect(r.slug).toBe('clone-slug');
     expect(r.name).toBe('Clone');
@@ -29,9 +29,17 @@ describe('cloneSite', () => {
     (dbQueryOne as jest.Mock).mockResolvedValueOnce(srcSite).mockResolvedValueOnce({ id: 'existing' });
     await expect(cloneSite(env(), 'org-1', 'src-1', 'taken', 'N')).rejects.toThrow('slug_taken');
   });
+  it('throws clone_failed when the sites INSERT is dropped (no lying-success)', async () => {
+    // dbExecute returns { error } (never throws). The old bare `await` ignored a
+    // failed INSERT and still returned { id, slug, name } → the handler 201'd a
+    // phantom site with no row. cloneSite MUST throw so the caller sees the failure.
+    (dbQueryOne as jest.Mock).mockResolvedValueOnce(srcSite).mockResolvedValueOnce(null);
+    (dbExecute as jest.Mock).mockResolvedValue({ error: 'D1_ERROR: no such column', changes: 0 });
+    await expect(cloneSite(env(), 'org-1', 'src-1', 'newslug', 'N')).rejects.toThrow('clone_failed');
+  });
   it('mints a fresh site id distinct from the source', async () => {
     (dbQueryOne as jest.Mock).mockResolvedValueOnce(srcSite).mockResolvedValueOnce(null);
-    (dbExecute as jest.Mock).mockResolvedValue(undefined);
+    (dbExecute as jest.Mock).mockResolvedValue({ error: null, changes: 1 });
     const r = await cloneSite(env(), 'org-1', 'src-1', 'empty', 'E');
     expect(r.id).not.toBe('src-1');
     expect(r.pagesCopied).toBe(0);

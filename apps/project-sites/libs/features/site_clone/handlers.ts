@@ -8,5 +8,11 @@ export async function handleSiteClone(c: Context<{ Bindings: Env; Variables: Var
   if (!(await isFlagOn(c.env, 'batch_operations', { orgId: c.get('orgId')! }))) return c.notFound();
   const body = CloneSiteSchema.parse(await c.req.json());
   try { return c.json(await cloneSite(c.env, c.get('orgId')!, body.sourceSiteId, body.targetSlug, body.targetName), 201); }
-  catch (e: unknown) { const m = e instanceof Error ? e.message : String(e); return c.json({ error: m }, m === 'source_not_found' ? 404 : 409); }
+  catch (e: unknown) {
+    const m = e instanceof Error ? e.message : String(e);
+    // source_not_found → 404, slug_taken (+default) → 409, clone_failed (dropped
+    // sites INSERT) → 500 so a DB write failure is an honest error, not a lying 201.
+    const status = m === 'source_not_found' ? 404 : m === 'clone_failed' ? 500 : 409;
+    return c.json({ error: m }, status);
+  }
 }
