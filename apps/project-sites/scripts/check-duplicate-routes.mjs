@@ -46,8 +46,18 @@ const REG = new RegExp(`\\b[a-zA-Z_$][\\w$]*\\.${METHOD}\\(\\s*['"\`](/[^'"\`]*)
  * @type {Record<string, 'intentional' | 'review'>}
  */
 export const ALLOWLIST = {
-  // index.ts direct override of appsRoutes' catalog; tangled apps-catalog area.
-  'GET /api/apps/catalog': 'intentional',
+  // TANGLED, pending resolution (iter 152 investigation) — NOT a clean intended
+  // override. index.ts:578 (app_launcher, container apps: plane/twenty/chatwoot,
+  // shape `{data}`) shadows apps.ts:159 (marketplace, self-host apps: umami/…,
+  // shape `{apps}`). They are DIFFERENT catalogs AND different response shapes.
+  // The frontend `/admin/apps` UI is unaffected (it reads the BUNDLED
+  // apps-catalog.data.ts marketplace list, not this API), and the sole API consumer
+  // `ApiService.getAppCatalog()` (expects `{apps}`) is UNCALLED — so there is NO
+  // live user impact today. Resolution = pick ONE owner for `/api/apps/catalog`
+  // (marketplace apps.ts vs app_launcher) or move app_launcher to a distinct path;
+  // tracked in .claude/refactor-state.md. `review` (not `intentional`) so it stays
+  // grandfathered but is flagged for cleanup, not blessed as permanent.
+  'GET /api/apps/catalog': 'review',
   // domain_purchase mounted before `api` so the wallet-aware purchase wins over legacy.
   'POST /api/domains/purchase': 'intentional',
   // RESOLVED iter 48 — the shadowed flat-list handler in api.ts was DELETED (dead:

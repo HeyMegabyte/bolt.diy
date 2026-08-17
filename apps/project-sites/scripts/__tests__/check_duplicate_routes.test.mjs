@@ -63,9 +63,13 @@ test('does NOT flag a single registration', () => {
 });
 
 // --- ALLOWLIST is the documented grandfather set ---
-test('ALLOWLIST grandfathers the known intentional overrides', () => {
+test('ALLOWLIST grandfathers the known duplicate registrations', () => {
+  // domain_purchase is a clean, permanent, intended override.
   assert.equal(ALLOWLIST['POST /api/domains/purchase'], 'intentional');
-  assert.equal(ALLOWLIST['GET /api/apps/catalog'], 'intentional');
+  // apps/catalog is a TANGLED shadow pending resolution (app_launcher container
+  // catalog shadows the marketplace catalog; different shapes; no live impact as
+  // the sole API consumer is uncalled) — classified `review`, not `intentional`.
+  assert.equal(ALLOWLIST['GET /api/apps/catalog'], 'review');
   // Every entry is classified either intentional or review.
   for (const reason of Object.values(ALLOWLIST)) {
     assert.ok(reason === 'intentional' || reason === 'review', `bad reason: ${reason}`);
