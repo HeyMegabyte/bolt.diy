@@ -220,6 +220,14 @@ beforeEach(() => {
 
 // ─── Catalog (public) ────────────────────────────────────────────────────────
 
+// ⚠️ These tests mount ONLY the `apps` router, so they exercise the marketplace
+// handler at apps.ts:159 (`{apps, count}`, self-host apps: umami/…). In PROD that
+// handler is SHADOWED: `index.ts:578` (the `app_launcher` feature) registers the
+// same `GET /api/apps/catalog` FIRST and WINS, returning `{data}` container apps
+// (plane/twenty/…). So these tests prove the marketplace handler's LOGIC, NOT the
+// live routing — the two disagree on both catalog AND shape. Tracked as a `review`
+// dup in scripts/check-duplicate-routes.mjs + the apps-catalog resolution in
+// .claude/refactor-state.md (needs the marketplace-vs-launcher owner decision).
 describe('GET /api/apps/catalog', () => {
   it('lists every catalog app with a cache header and supported flag', async () => {
     const res = await req(makeApp(), '/api/apps/catalog', { method: 'GET' }, makeEnv());

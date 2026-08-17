@@ -340,9 +340,11 @@ export class EnvVarsAttachmentComponent {
   }
 
   /**
-   * Fetch MCP connections scoped to this context. Best-effort — the
-   * `/api/mcp/connections` endpoint may not yet accept every kind filter,
-   * so failures degrade to an empty list rather than firing an error toast.
+   * Fetch MCP connections scoped to this context. `/api/mcp/connections` honors
+   * the `site_id` (site kind) + `provider` (mcp kind) filters; `endpoint_id` /
+   * `agent_id` (endpoint/agent kinds) are NOT `mcp_connections` columns, so those
+   * kinds are not connection-scoped and return every org connection. A network
+   * failure degrades to an empty list rather than firing an error toast.
    */
   private loadMcps(): void {
     const kind = this.kind();
@@ -368,7 +370,7 @@ export class EnvVarsAttachmentComponent {
         this.mcpsLoading.set(false);
       },
       error: () => {
-        // Silent — the endpoint may not yet support every kind filter.
+        // Silent — a network failure degrades to an empty list, never a toast.
         this.mcps.set([]);
         this.mcpsLoading.set(false);
       },
