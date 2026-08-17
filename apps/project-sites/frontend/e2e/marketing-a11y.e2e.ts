@@ -35,6 +35,10 @@ const ROUTES = [
   //   /contact           → re-verified stably clean across 3 runs.
   '/', '/contact', '/signin',
   '/blog', '/press', '/privacy', '/terms', '/roadmap', '/integrations',
+  // Added iter-174 — verified axe-clean live @1280 (0 violations). Both were
+  // coverage GAPS in this gate: /pricing is a high-traffic conversion page
+  // (i18n-rewritten iter-170) and /developers is the MCP acquisition surface.
+  '/pricing', '/developers',
 ];
 // STILL EXCLUDED (genuinely blocked, NOT faked):
 //   /status    → `link-in-text-block` on the `/health/deep` footer link.
