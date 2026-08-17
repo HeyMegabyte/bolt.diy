@@ -61,3 +61,112 @@ export function isKnownMarketingRoute(pathname: string): boolean {
   const first = pathname.replace(/^\/+/, '').split('/')[0] ?? '';
   return KNOWN_MARKETING_PREFIXES.has(first);
 }
+
+/** Per-route `<title>` + `<meta description>` for marketing routes. */
+export interface MarketingMeta {
+  readonly title: string;
+  readonly description: string;
+}
+
+/**
+ * Per-route meta injected SERVER-SIDE into the marketing SPA shell so crawlers /
+ * scrapers / social unfurlers read route-correct `<title>`/`<meta description>`/OG
+ * (the Angular client `MetaService` only updates them AFTER hydration — invisible
+ * to non-JS bots). Mirrors `frontend/src/app/services/meta.service.ts` `PAGE_META`;
+ * keep the two in sync. Titles ≤60 chars, descriptions 120-156 (SEO gates). Home
+ * (`/`) intentionally keeps the shell's default copy (no entry → no rewrite).
+ */
+export const MARKETING_META: Readonly<Record<string, MarketingMeta>> = {
+  '/pricing': {
+    title: 'Pricing — Plans for Your AI-Built Website | ProjectSites',
+    description:
+      'Simple pricing for AI-generated websites: a free tier to start, then one flat plan with hosting, SSL, a custom domain, and analytics all included.',
+  },
+  '/search': {
+    title: 'Find Your Business — Start an AI Website | ProjectSites',
+    description:
+      'Search for your business and get a professional, SEO-ready website built by AI in minutes — hosted, SSL secured, and live. No coding required.',
+  },
+  '/classic': {
+    title: 'AI Website Builder for Real Businesses | ProjectSites',
+    description:
+      'AI-native website builder for real businesses. One prompt, four minutes, a gorgeous live URL with SSL, sitemap, OG cards, and JSON-LD baked in.',
+  },
+  '/auth/sign-in': {
+    title: 'Sign In — Manage Your AI Website | ProjectSites',
+    description:
+      'Sign in to manage your AI-generated website — edit content, connect a custom domain, view analytics, and handle billing. Magic link, no password.',
+  },
+  '/auth/sign-up': {
+    title: 'Sign Up — Build Your AI Website Free | ProjectSites',
+    description:
+      'Create your free ProjectSites account and build a professional, SEO-ready website with AI in minutes — hosted, SSL secured, and live in four minutes.',
+  },
+  '/privacy': {
+    title: 'Privacy Policy — Your Data & Rights | ProjectSites',
+    description:
+      'How ProjectSites collects, uses, stores, and protects your personal data — plus your rights to access, export, and delete it at any time.',
+  },
+  '/terms': {
+    title: 'Terms of Service — Usage & Billing | ProjectSites',
+    description:
+      'The terms for using ProjectSites: account rules, acceptable use, billing, intellectual property, and service commitments for your AI-built site.',
+  },
+  '/blog': {
+    title: 'AI Website Building Blog — Tips & Updates | ProjectSites',
+    description:
+      'Practical guides on AI-powered website building for small businesses — SEO, design, conversion, and launch tips from the ProjectSites team.',
+  },
+};
+
+/** Resolve per-route marketing meta (trailing slash tolerant); null when none. */
+export function resolveMarketingMeta(pathname: string): MarketingMeta | null {
+  const clean = pathname === '/' ? '/' : pathname.replace(/\/+$/, '');
+  return MARKETING_META[clean] ?? null;
+}
+
+/** Escape a trusted string for safe injection into an HTML attribute / title. */
+function escAttr(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/**
+ * Rewrite the marketing shell's `<head>` for the requested route.
+ *
+ * ALWAYS rewrites `<link rel="canonical">` + `og:url` to the route's own
+ * `pageUrl` — the shell hard-codes `href="https://projectsites.dev/"`, so every
+ * non-home route was telling crawlers its canonical was the HOMEPAGE, which
+ * DE-INDEXES /pricing, /search, /auth/*, … Also rewrites title/description/OG
+ * when the route has dedicated copy in {@link MARKETING_META}.
+ *
+ * @param html - the shell HTML (homepage-default meta).
+ * @param pathname - the requested URL pathname.
+ * @param pageUrl - the absolute per-route canonical URL.
+ * @returns HTML with route-correct canonical/og:url (+ title/desc when known).
+ * @example
+ * applyMarketingMeta(shell, '/pricing', 'https://projectsites.dev/pricing');
+ * // → canonical + og:url point at /pricing; title is the pricing title.
+ */
+export function applyMarketingMeta(html: string, pathname: string, pageUrl: string): string {
+  let out = html
+    .replace(
+      /<link\s+rel="canonical"\s+href="[^"]*"\s*\/?>/i,
+      `<link rel="canonical" href="${pageUrl}">`,
+    )
+    .replace(/(<meta\s+property="og:url"\s+content=")[^"]*(")/i, `$1${pageUrl}$2`);
+  const meta = resolveMarketingMeta(pathname);
+  if (meta) {
+    const t = escAttr(meta.title);
+    const d = escAttr(meta.description);
+    out = out
+      .replace(/<title>[\s\S]*?<\/title>/i, `<title>${t}</title>`)
+      .replace(/(<meta\s+name="description"\s+content=")[^"]*(")/i, `$1${d}$2`)
+      .replace(/(<meta\s+property="og:title"\s+content=")[^"]*(")/i, `$1${t}$2`)
+      .replace(/(<meta\s+property="og:description"\s+content=")[^"]*(")/i, `$1${d}$2`);
+  }
+  return out;
+}

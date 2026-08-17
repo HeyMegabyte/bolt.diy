@@ -33,7 +33,7 @@ import type { Env, Variables } from './types/env.js';
 import { requestIdMiddleware } from './middleware/request_id.js';
 import { requestLogger } from './lib/log.js';
 import { notFoundHtml } from './lib/not_found_page.js';
-import { isKnownMarketingRoute } from './marketing_routes.js';
+import { applyMarketingMeta, isKnownMarketingRoute } from './marketing_routes.js';
 import { llmLandingPage } from './lib/llm_landing_page.js';
 import { renderDocsReferencePage } from './lib/docs_reference_page.js';
 import { resolveSystemService, systemServiceLanding } from './lib/system_service_landing.js';
@@ -1348,6 +1348,14 @@ app.all('*', async (c) => {
           `<meta name="x-posthog-key" content="${phKey}">\n<meta name="x-stripe-pk" content="${stripePk}">\n${speculationRules}\n${jsonLd}\n</head>`,
         );
         html = html.replace('<body>', `<body>\n${quotable}\n`);
+
+        // Per-route <head> meta: the shell hard-codes the HOMEPAGE title/description
+        // AND `<link rel=canonical href="https://projectsites.dev/">` on EVERY route,
+        // so crawlers saw the homepage canonical for /pricing, /search, /auth/* — which
+        // DE-INDEXES them (the client MetaService only fixes this post-hydration, unseen
+        // by non-JS bots). Rewrite canonical + og:url to this route's pageUrl (always) +
+        // title/description/OG when the route has dedicated copy.
+        html = applyMarketingMeta(html, path, pageUrl);
 
         // Soft-404 guard: an extension-less path served the SPA shell fallback.
         // If it's NOT a known marketing route (e.g. `/garbage9999`), return a real

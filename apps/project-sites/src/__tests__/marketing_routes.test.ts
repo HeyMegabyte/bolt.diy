@@ -9,7 +9,12 @@
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { isKnownMarketingRoute, KNOWN_MARKETING_PREFIXES } from '../marketing_routes.js';
+import {
+  isKnownMarketingRoute,
+  KNOWN_MARKETING_PREFIXES,
+  applyMarketingMeta,
+  MARKETING_META,
+} from '../marketing_routes.js';
 
 /** Resolve app.routes.ts robustly across jest cwd/__dirname quirks. */
 function readAppRoutes(): string | null {
@@ -87,5 +92,49 @@ describe('drift guard — app.routes.ts ↔ KNOWN_MARKETING_PREFIXES', () => {
       );
     }
     expect(missing).toEqual([]);
+  });
+});
+
+const SHELL = [
+  '<!DOCTYPE html><html><head>',
+  '<title>ProjectSites — We deliver websites in minutes</title>',
+  '<meta name="description" content="AI-native website builder for real businesses.">',
+  '<link rel="canonical" href="https://projectsites.dev/">',
+  '<meta property="og:title" content="ProjectSites - Your Website, Handled. Finally.">',
+  '<meta property="og:description" content="AI-powered websites for small businesses.">',
+  '<meta property="og:url" content="https://projectsites.dev/">',
+  '</head><body></body></html>',
+].join('\n');
+
+describe('applyMarketingMeta — per-route <head> (SEO de-index fix)', () => {
+  it('rewrites canonical + og:url to the route pageUrl (was hard-coded home → de-indexed every route)', () => {
+    const out = applyMarketingMeta(SHELL, '/pricing', 'https://projectsites.dev/pricing');
+    expect(out).toContain('<link rel="canonical" href="https://projectsites.dev/pricing">');
+    expect(out).toContain('<meta property="og:url" content="https://projectsites.dev/pricing">');
+    // The homepage canonical (which de-indexed every non-home route) must be GONE.
+    expect(out).not.toContain('<link rel="canonical" href="https://projectsites.dev/">');
+  });
+
+  it('rewrites title/description/og for a route with dedicated copy', () => {
+    const out = applyMarketingMeta(SHELL, '/pricing', 'https://projectsites.dev/pricing');
+    const m = MARKETING_META['/pricing'];
+    expect(out).toContain(`<title>${m.title}</title>`);
+    expect(out).toContain(m.description);
+    expect(out).not.toContain('We deliver websites in minutes'); // homepage title gone
+  });
+
+  it('home keeps its default title but the canonical stays self-referential (no map entry)', () => {
+    const out = applyMarketingMeta(SHELL, '/', 'https://projectsites.dev/');
+    expect(out).toContain('<title>ProjectSites — We deliver websites in minutes</title>');
+    expect(out).toContain('<link rel="canonical" href="https://projectsites.dev/">');
+  });
+
+  it('every MARKETING_META entry meets the SEO length gates (title ≤60, desc 120-160)', () => {
+    const oversized = Object.entries(MARKETING_META)
+      .filter(
+        ([, m]) => m.title.length > 60 || m.description.length < 120 || m.description.length > 160,
+      )
+      .map(([route, m]) => `${route} (title ${m.title.length}, desc ${m.description.length})`);
+    expect(oversized).toEqual([]);
   });
 });
