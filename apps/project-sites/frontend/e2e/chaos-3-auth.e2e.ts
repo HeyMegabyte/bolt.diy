@@ -327,4 +327,52 @@ test.describe('CHAOS 3 — Locked-Out User (auth + access control)', () => {
       [],
     );
   });
+
+  // M1/M4 — Better Auth's captcha plugin gates email+password sign-in on a Turnstile
+  // token the /signin form renders no widget for → a raw password submit returns
+  // "Missing CAPTCHA response". The UI must GUIDE the user to a live method (magic-link
+  // / OAuth) instead of stranding them on that cryptic dead-end. This also proves the
+  // passwordless path is live so the auth journey is never fully dead.
+  test('M1/M4: password sign-in degrades to actionable magic-link guidance (no captcha dead-end)', async ({
+    page,
+  }) => {
+    const e = trackErrors(page);
+    await page.goto('/');
+    // Reach /signin via the header Sign In control (real navigation), fall back to a
+    // direct visit if the control moved.
+    await page
+      .getByRole('button', { name: /^sign in$/i })
+      .first()
+      .click()
+      .catch(() => {});
+    await page.waitForTimeout(800);
+    if (!page.url().includes('/signin')) await page.goto('/signin');
+
+    await page.getByTestId('sign-in-email').waitFor({ state: 'visible', timeout: 20_000 });
+    await page.getByTestId('sign-in-email').fill('chaos-pw@example.com');
+    await page.getByTestId('sign-in-password').fill('Some-Password-12345');
+    await page.getByTestId('sign-in-submit').click();
+
+    // The dead-end is now graceful degradation → the user is steered to a working path.
+    await expect(page.getByText(/magic link/i).first()).toBeVisible({ timeout: 10_000 });
+    const pageText = await page.evaluate(() => document.body.innerText);
+    expect(pageText, 'the raw captcha error must never reach the user').not.toContain(
+      'Missing CAPTCHA response',
+    );
+
+    // The live passwordless path works (in-page fetch carries the WAF cf_clearance a
+    // raw request context lacks) → the auth journey is never fully dead.
+    const mlStatus = await page.evaluate(async () => {
+      const r = await fetch('https://projectsites.dev/api/auth/sign-in/magic-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: `chaos-ml-${Date.now()}@example.com` }),
+      });
+      return r.status;
+    });
+    expect(mlStatus, 'magic-link (the live passwordless path) must be 200').toBe(200);
+
+    expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+    expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+  });
 });

@@ -254,8 +254,30 @@ export class SignInComponent implements OnInit {
       this.auth.setSession(res.data.token ?? 'ba-cookie-session', this.email().trim());
       this.router.navigateByUrl(this.safeReturnUrl());
     } else {
-      this.error.set(res.error);
+      this.error.set(this.friendlyAuthError(res.error));
     }
+  }
+
+  /**
+   * Map a raw auth error to a user-actionable message.
+   *
+   * Better Auth's captcha plugin (`better-auth.ts`) gates `POST /sign-in/email`
+   * on a Cloudflare-Turnstile token that this password form does NOT yet render
+   * — so a real password submit returns `400 "Missing CAPTCHA response"`. The
+   * live passwordless paths (magic-link + Google + GitHub) work; rather than
+   * strand the user on that cryptic string, steer them to a method that signs
+   * them in. All other errors (bad credentials, network) pass through verbatim.
+   *
+   * @remarks Forward-compatible: the guidance only fires on the captcha-missing
+   *   error, so once the Turnstile token is wired (or the form is removed) this
+   *   branch stops firing on its own — no follow-up cleanup needed.
+   */
+  private friendlyAuthError(raw: string | undefined): string {
+    const s = (raw ?? '').toString();
+    if (/captcha|missing.?response/i.test(s)) {
+      return 'Use “Email me a magic link” below, or continue with Google or GitHub — those sign you in instantly.';
+    }
+    return s;
   }
 
   /** Request a passwordless magic link to the entered email. */

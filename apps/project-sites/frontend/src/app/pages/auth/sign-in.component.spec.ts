@@ -130,6 +130,21 @@ describe('SignInComponent', () => {
     expect(navigateByUrl).not.toHaveBeenCalled();
   });
 
+  it('steers to a working method (no dead-end) when password sign-in is captcha-gated', async () => {
+    // Better Auth's captcha plugin returns "Missing CAPTCHA response" because this
+    // password form renders no Turnstile widget — the raw string must NOT strand the
+    // user; guide them to the live magic-link / OAuth paths instead.
+    signInEmail.and.resolveTo({ ok: false, error: 'Missing CAPTCHA response' });
+    const f = make();
+    f.componentInstance.email.set('user@example.com');
+    f.componentInstance.password.set('secret');
+    await f.componentInstance.submit();
+    const err = f.componentInstance.error() ?? '';
+    expect(err).toContain('magic link');
+    expect(err).not.toContain('CAPTCHA'); // the cryptic raw error is gone
+    expect(navigateByUrl).not.toHaveBeenCalled();
+  });
+
   it('sends a magic link and shows the sent state', async () => {
     const f = make();
     f.componentInstance.email.set('user@example.com');
