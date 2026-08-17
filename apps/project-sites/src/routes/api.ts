@@ -5967,7 +5967,7 @@ api.post('/api/admin/domains/:hostnameId/verify', async (c) => {
 
   // Update DB
   const { dbUpdate: dbUpdateFn } = await import('../services/db.js');
-  await dbUpdateFn(
+  const verifyUpd = await dbUpdateFn(
     c.env.DB,
     'hostnames',
     {
@@ -5982,6 +5982,7 @@ api.post('/api/admin/domains/:hostnameId/verify', async (c) => {
     'id = ?',
     [hostnameId],
   );
+  if (verifyUpd.error) throw internalError(`Hostname status update failed: ${verifyUpd.error}`);
 
   // Audit log
   await auditService.writeAuditLog(c.env.DB, {
@@ -6250,13 +6251,14 @@ api.delete('/api/admin/domains/:hostnameId', async (c) => {
 
   // Soft-delete in DB
   const { dbUpdate: dbUpdateFn } = await import('../services/db.js');
-  await dbUpdateFn(
+  const delUpd = await dbUpdateFn(
     c.env.DB,
     'hostnames',
     { deleted_at: new Date().toISOString(), status: 'deleted' },
     'id = ?',
     [hostnameId],
   );
+  if (delUpd.error) throw internalError(`Hostname deprovision failed: ${delUpd.error}`);
 
   // Invalidate KV cache
   await c.env.CACHE_KV.delete(`host:${hostname.hostname}`).catch(() => {});
@@ -7399,14 +7401,27 @@ api.delete('/api/sites/:siteId/snapshots/:snapshotId', async (c) => {
   const snapshotId = c.req.param('snapshotId');
 
   const { dbQueryOne: dbq1, dbUpdate: dbUpd } = await import('../services/db.js');
+  // Org-ownership guard (IDOR fix): the snapshot must belong to a site owned by the
+  // caller's org. The prior query filtered on `id` ALONE — any authed user could
+  // soft-delete ANY org's snapshot by id. Scope via the sites join; 404 (never 403)
+  // when not-found-or-not-owned. Capture the update result (dbUpdate never throws) so
+  // a failed delete can't return a lying `{ deleted: true }`.
   const snap = await dbq1<{ snapshot_name: string }>(
     c.env.DB,
-    'SELECT snapshot_name FROM site_snapshots WHERE id = ?',
-    [snapshotId],
+    `SELECT ss.snapshot_name FROM site_snapshots ss
+       JOIN sites s ON s.id = ss.site_id
+      WHERE ss.id = ? AND ss.site_id = ? AND s.org_id = ? AND ss.deleted_at IS NULL`,
+    [snapshotId, siteId, orgId],
   );
-  await dbUpd(c.env.DB, 'site_snapshots', { deleted_at: new Date().toISOString() }, 'id = ?', [
-    snapshotId,
-  ]);
+  if (!snap) throw notFound('Snapshot not found');
+  const del = await dbUpd(
+    c.env.DB,
+    'site_snapshots',
+    { deleted_at: new Date().toISOString() },
+    'id = ? AND site_id = ?',
+    [snapshotId, siteId],
+  );
+  if (del.error) throw internalError(`Snapshot delete failed: ${del.error}`);
 
   c.executionCtx.waitUntil(
     auditService.writeAuditLog(c.env.DB, {

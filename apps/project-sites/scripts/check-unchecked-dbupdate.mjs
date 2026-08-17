@@ -58,16 +58,24 @@ const findings = [];
 for (const dir of SCAN_DIRS) {
   for (const file of walk(dir)) {
     const text = readFileSync(file, 'utf8');
-    if (!text.includes('dbUpdate(')) continue;
+    if (!text.includes('dbUpdate')) continue;
     const rel = relative(APP_DIR, file);
-    const re = /\bdbUpdate\s*\(/g;
+    // Resolve aliased imports (`const { dbUpdate: dbUpd } = …`) so alias calls
+    // (`await dbUpd(...)`) are scanned too — a literal-only regex missed them (the
+    // site_snapshots delete used `dbUpd`, hostname updates used `dbUpdateFn`; the
+    // sibling dbInsert gate had the same gap, fire 16).
+    const aliases = new Set(['dbUpdate']);
+    const aliasRe = /\{[^}]*\bdbUpdate\s*:\s*([A-Za-z_$][\w$]*)/g;
+    let am;
+    while ((am = aliasRe.exec(text)) !== null) aliases.add(am[1]);
+    const re = new RegExp(`\\b(?:${[...aliases].join('|')})\\s*\\(`, 'g');
     let m;
     while ((m = re.exec(text)) !== null) {
       const before = text.slice(Math.max(0, m.index - 90), m.index);
       if (ASSIGNED_RE.test(before)) continue; // captured → assumed checked
       // Extract the target table — the 2nd arg string literal.
       const after = text.slice(m.index, m.index + 160);
-      const litM = after.match(/dbUpdate\s*\(\s*[^,]+,\s*['"]([^'"]+)['"]/);
+      const litM = after.match(/[\w$]+\s*\(\s*[^,]+,\s*['"]([^'"]+)['"]/);
       const table = litM ? litM[1] : '(dynamic)';
       const line = text.slice(0, m.index).split('\n').length;
       findings.push({ file: rel, line, table, severity: isUserFacing(rel) ? 'HIGH' : 'low' });
