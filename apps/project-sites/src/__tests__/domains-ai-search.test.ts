@@ -298,7 +298,11 @@ describe('POST /api/sites/:siteId/domains/ai-search', () => {
 
     const res = await app.request(
       `/api/sites/${TEST_SITE_ID}/domains/ai-search`,
-      { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query: '' }) },
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ query: '' }),
+      },
       env,
     );
     expect(res.status).toBe(200); // NOT 502 — the search still returns its candidates

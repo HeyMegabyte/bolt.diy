@@ -9886,9 +9886,8 @@ api.post('/api/sites/:siteId/domains/ai-search', async (c) => {
   // soft-failure below never triggered and the whole search 502'd, hiding every AI
   // suggestion. Catch it: the primary value (the domain ideas) still ships; each row
   // just shows "availability unknown" instead of a price/available flag.
-  let availabilityResult: Awaited<
-    ReturnType<typeof domainService.checkDomainAvailability>
-  > | null = null;
+  let availabilityResult: Awaited<ReturnType<typeof domainService.checkDomainAvailability>> | null =
+    null;
   try {
     availabilityResult = await domainService.checkDomainAvailability(c.env, allNames);
   } catch (err) {

@@ -407,8 +407,13 @@ describe('validateSitemapRoutesExist', () => {
   });
 
   it('dedupes so a route listed twice is flagged once', () => {
-    const files = [file('sitemap.xml', sm(['/ghost', '/ghost'])), file('index.html', '<html></html>')];
-    expect(validateSitemapRoutesExist(files).filter((x) => x.code === 'sitemap.orphan_route')).toHaveLength(1);
+    const files = [
+      file('sitemap.xml', sm(['/ghost', '/ghost'])),
+      file('index.html', '<html></html>'),
+    ];
+    expect(
+      validateSitemapRoutesExist(files).filter((x) => x.code === 'sitemap.orphan_route'),
+    ).toHaveLength(1);
   });
 });
 
