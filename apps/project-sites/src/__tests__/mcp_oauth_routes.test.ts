@@ -329,8 +329,13 @@ describe('GET /api/mcp/:provider/callback', () => {
     });
     const res = await req(makeApp(), '/api/mcp/github/callback?code=bad&state=ok', env);
     expect(res.status).toBe(502);
-    const json = (await res.json()) as { error: { message: string } };
-    expect(json.error.message).toMatch(/bad_verification_code/);
+    const json = (await res.json()) as { error: { code?: string; message: string } };
+    // Client gets a GENERIC message; the raw upstream 'bad_verification_code' body
+    // (adapters bake `${await res.text()}` in — airtable/vercel) is logged
+    // server-side only, never echoed to the caller (info-disclosure hardening).
+    expect(json.error.message).not.toMatch(/bad_verification_code|github 401/);
+    expect(json.error.message).toBe('Connection failed — please try again.');
+    expect(json.error.code).toBe('OAUTH_EXCHANGE_FAILED');
     expect(mockEncrypt).not.toHaveBeenCalled();
   });
 

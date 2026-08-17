@@ -221,11 +221,25 @@ socialOauthRoutes.get('/api/social/:platform/callback', async (c) => {
         501,
       );
     }
+    // The publisher adapters (twitter/linkedin/etc.) bake the RAW upstream response
+    // body into the thrown error (`…_exchange_failed:400:${await res.text()}`) — which
+    // can carry token hints, invalid_grant reasons, or internal URLs. Log it
+    // server-side; return a GENERIC message so the raw provider body never reaches the
+    // client (info-disclosure hardening — parity with the /api/search/* scrub).
+    console.warn(
+      JSON.stringify({
+        level: 'error',
+        service: 'social-oauth-callback',
+        message: 'oauth exchange failed',
+        platform,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
     return c.json(
       {
         error: {
           code: 'OAUTH_EXCHANGE_FAILED',
-          message: err instanceof Error ? err.message : 'exchange failed',
+          message: 'Connection failed — please try reconnecting.',
         },
       },
       502,

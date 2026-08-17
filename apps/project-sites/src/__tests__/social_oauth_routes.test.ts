@@ -388,6 +388,33 @@ describe('GET /api/social/:platform/callback', () => {
     expect(kv.delete).toHaveBeenCalledWith('social-oauth-state:s1');
   });
 
+  it('does NOT leak the raw upstream provider body when exchange fails (info-disclosure)', async () => {
+    // twitter.ts / linkedin.ts bake `${(await res.text()).slice(0,200)}` into the
+    // thrown exchange error → the callback must NOT echo that raw body to the client.
+    // The provider's response can carry token hints, invalid_grant reasons, internal
+    // URLs. Client gets a generic message; the raw text is logged server-side only.
+    const leakyBody = 'twitter_exchange_failed:400:{"error":"invalid_grant","secret_hint":"abc123","reason":"internal"}';
+    const exchangeCode = jest.fn(async () => {
+      throw new Error(leakyBody);
+    });
+    mockGetPublisher.mockReturnValue({ exchangeCode });
+    const env = makeEnv({
+      CACHE_KV: makeKv({ 'social-oauth-state:s1': storedStateFor('twitter') }),
+    });
+    const res = await makeApp().request(
+      '/api/social/twitter/callback?code=c&state=s1',
+      {},
+      env,
+      makeCtx(),
+    );
+    expect(res.status).toBe(502);
+    const json = (await res.json()) as { error?: { code?: string; message?: string } };
+    expect(json.error?.code).toBe('OAUTH_EXCHANGE_FAILED');
+    // The generic message must NOT carry any fragment of the raw upstream body.
+    expect(json.error?.message).not.toMatch(/invalid_grant|secret_hint|abc123|internal|\{|400/i);
+    expect(json.error?.message).not.toContain(leakyBody);
+  });
+
   it('persists a null refresh blob + null expiry when the exchange omits them', async () => {
     const exchangeCode = jest.fn(async () => ({ access_token: 'A', external_id: 'e1' }));
     mockGetPublisher.mockReturnValue({ exchangeCode });
@@ -471,7 +498,10 @@ describe('GET /api/social/:platform/callback', () => {
     expect(res.status).toBe(502);
     const json = (await res.json()) as { error?: { code?: string; message?: string } };
     expect(json.error?.code).toBe('OAUTH_EXCHANGE_FAILED');
-    expect(json.error?.message).toMatch(/invalid_grant/);
+    // The client message is GENERIC — the raw upstream 'invalid_grant' body is logged
+    // server-side only, never echoed to the caller (info-disclosure hardening).
+    expect(json.error?.message).not.toMatch(/invalid_grant/);
+    expect(json.error?.message).toBe('Connection failed — please try reconnecting.');
     expect(mockDbExecute).not.toHaveBeenCalled();
   });
 });

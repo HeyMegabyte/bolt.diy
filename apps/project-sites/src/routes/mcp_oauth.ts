@@ -213,8 +213,20 @@ mcpOauth.get('/api/mcp/:provider/callback', async (c) => {
         redirectUri: 'https://projectsites.dev/api/mcp/vercel/callback',
       });
     } catch (err) {
+      // Adapters (airtable/vercel/etc.) bake the raw upstream body into the thrown
+      // error (`vercel oauth 400: ${await res.text()}`). Log it; return a generic
+      // client message so the provider body never leaks (info-disclosure hardening).
+      console.warn(
+        JSON.stringify({
+          level: 'error',
+          service: 'mcp-oauth-callback',
+          message: 'oauth exchange failed',
+          provider: 'vercel',
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
       return c.json(
-        { error: { message: err instanceof Error ? err.message : 'exchange failed' } },
+        { error: { code: 'OAUTH_EXCHANGE_FAILED', message: 'Connection failed — please try again.' } },
         502,
       );
     }
@@ -259,8 +271,17 @@ mcpOauth.get('/api/mcp/:provider/callback', async (c) => {
       redirectUri: `https://projectsites.dev/api/mcp/${provider}/callback`,
     });
   } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: 'error',
+        service: 'mcp-oauth-callback',
+        message: 'oauth exchange failed',
+        provider,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
     return c.json(
-      { error: { message: err instanceof Error ? err.message : 'exchange failed' } },
+      { error: { code: 'OAUTH_EXCHANGE_FAILED', message: 'Connection failed — please try again.' } },
       502,
     );
   }
