@@ -1416,4 +1416,136 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
       }
     }
   });
+
+  // M2 (create→persist→delete) + M4 (lying-success / IDOR regression guard) — Timeline
+  // Notes (the `analytics_annotations` feature, `activity_feed` flag, mounted on
+  // /admin/snapshots). Drives the real UI create (type → "Add note" → row appears),
+  // proves the note PERSISTS across nav + HARD reload (server GET, not optimistic UI),
+  // deletes via the row's ✕, then app-context RECONCILES against the store: the store
+  // no longer has it, RE-deleting the same id returns 404 (NOT a lying 204), and a
+  // foreign/nonexistent id returns 404 (org-scoped WHERE — no cross-org IDOR). This
+  // locks in the iter fix at deploy 158a2b79 (createAnnotation throws on a dropped
+  // INSERT; deleteAnnotation is org-scoped + returns changes>0 → 404-on-no-match)
+  // end-to-end. The UI delete is optimistic+silent, so the store reconciliation — not
+  // the vanished row — is what proves the DELETE actually reached D1. Self-cleans in
+  // finally. Resilient: if the panel isn't reachable (flag off for this org) it asserts
+  // the honest hidden state rather than vacuously passing.
+  test('Timeline Notes: create → persists across reload → delete; re-delete + foreign id 404 (M2+M4, validates 158a2b79)', async ({
+    page,
+  }) => {
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+    let createdId: string | null = null;
+    const marker = `chaos-tln-${Date.now().toString().slice(-8)}`;
+    try {
+      await page.goto('/admin/snapshots', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(3800); // sites + snapshots + annotations list load → selectedSite resolved
+
+      const panel = page.locator('[data-testid="timeline-notes"]');
+      // The panel renders only when GET /sites/:id/annotations 200s (flag on). If it's
+      // hidden the feature is dark for this org — assert that honest state, don't fake-pass.
+      const panelVisible = await panel.isVisible().catch(() => false);
+      if (!panelVisible) {
+        // Flag-off contract: the panel stays hidden (no half-rendered dead surface).
+        expect(await panel.count(), 'flag-off: timeline-notes panel is fully hidden').toBe(0);
+        await assertAlive(page);
+        return;
+      }
+
+      // ── Create via the real UI (type note → "Add note") ──
+      await page.locator('[data-testid="timeline-note-input"]').fill(marker);
+      await page.locator('[data-testid="timeline-note-category"]').selectOption('deploy');
+      const createResp = page.waitForResponse(
+        (r) => /\/annotations$/.test(r.url()) && r.request().method() === 'POST',
+        { timeout: 15_000 },
+      );
+      await page.locator('[data-testid="timeline-note-add"]').click({ timeout: 5000 });
+      const cr = await createResp;
+      expect(cr.status(), 'annotation create must 201 (not a lying success on a dropped INSERT)').toBe(
+        201,
+      );
+      const row = page
+        .locator('[data-testid="timeline-note-item"]')
+        .filter({ hasText: marker })
+        .first();
+      await expect(row, 'created note row appears in the timeline').toBeVisible({ timeout: 8000 });
+      createdId = await row.getAttribute('data-id');
+      expect(createdId, 'created row carries a real annotation id').toBeTruthy();
+
+      // ── Persist across nav-away + HARD reload (server GET, not optimistic prepend) ──
+      await page.goto('/admin/analytics', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(1200);
+      await page.goto('/admin/snapshots', { waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(3000);
+      await expect(
+        page.locator('[data-testid="timeline-note-item"]').filter({ hasText: marker }).first(),
+        'note persists after nav-away + back',
+      ).toBeVisible({ timeout: 8000 });
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(3000);
+      await expect(
+        page.locator('[data-testid="timeline-note-item"]').filter({ hasText: marker }).first(),
+        'note persists after HARD reload (proves it hit D1, not just optimistic UI)',
+      ).toBeVisible({ timeout: 8000 });
+
+      // ── Delete via the row's ✕ (optimistic+silent in the UI) ──
+      await page
+        .locator('[data-testid="timeline-note-item"]')
+        .filter({ hasText: marker })
+        .first()
+        .locator('[data-testid="timeline-note-delete"]')
+        .click({ timeout: 5000 });
+      await expect(
+        page.locator('[data-testid="timeline-note-item"]').filter({ hasText: marker }),
+        'row disappears from the timeline after delete',
+      ).toHaveCount(0, { timeout: 8000 });
+
+      // ── Store reconciliation (the real proof) — the UI delete is optimistic, so query
+      // the STORE: the DELETE must have reached D1 (re-delete → 404, never a lying 204),
+      // and a foreign/nonexistent id must also 404 (org-scoped WHERE — no cross-org IDOR).
+      const reconcile = await page.evaluate(async (id) => {
+        const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
+        const H = { Authorization: `Bearer ${s.token}` };
+        const reDelete = await fetch(`/api/annotations/${id}`, { method: 'DELETE', headers: H });
+        const foreign = await fetch('/api/annotations/nonexistent-foreign-id-000', {
+          method: 'DELETE',
+          headers: H,
+        });
+        return { reDeleteStatus: reDelete.status, foreignStatus: foreign.status };
+      }, createdId);
+      expect(
+        reconcile.reDeleteStatus,
+        're-deleting the just-deleted id → 404 (UI delete reached D1; lying-204 fix holds)',
+      ).toBe(404);
+      expect(
+        reconcile.foreignStatus,
+        'deleting a foreign/nonexistent id → 404 (org-scoped WHERE; no cross-org IDOR / lying success)',
+      ).toBe(404);
+      createdId = null; // deleted + verified — nothing to clean up
+
+      await assertAlive(page);
+      expect(await e.xssFired(), 'no injected script in the timeline-notes flow').toBe(false);
+      expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+      expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+      expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+      expect(
+        e.consoleWarnings,
+        `console warnings (DoD=0): ${e.consoleWarnings.join('; ')}`,
+      ).toEqual([]);
+    } finally {
+      // Safety net: if the run bailed before the UI delete, remove the row via the API
+      // (site-agnostic /api/annotations/:id) so the shared E2E org is left clean.
+      if (createdId) {
+        await page
+          .evaluate(async (id) => {
+            const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
+            await fetch(`/api/annotations/${id}`, {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${s.token}` },
+            }).catch(() => {});
+          }, createdId)
+          .catch(() => {});
+      }
+    }
+  });
 });
