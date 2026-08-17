@@ -1,10 +1,11 @@
 /**
  * Tests for the ai_workflows module.
  *
- * Validates that runPrompt, researchBusiness, generateSiteHtml,
- * scoreQuality, generateSiteCopy, and runSiteGenerationWorkflow
- * correctly orchestrate prompt resolution, rendering, AI calls,
- * and output parsing.
+ * Validates that runPrompt + registerAllPrompts correctly orchestrate
+ * prompt resolution, rendering, AI calls, and output parsing. (The legacy
+ * single-shot v1 pipeline — researchBusiness/generateSiteHtml/scoreQuality/
+ * generateSiteCopy/runSiteGenerationWorkflow — was deleted as dead code;
+ * the live path is runSiteGenerationWorkflowV2's phase-based helpers.)
  *
  * The Workers AI binding (env.AI.run) is mocked to return appropriate
  * fixture responses for each prompt type.
@@ -19,11 +20,6 @@ if (!globalThis.crypto?.subtle) {
 import type { Env } from '../types/env.js';
 import {
   runPrompt,
-  researchBusiness,
-  generateSiteHtml,
-  scoreQuality,
-  generateSiteCopy,
-  runSiteGenerationWorkflow,
   registerAllPrompts,
 } from '../services/ai_workflows.js';
 import { clearRegistry, getStats } from '../prompts/registry.js';
@@ -213,161 +209,3 @@ describe('runPrompt', () => {
   });
 });
 
-describe('researchBusiness', () => {
-  it('calls AI and returns a parsed ResearchResult', async () => {
-    const env = createMockEnv();
-    const result = await researchBusiness(env, {
-      businessName: "Mario's Ristorante",
-    });
-
-    expect(result.businessName).toBe("Mario's Ristorante");
-    expect(result.tagline).toBe('Authentic Italian since 1985');
-    expect(result.services).toEqual(['Dine-in', 'Takeout', 'Catering', 'Private Events']);
-    expect(result.hours).toHaveLength(3);
-    expect(result.faq).toHaveLength(3);
-    expect(result.seoTitle).toBeTruthy();
-    expect(result.seoDescription).toBeTruthy();
-  });
-
-  it('passes optional fields to the prompt', async () => {
-    const env = createMockEnv();
-    await researchBusiness(env, {
-      businessName: 'Test Biz',
-      businessPhone: '555-0000',
-      businessAddress: '123 Main St',
-      googlePlaceId: 'ChIJabc123',
-      additionalContext: 'Open late on weekends',
-    });
-
-    const callArgs = (env.AI.run as jest.Mock).mock.calls[0];
-    const userContent = callArgs[1].messages[1].content;
-    expect(userContent).toContain('Test Biz');
-    expect(userContent).toContain('555-0000');
-    expect(userContent).toContain('123 Main St');
-    expect(userContent).toContain('ChIJabc123');
-    expect(userContent).toContain('Open late on weekends');
-  });
-});
-
-describe('generateSiteHtml', () => {
-  it('calls AI and returns HTML string', async () => {
-    const env = createMockEnv();
-    const researchData = {
-      businessName: "Mario's Ristorante",
-      tagline: 'Authentic Italian since 1985',
-      description: 'Family-owned Italian restaurant.',
-      services: ['Dine-in', 'Takeout', 'Catering'],
-      hours: [{ day: 'Mon-Fri', hours: '11am-9pm' }],
-      faq: [
-        { question: 'Reservations?', answer: 'Yes.' },
-        { question: 'Parking?', answer: 'Yes.' },
-        { question: 'GF options?', answer: 'Yes.' },
-      ],
-      seoTitle: "Mario's Ristorante",
-      seoDescription: 'Italian dining in Boston.',
-    };
-
-    const html = await generateSiteHtml(env, researchData);
-
-    expect(html).toContain('<!DOCTYPE html>');
-    expect(html).toContain('Mario');
-    expect(env.AI.run).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('scoreQuality', () => {
-  it('calls AI and returns parsed QualityScore', async () => {
-    const env = createMockEnv();
-    const score = await scoreQuality(env, MOCK_HTML_RESPONSE);
-
-    expect(score.scores.accuracy).toBe(0.85);
-    expect(score.scores.completeness).toBe(0.9);
-    expect(score.scores.professionalism).toBe(0.88);
-    expect(score.scores.seo).toBe(0.75);
-    expect(score.scores.accessibility).toBe(0.7);
-    expect(score.overall).toBe(0.82);
-    expect(score.issues).toContain('Missing alt attributes on images');
-    expect(score.suggestions).toContain('Add structured data markup');
-  });
-
-  it('truncates HTML content to 4000 characters', async () => {
-    const env = createMockEnv();
-    const longHtml = '<!DOCTYPE html>' + 'x'.repeat(5000);
-
-    await scoreQuality(env, longHtml);
-
-    const callArgs = (env.AI.run as jest.Mock).mock.calls[0];
-    const userContent = callArgs[1].messages[1].content;
-    // The html_content should be truncated — the rendered user prompt
-    // should not contain the full 5000+ char string
-    expect(userContent.length).toBeLessThan(longHtml.length + 500);
-  });
-});
-
-describe('generateSiteCopy', () => {
-  it('calls AI with A/B variant selection using orgId seed', async () => {
-    const env = createMockEnv();
-    const result = await generateSiteCopy(
-      env,
-      {
-        businessName: "Mario's Ristorante",
-        city: 'Boston',
-        services: ['Dine-in', 'Catering'],
-        tone: 'friendly',
-      },
-      'org_12345',
-    );
-
-    expect(typeof result).toBe('string');
-    expect(result.length).toBeGreaterThan(0);
-    expect(env.AI.run).toHaveBeenCalledTimes(1);
-  });
-
-  it('works without an orgId (no variant selection)', async () => {
-    const env = createMockEnv();
-    const result = await generateSiteCopy(env, {
-      businessName: 'Quick Fix Plumbing',
-      city: 'Denver',
-      services: ['Repairs'],
-      tone: 'no-nonsense',
-    });
-
-    expect(typeof result).toBe('string');
-    expect(result.length).toBeGreaterThan(0);
-  });
-});
-
-describe('runSiteGenerationWorkflow', () => {
-  it('runs research, generate, and score steps in sequence', async () => {
-    const env = createMockEnv();
-    const result = await runSiteGenerationWorkflow(env, {
-      businessName: "Mario's Ristorante",
-    });
-
-    // Verify all three steps produced results
-    expect(result.research.businessName).toBe("Mario's Ristorante");
-    expect(result.html).toContain('<!DOCTYPE html>');
-    expect(result.quality.overall).toBe(0.82);
-
-    // AI.run should have been called 3 times (research, generate, score)
-    expect(env.AI.run).toHaveBeenCalledTimes(3);
-  });
-
-  it('passes optional fields through to researchBusiness', async () => {
-    const env = createMockEnv();
-    await runSiteGenerationWorkflow(env, {
-      businessName: 'Test Biz',
-      businessPhone: '555-1111',
-      businessAddress: '1 Test St',
-      googlePlaceId: 'ChIJtest',
-    });
-
-    // First AI.run call should be research_business
-    const firstCallArgs = (env.AI.run as jest.Mock).mock.calls[0];
-    const userContent = firstCallArgs[1].messages[1].content;
-    expect(userContent).toContain('Test Biz');
-    expect(userContent).toContain('555-1111');
-    expect(userContent).toContain('1 Test St');
-    expect(userContent).toContain('ChIJtest');
-  });
-});
