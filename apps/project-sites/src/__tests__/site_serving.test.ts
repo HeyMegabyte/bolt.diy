@@ -3,6 +3,7 @@ import {
   serveSiteFromR2,
   asyncifyRenderBlockingFonts,
   absolutizeSocialImages,
+  applyServedRouteCanonical,
   parseSitemapRoutes,
   injectAppShellHero,
   isServedSiteCookieless,
@@ -186,6 +187,55 @@ describe('absolutizeSocialImages', () => {
   it('handles content-before-property attribute ordering', () => {
     const html = `<head>${OGURL}<meta content="/og-image.png" property="og:image"></head>`;
     expect(absolutizeSocialImages(html)).toContain('https://megabyte.space/og-image.png');
+  });
+});
+
+describe('applyServedRouteCanonical (SPA sub-page de-index fix)', () => {
+  const CANON = '<link rel="canonical" href="https://megabyte.space/">';
+  const OGURL = '<meta property="og:url" content="https://megabyte.space/">';
+
+  it('rewrites a HOMEPAGE canonical + og:url to the served sub-route (was de-indexing every sub-page)', () => {
+    const out = applyServedRouteCanonical(`<head>${CANON}${OGURL}</head>`, '/about');
+    expect(out).toContain('<link rel="canonical" href="https://megabyte.space/about">');
+    expect(out).toContain('content="https://megabyte.space/about"');
+    // The homepage canonical that de-indexed the sub-page must be GONE.
+    expect(out).not.toContain('href="https://megabyte.space/"');
+  });
+
+  it('leaves the HOMEPAGE (root path) canonical untouched', () => {
+    const html = `<head>${CANON}${OGURL}</head>`;
+    expect(applyServedRouteCanonical(html, '/')).toBe(html);
+  });
+
+  it('trailing-slash tolerant — /about/ canonicalizes to /about (no trailing slash)', () => {
+    const out = applyServedRouteCanonical(`<head>${CANON}</head>`, '/about/');
+    expect(out).toContain('href="https://megabyte.space/about"');
+  });
+
+  it('RESPECTS an intentional non-home canonical (per-page/syndication) — never clobbers it', () => {
+    const perPage = '<link rel="canonical" href="https://megabyte.space/original-article">';
+    const html = `<head>${perPage}</head>`;
+    expect(applyServedRouteCanonical(html, '/blog/repost')).toBe(html);
+  });
+
+  it('derives the origin from og:url when no canonical link is present', () => {
+    const out = applyServedRouteCanonical(`<head>${OGURL}</head>`, '/services');
+    expect(out).toContain('content="https://megabyte.space/services"');
+  });
+
+  it('returns HTML verbatim when there is no absolute canonical/og:url to anchor to', () => {
+    const html = '<head><title>x</title></head>';
+    expect(applyServedRouteCanonical(html, '/about')).toBe(html);
+  });
+
+  it('preserves other attributes on the canonical + og:url tags', () => {
+    const out = applyServedRouteCanonical(
+      `<head><link rel="canonical" href="https://megabyte.space/" data-x="1"><meta property="og:url" content="https://megabyte.space/" data-y="2"></head>`,
+      '/pricing',
+    );
+    expect(out).toContain('data-x="1"');
+    expect(out).toContain('data-y="2"');
+    expect(out).toContain('href="https://megabyte.space/pricing"');
   });
 });
 

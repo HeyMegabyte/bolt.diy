@@ -848,7 +848,7 @@ export async function serveSiteFromR2(
         );
         const status = known && !known.has(normalizeRoute(requestPath)) ? 404 : 200;
         serveLog.debug('serve_spa_fallback', { slug: site.slug, requestPath, status });
-        return buildSiteResponse(fallback, site, 'text/html; charset=utf-8', env, status);
+        return buildSiteResponse(fallback, site, 'text/html; charset=utf-8', env, status, requestPath);
       }
     }
 
@@ -875,7 +875,7 @@ export async function serveSiteFromR2(
     })();
   }
 
-  return buildSiteResponse(object, site, contentType, env);
+  return buildSiteResponse(object, site, contentType, env, 200, requestPath);
 }
 
 /**
@@ -1052,6 +1052,68 @@ export function absolutizeSocialImages(html: string): string {
         return `${pre}${origin}${path}${post}`;
       }),
   );
+}
+
+/**
+ * Rewrite a served page's `<link rel="canonical">` + `og:url` to the ROUTE
+ * actually being served — but ONLY when the page currently declares the site's
+ * own HOMEPAGE as its canonical.
+ *
+ * A pure client-rendered generated site ships ONE `index.html` for every route
+ * (`/about`, `/services`, …) via the SPA fallback, so the RAW HTML a crawler
+ * reads carries the homepage's `<link canonical href="…/">` on EVERY sub-page →
+ * every sub-page tells Google its canonical is the homepage → Google
+ * DE-INDEXES the whole site's sub-pages (collapses them into `/`). The
+ * `<title>`/meta the SPA sets after hydration is invisible to the non-JS crawl.
+ * This is the served-site twin of the marketing shell's `applyMarketingMeta`.
+ *
+ * Safe + surgical: rewrites ONLY when (a) the served path is non-root AND (b)
+ * the declared canonical/og:url points at the site's own ROOT (`/`). A non-root,
+ * non-home canonical is an INTENTIONAL per-page/syndication canonical and is
+ * left untouched; the homepage itself (root path) is never rewritten. When no
+ * absolute canonical/og:url exists to derive the origin from, the HTML is
+ * returned verbatim.
+ *
+ * @param html - The served HTML (the SPA `index.html` shell for `requestPath`).
+ * @param requestPath - The URL pathname being served (e.g. `/about`).
+ * @returns HTML with a self-referential canonical + og:url for `requestPath`.
+ *
+ * @example
+ * applyServedRouteCanonical(
+ *   '<link rel="canonical" href="https://x.com/"><meta property="og:url" content="https://x.com/">',
+ *   '/about',
+ * );
+ * // → canonical + og:url both point at https://x.com/about
+ */
+export function applyServedRouteCanonical(html: string, requestPath: string): string {
+  const route = normalizeRoute(requestPath);
+  if (route === '/') return html; // homepage — its own canonical is already correct
+  const canonicalTag = html.match(/<link\b[^>]*\brel=["']canonical["'][^>]*>/i)?.[0];
+  const ogUrlTag = html.match(/<meta\b[^>]*\bproperty=["']og:url["'][^>]*>/i)?.[0];
+  const baseTag = canonicalTag ?? ogUrlTag;
+  if (!baseTag) return html;
+  const hrefMatch = baseTag.match(/(?:href|content)=["'](https?:\/\/[^"']+)["']/i);
+  if (!hrefMatch) return html;
+  let base: URL;
+  try {
+    base = new URL(hrefMatch[1]);
+  } catch {
+    return html;
+  }
+  // Only CORRECT a canonical that currently claims the site HOMEPAGE. A
+  // deliberate per-page / cross-site canonical (non-root pathname) is respected.
+  if (normalizeRoute(base.pathname) !== '/') return html;
+  const target = `${base.origin}${route}`;
+  let out = html;
+  if (canonicalTag) {
+    out = out.replace(/<link\b[^>]*\brel=["']canonical["'][^>]*>/i, (tag) =>
+      tag.replace(/(href=["'])[^"']*(["'])/i, `$1${target}$2`),
+    );
+  }
+  out = out.replace(/<meta\b[^>]*\bproperty=["']og:url["'][^>]*>/i, (tag) =>
+    tag.replace(/(content=["'])[^"']*(["'])/i, `$1${target}$2`),
+  );
+  return out;
 }
 
 /**
@@ -1355,6 +1417,7 @@ async function buildSiteResponse(
   contentType: string,
   env?: Env,
   htmlStatus = 200,
+  requestPath = '/',
 ): Promise<Response> {
   const headers = new Headers({
     'Content-Type': contentType,
@@ -1385,6 +1448,13 @@ async function buildSiteResponse(
     // the preview). Runs for every site, resolved against the page's own
     // og:url / canonical origin.
     html = absolutizeSocialImages(html);
+
+    // SEO: a pure client-rendered generated site serves ONE index.html for every
+    // route (SPA fallback), so the RAW HTML crawlers read carries the HOMEPAGE
+    // canonical on every sub-page → Google de-indexes the whole site's sub-pages.
+    // Correct a homepage-claiming canonical/og:url to the served route (surgical:
+    // only when the declared canonical is the site root AND this is a non-root path).
+    html = applyServedRouteCanonical(html, requestPath);
 
     // Inject analytics + error tracking before </head> (for all sites, paid and free)
     if (env) {

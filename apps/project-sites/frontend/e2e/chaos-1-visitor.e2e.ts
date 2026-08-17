@@ -271,4 +271,42 @@ test.describe('CHAOS 1 — Skeptical Visitor (marketing + search)', () => {
       `checkout did not return a Stripe url (dead revenue path): ${result.checkout?.url}`,
     ).toMatch(/^https:\/\/checkout\.stripe\.com\//);
   });
+
+  // M1 — served generated sites are pure client-rendered SPAs (ONE index.html for
+  // every route via the SPA fallback), so the RAW HTML a crawler reads carried the
+  // HOMEPAGE `<link canonical>` on EVERY sub-page → Google de-indexed the whole
+  // site's sub-pages. The serving layer now rewrites a homepage-claiming canonical
+  // to the served route (`site_serving.applyServedRouteCanonical`). This asserts the
+  // CRAWLER view (raw HTML, no JS) — the client-side title update is invisible to it.
+  test('M1: served-site sub-pages carry a SELF-referential canonical, not the homepage (no de-index)', async ({
+    request,
+  }) => {
+    const base = 'https://megabytespace.projectsites.dev';
+    const home = await request.get(`${base}/`, { failOnStatusCode: false }).catch(() => null);
+    test.skip(!home || home.status() !== 200, `served site not reachable — environmental`);
+
+    const canonOf = (html: string): string | null => {
+      const tag = html.match(/<link\b[^>]*\brel=["']canonical["'][^>]*>/i)?.[0];
+      const href = tag?.match(/href=["']([^"']+)["']/i)?.[1];
+      if (!href) return null;
+      try {
+        return new URL(href).pathname.replace(/\/+$/, '') || '/';
+      } catch {
+        return null;
+      }
+    };
+
+    const homeCanon = canonOf(await home!.text());
+    expect(homeCanon, 'homepage canonical must be the site root').toBe('/');
+
+    // Every real sub-page (from the site's own nav) must canonical to ITSELF.
+    for (const path of ['/about', '/services', '/pricing']) {
+      const r = await request.get(`${base}${path}`, { failOnStatusCode: false });
+      if (r.status() !== 200) continue; // route not in this site — skip
+      const canon = canonOf(await r.text());
+      expect(canon, `${path} canonical must be self-referential (was de-indexing to homepage)`).toBe(
+        path,
+      );
+    }
+  });
 });
