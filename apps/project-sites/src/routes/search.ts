@@ -445,15 +445,16 @@ interface CommandResult {
 
 const ADMIN_COMMAND_CATALOG: ReadonlyArray<CommandResult> = [
   { id: 'cs-dashboard', label: 'Dashboard', icon: 'dashboard', route: '/admin', detail: 'Admin' },
-  { id: 'cs-sites', label: 'Sites', icon: 'dashboard', route: '/admin/sites', detail: 'Admin' },
+  // 'Sites' → the dashboard IS the sites hub. This is a SINGLE-SITE admin: there
+  // is deliberately NO bare `/admin/sites` list route (only `/admin/sites/:id`),
+  // so `/admin/sites` resolves to the admin 404. Point at `/admin` instead. (See
+  // frontend onboarding-checklist.component.ts, which remaps the same stale CTA.)
+  { id: 'cs-sites', label: 'Sites', icon: 'dashboard', route: '/admin', detail: 'Admin' },
   { id: 'cs-editor', label: 'Editor', icon: 'edit', route: '/admin/editor', detail: 'Admin' },
-  {
-    id: 'cs-media',
-    label: 'Media library',
-    icon: 'document',
-    route: '/admin/media',
-    detail: 'Admin',
-  },
+  // NOTE: no 'Media library' command — there is no `/admin/media` route or media
+  // library UI in this SPA (the `/api/media/*` worker surface has no admin page),
+  // so advertising it dead-ended ⌘K users on the admin 404. Restore this entry
+  // only when a real `/admin/media` route ships.
   {
     id: 'cs-analytics',
     label: 'Analytics',
