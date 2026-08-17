@@ -269,9 +269,7 @@ describe('checkAvailability — query build & normalization', () => {
 
     await checkAvailability(makeEnv(kv), 'a b.com');
 
-    expect(fetchMock().mock.calls[0][0]).toBe(
-      'https://rdap.verisign.com/com/v1/domain/a%20b.com',
-    );
+    expect(fetchMock().mock.calls[0][0]).toBe('https://rdap.verisign.com/com/v1/domain/a%20b.com');
   });
 });
 
@@ -314,7 +312,9 @@ describe('checkAvailability — authoritative-registry routing', () => {
     const { kv } = makeKv();
     fetchMock().mockResolvedValue(resp(404));
     await checkAvailability(makeEnv(kv), 'cool.dev');
-    expect(fetchMock().mock.calls[0][0]).toBe('https://pubapi.registry.google/rdap/domain/cool.dev');
+    expect(fetchMock().mock.calls[0][0]).toBe(
+      'https://pubapi.registry.google/rdap/domain/cool.dev',
+    );
   });
 
   it('an UNMAPPED TLD falls back to the rdap.org aggregator (still resolvable)', async () => {
