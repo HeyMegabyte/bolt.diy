@@ -1731,12 +1731,44 @@ aiAdmin.get('/api/analytics/overview', async (c) => {
  */
 aiAdmin.get('/api/audit/rows', async (c) => {
   const { orgId } = need(c);
-  const limit = Math.min(Number(c.req.query('limit') ?? 500), 5000);
+  const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 100) || 100, 1), 500);
+  // Honor the documented filter params (action / actor_id / target_type / from / to).
+  // Each is optional and additive — the feed stays org-scoped; omitted filters are no-ops.
+  // Previously these were documented but never bound into WHERE (accepted-but-ignored
+  // filter drift): a caller narrowing to one action silently got the whole feed.
+  const where: string[] = ['org_id = ?'];
+  const binds: unknown[] = [orgId];
+  const action = c.req.query('action');
+  if (action) {
+    where.push('action = ?');
+    binds.push(action);
+  }
+  const actorId = c.req.query('actor_id');
+  if (actorId) {
+    where.push('actor_id = ?');
+    binds.push(actorId);
+  }
+  const targetType = c.req.query('target_type');
+  if (targetType) {
+    where.push('target_type = ?');
+    binds.push(targetType);
+  }
+  const from = c.req.query('from');
+  if (from) {
+    where.push('created_at >= ?');
+    binds.push(from);
+  }
+  const to = c.req.query('to');
+  if (to) {
+    where.push('created_at <= ?');
+    binds.push(to);
+  }
+  binds.push(limit);
   const rows = await c.env.DB.prepare(
     `SELECT id, action, target_type, target_id, actor_id, metadata_json, request_id, created_at
-     FROM audit_logs WHERE org_id = ? ORDER BY created_at DESC LIMIT ?`,
+     FROM audit_logs WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT ?`,
   )
-    .bind(orgId, limit)
+    .bind(...binds)
     .all();
   return c.json({
     data: (rows.results ?? []).map((r) => ({

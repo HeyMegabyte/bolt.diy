@@ -1014,11 +1014,15 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
     await page.goto('/admin', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(2000);
 
-    // Newest created_at across the recent trail — a fresh cmdk row must beat this.
-    const maxTs = (): Promise<string> =>
+    // Newest EXISTING cmdk.ai.answered timestamp — a fresh cmdk row must beat this.
+    // Scoped to `action=cmdk.ai.answered` (server-side filter): under full-suite
+    // parallel load the shared e2e-test-org's audit feed floods with OTHER actions,
+    // which pushed the cmdk row past an unfiltered `limit=25` window before the poll
+    // saw it (the old flake). The action filter makes the poll immune to that.
+    const maxCmdkTs = (): Promise<string> =>
       page.evaluate(async () => {
         const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
-        const r = await fetch('/api/audit/rows?limit=25', {
+        const r = await fetch('/api/audit/rows?action=cmdk.ai.answered&limit=50', {
           headers: { Authorization: `Bearer ${s.token}` },
         });
         if (!r.ok) return 'ERR';
@@ -1031,7 +1035,7 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
     const freshCmdkSince = (since: string): Promise<boolean> =>
       page.evaluate(async (sinceTs) => {
         const s = JSON.parse(localStorage.getItem('ps_session') || '{}');
-        const r = await fetch('/api/audit/rows?limit=25', {
+        const r = await fetch('/api/audit/rows?action=cmdk.ai.answered&limit=50', {
           headers: { Authorization: `Bearer ${s.token}` },
         });
         if (!r.ok) return false;
@@ -1043,7 +1047,7 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
         return rows.some((x) => x.action === 'cmdk.ai.answered' && (x.created_at ?? '') > sinceTs);
       }, since);
 
-    const beforeTs = await maxTs();
+    const beforeTs = await maxCmdkTs();
     expect(beforeTs, 'audit rows endpoint must be readable').not.toBe('ERR');
 
     // Press the Cmd+K AI (app-context fetch — a headless POST is Bot-Fight-challenged).
@@ -1060,9 +1064,11 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
     expect(answered.status, 'cmdk AI palette must answer 200').toBe(200);
     expect(answered.streamed, 'cmdk AI must stream a real answer').toBe(true);
 
-    // The audit write is fire-and-forget — poll until the FRESH entry appears.
+    // The audit write is fire-and-forget (ctx.waitUntil) + D1 read replicas can lag
+    // under load — poll up to 12s for the FRESH entry (action-scoped, so unrelated
+    // rows can't bury it) before failing.
     let landed = false;
-    for (let i = 0; i < 8 && !landed; i++) {
+    for (let i = 0; i < 12 && !landed; i++) {
       await page.waitForTimeout(1000);
       landed = await freshCmdkSince(beforeTs);
     }

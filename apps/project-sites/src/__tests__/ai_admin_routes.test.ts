@@ -794,6 +794,76 @@ describe('GET /api/audit/rows', () => {
     const json = (await res.json()) as { data: Array<{ metadata: unknown }> };
     expect(json.data[0].metadata).toEqual({ k: 1 });
   });
+
+  // A recording DB that captures the prepared SQL + bound params so we can assert
+  // the documented filter params are actually bound into the WHERE clause.
+  function recordingDb() {
+    const capture = { sql: '', binds: [] as unknown[] };
+    const db = {
+      prepare: jest.fn((sql: string) => {
+        capture.sql = sql;
+        const chain = {
+          bind: jest.fn((...args: unknown[]) => {
+            capture.binds = args;
+            return chain;
+          }),
+          first: jest.fn(async () => null),
+          all: jest.fn(async () => ({ results: [] })),
+          run: jest.fn(async () => ({ success: true })),
+        };
+        return chain;
+      }),
+      batch: jest.fn(async () => []),
+    } as unknown as D1Database;
+    return { db, capture };
+  }
+
+  it('binds the documented filter params (action/actor_id/target_type/from/to) into WHERE', async () => {
+    const { db, capture } = recordingDb();
+    const res = await req(
+      makeApp(AUTH),
+      'GET',
+      '/api/audit/rows?action=cmdk.ai.answered&actor_id=user-9&target_type=site&from=2026-01-01T00:00:00Z&to=2026-12-31T23:59:59Z&limit=50',
+      makeEnv(db),
+    );
+    expect(res.status).toBe(200);
+    // Every documented filter must contribute a real WHERE clause…
+    expect(capture.sql).toContain('action = ?');
+    expect(capture.sql).toContain('actor_id = ?');
+    expect(capture.sql).toContain('target_type = ?');
+    expect(capture.sql).toContain('created_at >= ?');
+    expect(capture.sql).toContain('created_at <= ?');
+    // …bound to the caller's values (org first, limit last, filters between).
+    expect(capture.binds).toEqual([
+      'org-1',
+      'cmdk.ai.answered',
+      'user-9',
+      'site',
+      '2026-01-01T00:00:00Z',
+      '2026-12-31T23:59:59Z',
+      50,
+    ]);
+  });
+
+  it('no filter params → org-scoped feed with no filter clauses (unchanged path)', async () => {
+    const { db, capture } = recordingDb();
+    const res = await req(makeApp(AUTH), 'GET', '/api/audit/rows', makeEnv(db));
+    expect(res.status).toBe(200);
+    expect(capture.sql).toContain('FROM audit_logs WHERE org_id = ?');
+    expect(capture.sql).not.toContain('action = ?');
+    expect(capture.sql).not.toContain('created_at >=');
+    // org + default limit (100) only.
+    expect(capture.binds).toEqual(['org-1', 100]);
+  });
+
+  it('caps limit at the documented max (500) and floors bad input to 100', async () => {
+    const { db, capture } = recordingDb();
+    await req(makeApp(AUTH), 'GET', '/api/audit/rows?limit=99999', makeEnv(db));
+    expect(capture.binds).toEqual(['org-1', 500]);
+    const second = recordingDb();
+    await req(makeApp(AUTH), 'GET', '/api/audit/rows?limit=notanumber', makeEnv(second.db));
+    expect(second.capture.binds).toEqual(['org-1', 100]);
+  });
 });
 
 // ─── MCP connections (org-scoped read) ────────────────────────────────────────
