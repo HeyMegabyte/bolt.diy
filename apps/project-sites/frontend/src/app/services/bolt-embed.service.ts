@@ -37,8 +37,14 @@ export interface BoltEmbedSite {
   readonly id: string;
   readonly slug: string;
   readonly business_name?: string;
-  /** Site lifecycle status — gates the chat/version import (only 'published' has an R2 manifest). */
+  /** Site lifecycle status. NOT sufficient alone to gate chat import — see `current_build_version`. */
   readonly status?: string;
+  /**
+   * The R2 build version. This — NOT `status==='published'` — is the true
+   * "has an `_manifest.json` in R2" signal: a published-but-unbuilt site
+   * (`published` + null build) has NO manifest, so importing its chat would 404.
+   */
+  readonly current_build_version?: string | number | null;
 }
 
 interface PsMessage {
@@ -229,12 +235,14 @@ export class BoltEmbedService {
       hideDeploy: 'true',
       slug: site.slug,
     });
-    // Only import prior chat/version for a PUBLISHED site. A not-yet-built site
-    // has no `_manifest.json` in R2, so `/api/sites/by-slug/:slug/chat` 404s —
-    // and because the iframe is persistently mounted, bolt fires that import on
-    // EVERY admin route, polluting the console with a guaranteed 404. A fresh
-    // chat is the correct start for an unpublished site anyway.
-    if (site.status === 'published') {
+    // Only import prior chat/version for a site that actually HAS built content in
+    // R2. Gate on `current_build_version` (the real `_manifest.json` indicator),
+    // NOT `status==='published'` alone: a published-but-unbuilt site (build never
+    // finished) has no manifest, so `/api/sites/by-slug/:slug/chat` 404s — and
+    // because the iframe is persistently mounted, bolt fires that import on EVERY
+    // admin route, polluting the console with a guaranteed 404 (the very thing
+    // this guard exists to prevent). A fresh chat is the correct start otherwise.
+    if (site.status === 'published' && site.current_build_version) {
       params.set('importChatFrom', `${window.location.origin}/api/sites/by-slug/${site.slug}/chat`);
     }
     if (opts.file) params.set('file', opts.file);

@@ -100,9 +100,16 @@ describe('BoltEmbedService — importChatFrom gating (publish-aware, no 404 cons
     return TestBed.inject(BoltEmbedService) as unknown as { bootForSite: (s: unknown) => void; iframeUrl: () => unknown };
   }
 
-  it('sets importChatFrom for a PUBLISHED site (warm chat/version import)', () => {
+  it('sets importChatFrom for a PUBLISHED, BUILT site (warm chat/version import)', () => {
     const svc = bootSvc();
-    svc.bootForSite({ id: 's1', slug: 'live-site', business_name: 'Live', status: 'published' });
+    // A real Live site has a build → its _manifest.json + chat export exist in R2.
+    svc.bootForSite({
+      id: 's1',
+      slug: 'live-site',
+      business_name: 'Live',
+      status: 'published',
+      current_build_version: '2026-05-04T23-09-02-051Z',
+    });
     const url = String(svc.iframeUrl() ?? '');
     expect(url).toContain('importChatFrom=');
     expect(url).toContain('live-site');
@@ -114,6 +121,23 @@ describe('BoltEmbedService — importChatFrom gating (publish-aware, no 404 cons
     const url = String(svc.iframeUrl() ?? '');
     expect(url).not.toContain('importChatFrom');
     expect(url).withContext('still boots the editor for the draft site').toContain('draft-site');
+  });
+
+  it('OMITS importChatFrom for a PUBLISHED-but-UNBUILT site (published + null build = no manifest → 404)', () => {
+    const svc = bootSvc();
+    // A `published` row whose build never finished (current_build_version=null)
+    // serves a 503 and has NO _manifest.json — importing its chat would 404. The
+    // guard must key on the build, not status alone.
+    svc.bootForSite({
+      id: 's3',
+      slug: 'unbuilt-site',
+      business_name: 'Unbuilt',
+      status: 'published',
+      current_build_version: null,
+    });
+    const url = String(svc.iframeUrl() ?? '');
+    expect(url).not.toContain('importChatFrom');
+    expect(url).withContext('still boots the editor for the unbuilt site').toContain('unbuilt-site');
   });
 });
 
