@@ -30,7 +30,7 @@ export async function recordVisitorEvent(
 ): Promise<{ id: string }> {
   const v = VisitorEventInputSchema.parse(input);
   const id = crypto.randomUUID();
-  await dbExecute(
+  const { error } = await dbExecute(
     env.DB,
     `INSERT INTO visitor_events (id, org_id, site_id, session_id, event_type, path, referrer, metadata)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -45,6 +45,21 @@ export async function recordVisitorEvent(
       JSON.stringify(v.metadata ?? {}),
     ],
   );
+  // Best-effort hot-path beacon: never block the request, but LOG a dropped write so an
+  // under-counted /admin/analytics is observable, not silent ([[verify-against-source-of-truth]]).
+  if (error) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'visitor_events',
+        message: 'dropped visitor_events write',
+        org_id: ctx.orgId,
+        site_id: ctx.siteId,
+        event_type: v.eventType,
+        error,
+      }),
+    );
+  }
   return { id };
 }
 

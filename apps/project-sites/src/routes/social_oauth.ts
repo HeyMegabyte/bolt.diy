@@ -379,7 +379,7 @@ socialOauthRoutes.post(
     const accessEnc = await encrypt(c.env, access_token);
     const refreshEnc = refresh_token ? await encrypt(c.env, refresh_token) : null;
 
-    await dbExecute(
+    const { error: pasteErr } = await dbExecute(
       c.env.DB,
       `INSERT INTO social_accounts
        (id, org_id, created_by, platform, external_id, handle, display_name, avatar_url,
@@ -414,6 +414,14 @@ socialOauthRoutes.post(
         JSON.stringify(metadata),
       ],
     );
+    if (pasteErr) {
+      // Same lying-success class as the OAuth callback: a dropped INSERT must NOT report
+      // `connected: true`. Surface a real error (this is a JSON fetch endpoint, not a popup).
+      return c.json(
+        { error: { code: 'PERSIST_FAILED', message: 'failed to save the connection' } },
+        500,
+      );
+    }
     return c.json({ data: { connected: true, platform, handle, display_name } });
   },
 );

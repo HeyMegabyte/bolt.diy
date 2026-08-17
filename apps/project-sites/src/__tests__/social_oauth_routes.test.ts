@@ -539,6 +539,28 @@ describe('POST /api/social/:platform/paste', () => {
     expect(params as unknown[]).toContain('enc(BSKY-ACCESS)');
   });
 
+  it('returns 500 (not a lying connected:true) when the paste INSERT is dropped', async () => {
+    // dbExecute returns { error } (never throws). The old bare `await` ignored a failed
+    // persist and still returned { connected: true } → the UI toasted "Connected" for a
+    // social_accounts row that was never written. The handler MUST surface a real error.
+    mockBlueskyLogin.mockResolvedValue({
+      access_token: 'A',
+      refresh_token: 'R',
+      external_id: 'did:plc:xyz',
+      handle: 'x.bsky.social',
+    });
+    mockDbExecute.mockResolvedValueOnce({ error: 'D1_ERROR: no such table', changes: 0 });
+    const res = await post('bluesky', {
+      kind: 'bluesky',
+      identifier: 'x.bsky.social',
+      app_password: 'abcd1234efgh',
+    });
+    expect(res.status).toBe(500);
+    const json = (await res.json()) as { data?: { connected?: boolean }; error?: { code?: string } };
+    expect(json.data?.connected).toBeUndefined();
+    expect(json.error?.code).toBe('PERSIST_FAILED');
+  });
+
   it('connects Mastodon via access token and stores the instance URL in metadata', async () => {
     mockMastodonVerify.mockResolvedValue({
       external_id: '12345',

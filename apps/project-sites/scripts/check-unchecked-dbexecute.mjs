@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * check-unchecked-dbexecute.mjs — lying-success detector for raw `dbExecute` UPDATE/DELETE.
+ * check-unchecked-dbexecute.mjs — lying-success detector for raw `dbExecute` INSERT/UPDATE/DELETE.
  *
  * `dbExecute(db, sql, params)` returns `{ error, changes }` and NEVER throws (it catches
  * internally). A BARE `await dbExecute(...)` whose SQL is an `UPDATE`/`DELETE` — without
@@ -13,8 +13,12 @@
  *      → nothing mutated, yet a lying 200. When the WHERE is the SOLE ownership guard this
  *      also MASKS an authz gap (mutating another org's row silently no-ops but "succeeds").
  *
- * Scope: only `UPDATE`/`DELETE` SQL is flagged (the two-axis class). Raw `dbExecute(INSERT…)`
- * is the dbInsert discipline (error-only, no changes===0/404) and `SELECT`/DDL don't mutate.
+ * Scope: plain `INSERT INTO` (error-only — a dropped write that still returns success),
+ * `UPDATE`, and `DELETE` (two-axis: error OR changes===0). `INSERT OR IGNORE` is a deliberate
+ * idempotent form (exempt); `SELECT`/DDL don't mutate. INSERT coverage closes the gap where a
+ * raw `dbExecute('INSERT…')` fell through BOTH this detector (was UPDATE/DELETE-only) AND
+ * `check-unchecked-dbinsert.mjs` (matches only the `dbInsert(` helper) — the class behind the
+ * cloneSite / analytics_annotations / recordSpend / social_oauth lying-success fixes.
  *
  * Heuristic (prefers false-negatives, per validator-precision-discipline): a call is UNCHECKED
  * iff it is NOT the right-hand side of an assignment (`const { error, changes } = await …` /
@@ -55,10 +59,15 @@ const isUserFacing = (rel) => /(^|\/)routes\//.test(rel) || /\/handlers\.ts$/.te
 /** ~90 chars before the call that capture an assignment head (`const { error, changes } = await `). */
 const ASSIGNED_RE = /(?:const|let|var)\s*(?:\{[^}]*\}|[\w$]+)\s*=\s*(?:await\s+)?$/;
 
-/** 2nd arg (the SQL) starts with UPDATE or DELETE — quote or backtick, whitespace/newline tolerant. */
-const UPDATE_DELETE_RE = /dbExecute\s*\(\s*[^,]+,\s*[`'"]\s*(UPDATE|DELETE)\b/i;
+/**
+ * 2nd arg (the SQL) starts with a mutating verb — plain `INSERT INTO` (error-only class),
+ * `UPDATE`, or `DELETE` (two-axis). `INSERT OR IGNORE` is a deliberate idempotent form
+ * (a conflict is expected + swallowed by design) and is INTENTIONALLY NOT matched.
+ * Quote or backtick, whitespace/newline tolerant.
+ */
+const MUTATION_RE = /dbExecute\s*\(\s*[^,]+,\s*[`'"]\s*(INSERT\s+INTO|UPDATE|DELETE)\b/i;
 /** Grab the mutated table name for the report. */
-const TABLE_RE = /(?:UPDATE|DELETE\s+FROM)\s+([A-Za-z_][A-Za-z0-9_]*)/i;
+const TABLE_RE = /(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+([A-Za-z_][A-Za-z0-9_]*)/i;
 
 const findings = [];
 for (const dir of SCAN_DIRS) {
@@ -72,11 +81,13 @@ for (const dir of SCAN_DIRS) {
       const before = text.slice(Math.max(0, m.index - 90), m.index);
       if (ASSIGNED_RE.test(before)) continue; // captured → assumed checked
       const after = text.slice(m.index, m.index + 320);
-      if (!UPDATE_DELETE_RE.test(after)) continue; // only UPDATE/DELETE are the two-axis class
+      const verbM = after.match(MUTATION_RE);
+      if (!verbM) continue; // INSERT INTO / UPDATE / DELETE only (INSERT OR IGNORE exempt)
+      const verb = /^insert/i.test(verbM[1]) ? 'INSERT' : verbM[1].toUpperCase();
       const tableM = after.match(TABLE_RE);
       const table = tableM ? tableM[1] : '(dynamic)';
       const line = text.slice(0, m.index).split('\n').length;
-      findings.push({ file: rel, line, table, severity: isUserFacing(rel) ? 'HIGH' : 'low' });
+      findings.push({ file: rel, line, table, verb, severity: isUserFacing(rel) ? 'HIGH' : 'low' });
     }
   }
 }
@@ -89,18 +100,29 @@ if (process.argv.includes('--json')) {
     JSON.stringify({ total: findings.length, high: high.length, findings }, null, 2) + '\n',
   );
 } else if (findings.length === 0) {
-  console.log('✅ check-unchecked-dbexecute: clean — every dbExecute UPDATE/DELETE result is captured.');
+  console.log(
+    '✅ check-unchecked-dbexecute: clean — every raw dbExecute INSERT/UPDATE/DELETE result is captured.',
+  );
 } else {
   console.log(
-    `⚠️  check-unchecked-dbexecute: ${findings.length} bare dbExecute UPDATE/DELETE call(s) (${high.length} HIGH user-facing mutation):`,
+    `⚠️  check-unchecked-dbexecute: ${findings.length} bare dbExecute mutation(s) (${high.length} HIGH user-facing):`,
   );
   for (const f of [...high, ...low]) {
+    const guide =
+      f.severity === 'HIGH'
+        ? f.verb === 'INSERT'
+          ? '  (capture { error }; throw/warn on error — a dropped INSERT must not return success)'
+          : '  (capture { error, changes }; throw on error; 404 on changes===0 for a sole-guard edit)'
+        : '';
     console.log(
-      `   ${f.severity === 'HIGH' ? 'HIGH' : 'low '} ${f.file}:${f.line} → ${f.table}${f.severity === 'HIGH' ? '  (capture { error, changes }; throw on error; 404 on changes===0 for a sole-guard edit)' : ''}`,
+      `   ${f.severity === 'HIGH' ? 'HIGH' : 'low '} ${f.file}:${f.line} → ${f.verb} ${f.table}${guide}`,
     );
   }
   console.log(
-    '   Fix: `const { error, changes } = await dbExecute(...)` — throw on error; 404 when changes===0 for a sole-guard mutation-by-id.',
+    '   Fix: `const { error[, changes] } = await dbExecute(...)` — INSERT: throw/warn on error;',
+  );
+  console.log(
+    '        UPDATE/DELETE: throw on error + 404 when changes===0 for a sole-guard mutation-by-id.',
   );
 }
 

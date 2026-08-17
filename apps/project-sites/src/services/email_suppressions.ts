@@ -54,12 +54,26 @@ export async function recordSuppressions(
     );
     if (ins.changes > 0) suppressed++;
     // Append every notification to the audit log regardless of dedup.
-    await dbExecute(
+    const audit = await dbExecute(
       db,
       `INSERT INTO email_events (id, email, type, sub_type, source_message_id, created_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
       [crypto.randomUUID(), r.email, r.reason, r.subType, r.sourceMessageId, now],
     );
+    // Best-effort audit append — never break suppression processing, but LOG a dropped
+    // write (email masked — PII) so a gap in the email_events trail is observable.
+    if (audit.error) {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'email_suppressions',
+          message: 'dropped email_events audit write',
+          reason: r.reason,
+          source_message_id: r.sourceMessageId,
+          error: audit.error,
+        }),
+      );
+    }
   }
   return { suppressed };
 }

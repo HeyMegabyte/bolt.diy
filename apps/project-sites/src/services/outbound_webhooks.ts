@@ -390,7 +390,7 @@ export interface DeliveryRecord {
 
 /** Append a delivery-attempt row to the log (the orchestrator calls this per attempt). */
 export async function recordDelivery(env: Env, rec: DeliveryRecord): Promise<void> {
-  await dbExecute(
+  const { error } = await dbExecute(
     env.DB,
     `INSERT INTO webhook_deliveries (id, endpoint_id, site_id, event_type, status_code, ok, attempt, error)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -405,6 +405,20 @@ export async function recordDelivery(env: Env, rec: DeliveryRecord): Promise<voi
       rec.error ?? null,
     ],
   );
+  // Best-effort delivery-attempt log — never break the webhook flow (the delivery already
+  // happened), but LOG a dropped write so a gap in the delivery history is observable.
+  if (error) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'outbound_webhooks',
+        message: 'dropped webhook_deliveries log write',
+        endpoint_id: rec.endpointId,
+        site_id: rec.siteId,
+        error,
+      }),
+    );
+  }
 }
 
 export interface StoredDelivery {
