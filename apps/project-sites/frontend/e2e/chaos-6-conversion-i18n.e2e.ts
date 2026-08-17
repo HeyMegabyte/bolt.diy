@@ -77,4 +77,32 @@ test.describe('CHAOS 6 — Conversion + i18n (uncovered UI interactions)', () =>
     expect(e.consoleErrors, e.consoleErrors.join('\n')).toEqual([]);
     expect(e.pageErrors, e.pageErrors.join('\n')).toEqual([]);
   });
+
+  test('the standalone /pricing page renders in Spanish under the ES locale (guards iter-170)', async ({
+    page,
+  }) => {
+    const e = trackErrors(page);
+    // Seed the persisted locale (`ps_language`, read by app.config.ts on init) so /pricing
+    // boots in ES directly. The standalone marketing pages had no TranslateModule and
+    // rendered hardcoded English for Spanish visitors until iter-170 wired `pricingPage.*`.
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem('ps_language', 'es');
+      } catch {
+        /* private mode — accept the default locale */
+      }
+    });
+    await page.goto('/pricing', { waitUntil: 'domcontentloaded' });
+    const h1 = page.locator('h1.pricing__title');
+    await expect(h1).toBeVisible({ timeout: 15000 });
+    // Spanish hero + a translated feature (proves the `@for` over the translated array renders).
+    await expect(h1).toHaveText(/Un precio/);
+    await expect(page.locator('ul.tier__list li').first()).toContainText(/Cloudflare/);
+    expect(await page.locator('ul.tier__list li').count(), 'both 5-item feature lists render').toBe(
+      10,
+    );
+    await assertAlive(page);
+    expect(e.consoleErrors, e.consoleErrors.join('\n')).toEqual([]);
+    expect(e.pageErrors, e.pageErrors.join('\n')).toEqual([]);
+  });
 });
