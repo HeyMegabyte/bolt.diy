@@ -229,6 +229,60 @@ describe('POST /api/contact-form/:slug — persist-first, delivery is best-effor
 });
 
 // ---------------------------------------------------------------------------
+// The durable `contacts` row is the CRM record the owner sees (analytics
+// bySource + any future contacts inbox). A refactor that changes source, drops
+// site_id, or corrupts the metadata JSON would silently break lead attribution
+// while every render/status test stays green. This LOCKS the exact write shape
+// causally verified against prod D1 (a real submission landed org+site-scoped
+// with source='form' + message/slug in metadata).
+// ---------------------------------------------------------------------------
+describe('POST /api/contact-form/:slug — writes the contacts row with the authoritative CRM shape', () => {
+  it('inserts ONE contacts row: org+site scoped, source=form, message+slug in metadata', async () => {
+    global.fetch = jest.fn().mockResolvedValue(new Response('{}', { status: 200 }));
+    const captured: Array<{ sql: string; vals: unknown[] }> = [];
+    const db = {
+      prepare: jest.fn((sql: string) => ({
+        bind: jest.fn((...vals: unknown[]) => {
+          if (/INSERT INTO contacts\b/i.test(sql)) captured.push({ sql, vals });
+          return {
+            all: jest.fn().mockResolvedValue({ results: [SITE_ROW] }),
+            first: jest.fn().mockResolvedValue(SITE_ROW),
+            run: jest.fn().mockResolvedValue({ success: true, meta: {} }),
+          };
+        }),
+      })),
+    } as unknown as D1Database;
+
+    const res = await submit(makeEnv({ DB: db }), {
+      name: 'Real Visitor',
+      email: 'lead@visitor.test',
+      phone: '+1-555-0100',
+      message: 'I would like a quote for catering next month please.',
+    });
+    expect(res.status).toBe(200);
+
+    // Exactly one contacts INSERT.
+    expect(captured).toHaveLength(1);
+    const { sql, vals } = captured[0];
+    const cols = sql
+      .match(/\(([^)]+)\)\s*VALUES/i)![1]
+      .split(',')
+      .map((s) => s.trim());
+    const row: Record<string, unknown> = {};
+    cols.forEach((col, i) => (row[col] = vals[i]));
+
+    expect(row.org_id).toBe('org-1'); // SITE_ROW.org_id — org-scoped (RBAC + analytics)
+    expect(row.site_id).toBe('site-1'); // SITE_ROW.id — lead attributed to the site
+    expect(row.name).toBe('Real Visitor');
+    expect(row.email).toBe('lead@visitor.test');
+    expect(row.source).toBe('form'); // the CRM bySource bucket the owner reviews
+    const meta = JSON.parse(String(row.metadata));
+    expect(meta.message).toBe('I would like a quote for catering next month please.');
+    expect(meta.slug).toBe('nsk'); // submitted slug preserved for attribution
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Contact-email SOURCE resolution: the admin Settings "Contact Email" field
 // writes ai_site_settings.contact_email; sites.contact_email is the build/legacy
 // fallback. Reading only sites.contact_email ignored the configured address →
