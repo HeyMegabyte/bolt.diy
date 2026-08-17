@@ -61,10 +61,13 @@ export class LagoProvider implements BillingMeteringProvider {
 
   /** @inheritdoc */
   async recordUsageBatch(events: UsageEvent[]): Promise<void> {
+    // Deliver ONLY events that reached the canonical ledger — never bill via Lago
+    // an event D1 has no record of (fail-closed on the billing ledger).
+    const persisted: UsageEvent[] = [];
     for (const event of events) {
-      await this.#persistToLedger(event);
+      if (await this.#persistToLedger(event)) persisted.push(event);
     }
-    for (const event of events) {
+    for (const event of persisted) {
       await this.#deliverToLago(event);
     }
   }
@@ -109,42 +112,55 @@ export class LagoProvider implements BillingMeteringProvider {
   // ─── Private helpers ──────────────────────────────────────────────
 
   async #persistAndDeliver(event: UsageEvent): Promise<void> {
-    await this.#persistToLedger(event);
-    await this.#deliverToLago(event);
+    // Gate delivery on the canonical-ledger write — a dropped INSERT must not be
+    // billed by Lago (else Lago rates usage our own ledger has no record of).
+    if (await this.#persistToLedger(event)) {
+      await this.#deliverToLago(event);
+    }
   }
 
-  async #persistToLedger(event: UsageEvent): Promise<void> {
-    try {
-      await dbInsert(this.#env.DB, 'usage_events', {
-        id: event.id,
-        idempotency_key: event.idempotencyKey,
-        customer_id: event.customerId,
-        org_id: event.orgId ?? null,
-        site_id: event.siteId ?? null,
-        app_id: event.appId ?? null,
-        metric: event.metric,
-        quantity: event.quantity,
-        unit: event.unit,
-        source: event.source,
-        occurred_at: event.occurredAt,
-        pricing_version: event.pricingVersion ?? null,
-        metadata: event.metadata ? JSON.stringify(event.metadata) : null,
-        delivery_status: 'pending',
-      });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (!msg.includes('UNIQUE') && !msg.includes('duplicate')) {
-        console.warn(
-          JSON.stringify({
-            level: 'warn',
-            service: 'billing_provider_lago',
-            message: 'failed to persist usage event',
-            eventId: event.id,
-            error: msg,
-          }),
-        );
-      }
-    }
+  /**
+   * Write the event to the canonical D1 ledger.
+   *
+   * @returns `true` when the event IS in the ledger (fresh insert OR a UNIQUE
+   *   replay of an already-persisted event — Lago dedups by transaction_id, so
+   *   an idempotent retry still delivers safely); `false` when a real D1 error
+   *   dropped the write, so the caller must NOT deliver.
+   * @remarks `dbInsert` NEVER throws — it returns `{ error }` (it catches D1
+   *   errors internally). A bare `await` that ignores that return silently drops
+   *   the row; the prior `try/catch` here was dead for exactly that reason.
+   */
+  async #persistToLedger(event: UsageEvent): Promise<boolean> {
+    const { error } = await dbInsert(this.#env.DB, 'usage_events', {
+      id: event.id,
+      idempotency_key: event.idempotencyKey,
+      customer_id: event.customerId,
+      org_id: event.orgId ?? null,
+      site_id: event.siteId ?? null,
+      app_id: event.appId ?? null,
+      metric: event.metric,
+      quantity: event.quantity,
+      unit: event.unit,
+      source: event.source,
+      occurred_at: event.occurredAt,
+      pricing_version: event.pricingVersion ?? null,
+      metadata: event.metadata ? JSON.stringify(event.metadata) : null,
+      delivery_status: 'pending',
+    });
+    if (!error) return true;
+    // A UNIQUE/duplicate hit means the event is ALREADY in the ledger — treat as
+    // persisted (idempotent) and let delivery proceed; Lago dedups the replay.
+    if (/unique|duplicate/i.test(error)) return true;
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'billing_provider_lago',
+        message: 'failed to persist usage event',
+        eventId: event.id,
+        error,
+      }),
+    );
+    return false;
   }
 
   async #deliverToLago(event: UsageEvent): Promise<void> {
