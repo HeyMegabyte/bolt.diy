@@ -514,6 +514,18 @@ app.post('/api/calendar/bookings', zValidator('json', BookingCreateSchema), asyn
   const user = requireUser(c);
   if (!user) return c.json({ error: { code: 'UNAUTHORIZED', message: 'sign in' } }, 401);
   const body = c.req.valid('json');
+  if (body.calendar_id) {
+    // A caller-supplied calendar_id MUST belong to the caller — mirrors the events create.
+    // Without this, a booking link could be attached to ANOTHER user's calendar (cross-owner
+    // FK injection). 404 (non-leak) when not owned.
+    const owned = await dbQuery<{ id: string }>(
+      c.env.DB,
+      `SELECT id FROM calendar_calendars WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1`,
+      [body.calendar_id, user.userId],
+    );
+    if (!owned.data.length)
+      return c.json({ error: { code: 'NOT_FOUND', message: 'calendar not found' } }, 404);
+  }
   const id = uuid();
   // dbInsert RETURNS { error } (it never throws), so a UNIQUE-slug collision must be
   // detected on the returned error. A try/catch here would be dead code, and every

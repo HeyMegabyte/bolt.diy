@@ -658,4 +658,40 @@ describe('POST /api/calendar/bookings', () => {
     const res = await req(makeApp(AUTH), '/api/calendar/bookings', 'POST', env, VALID);
     expect(res.status).toBe(500);
   });
+
+  // Body-supplied-FK-injection guard — the same cross-owner IDOR the events create was
+  // fixed for. `calendar_id` is a caller-supplied FK; a booking link attached to ANOTHER
+  // user's calendar would leak the link onto their calendar. Create MUST gate on ownership
+  // exactly like the events handler (PATCH/DELETE already scope by user_id).
+  const BK_VICTIM_CAL = '00000000-0000-4000-8000-0000000000cc';
+  const BK_MINE_CAL = '00000000-0000-4000-8000-0000000000dd';
+
+  it('404s + inserts NOTHING when calendar_id belongs to another user (cross-owner FK injection)', async () => {
+    mockDbQuery.mockResolvedValueOnce({ data: [] }); // ownership check: id+user_id matches nothing
+    const env = makeEnv();
+    const res = await req(makeApp(AUTH), '/api/calendar/bookings', 'POST', env, {
+      ...VALID,
+      calendar_id: BK_VICTIM_CAL,
+    });
+    expect(res.status).toBe(404);
+    expect(mockDbInsert).not.toHaveBeenCalled(); // never linked to the foreign calendar
+  });
+
+  it('creates the booking when calendar_id belongs to the caller', async () => {
+    mockDbQuery.mockResolvedValueOnce({ data: [{ id: BK_MINE_CAL }] }); // ownership passes
+    const env = makeEnv();
+    const res = await req(makeApp(AUTH), '/api/calendar/bookings', 'POST', env, {
+      ...VALID,
+      calendar_id: BK_MINE_CAL,
+    });
+    expect(res.status).toBe(201);
+    const [, table, record] = mockDbInsert.mock.calls[0]! as [
+      unknown,
+      string,
+      Record<string, unknown>,
+    ];
+    expect(table).toBe('calendar_bookings');
+    expect(record['calendar_id']).toBe(BK_MINE_CAL);
+    expect(record['user_id']).toBe('user-1');
+  });
 });
