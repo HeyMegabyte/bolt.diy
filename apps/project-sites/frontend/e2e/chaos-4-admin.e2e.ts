@@ -1771,4 +1771,39 @@ test.describe('CHAOS 4 — Power Admin (authed dashboard sweep)', () => {
     expect(e.pageErrors, e.pageErrors.join('\n')).toEqual([]);
     expect(e.serverErrors, e.serverErrors.join('\n')).toEqual([]);
   });
+
+  // M4 failure-recovery: when GET /api/site-features FAILS (404 / route gone / non-JSON), the
+  // page MUST show the honest retryable error card — NEVER the stale removed-feature fallback
+  // catalog (SITE_FEATURE_CATALOG_DISPLAY) rendered as fake, non-functional toggles. Injects a
+  // 404 via route-interception (a realistic outage the real 200 never exercises).
+  test('Site Features: a failed catalog fetch shows the honest error card, NOT stale fallback toggles (M4)', async ({
+    page,
+  }) => {
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+    await page.route('**/api/site-features**', (route) =>
+      route.request().method() === 'GET'
+        ? route.fulfill({
+            status: 404,
+            contentType: 'application/json',
+            body: JSON.stringify({ error: 'not_found' }),
+          })
+        : route.continue(),
+    );
+    await page.goto('/admin/site-features', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-testid="sf-root"]')).toBeVisible({ timeout: 15_000 });
+    await page.waitForTimeout(1500);
+
+    // Honest failure: ZERO feature cards (the deleted fallback can no longer invent the removed
+    // catalog — its cards render `sf-card-<key>` even without a toggle) and the retryable error
+    // card is shown instead.
+    expect(
+      await page.locator('[data-testid^="sf-card-"]').count(),
+      'a failed catalog fetch must NOT render stale fallback feature cards',
+    ).toBe(0);
+    await expect(page.getByText("Couldn't load features")).toBeVisible({ timeout: 8000 });
+
+    await assertAlive(page);
+    expect(e.pageErrors, e.pageErrors.join('\n')).toEqual([]);
+  });
 });

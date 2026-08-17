@@ -51,39 +51,27 @@ interface SiteFeature {
 }
 
 /**
- * Display mirror of the worker's SITE_FEATURE_CATALOG (apps/project-sites/src/routes/features.ts).
- * Used ONLY as a read-only fallback so the Features page is never blank when the
- * live `GET /api/site-features` route isn't serving JSON yet (e.g. the worker
- * predates the route → the request falls through to the SPA HTML). The live API
- * response always overrides this once it returns a valid catalog. Keep in sync
- * with the worker catalog when features are added/removed.
- */
-const SITE_FEATURE_CATALOG_DISPLAY: ReadonlyArray<Omit<SiteFeature, 'entitled' | 'enabled' | 'preview'>> = [
-  // ── Idea-merge wave 2026-06-08: owner-facing per-site capabilities.
-];
-
-/**
  * Per-feature "What's included" checklist — the concrete capabilities each
  * feature ships, surfaced as a ✓ list on every card so owners can scan exactly
- * what they get before flipping it on. Keyed by feature key so it applies to
- * both the live `/api/site-features` catalog and the read-only fallback.
+ * what they get before flipping it on. Keyed by feature key, applied to the live
+ * `/api/site-features` catalog.
  */
-const FEATURE_CAPABILITIES: Readonly<Record<string, readonly string[]>> = {
-};
-
-/** Mirror of the worker's entitlement logic for the read-only fallback (assumes the free tier — the live API supplies the real plan). */
-function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): EntitlementState {
-  if (requiredPlan === 'free') return 'available';
-  return isAddon ? 'addon-required' : 'upgrade-required';
-}
+const FEATURE_CAPABILITIES: Readonly<Record<string, readonly string[]>> = {};
 
 @Component({
   selector: 'app-admin-site-features',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, RouterLink, RevealDirective, HlmInputDirective,
-    EmptyStateComponent, ErrorCardComponent, RollingCounterComponent,
-    FlagBadgeRowComponent, FeatureDossierComponent,
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    RevealDirective,
+    HlmInputDirective,
+    EmptyStateComponent,
+    ErrorCardComponent,
+    RollingCounterComponent,
+    FlagBadgeRowComponent,
+    FeatureDossierComponent,
   ],
   template: `
     <section class="sf-page" appReveal data-testid="sf-root">
@@ -92,11 +80,27 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
           <p class="sf-kicker">Control plane · Layer 2</p>
           <h1 data-testid="sf-layer-heading">Features</h1>
           <p class="sf-sub">
-            Turn capabilities on for <strong>{{ siteName() }}</strong>.
-            <strong>@if (statsLoading()) { <span class="sf-stat-dots" aria-label="Loading">…</span> } @else { <app-rolling-counter [value]="enabledCount()" /> }</strong> enabled ·
-            <strong>@if (statsLoading()) { <span class="sf-stat-dots" aria-label="Loading">…</span> } @else { <app-rolling-counter [value]="availableCount()" /> }</strong> available on your {{ plan() }} plan.
-            Platform operators manage system flags under
-            <a routerLink="/admin/feature-flags" data-testid="sf-nav-system" class="sf-cross-link">Feature Flags →</a>.
+            Turn capabilities on for <strong>{{ siteName() }}</strong
+            >.
+            <strong>
+              @if (statsLoading()) {
+                <span class="sf-stat-dots" aria-label="Loading">…</span>
+              } @else {
+                <app-rolling-counter [value]="enabledCount()" />
+              }
+            </strong>
+            enabled ·
+            <strong>
+              @if (statsLoading()) {
+                <span class="sf-stat-dots" aria-label="Loading">…</span>
+              } @else {
+                <app-rolling-counter [value]="availableCount()" />
+              }
+            </strong>
+            available on your {{ plan() }} plan. Platform operators manage system flags under
+            <a routerLink="/admin/feature-flags" data-testid="sf-nav-system" class="sf-cross-link"
+              >Feature Flags →</a
+            >.
           </p>
         </div>
       </header>
@@ -113,7 +117,10 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
           data-testid="sf-search"
         />
         @if (isFiltering()) {
-          <span class="sf-count" data-testid="sf-filter-count" aria-hidden="true">{{ filtered().length }} <span class="sf-count-sep">of</span> {{ features().length }}</span>
+          <span class="sf-count" data-testid="sf-filter-count" aria-hidden="true"
+            >{{ filtered().length }} <span class="sf-count-sep">of</span>
+            {{ features().length }}</span
+          >
         }
         <span class="sr-only" role="status" aria-live="polite">{{ filterAnnouncement() }}</span>
       </div>
@@ -124,34 +131,49 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
           [message]="error()!"
           [correlationId]="loadErrorRef()"
           hint="The owner feature catalog lives behind GET /api/site-features. Retry, or check you're signed in."
-          (retry)="reload()" />
+          (retry)="reload()"
+        />
       } @else if (features().length === 0) {
-        <app-empty-state icon="✨" title="No features yet" message="Site features appear here once your plan is active." />
+        <app-empty-state
+          icon="✨"
+          title="No features yet"
+          message="Site features appear here once your plan is active."
+        />
       } @else if (filtered().length === 0) {
-        <app-empty-state icon="⊘" title="No features match your search" data-testid="sf-empty"
-          [message]="'Nothing matches “' + search() + '”.'" ctaLabel="Clear search" (ctaClick)="search.set('')" />
+        <app-empty-state
+          icon="⊘"
+          title="No features match your search"
+          data-testid="sf-empty"
+          [message]="'Nothing matches “' + search() + '”.'"
+          ctaLabel="Clear search"
+          (ctaClick)="search.set('')"
+        />
       } @else {
-        @if (degraded()) {
-          <div class="sf-provisioning" role="status" data-testid="sf-provisioning">
-            <span class="sf-provisioning-dot" aria-hidden="true"></span>
-            <span>Live feature management is provisioning for this site. The catalog below is read-only for now — toggles activate once setup completes.
-              <button type="button" class="sf-provisioning-retry" (click)="reload()" [disabled]="loading()">Retry</button>
-            </span>
-          </div>
-        }
         <ul class="sf-grid">
           @for (f of filtered(); track f.key) {
-            <li class="sf-card" [attr.data-entitled]="f.entitled" [class.sf-card-on]="f.enabled" [attr.data-testid]="'sf-card-' + f.key">
+            <li
+              class="sf-card"
+              [attr.data-entitled]="f.entitled"
+              [class.sf-card-on]="f.enabled"
+              [attr.data-testid]="'sf-card-' + f.key"
+            >
               <header class="sf-card-head">
                 <div class="sf-card-title">
                   <h2>{{ f.name }}</h2>
                   <span class="sf-cat">{{ f.category }}</span>
                 </div>
                 @if (f.entitled === 'available') {
-                  <button type="button" class="sf-switch" role="switch" data-testid="sf-toggle"
-                          [class.sf-switch-on]="f.enabled" [attr.aria-checked]="f.enabled"
-                          [attr.aria-label]="(f.enabled ? 'Disable ' : 'Enable ') + f.name"
-                          [disabled]="busy()[f.key] || degraded()" (click)="toggle(f)">
+                  <button
+                    type="button"
+                    class="sf-switch"
+                    role="switch"
+                    data-testid="sf-toggle"
+                    [class.sf-switch-on]="f.enabled"
+                    [attr.aria-checked]="f.enabled"
+                    [attr.aria-label]="(f.enabled ? 'Disable ' : 'Enable ') + f.name"
+                    [disabled]="busy()[f.key]"
+                    (click)="toggle(f)"
+                  >
                     <span class="sf-switch-knob"></span>
                   </button>
                 }
@@ -160,10 +182,27 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
               <app-flag-badge-row [badges]="badgesFor(f)" />
               <p class="sf-desc">{{ f.description }}</p>
               @if (capabilitiesFor(f).length) {
-                <ul class="sf-checklist" data-testid="sf-checklist" [attr.aria-label]="'What you get with ' + f.name">
+                <ul
+                  class="sf-checklist"
+                  data-testid="sf-checklist"
+                  [attr.aria-label]="'What you get with ' + f.name"
+                >
                   @for (cap of capabilitiesFor(f); track cap) {
                     <li class="sf-check">
-                      <svg class="sf-check-ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                      <svg
+                        class="sf-check-ic"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.4"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
                       <span>{{ cap }}</span>
                     </li>
                   }
@@ -172,36 +211,61 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
               <p class="sf-why" data-testid="sf-why">{{ whyFor(f) }}</p>
 
               <div class="sf-spec-row">
-                <button type="button" class="sf-btn" data-testid="sf-spec" (click)="openDossier(f)"
-                        [attr.aria-label]="'Open the full spec sheet for ' + f.name"
-                        title="Full-screen spec sheet — docs, metrics, integration guide">Spec ↗</button>
+                <button
+                  type="button"
+                  class="sf-btn"
+                  data-testid="sf-spec"
+                  (click)="openDossier(f)"
+                  [attr.aria-label]="'Open the full spec sheet for ' + f.name"
+                  title="Full-screen spec sheet — docs, metrics, integration guide"
+                >
+                  Spec ↗
+                </button>
               </div>
 
               @if (f.entitled === 'available') {
                 <div class="sf-actions">
-                  <button type="button" class="sf-btn" data-testid="sf-preview" (click)="togglePreview(f)"
-                          [attr.aria-pressed]="previewKey() === f.key">
+                  <button
+                    type="button"
+                    class="sf-btn"
+                    data-testid="sf-preview"
+                    (click)="togglePreview(f)"
+                    [attr.aria-pressed]="previewKey() === f.key"
+                  >
                     {{ previewKey() === f.key ? 'Hide preview' : 'Preview' }}
                   </button>
                 </div>
                 @if (previewKey() === f.key) {
                   <div class="sf-preview-panel" data-testid="sf-preview-panel">
                     <h3>Preview</h3>
-                    <p>Here's what visitors get with <strong>{{ f.name }}</strong>:</p>
-                    <p class="sf-preview-copy">{{ f.description }} You can enable it now and turn it off anytime — your live site updates instantly.</p>
+                    <p>
+                      Here's what visitors get with <strong>{{ f.name }}</strong
+                      >:
+                    </p>
+                    <p class="sf-preview-copy">
+                      {{ f.description }} You can enable it now and turn it off anytime — your live
+                      site updates instantly.
+                    </p>
                   </div>
                 }
               } @else {
                 <div class="sf-locked" data-testid="sf-locked">
                   <p class="sf-locked-msg">
                     @if (f.entitled === 'addon-required') {
-                      Available as an add-on — enable it to unlock <strong>{{ f.name }}</strong>.
+                      Available as an add-on — enable it to unlock <strong>{{ f.name }}</strong
+                      >.
                     } @else {
                       Included on the <strong>{{ f.requiredPlan }}</strong> plan and above.
                     }
                   </p>
-                  <a class="sf-locked-cta" data-testid="sf-locked-cta" routerLink="/admin/billing"
-                     [attr.aria-label]="(f.entitled === 'addon-required' ? 'Add ' : 'Upgrade to unlock ') + f.name">
+                  <a
+                    class="sf-locked-cta"
+                    data-testid="sf-locked-cta"
+                    routerLink="/admin/billing"
+                    [attr.aria-label]="
+                      (f.entitled === 'addon-required' ? 'Add ' : 'Upgrade to unlock ') + f.name
+                    "
+                  >
                     {{ f.entitled === 'addon-required' ? 'Add this feature' : 'Upgrade plan' }} →
                   </a>
                 </div>
@@ -210,9 +274,14 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
               @if (mode() === 'expert') {
                 <div class="sf-expert" data-testid="sf-expert">
                   <h3>Details</h3>
-                  <p><span class="sf-meta-label">Feature key:</span> <code>{{ f.key }}</code></p>
+                  <p>
+                    <span class="sf-meta-label">Feature key:</span> <code>{{ f.key }}</code>
+                  </p>
                   <p><span class="sf-meta-label">Entitlement:</span> {{ entitlementLabel(f) }}</p>
-                  <p><span class="sf-meta-label">Requires plan:</span> {{ f.requiredPlan }}{{ f.isAddon ? ' (or add-on)' : '' }}</p>
+                  <p>
+                    <span class="sf-meta-label">Requires plan:</span> {{ f.requiredPlan
+                    }}{{ f.isAddon ? ' (or add-on)' : '' }}
+                  </p>
                   @if (changesFor(f.key); as changes) {
                     @if (changes.length > 0) {
                       <div class="sf-timeline" data-testid="sf-timeline">
@@ -220,8 +289,14 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
                         <ul class="sf-timeline-list">
                           @for (ch of changes; track ch.at) {
                             <li class="sf-timeline-row">
-                              <span class="sf-tl-dot" [class.sf-tl-dot--on]="ch.enabled" aria-hidden="true"></span>
-                              <span class="sf-tl-state">{{ ch.enabled ? 'Enabled' : 'Disabled' }}</span>
+                              <span
+                                class="sf-tl-dot"
+                                [class.sf-tl-dot--on]="ch.enabled"
+                                aria-hidden="true"
+                              ></span>
+                              <span class="sf-tl-state">{{
+                                ch.enabled ? 'Enabled' : 'Disabled'
+                              }}</span>
                               <span class="sf-tl-at">{{ ch.at | date: 'shortTime' }}</span>
                             </li>
                           }
@@ -239,7 +314,15 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
       @if (lastChange(); as lc) {
         <div class="sf-undo-bar" role="status" data-testid="sf-undo">
           <span>{{ lc.name }} {{ lc.enabled ? 'enabled' : 'disabled' }}.</span>
-          <button type="button" class="sf-undo-btn" data-testid="sf-undo-btn" (click)="undo()" [disabled]="busy()[lc.key]">Undo</button>
+          <button
+            type="button"
+            class="sf-undo-btn"
+            data-testid="sf-undo-btn"
+            (click)="undo()"
+            [disabled]="busy()[lc.key]"
+          >
+            Undo
+          </button>
         </div>
       }
 
@@ -247,106 +330,434 @@ function entitlementForFreePlan(requiredPlan: PlanTier, isAddon: boolean): Entit
       <app-feature-dossier [model]="dossier()" [open]="dossierOpen()" (closed)="closeDossier()" />
     </section>
   `,
-  styles: [`
-    :host { display: block; box-sizing: border-box; width: 100%; min-width: 0; padding: 1.5rem; max-width: 1280px; margin: 0 auto; }
-    .sf-page { color: var(--ps-ink, #f4f4ff); }
-    .sf-header { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
-    .sf-head-left { min-width: 0; }
-    .sf-head-right { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
-    .sf-kicker { margin: 0 0 .25rem; font: 700 0.62rem/1 'JetBrains Mono', ui-monospace, monospace; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ps-accent, #00e5ff); opacity: 0.85; }
-    .sf-header h1 { font-size: clamp(1.5rem, 3vw, 2.25rem); margin: 0 0 .25rem; }
-    .sf-sub { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 72%, transparent); max-width: 66ch; }
-    .sf-sub strong { color: var(--ps-accent, #00e5ff); }
-    .sf-stat-dots { opacity: 0.5; letter-spacing: 0.1em; }
-    .sf-provisioning { display: flex; align-items: flex-start; gap: .6rem; margin-bottom: 1rem; padding: .7rem .9rem; font-size: .8rem; line-height: 1.45;
-      color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 80%, transparent);
-      background: color-mix(in oklch, var(--ps-accent, #00e5ff) 7%, transparent);
-      border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 28%, transparent); border-radius: 12px; }
-    .sf-provisioning-dot { flex: none; width: 8px; height: 8px; margin-top: .42rem; border-radius: 50%; background: var(--ps-accent, #00e5ff);
-      box-shadow: 0 0 0 0 color-mix(in oklch, var(--ps-accent, #00e5ff) 60%, transparent); animation: sf-prov-pulse 2s ease-out infinite; }
-    @keyframes sf-prov-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--ps-accent, #00e5ff) 55%, transparent); } 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
-    @media (prefers-reduced-motion: reduce) { .sf-provisioning-dot { animation: none; } }
-    .sf-provisioning-retry { margin-left: .35rem; background: none; border: none; padding: 0; font: inherit; color: var(--ps-accent, #00e5ff); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
-    .sf-provisioning-retry:disabled { opacity: .5; cursor: default; }
-    .sf-provisioning-retry:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; border-radius: 3px; }
-    .sf-cross-link { color: var(--ps-accent, #00e5ff); text-decoration: underline; }
-    .sf-cross-link:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; border-radius: 4px; }
-    .sf-refresh { background: transparent; border: 1px solid color-mix(in oklch, currentColor 30%, transparent); color: inherit; padding: .5rem 1rem; border-radius: 8px; cursor: pointer; font: inherit; min-height: 24px; }
-    .sf-refresh:hover { background: color-mix(in oklch, currentColor 10%, transparent); }
-    .sf-refresh:disabled { opacity: .5; cursor: not-allowed; }
-    .sf-refresh:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
-    .sf-toolbar { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.5rem; }
-    /* Visible filtered-count chip — sighted parity with the sr-only announcer (cyan accent), matching the System-Admin feature-flags toolbar. */
-    .sf-count { font-size: .72rem; font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap;
-      color: var(--ps-accent, #00e5ff); background: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent);
-      border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 28%, transparent); padding: .12rem .55rem; border-radius: 999px; }
-    .sf-count-sep { color: color-mix(in oklch, var(--ps-accent, #00e5ff) 55%, transparent); font-weight: 400; }
-    .sf-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 1rem; }
-    .sf-card { background: color-mix(in oklch, var(--ps-bg, #060610) 55%, transparent); border: 1px solid color-mix(in oklch, currentColor 14%, transparent); border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; gap: .65rem; transition: border-color .15s ease; }
-    .sf-card:hover { border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 28%, transparent); }
-    /* Calm, simply-styled Features cards: opt out of the global
+  styles: [
+    `
+      :host {
+        display: block;
+        box-sizing: border-box;
+        width: 100%;
+        min-width: 0;
+        padding: 1.5rem;
+        max-width: 1280px;
+        margin: 0 auto;
+      }
+      .sf-page {
+        color: var(--ps-ink, #f4f4ff);
+      }
+      .sf-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+      }
+      .sf-head-left {
+        min-width: 0;
+      }
+      .sf-head-right {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+      }
+      .sf-kicker {
+        margin: 0 0 0.25rem;
+        font:
+          700 0.62rem/1 'JetBrains Mono',
+          ui-monospace,
+          monospace;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--ps-accent, #00e5ff);
+        opacity: 0.85;
+      }
+      .sf-header h1 {
+        font-size: clamp(1.5rem, 3vw, 2.25rem);
+        margin: 0 0 0.25rem;
+      }
+      .sf-sub {
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 72%, transparent);
+        max-width: 66ch;
+      }
+      .sf-sub strong {
+        color: var(--ps-accent, #00e5ff);
+      }
+      .sf-stat-dots {
+        opacity: 0.5;
+        letter-spacing: 0.1em;
+      }
+      .sf-cross-link {
+        color: var(--ps-accent, #00e5ff);
+        text-decoration: underline;
+      }
+      .sf-cross-link:focus-visible {
+        outline: 2px solid var(--ps-accent, #00e5ff);
+        outline-offset: 2px;
+        border-radius: 4px;
+      }
+      .sf-refresh {
+        background: transparent;
+        border: 1px solid color-mix(in oklch, currentColor 30%, transparent);
+        color: inherit;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        cursor: pointer;
+        font: inherit;
+        min-height: 24px;
+      }
+      .sf-refresh:hover {
+        background: color-mix(in oklch, currentColor 10%, transparent);
+      }
+      .sf-refresh:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .sf-refresh:focus-visible {
+        outline: 2px solid var(--ps-accent, #00e5ff);
+        outline-offset: 2px;
+      }
+      .sf-toolbar {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 1.5rem;
+      }
+      /* Visible filtered-count chip — sighted parity with the sr-only announcer (cyan accent), matching the System-Admin feature-flags toolbar. */
+      .sf-count {
+        font-size: 0.72rem;
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        white-space: nowrap;
+        color: var(--ps-accent, #00e5ff);
+        background: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent);
+        border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 28%, transparent);
+        padding: 0.12rem 0.55rem;
+        border-radius: 999px;
+      }
+      .sf-count-sep {
+        color: color-mix(in oklch, var(--ps-accent, #00e5ff) 55%, transparent);
+        font-weight: 400;
+      }
+      .sf-grid {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
+        gap: 1rem;
+      }
+      .sf-card {
+        background: color-mix(in oklch, var(--ps-bg, #060610) 55%, transparent);
+        border: 1px solid color-mix(in oklch, currentColor 14%, transparent);
+        border-radius: 14px;
+        padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.65rem;
+        transition: border-color 0.15s ease;
+      }
+      .sf-card:hover {
+        border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 28%, transparent);
+      }
+      /* Calm, simply-styled Features cards: opt out of the global
        [class*="-card"]:hover translateY lift (_polish.scss) so neither the card
        nor its inner title bar/section raises on hover. .sf-page prefix wins the
        specificity battle against the global rule. */
-    .sf-page .sf-card:hover, .sf-page .sf-card-head:hover, .sf-page .sf-card-title:hover { transform: none; }
-    /* The inner head/title also match [class*="-card"], so the global hover rule
+      .sf-page .sf-card:hover,
+      .sf-page .sf-card-head:hover,
+      .sf-page .sf-card-title:hover {
+        transform: none;
+      }
+      /* The inner head/title also match [class*="-card"], so the global hover rule
        paints a box-shadow inset ring on them → a SECOND nested outline. Kill it
        on the inner elements (the outer .sf-card keeps its own border). */
-    .sf-page .sf-card-head:hover, .sf-page .sf-card-title:hover { box-shadow: none; }
-    .sf-card-on { border-color: color-mix(in oklch, #4ade80 38%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklch, #4ade80 16%, transparent); }
-    .sf-card[data-entitled="upgrade-required"], .sf-card[data-entitled="addon-required"] { opacity: .92; }
-    .sf-card-head { display: flex; align-items: start; justify-content: space-between; gap: .75rem; border: 0 !important; }
-    .sf-card-title { border: 0 !important; }
-    .sf-card-title h2 { margin: 0; font-size: 1.1rem; }
-    .sf-cat { font-size: .66rem; text-transform: uppercase; letter-spacing: .05em; color: color-mix(in oklch, var(--ps-accent, #00e5ff) 75%, var(--ps-ink, #f4f4ff)); }
-    .sf-switch { flex: none; width: 46px; height: 26px; border-radius: 999px; border: 1px solid color-mix(in oklch, currentColor 25%, transparent); background: color-mix(in oklch, currentColor 12%, transparent); position: relative; cursor: pointer; padding: 0; transition: background .15s ease, border-color .15s ease; }
-    .sf-switch-knob { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: color-mix(in oklch, currentColor 70%, transparent); transition: transform .15s ease, background .15s ease; }
-    .sf-switch-on { background: var(--ps-accent, #00e5ff); border-color: var(--ps-accent, #00e5ff); }
-    .sf-switch-on .sf-switch-knob { transform: translateX(20px); background: var(--ps-bg, #060610); }
-    .sf-switch:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
-    .sf-switch:disabled { opacity: .5; cursor: progress; }
-    .sf-desc { color: color-mix(in oklch, currentColor 72%, transparent); margin: 0; font-size: .9rem; line-height: 1.45; }
-    .sf-checklist { list-style: none; margin: .1rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
-    .sf-check { display: flex; align-items: flex-start; gap: .45rem; font-size: .82rem; line-height: 1.35; color: color-mix(in oklch, currentColor 80%, transparent); }
-    .sf-check-ic { flex: none; margin-top: .12rem; color: var(--ps-accent, #00e5ff); }
-    .sf-why { color: color-mix(in oklch, currentColor 56%, transparent); margin: 0; font-size: .8rem; font-style: italic; }
-    .sf-spec-row { display: flex; }
-    .sf-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: auto; }
-    .sf-btn { background: transparent; color: inherit; border: 1px solid color-mix(in oklch, currentColor 22%, transparent); padding: .35rem .75rem; border-radius: 8px; cursor: pointer; font: inherit; font-size: .82rem; min-height: 24px; }
-    .sf-btn:hover { border-color: var(--ps-accent, #00e5ff); color: var(--ps-accent, #00e5ff); }
-    .sf-btn:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
-    .sf-preview-panel { background: color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent); border-radius: 8px; padding: .85rem 1rem; }
-    .sf-preview-panel h3 { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; margin: 0 0 .5rem; color: var(--ps-accent, #00e5ff); }
-    .sf-preview-panel p { margin: 0 0 .4rem; font-size: .85rem; line-height: 1.45; }
-    .sf-preview-copy { color: color-mix(in oklch, currentColor 75%, transparent); }
-    .sf-locked { margin-top: auto; padding: .75rem .9rem; border-radius: 10px; border: 1px dashed color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent); background: color-mix(in oklch, var(--ps-accent, #00e5ff) 5%, transparent); }
-    .sf-locked-msg { margin: 0 0 .5rem; font-size: .82rem; color: color-mix(in oklch, currentColor 78%, transparent); }
-    .sf-locked-cta { font-size: .85rem; font-weight: 600; color: var(--ps-accent, #00e5ff); }
-    .sf-locked-cta:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; border-radius: 4px; }
-    .sf-expert { background: color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent); border-radius: 8px; padding: .75rem 1rem; }
-    .sf-expert h3 { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; margin: 0 0 .5rem; color: var(--ps-accent, #00e5ff); }
-    .sf-expert p { margin: 0 0 .35rem; font-size: .82rem; }
-    .sf-expert code { font-family: var(--ps-mono, ui-monospace, monospace); color: var(--ps-accent, #00e5ff); }
-    .sf-meta-label { color: color-mix(in oklch, currentColor 55%, transparent); }
-    .sf-timeline { margin-top: .6rem; padding-top: .5rem; border-top: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 14%, transparent); }
-    .sf-timeline-list { list-style: none; margin: .4rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
-    .sf-timeline-row { display: flex; align-items: center; gap: .5rem; font-size: .78rem; }
-    .sf-tl-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 35%, transparent); }
-    .sf-tl-dot--on { background: var(--ps-accent, #00e5ff); box-shadow: 0 0 5px color-mix(in oklch, var(--ps-accent, #00e5ff) 60%, transparent); }
-    .sf-tl-state { color: var(--ps-ink, #f4f4ff); }
-    .sf-tl-at { margin-left: auto; font-variant-numeric: tabular-nums; color: color-mix(in oklch, currentColor 50%, transparent); }
-    .sf-undo-bar { position: fixed; left: 50%; bottom: 1.5rem; transform: translateX(-50%); z-index: var(--ps-z-overlay-takeover, 100000);
-      display: flex; gap: 1rem; align-items: center; padding: .65rem 1.1rem; border-radius: 999px;
-      background: color-mix(in oklch, var(--ps-bg, #060610) 94%, var(--ps-accent, #00e5ff) 6%);
-      border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 35%, transparent); box-shadow: var(--ps-shadow-modal, 0 16px 40px rgba(0,0,0,.5)); font-size: .85rem; }
-    .sf-undo-btn { background: var(--ps-accent, #00e5ff); color: var(--ps-bg, #060610); border: 0; border-radius: 999px; padding: .3rem .85rem; font: inherit; font-weight: 600; cursor: pointer; min-height: 24px; }
-    .sf-undo-btn:hover { filter: brightness(1.08); }
-    .sf-undo-btn:focus-visible { outline: 2px solid var(--ps-ink, #f4f4ff); outline-offset: 2px; }
-    .sf-undo-btn:disabled { opacity: .5; cursor: progress; }
-    @media (prefers-reduced-motion: reduce) {
-      .sf-card, .sf-switch, .sf-switch-knob { transition: none; }
-    }
-  `],
+      .sf-page .sf-card-head:hover,
+      .sf-page .sf-card-title:hover {
+        box-shadow: none;
+      }
+      .sf-card-on {
+        border-color: color-mix(in oklch, #4ade80 38%, transparent);
+        box-shadow: inset 0 0 0 1px color-mix(in oklch, #4ade80 16%, transparent);
+      }
+      .sf-card[data-entitled='upgrade-required'],
+      .sf-card[data-entitled='addon-required'] {
+        opacity: 0.92;
+      }
+      .sf-card-head {
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        border: 0 !important;
+      }
+      .sf-card-title {
+        border: 0 !important;
+      }
+      .sf-card-title h2 {
+        margin: 0;
+        font-size: 1.1rem;
+      }
+      .sf-cat {
+        font-size: 0.66rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: color-mix(in oklch, var(--ps-accent, #00e5ff) 75%, var(--ps-ink, #f4f4ff));
+      }
+      .sf-switch {
+        flex: none;
+        width: 46px;
+        height: 26px;
+        border-radius: 999px;
+        border: 1px solid color-mix(in oklch, currentColor 25%, transparent);
+        background: color-mix(in oklch, currentColor 12%, transparent);
+        position: relative;
+        cursor: pointer;
+        padding: 0;
+        transition:
+          background 0.15s ease,
+          border-color 0.15s ease;
+      }
+      .sf-switch-knob {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: color-mix(in oklch, currentColor 70%, transparent);
+        transition:
+          transform 0.15s ease,
+          background 0.15s ease;
+      }
+      .sf-switch-on {
+        background: var(--ps-accent, #00e5ff);
+        border-color: var(--ps-accent, #00e5ff);
+      }
+      .sf-switch-on .sf-switch-knob {
+        transform: translateX(20px);
+        background: var(--ps-bg, #060610);
+      }
+      .sf-switch:focus-visible {
+        outline: 2px solid var(--ps-accent, #00e5ff);
+        outline-offset: 2px;
+      }
+      .sf-switch:disabled {
+        opacity: 0.5;
+        cursor: progress;
+      }
+      .sf-desc {
+        color: color-mix(in oklch, currentColor 72%, transparent);
+        margin: 0;
+        font-size: 0.9rem;
+        line-height: 1.45;
+      }
+      .sf-checklist {
+        list-style: none;
+        margin: 0.1rem 0 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+      }
+      .sf-check {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.45rem;
+        font-size: 0.82rem;
+        line-height: 1.35;
+        color: color-mix(in oklch, currentColor 80%, transparent);
+      }
+      .sf-check-ic {
+        flex: none;
+        margin-top: 0.12rem;
+        color: var(--ps-accent, #00e5ff);
+      }
+      .sf-why {
+        color: color-mix(in oklch, currentColor 56%, transparent);
+        margin: 0;
+        font-size: 0.8rem;
+        font-style: italic;
+      }
+      .sf-spec-row {
+        display: flex;
+      }
+      .sf-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-top: auto;
+      }
+      .sf-btn {
+        background: transparent;
+        color: inherit;
+        border: 1px solid color-mix(in oklch, currentColor 22%, transparent);
+        padding: 0.35rem 0.75rem;
+        border-radius: 8px;
+        cursor: pointer;
+        font: inherit;
+        font-size: 0.82rem;
+        min-height: 24px;
+      }
+      .sf-btn:hover {
+        border-color: var(--ps-accent, #00e5ff);
+        color: var(--ps-accent, #00e5ff);
+      }
+      .sf-btn:focus-visible {
+        outline: 2px solid var(--ps-accent, #00e5ff);
+        outline-offset: 2px;
+      }
+      .sf-preview-panel {
+        background: color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent);
+        border-radius: 8px;
+        padding: 0.85rem 1rem;
+      }
+      .sf-preview-panel h3 {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin: 0 0 0.5rem;
+        color: var(--ps-accent, #00e5ff);
+      }
+      .sf-preview-panel p {
+        margin: 0 0 0.4rem;
+        font-size: 0.85rem;
+        line-height: 1.45;
+      }
+      .sf-preview-copy {
+        color: color-mix(in oklch, currentColor 75%, transparent);
+      }
+      .sf-locked {
+        margin-top: auto;
+        padding: 0.75rem 0.9rem;
+        border-radius: 10px;
+        border: 1px dashed color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent);
+        background: color-mix(in oklch, var(--ps-accent, #00e5ff) 5%, transparent);
+      }
+      .sf-locked-msg {
+        margin: 0 0 0.5rem;
+        font-size: 0.82rem;
+        color: color-mix(in oklch, currentColor 78%, transparent);
+      }
+      .sf-locked-cta {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--ps-accent, #00e5ff);
+      }
+      .sf-locked-cta:focus-visible {
+        outline: 2px solid var(--ps-accent, #00e5ff);
+        outline-offset: 2px;
+        border-radius: 4px;
+      }
+      .sf-expert {
+        background: color-mix(in oklch, var(--ps-bg, #060610) 70%, transparent);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+      }
+      .sf-expert h3 {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin: 0 0 0.5rem;
+        color: var(--ps-accent, #00e5ff);
+      }
+      .sf-expert p {
+        margin: 0 0 0.35rem;
+        font-size: 0.82rem;
+      }
+      .sf-expert code {
+        font-family: var(--ps-mono, ui-monospace, monospace);
+        color: var(--ps-accent, #00e5ff);
+      }
+      .sf-meta-label {
+        color: color-mix(in oklch, currentColor 55%, transparent);
+      }
+      .sf-timeline {
+        margin-top: 0.6rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 14%, transparent);
+      }
+      .sf-timeline-list {
+        list-style: none;
+        margin: 0.4rem 0 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+      }
+      .sf-timeline-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.78rem;
+      }
+      .sf-tl-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex: none;
+        background: color-mix(in oklch, var(--ps-ink, #f4f4ff) 35%, transparent);
+      }
+      .sf-tl-dot--on {
+        background: var(--ps-accent, #00e5ff);
+        box-shadow: 0 0 5px color-mix(in oklch, var(--ps-accent, #00e5ff) 60%, transparent);
+      }
+      .sf-tl-state {
+        color: var(--ps-ink, #f4f4ff);
+      }
+      .sf-tl-at {
+        margin-left: auto;
+        font-variant-numeric: tabular-nums;
+        color: color-mix(in oklch, currentColor 50%, transparent);
+      }
+      .sf-undo-bar {
+        position: fixed;
+        left: 50%;
+        bottom: 1.5rem;
+        transform: translateX(-50%);
+        z-index: var(--ps-z-overlay-takeover, 100000);
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+        padding: 0.65rem 1.1rem;
+        border-radius: 999px;
+        background: color-mix(in oklch, var(--ps-bg, #060610) 94%, var(--ps-accent, #00e5ff) 6%);
+        border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 35%, transparent);
+        box-shadow: var(--ps-shadow-modal, 0 16px 40px rgba(0, 0, 0, 0.5));
+        font-size: 0.85rem;
+      }
+      .sf-undo-btn {
+        background: var(--ps-accent, #00e5ff);
+        color: var(--ps-bg, #060610);
+        border: 0;
+        border-radius: 999px;
+        padding: 0.3rem 0.85rem;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        min-height: 24px;
+      }
+      .sf-undo-btn:hover {
+        filter: brightness(1.08);
+      }
+      .sf-undo-btn:focus-visible {
+        outline: 2px solid var(--ps-ink, #f4f4ff);
+        outline-offset: 2px;
+      }
+      .sf-undo-btn:disabled {
+        opacity: 0.5;
+        cursor: progress;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .sf-card,
+        .sf-switch,
+        .sf-switch-knob {
+          transition: none;
+        }
+      }
+    `,
+  ],
 })
 export class AdminSiteFeaturesComponent implements OnInit {
   private readonly api = inject(ApiService);
@@ -363,8 +774,6 @@ export class AdminSiteFeaturesComponent implements OnInit {
   readonly loadErrorRef = signal('');
   readonly features = signal<SiteFeature[]>([]);
   readonly plan = signal<PlanTier>('free');
-  /** Read-only fallback active: the live /api/site-features route isn't serving JSON yet, so the catalog is shown but not togglable. */
-  readonly degraded = signal(false);
   readonly search = signal('');
   readonly busy = signal<Record<string, boolean>>({});
   readonly previewKey = signal<string | null>(null);
@@ -391,14 +800,21 @@ export class AdminSiteFeaturesComponent implements OnInit {
 
   readonly siteName = computed(() => this.state.selectedSite()?.business_name ?? 'your site');
   readonly enabledCount = computed(() => this.features().filter((f) => f.enabled).length);
-  readonly availableCount = computed(() => this.features().filter((f) => f.entitled === 'available').length);
+  readonly availableCount = computed(
+    () => this.features().filter((f) => f.entitled === 'available').length,
+  );
   /** True only during the initial catalog load (no data yet) — gates the header counts so they never assert a false "0 enabled · 0 available" over the loading skeleton. */
   readonly statsLoading = computed(() => this.loading() && this.features().length === 0);
 
   readonly filtered = computed(() => {
     const q = this.search().trim().toLowerCase();
     if (!q) return this.features();
-    return this.features().filter((f) => f.name.toLowerCase().includes(q) || f.description.toLowerCase().includes(q) || f.key.toLowerCase().includes(q));
+    return this.features().filter(
+      (f) =>
+        f.name.toLowerCase().includes(q) ||
+        f.description.toLowerCase().includes(q) ||
+        f.key.toLowerCase().includes(q),
+    );
   });
 
   readonly filterAnnouncement = computed(() => {
@@ -424,16 +840,35 @@ export class AdminSiteFeaturesComponent implements OnInit {
 
   setMode(m: DisclosureMode): void {
     this.mode.set(m);
-    try { localStorage.setItem(AdminSiteFeaturesComponent.MODE_KEY, m); } catch { /* private mode */ }
+    try {
+      localStorage.setItem(AdminSiteFeaturesComponent.MODE_KEY, m);
+    } catch {
+      /* private mode */
+    }
   }
 
   badgesFor(f: SiteFeature): FlagBadge[] {
     const badges: FlagBadge[] = [
-      { label: f.enabled ? 'Enabled' : 'Off', tone: f.enabled ? 'on' : 'off', title: `${f.name} is ${f.enabled ? 'enabled' : 'off'} on this site` },
+      {
+        label: f.enabled ? 'Enabled' : 'Off',
+        tone: f.enabled ? 'on' : 'off',
+        title: `${f.name} is ${f.enabled ? 'enabled' : 'off'} on this site`,
+      },
     ];
-    if (f.entitled === 'available') badges.push({ label: 'Included', tone: 'scope', title: `Included on your ${this.plan()} plan` });
-    else if (f.entitled === 'addon-required') badges.push({ label: 'Add-on', tone: 'warn', title: 'Available as an add-on' });
-    else badges.push({ label: `${f.requiredPlan}+`, tone: 'warn', title: `Requires the ${f.requiredPlan} plan` });
+    if (f.entitled === 'available')
+      badges.push({
+        label: 'Included',
+        tone: 'scope',
+        title: `Included on your ${this.plan()} plan`,
+      });
+    else if (f.entitled === 'addon-required')
+      badges.push({ label: 'Add-on', tone: 'warn', title: 'Available as an add-on' });
+    else
+      badges.push({
+        label: `${f.requiredPlan}+`,
+        tone: 'warn',
+        title: `Requires the ${f.requiredPlan} plan`,
+      });
     return badges;
   }
 
@@ -448,15 +883,21 @@ export class AdminSiteFeaturesComponent implements OnInit {
         ? 'Locked — add this feature to your plan to use it.'
         : `Locked — included on the ${f.requiredPlan} plan and above.`;
     }
-    if (f.enabled) return f.preview ? 'On + in preview mode for you only.' : 'On — live on your site for every visitor.';
+    if (f.enabled)
+      return f.preview
+        ? 'On + in preview mode for you only.'
+        : 'On — live on your site for every visitor.';
     return 'Off — flip the switch to turn it on. You can undo anytime.';
   }
 
   entitlementLabel(f: SiteFeature): string {
     switch (f.entitled) {
-      case 'available': return 'Available on your plan';
-      case 'addon-required': return 'Requires an add-on';
-      default: return `Requires the ${f.requiredPlan} plan`;
+      case 'available':
+        return 'Available on your plan';
+      case 'addon-required':
+        return 'Requires an add-on';
+      default:
+        return `Requires the ${f.requiredPlan} plan`;
     }
   }
 
@@ -482,56 +923,34 @@ export class AdminSiteFeaturesComponent implements OnInit {
     this.loadErrorRef.set('');
     try {
       const res = await firstValueFrom(
-        this.api.get<{ features: SiteFeature[]; plan: PlanTier }>(`/site-features${this.siteQuery}`),
+        this.api.get<{ features: SiteFeature[]; plan: PlanTier }>(
+          `/site-features${this.siteQuery}`,
+        ),
       );
       if (!res || !Array.isArray(res.features)) {
-        // The route returned a non-JSON / shapeless body (e.g. the worker predates
-        // /api/site-features → the request falls through to the SPA HTML). Show the
-        // catalog read-only instead of a blank page.
-        this.enterFallbackMode();
+        // A shapeless / non-JSON body — surface the honest retryable error, never invent a catalog.
+        this.error.set('Features are temporarily unavailable.');
         return;
       }
-      this.degraded.set(false);
       this.features.set(res.features);
       this.plan.set(res.plan ?? 'free');
     } catch (e) {
-      // Route-not-provisioned signals → read-only catalog fallback (never a scary
-      // error page): a 200 body that didn't parse as JSON (worker predates
-      // /api/site-features → SPA HTML), OR a 404 (the catalog route/site isn't
-      // live yet). A 404 is permanent until the worker deploys, so a red
-      // "Couldn't load / Retry / check you're signed in" card is the wrong signal.
-      // Only a genuine TRANSIENT failure (5xx / network / other 4xx like 400/422)
-      // keeps the retryable error card.
-      const status = (e as { status?: number })?.status;
-      if (status !== undefined && status >= 400 && status !== 404) {
-        this.error.set((e as Error).message ?? 'unknown error');
-        this.loadErrorRef.set(this.requestIdFrom(e));
-      } else {
-        this.enterFallbackMode();
-      }
+      // Any failure (404 / 5xx / network / non-JSON) → the honest retryable error card. The old
+      // read-only "fallback catalog" is gone: /api/site-features now always serves JSON, so a
+      // failure is a real anomaly (never a pre-deploy gap masked by an invented catalog).
+      this.error.set((e as Error).message ?? 'unknown error');
+      this.loadErrorRef.set(this.requestIdFrom(e));
     } finally {
       this.loading.set(false);
     }
   }
 
-  /** Populate the read-only catalog fallback (live management activates once the worker route is serving JSON). */
-  private enterFallbackMode(): void {
-    this.degraded.set(true);
-    this.error.set(null);
-    this.plan.set('free');
-    this.features.set(
-      SITE_FEATURE_CATALOG_DISPLAY.map((f) => ({
-        ...f,
-        entitled: entitlementForFreePlan(f.requiredPlan, f.isAddon),
-        enabled: false,
-        preview: false,
-      })),
-    );
-  }
-
   /** Pull the worker request_id from a failed response ({ error: { request_id } }) for the support reference. */
   private requestIdFrom(e: unknown): string {
-    return ((e as { error?: { error?: { request_id?: string } } } | undefined)?.error?.error?.request_id) ?? '';
+    return (
+      (e as { error?: { error?: { request_id?: string } } } | undefined)?.error?.error
+        ?.request_id ?? ''
+    );
   }
 
   togglePreview(f: SiteFeature): void {
@@ -587,7 +1006,7 @@ export class AdminSiteFeaturesComponent implements OnInit {
   }
 
   async toggle(f: SiteFeature): Promise<void> {
-    if (this.degraded() || f.entitled !== 'available' || this.busy()[f.key]) return;
+    if (f.entitled !== 'available' || this.busy()[f.key]) return;
     await this.setEnabled(f, !f.enabled);
   }
 
@@ -599,15 +1018,23 @@ export class AdminSiteFeaturesComponent implements OnInit {
     }
     const before = this.features();
     // Optimistic flip.
-    this.features.update((list) => list.map((x) => (x.key === f.key ? { ...x, enabled: next } : x)));
+    this.features.update((list) =>
+      list.map((x) => (x.key === f.key ? { ...x, enabled: next } : x)),
+    );
     this.busy.update((b) => ({ ...b, [f.key]: true }));
     try {
       await firstValueFrom(
-        this.api.post(`/site-features/${encodeURIComponent(f.key)}`, { site_id: siteId, enabled: next, preview: f.preview }, { silent: true }),
+        this.api.post(
+          `/site-features/${encodeURIComponent(f.key)}`,
+          { site_id: siteId, enabled: next, preview: f.preview },
+          { silent: true },
+        ),
       );
       this.toast.success(`${f.name} ${next ? 'enabled' : 'disabled'}.`);
       this.lastChange.set({ key: f.key, name: f.name, enabled: next });
-      this.changeLog.update((log) => [{ key: f.key, enabled: next, at: Date.now() }, ...log].slice(0, 50));
+      this.changeLog.update((log) =>
+        [{ key: f.key, enabled: next, at: Date.now() }, ...log].slice(0, 50),
+      );
     } catch (e) {
       this.features.set(before);
       const status = (e as { status?: number }).status ?? 'error';

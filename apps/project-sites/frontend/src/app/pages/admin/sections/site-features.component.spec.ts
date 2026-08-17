@@ -46,9 +46,18 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
     status = 200,
   ): Promise<void> {
     try {
-      localStorage.setItem('ps_session', JSON.stringify({ token: 'tkn_sf_test', identifier: 'test@megabyte.space', createdAt: Date.now() }));
+      localStorage.setItem(
+        'ps_session',
+        JSON.stringify({
+          token: 'tkn_sf_test',
+          identifier: 'test@megabyte.space',
+          createdAt: Date.now(),
+        }),
+      );
       localStorage.removeItem('ff.mode.features');
-    } catch { /* private mode */ }
+    } catch {
+      /* private mode */
+    }
     toastError = jasmine.createSpy('error');
     toastSuccess = jasmine.createSpy('success');
     TestBed.configureTestingModule({
@@ -58,7 +67,10 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: ToastService, useValue: { error: toastError, success: toastSuccess } },
-        { provide: AdminStateService, useValue: { selectedSite: () => ({ id: SITE_ID, business_name: 'Acme Co' }) } },
+        {
+          provide: AdminStateService,
+          useValue: { selectedSite: () => ({ id: SITE_ID, business_name: 'Acme Co' }) },
+        },
       ],
     });
     fixture = TestBed.createComponent(AdminSiteFeaturesComponent);
@@ -75,7 +87,12 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
   }
 
   afterEach(() => {
-    try { localStorage.removeItem('ps_session'); localStorage.removeItem('ff.mode.features'); } catch { /* */ }
+    try {
+      localStorage.removeItem('ps_session');
+      localStorage.removeItem('ff.mode.features');
+    } catch {
+      /* */
+    }
     httpMock.verify();
     TestBed.resetTestingModule();
   });
@@ -95,8 +112,12 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
   it('the header counts show "…" (not a false 0) while the catalog loads', async () => {
     await build(null); // GET pending → loading true, features empty
     const sub = fixture.nativeElement.querySelector('.sf-sub') as HTMLElement;
-    expect(sub.textContent ?? '').withContext('honest loading placeholder, not "0 enabled · 0 available"').toContain('…');
-    expect(sub.querySelector('app-rolling-counter')).withContext('no rolling count over the skeleton').toBeNull();
+    expect(sub.textContent ?? '')
+      .withContext('honest loading placeholder, not "0 enabled · 0 available"')
+      .toContain('…');
+    expect(sub.querySelector('app-rolling-counter'))
+      .withContext('no rolling count over the skeleton')
+      .toBeNull();
     httpMock.expectOne(GET_URL).flush({ features: [], plan: 'free' }); // satisfy httpMock.verify()
     await fixture.whenStable();
   });
@@ -110,24 +131,30 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
 
   it('captures the request_id from a transient (5xx) catalog failure (copyable support reference)', async () => {
     await build(null); // GET pending → we flush a 5xx with a request_id body
-    httpMock.expectOne(GET_URL).flush({ error: { request_id: 'req-sf-9' } }, { status: 500, statusText: 'Error' });
+    httpMock
+      .expectOne(GET_URL)
+      .flush({ error: { request_id: 'req-sf-9' } }, { status: 500, statusText: 'Error' });
     await fixture.whenStable();
     fixture.detectChanges();
     expect(component.error()).withContext('transient failure shows the error card').toBeTruthy();
     expect(component.loadErrorRef()).withContext('support reference captured').toBe('req-sf-9');
   });
 
-  it('404 (catalog route not provisioned) → calm read-only fallback, never a scary red error card', async () => {
-    // The SITE_FEATURE_CATALOG (child-site features) was fully removed 2026-08-13, so the
-    // degraded read-only fallback now maps an EMPTY hardcoded catalog → the "No features yet"
-    // empty state. A 404 must still never surface a red error/Retry card (Retry is futile).
+  it('404 (catalog route failure) → the honest retryable error card, not a silently-invented fallback', async () => {
+    // The read-only "fallback catalog" was DELETED (iter-179): /api/site-features now always
+    // serves JSON, so a 404 is a real anomaly — it surfaces the honest retryable error card
+    // (like any other failure), never an invented catalog masquerading as the real one.
     await build({ features: [] }, 404);
-    expect(component.error()).withContext('404 is not a transient error — no error string set').toBeNull();
-    expect(component.degraded()).withContext('404 → read-only fallback flag still set').toBeTrue();
+    expect(component.error())
+      .withContext('404 sets the error string (honest failure)')
+      .toBeTruthy();
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.querySelector('app-error-card')).withContext('no scary red error card for a 404').toBeNull();
-    expect(host.querySelectorAll('.sf-card').length).withContext('emptied child-site catalog → no cards').toBe(0);
-    expect(host.querySelector('app-empty-state')).withContext('empty catalog → calm empty state, not a crash').not.toBeNull();
+    expect(host.querySelector('app-error-card'))
+      .withContext('404 → retryable error card')
+      .not.toBeNull();
+    expect(host.querySelectorAll('.sf-card').length)
+      .withContext('no invented fallback cards')
+      .toBe(0);
   });
 
   it('renders the empty state when there are no features', async () => {
@@ -151,8 +178,13 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
   });
 
   it('an entitled feature toggles ON: POSTs site-scoped, flips optimistically, shows undo', async () => {
-    await build({ plan: 'pro', features: [feat({ key: 'online_booking', enabled: false, entitled: 'available' })] });
-    const toggle: HTMLButtonElement = fixture.nativeElement.querySelector('[data-testid="sf-toggle"]');
+    await build({
+      plan: 'pro',
+      features: [feat({ key: 'online_booking', enabled: false, entitled: 'available' })],
+    });
+    const toggle: HTMLButtonElement = fixture.nativeElement.querySelector(
+      '[data-testid="sf-toggle"]',
+    );
     expect(toggle).not.toBeNull();
     toggle.click();
     const req = httpMock.expectOne('/api/site-features/online_booking');
@@ -166,8 +198,11 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="sf-undo"]')).not.toBeNull();
   });
 
-  it('expert mode shows a per-feature session timeline of the owner\'s changes', async () => {
-    await build({ plan: 'pro', features: [feat({ key: 'online_booking', enabled: false, entitled: 'available' })] });
+  it("expert mode shows a per-feature session timeline of the owner's changes", async () => {
+    await build({
+      plan: 'pro',
+      features: [feat({ key: 'online_booking', enabled: false, entitled: 'available' })],
+    });
     component.setMode('expert');
     fixture.detectChanges();
     // No timeline before any change this session.
@@ -185,7 +220,10 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
   });
 
   it('NEVER toggles a locked feature — no POST fires (entitlement guard)', async () => {
-    await build({ plan: 'free', features: [feat({ key: 'locked', entitled: 'upgrade-required', requiredPlan: 'business' })] });
+    await build({
+      plan: 'free',
+      features: [feat({ key: 'locked', entitled: 'upgrade-required', requiredPlan: 'business' })],
+    });
     // No toggle button is even rendered for a locked card…
     expect(fixture.nativeElement.querySelector('[data-testid="sf-toggle"]')).toBeNull();
     // …and calling toggle() directly is a guarded no-op (server is never hit).
@@ -196,9 +234,14 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
   });
 
   it('reverts the optimistic flip + toasts when the toggle POST fails (403 plan-gate)', async () => {
-    await build({ plan: 'pro', features: [feat({ key: 'online_booking', enabled: false, entitled: 'available' })] });
+    await build({
+      plan: 'pro',
+      features: [feat({ key: 'online_booking', enabled: false, entitled: 'available' })],
+    });
     fixture.nativeElement.querySelector('[data-testid="sf-toggle"]').click();
-    httpMock.expectOne('/api/site-features/online_booking').flush('forbidden', { status: 403, statusText: 'Forbidden' });
+    httpMock
+      .expectOne('/api/site-features/online_booking')
+      .flush('forbidden', { status: 403, statusText: 'Forbidden' });
     await fixture.whenStable();
     fixture.detectChanges();
     expect(component.features()[0].enabled).toBeFalse(); // reverted
@@ -210,7 +253,12 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
       plan: 'pro',
       features: [
         feat({ key: 'online_booking', name: 'Online Booking', entitled: 'available' }),
-        feat({ key: 'live_chat', name: 'Live Chat', description: 'Chat with visitors.', entitled: 'available' }),
+        feat({
+          key: 'live_chat',
+          name: 'Live Chat',
+          description: 'Chat with visitors.',
+          entitled: 'available',
+        }),
       ],
     });
     component.search.set('booking');
