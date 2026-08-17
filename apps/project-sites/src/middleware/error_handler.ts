@@ -95,7 +95,12 @@ export const errorHandler: ErrorHandler<{
   const requestId = c.get('requestId') ?? 'unknown';
   const url = c.req.url;
   const method = c.req.method;
-  const isHtml = prefersHtml(c.req.header('accept'));
+  // `/api/*` errors are ALWAYS machine-readable JSON — never the branded HTML
+  // page — even when Accept prefers text/html (a browser doing `fetch('/api/…')`
+  // sends `Accept: text/html,…` but an SDK/fetch caller expects JSON; serving HTML
+  // is a soft-404 that breaks JSON parsing). Branded HTML stays for marketing/SPA
+  // routes. (fire-27: foreign/nonexistent /api/sites/:id/* served HTML-404.)
+  const isHtml = !c.req.path.startsWith('/api/') && prefersHtml(c.req.header('accept'));
 
   // Safely access executionCtx (not available in test environments)
   let ctx: ExecutionContext | undefined;
