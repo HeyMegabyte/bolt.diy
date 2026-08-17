@@ -80,6 +80,62 @@ describe('AdminFormsComponent (cohesion + a11y, convergence r17)', () => {
     TestBed.resetTestingModule();
   });
 
+  // The worker caps the list at the 200 most-recent rows but returns the TRUE
+  // total in `meta.total` (+ has_more) precisely so the count pill can't lie. A
+  // site with >200 leads was showing "200 submissions" (under-reporting real,
+  // revenue-bearing leads) because the FE read only `data` and ignored `meta`.
+  it('count reflects the SERVER total (meta.total), not just the loaded page — no lying-count past the cap', () => {
+    build(null);
+    const rows = Array.from({ length: 200 }, (_, i) => ({
+      id: `s${i}`,
+      form_name: 'contact',
+      email: `u${i}@x.com`,
+      payload: '{}',
+      status: 'received',
+      created_at: '2026-08-01T00:00:00Z',
+      fields: {},
+    }));
+    get.and.callFake((url: string) => {
+      if (url.includes('/ai-settings')) {
+        return of({ data: { form_router_prompt: '', form_router_prompt_default: '', reply_email: '' } });
+      }
+      if (url.includes('/mcp/connections')) {
+        return of({ data: { connections: [] } });
+      }
+      if (url.includes('/form-submissions')) {
+        return of({ data: rows, meta: { limit: 200, offset: 0, total: 250, has_more: true } });
+      }
+      return of({ data: [] });
+    });
+    selectedSite.set({ id: 'site-1' });
+    fixture.detectChanges();
+
+    expect(component.submissions().length).toBe(200); // the loaded page
+    expect(component.totalCount()).toBe(250); // the TRUE lead count from meta
+    expect(component.hasHiddenLeads()).toBe(true); // more leads exist than are shown
+  });
+
+  it('totalCount falls back to the loaded length when meta is absent (older worker / no cap)', () => {
+    build(null);
+    get.and.callFake((url: string) => {
+      if (url.includes('/ai-settings')) {
+        return of({ data: { form_router_prompt: '', form_router_prompt_default: '', reply_email: '' } });
+      }
+      if (url.includes('/mcp/connections')) {
+        return of({ data: { connections: [] } });
+      }
+      if (url.includes('/form-submissions')) {
+        return of({ data: [{ id: 'a', form_name: 'c', email: 'a@b.com', payload: '{}', status: 'received', created_at: '2026-08-01T00:00:00Z', fields: {} }] });
+      }
+      return of({ data: [] });
+    });
+    selectedSite.set({ id: 'site-1' });
+    fixture.detectChanges();
+
+    expect(component.totalCount()).toBe(1);
+    expect(component.hasHiddenLeads()).toBe(false);
+  });
+
   it('does NOT fetch anything on mount when no site is selected (deep-link)', () => {
     build(null);
     expect(get).not.toHaveBeenCalled();
@@ -393,10 +449,17 @@ describe('AdminFormsComponent (test-panel accessible names)', () => {
 
 describe('AdminFormsComponent (submission-cap honesty)', () => {
   let fixture: ComponentFixture<AdminFormsComponent>;
-  function render(n: number): HTMLElement {
+  // Drives the REAL load path: the get mock returns `n` rows + the worker's
+  // `meta.total` (defaults to `n` when omitted). The cap-note is honest — it fires
+  // only when the store holds MORE than the loaded page (`total > n`), not merely
+  // when the page is full.
+  function render(n: number, total?: number): HTMLElement {
     const selectedSite = signal<{ id: string } | null>({ id: 's1' });
+    const rows = Array.from({ length: n }, (_, i) => ({ id: 'x' + i, form_name: 'c', email: '', status: 'received', fields: {}, created_at: '', payload: '{}' }));
     const get = jasmine.createSpy('get').and.callFake((url: string) =>
-      url.includes('/form-submissions') ? of({ data: [] }) : of({ data: {} }));
+      url.includes('/form-submissions')
+        ? of({ data: rows, meta: { limit: 200, offset: 0, total: total ?? n, has_more: (total ?? n) > n } })
+        : of({ data: {} }));
     TestBed.configureTestingModule({
       imports: [AdminFormsComponent],
       providers: [
@@ -407,21 +470,31 @@ describe('AdminFormsComponent (submission-cap honesty)', () => {
       ],
     });
     fixture = TestBed.createComponent(AdminFormsComponent);
-    fixture.detectChanges();
+    fixture.detectChanges(); // ngOnInit → reload() populates submissions + metaTotal
     fixture.componentInstance.loading.set(false);
-    fixture.componentInstance.submissions.set(Array.from({ length: n }, (_, i) => ({ id: 'x' + i, status: 'new', fields: {}, created_at: '' } as never)));
     fixture.detectChanges();
     return fixture.nativeElement as HTMLElement;
   }
   afterEach(() => { try { localStorage.clear(); } catch { /* */ } TestBed.resetTestingModule(); });
 
-  it('shows the "latest 200" note when the inbox hits the server cap (silent-truncation honesty)', () => {
-    const host = render(200);
-    expect(host.querySelector('[data-testid="forms-cap-note"]')?.textContent).withContext('user must know older submissions exist').toContain('latest 200');
+  it('shows an HONEST "latest N of M" note when more leads exist than are loaded (silent-truncation honesty)', () => {
+    // 200 loaded, but the store holds 250 (meta.total) → the operator must know the
+    // real count AND that 50 are not on screen. Old bug: hardcoded "latest 200" that
+    // fired at exactly 200 loaded and hid the true total.
+    const host = render(200, 250);
+    const note = host.querySelector('[data-testid="forms-cap-note"]')?.textContent;
+    expect(note).withContext('user must know older submissions exist').toContain('latest 200');
+    expect(note).withContext('user must see the TRUE total').toContain('250');
   });
 
-  it('does NOT show the cap note below the cap', () => {
+  it('does NOT show the cap note when everything is loaded (loaded === total)', () => {
     const host = render(12);
+    expect(host.querySelector('[data-testid="forms-cap-note"]')).toBeNull();
+  });
+
+  it('does NOT show the cap note even at a full 200-row page when nothing is hidden (total === loaded)', () => {
+    // A full page is not itself a truncation — the note must fire on hidden leads, not page-fullness.
+    const host = render(200, 200);
     expect(host.querySelector('[data-testid="forms-cap-note"]')).toBeNull();
   });
 });

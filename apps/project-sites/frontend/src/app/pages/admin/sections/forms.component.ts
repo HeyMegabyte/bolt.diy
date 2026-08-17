@@ -148,11 +148,11 @@ const POLL_INTERVAL_MS = 10_000;
         <div class="flex items-center justify-between gap-4 flex-wrap mt-1">
           <h2 class="section-h text-lg font-bold text-white m-0 flex items-center gap-2">
             Forms
-            @if (submissions().length > 0) {
-              <span class="header-pill" [attr.aria-label]="submissions().length + ' submission' + (submissions().length === 1 ? '' : 's') + ' in inbox'" title="Submissions in the inbox">
+            @if (totalCount() > 0) {
+              <span class="header-pill" [attr.aria-label]="totalCount() + ' submission' + (totalCount() === 1 ? '' : 's') + ' in inbox'" title="Total submissions stored (the inbox shows the most recent)">
                 <span class="header-pill-dot" aria-hidden="true"></span>
-                <app-rolling-counter [value]="submissions().length" [duration]="900" aria-hidden="true" />
-                submission{{ submissions().length === 1 ? '' : 's' }}
+                <app-rolling-counter [value]="totalCount()" [duration]="900" aria-hidden="true" />
+                submission{{ totalCount() === 1 ? '' : 's' }}
               </span>
             }
           </h2>
@@ -451,9 +451,9 @@ const POLL_INTERVAL_MS = 10_000;
               }
             </div>
             <span class="text-[0.7rem] text-text-secondary">{{ filteredSubmissions().length }} / {{ submissions().length }}</span>
-            @if (submissions().length >= submissionCap) {
+            @if (hasHiddenLeads()) {
               <span class="text-[0.66rem] text-amber-300/90" data-testid="forms-cap-note"
-                    title="The inbox shows the {{ submissionCap }} most recent submissions. Older ones are still stored.">· latest {{ submissionCap }}</span>
+                    title="Showing the {{ submissions().length }} most recent of {{ totalCount() }} stored submissions. Older leads are still stored.">· latest {{ submissions().length }} of {{ totalCount() }}</span>
             }
             <button class="btn-ghost text-xs inline-flex items-center gap-1.5" type="button" data-testid="forms-export-csv"
                     [disabled]="exportRows().length === 0" (click)="exportCsv()"
@@ -922,10 +922,19 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
   private toast = inject(ToastService);
 
   submissions = signal<Submission[]>([]);
-  /** The worker caps GET /form-submissions at the 200 most-recent rows. When the
-   *  inbox hits this, surface a "latest 200" note so the operator knows older
-   *  submissions exist (still stored) rather than silently assuming they see all. */
-  readonly submissionCap = 200;
+  /** Raw `meta.total` from the last load (a worker `COUNT(*)`); 0 when unknown. */
+  private readonly metaTotal = signal(0);
+  /** TRUE lead count: the worker's `meta.total` when known, else the loaded page
+   *  length. The count pill reads THIS, never bare `submissions().length` — a
+   *  hardcoded LIMIT with no total silently under-reports leads (= revenue) once a
+   *  site gets popular. The `max` also keeps the pill honest if any path sets
+   *  `submissions` without a meta total (never < what's actually on screen). */
+  readonly totalCount = computed(() => Math.max(this.metaTotal(), this.submissions().length));
+  /** True when the store holds more leads than the loaded page shows — drives the
+   *  honest "showing latest N of M" note instead of pretending the page is everything.
+   *  (The worker caps the page at the 200 most-recent rows; `hasHiddenLeads` fires
+   *  off the real `meta.total`, so the note shows exact counts, not a hardcoded 200.) */
+  readonly hasHiddenLeads = computed(() => this.totalCount() > this.submissions().length);
   loading = signal(false);
   /** Persistent submissions-load failure — so a fetch error shows a Retry card, not a fake "No submissions yet" empty state. */
   loadError = signal<string | null>(null);
@@ -1493,9 +1502,20 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     if (!site) return;
     if (!opts.silent) this.loading.set(true);
     if (!opts.silent) { this.loadError.set(null); this.loadErrorRef.set(''); }
-    this.api.get<{ data: Submission[] }>(`/sites/${site.id}/form-submissions`, undefined, { silent: true }).subscribe({
+    this.api
+      .get<{ data: Submission[]; meta?: { total?: number; has_more?: boolean } }>(
+        `/sites/${site.id}/form-submissions`,
+        undefined,
+        { silent: true },
+      )
+      .subscribe({
       next: (r) => {
-        this.submissions.set(r.data ?? []);
+        const rows = r.data ?? [];
+        this.submissions.set(rows);
+        // The count pill reflects the TRUE total (meta.total), not the loaded page —
+        // else a site with >200 leads reads "200" and hides real leads. `metaTotal`=0
+        // (older worker w/o meta) makes totalCount fall back to the loaded length.
+        this.metaTotal.set(r.meta?.total ?? 0);
         this.loadError.set(null);
         this.loading.set(false);
       },
