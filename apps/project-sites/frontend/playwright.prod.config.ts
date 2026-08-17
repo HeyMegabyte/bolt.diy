@@ -37,6 +37,15 @@ export default defineConfig({
   // 2 retries: this targets the LIVE site whose persistent editor iframe adds
   // first-load network time, so the first attempt can be timing-flaky.
   retries: 2,
+  // 60s per-test (vs Playwright's 30s default; the sibling WORKER cert config uses 45s):
+  // these are PROD journeys — real edge latency + a persistent WebContainer iframe +
+  // full-suite parallel contention. Deep multi-step tests (create → nav → hard-reload →
+  // verify → cleanup) legitimately take 20-45s under load and randomly tipped the 30s
+  // default (env-vars / ai-endpoints / timeline-notes each flaked on different runs).
+  // Inner waits (waitForResponse 12s, toBeVisible 8s, expect 5s) still fail a REAL product
+  // hang fast — this only absorbs cumulative-latency-under-load, never masks one. (Bound
+  // every in-page fetch with AbortSignal.timeout so a hang fails fast, not at this ceiling.)
+  timeout: 60_000,
   reporter: [['line']],
   use: {
     baseURL: process.env.PROD_URL || 'https://projectsites.dev',
