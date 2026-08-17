@@ -393,7 +393,8 @@ describe('GET /api/social/:platform/callback', () => {
     // thrown exchange error → the callback must NOT echo that raw body to the client.
     // The provider's response can carry token hints, invalid_grant reasons, internal
     // URLs. Client gets a generic message; the raw text is logged server-side only.
-    const leakyBody = 'twitter_exchange_failed:400:{"error":"invalid_grant","secret_hint":"abc123","reason":"internal"}';
+    const leakyBody =
+      'twitter_exchange_failed:400:{"error":"invalid_grant","secret_hint":"abc123","reason":"internal"}';
     const exchangeCode = jest.fn(async () => {
       throw new Error(leakyBody);
     });

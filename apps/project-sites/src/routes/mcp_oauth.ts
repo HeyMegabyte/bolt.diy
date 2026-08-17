@@ -226,7 +226,12 @@ mcpOauth.get('/api/mcp/:provider/callback', async (c) => {
         }),
       );
       return c.json(
-        { error: { code: 'OAUTH_EXCHANGE_FAILED', message: 'Connection failed — please try again.' } },
+        {
+          error: {
+            code: 'OAUTH_EXCHANGE_FAILED',
+            message: 'Connection failed — please try again.',
+          },
+        },
         502,
       );
     }
@@ -281,7 +286,9 @@ mcpOauth.get('/api/mcp/:provider/callback', async (c) => {
       }),
     );
     return c.json(
-      { error: { code: 'OAUTH_EXCHANGE_FAILED', message: 'Connection failed — please try again.' } },
+      {
+        error: { code: 'OAUTH_EXCHANGE_FAILED', message: 'Connection failed — please try again.' },
+      },
       502,
     );
   }
