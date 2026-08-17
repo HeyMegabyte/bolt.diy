@@ -69,8 +69,9 @@ const PAGE_META: Record<string, PageMeta> = {
     description: 'Practical guides on AI-powered website building for small businesses — SEO, design, conversion, and launch tips from the ProjectSites team.',
   },
   'changelog': {
-    title: 'Changelog - ProjectSites',
-    description: 'See what\'s new in ProjectSites. Feature releases, improvements, and fixes. Subscribe via RSS.',
+    title: 'Changelog — Latest Features, Fixes & Updates | ProjectSites',
+    description:
+      'See what\'s new in ProjectSites — the latest feature releases, product improvements, and bug fixes, shipped continuously. Subscribe via RSS.',
   },
   'roadmap': {
     title: 'Product Roadmap — Shipped, In Progress & Next | ProjectSites',
@@ -83,6 +84,11 @@ const PAGE_META: Record<string, PageMeta> = {
   'press': {
     title: 'Press Kit — Brand Assets & Media Contacts | ProjectSites',
     description: 'Brand assets, founder bio, fact sheet, 8-slide cinematic picture walkthrough, press releases, and media contacts for ProjectSites by Megabyte Labs.',
+  },
+  'developers': {
+    title: 'Developer Platform — MCP Server, API & CLI | ProjectSites',
+    description:
+      'Build on ProjectSites with our MCP server, REST API, and CLI. Programmatic site generation, deploys, and management for developers and AI agents.',
   },
   'status': {
     title: 'System Status - ProjectSites',

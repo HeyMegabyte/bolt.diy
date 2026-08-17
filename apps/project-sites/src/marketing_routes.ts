@@ -117,6 +117,31 @@ export const MARKETING_META: Readonly<Record<string, MarketingMeta>> = {
     description:
       'Practical guides on AI-powered website building for small businesses — SEO, design, conversion, and launch tips from the ProjectSites team.',
   },
+  '/roadmap': {
+    title: 'Product Roadmap — Shipped, In Progress & Next | ProjectSites',
+    description:
+      'See what we are building next for ProjectSites. Trello-style public roadmap with shipped, in-progress, and planned features.',
+  },
+  '/integrations': {
+    title: 'Integrations — Stripe, Square, OpenAI & 30+ | ProjectSites',
+    description:
+      'Connect ProjectSites with Stripe, Square, Twilio, OpenAI, Anthropic, Slack, HubSpot, and 30 more services across nine categories.',
+  },
+  '/press': {
+    title: 'Press Kit — Brand Assets & Media Contacts | ProjectSites',
+    description:
+      'Brand assets, founder bio, fact sheet, 8-slide cinematic picture walkthrough, press releases, and media contacts for ProjectSites by Megabyte Labs.',
+  },
+  '/developers': {
+    title: 'Developer Platform — MCP Server, API & CLI | ProjectSites',
+    description:
+      'Build on ProjectSites with our MCP server, REST API, and CLI. Programmatic site generation, deploys, and management for developers and AI agents.',
+  },
+  '/changelog': {
+    title: 'Changelog — Latest Features, Fixes & Updates | ProjectSites',
+    description:
+      "See what's new in ProjectSites — the latest feature releases, product improvements, and bug fixes, shipped continuously. Subscribe via RSS.",
+  },
 };
 
 /**

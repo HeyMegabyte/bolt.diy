@@ -210,3 +210,75 @@ describe('applyMarketingMeta — /blog/:slug posts get the POST title/desc (not 
     });
   });
 });
+
+describe('applyMarketingMeta — previously-generic marketing routes now get route-specific SSR meta', () => {
+  // These 5 public, indexable routes shipped with the GENERIC homepage <title>
+  // ("ProjectSites — We deliver websites in minutes") because each was in
+  // KNOWN_MARKETING_PREFIXES (so the shell served 200) but had NO MARKETING_META
+  // entry — the HTMLRewriter rewrote canonical/og:url yet left the homepage
+  // title/description. Crawlers + social unfurlers therefore saw the wrong title
+  // for every one of them (weak SEO + duplicate-title cards). Regression-locks the
+  // fix that added their entries.
+  const NEWLY_FIXED = ['/roadmap', '/integrations', '/press', '/developers', '/changelog'];
+
+  // Mirror the worker's escAttr: titles carry `&` (e.g. "OpenAI & 30+"), which is
+  // injected as `&amp;` in the served HTML (valid entity encoding). Assert against
+  // the escaped form so the test matches the real bytes crawlers receive.
+  const esc = (s: string): string =>
+    s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  it.each(NEWLY_FIXED)(
+    '%s injects its own <title> + description + twitter card (not the homepage default)',
+    (route) => {
+      const url = `https://projectsites.dev${route}`;
+      const out = applyMarketingMeta(SHELL, route, url);
+      const m = MARKETING_META[route];
+      expect(m).toBeTruthy(); // route must have a MARKETING_META entry
+      expect(out).toContain(`<title>${esc(m.title)}</title>`);
+      expect(out).toContain(esc(m.description));
+      expect(out).toContain(`<meta name="twitter:title" content="${esc(m.title)}">`);
+      expect(out).not.toContain('We deliver websites in minutes'); // homepage title gone
+      expect(out).toContain(`<link rel="canonical" href="${url}">`);
+    },
+  );
+});
+
+describe('drift guard — every public indexable marketing route carries SSR meta', () => {
+  // Audit-arc CLASS guard for the bug above ("known route + no MARKETING_META =
+  // generic SSR title"). Enumerates the PUBLIC, INDEXABLE marketing routes that
+  // MUST carry route-correct <title>/<meta description> for SEO + social unfurls.
+  // Adding a new marketing page without a MARKETING_META entry fails HERE — never
+  // silently in prod. Authed/utility routes (admin, editor, billing, checkout,
+  // oauth, review, content, waiting, create, offline, error) are intentionally
+  // EXCLUDED: they are noindex, so a generic title is harmless.
+  const INDEXABLE_MARKETING_ROUTES = [
+    '/pricing',
+    '/search',
+    '/privacy',
+    '/terms',
+    '/blog',
+    '/roadmap',
+    '/integrations',
+    '/press',
+    '/developers',
+    '/changelog',
+  ];
+
+  it('MARKETING_META covers every indexable marketing route', () => {
+    const missing = INDEXABLE_MARKETING_ROUTES.filter((r) => !MARKETING_META[r]);
+    expect(missing).toEqual([]);
+  });
+
+  it('every indexable marketing route is a KNOWN_MARKETING_PREFIX (shell serves 200, not soft-404)', () => {
+    const notKnown = INDEXABLE_MARKETING_ROUTES.filter((r) => !isKnownMarketingRoute(r));
+    expect(notKnown).toEqual([]);
+  });
+
+  it('no indexable route renders the generic homepage <title> via applyMarketingMeta', () => {
+    const leaking = INDEXABLE_MARKETING_ROUTES.filter((r) => {
+      const out = applyMarketingMeta(SHELL, r, `https://projectsites.dev${r}`);
+      return out.includes('<title>ProjectSites — We deliver websites in minutes</title>');
+    });
+    expect(leaking).toEqual([]);
+  });
+});
