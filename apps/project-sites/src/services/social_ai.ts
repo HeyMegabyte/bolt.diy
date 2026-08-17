@@ -16,7 +16,7 @@
 
 import type { Env } from '../types/env.js';
 import { SOCIAL_PERSONA_SYSTEM_PROMPT, type SocialPlatform } from '../prompts/social_persona.js';
-import { REAL_BROWSER_HEADERS } from './import_crawler.js';
+import { safeFetch } from './import_crawler.js';
 import { isSafeWebhookUrl } from './outbound_webhooks.js';
 import { dbQuery } from './db.js';
 
@@ -208,7 +208,12 @@ export async function repurpose(
     if (!isSafeWebhookUrl(input.source_url)) {
       throw new Error('source_url is not a public https URL');
     }
-    const res = await fetch(input.source_url, { headers: REAL_BROWSER_HEADERS });
+    // SSRF-safe fetch (redirect:'manual' + per-hop re-validation) — a raw fetch would
+    // follow a 302 from a public source_url to 169.254.169.254 / localhost / RFC1918.
+    // safeFetch returns null on block/network error → throw so the catch below logs +
+    // falls back to sourceText='' (same graceful degradation as before).
+    const res = await safeFetch(input.source_url);
+    if (!res) throw new Error('source_url fetch failed or blocked (SSRF/redirect/network)');
     if (res.ok) {
       const html = await res.text();
       // Strip tags + collapse whitespace; cap at 6000 chars so we don't blow context.

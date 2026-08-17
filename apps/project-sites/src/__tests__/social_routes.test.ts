@@ -42,6 +42,10 @@ jest.mock('../services/og_preview.js', () => ({
 }));
 
 jest.mock('../services/outbound_webhooks.js', () => ({
+  // Keep the real SSRF validators (isSafeCrawlUrl is used by import_crawler's
+  // safeFetch, which import-rss now routes through); only isSafeWebhookUrl is
+  // stubbed so tests can force the seed-guard branch via mSafeUrl.
+  ...jest.requireActual('../services/outbound_webhooks.js'),
   isSafeWebhookUrl: jest.fn(),
 }));
 
@@ -755,6 +759,24 @@ describe('POST /api/social/import-rss', () => {
     expect(res.status).toBe(400);
     fetchSpy.mockRestore();
   });
+
+  it('fetches the feed SSRF-safely — manual redirect handling (no redirect-follow SSRF)', async () => {
+    // A public feed URL that passes the seed guard could 302 to 169.254.169.254 /
+    // localhost / RFC1918. A naive `fetch(url)` (redirect:'follow') would follow it.
+    // The feed MUST be fetched via safeFetch, which re-validates every hop
+    // (redirect:'manual'), exactly like import_crawler does.
+    mSafeUrl.mockReturnValueOnce(true);
+    mParseRss.mockReturnValueOnce([{ title: 'A', url: 'https://x/a' }]);
+    const fetchSpy = jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('<rss/>', { status: 200 }));
+    await req(makeApp(AUTH), '/api/social/import-rss', 'POST', makeEnv(), {
+      url: FEED,
+      preview: true,
+    });
+    expect(fetchSpy).toHaveBeenCalledWith(FEED, expect.objectContaining({ redirect: 'manual' }));
+    fetchSpy.mockRestore();
+  });
 });
 
 // ─── OG preview ─────────────────────────────────────────────────────────────────
@@ -788,6 +810,20 @@ describe('POST /api/social/og-preview', () => {
     });
     expect(res.status).toBe(200);
     expect((await jsonOf<{ og: { title: string } }>(res)).og.title).toBe('Article');
+    fetchSpy.mockRestore();
+  });
+
+  it('fetches the page SSRF-safely — manual redirect handling (no redirect-follow SSRF)', async () => {
+    mSafeUrl.mockReturnValueOnce(true);
+    mParseOg.mockReturnValueOnce({ title: 'A', description: '', image: '' });
+    const fetchSpy = jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('<html/>', { status: 200 }));
+    await req(makeApp(AUTH), '/api/social/og-preview', 'POST', makeEnv(), { url: PAGE_URL });
+    expect(fetchSpy).toHaveBeenCalledWith(
+      PAGE_URL,
+      expect.objectContaining({ redirect: 'manual' }),
+    );
     fetchSpy.mockRestore();
   });
 

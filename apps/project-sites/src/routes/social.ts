@@ -23,6 +23,7 @@ import { PLATFORMS, type Platform } from '../services/social_publishers/index.js
 import { parseRssFeed, buildRssDraftRows } from '../services/rss_import.js';
 import { parseOgTags } from '../services/og_preview.js';
 import { isSafeWebhookUrl } from '../services/outbound_webhooks.js';
+import { safeFetch } from '../services/import_crawler.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 import {
   DEFAULT_AUTO_PILOT_PROMPT,
@@ -872,20 +873,24 @@ socialRoutes.post('/api/social/import-rss', zValidator('json', RssImportSchema),
       400,
     );
   }
-  let xml: string;
-  try {
-    const res = await fetch(url, {
-      headers: { accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml' },
-    });
-    if (!res.ok)
-      return c.json(
-        { error: { code: 'BAD_REQUEST', message: `Feed returned ${res.status}.` } },
-        400,
-      );
-    xml = await res.text();
-  } catch {
-    return c.json({ error: { code: 'BAD_REQUEST', message: 'Could not fetch the feed.' } }, 400);
+  // SSRF-safe fetch: `safeFetch` follows redirects MANUALLY and re-validates every
+  // hop (isSafeCrawlUrl), so a public feed URL that passes the seed guard above
+  // can't 302 to 169.254.169.254 / localhost / RFC1918 — the same redirect-SSRF the
+  // import crawler defends against. A naive `fetch(url)` (redirect:'follow') would
+  // follow the hop blindly. Never throws (null on network error / blocked redirect).
+  const res = await safeFetch(url);
+  if (!res || !res.ok) {
+    return c.json(
+      {
+        error: {
+          code: 'BAD_REQUEST',
+          message: res ? `Feed returned ${res.status}.` : 'Could not fetch the feed.',
+        },
+      },
+      400,
+    );
   }
+  const xml = await res.text();
   const items = parseRssFeed(xml, 10);
   if (preview) return c.json({ items });
 
@@ -941,18 +946,21 @@ socialRoutes.post('/api/social/og-preview', zValidator('json', OgPreviewSchema),
       400,
     );
   }
-  let html: string;
-  try {
-    const res = await fetch(url, { headers: { accept: 'text/html,application/xhtml+xml' } });
-    if (!res.ok)
-      return c.json(
-        { error: { code: 'BAD_REQUEST', message: `URL returned ${res.status}.` } },
-        400,
-      );
-    html = (await res.text()).slice(0, 512_000); // cap parse work at ~500KB of head/body
-  } catch {
-    return c.json({ error: { code: 'BAD_REQUEST', message: 'Could not fetch the URL.' } }, 400);
+  // SSRF-safe fetch (redirect:'manual' + per-hop re-validation) — same redirect-SSRF
+  // fix as import-rss above; a raw fetch(url) would follow a 302 to an internal target.
+  const res = await safeFetch(url);
+  if (!res || !res.ok) {
+    return c.json(
+      {
+        error: {
+          code: 'BAD_REQUEST',
+          message: res ? `URL returned ${res.status}.` : 'Could not fetch the URL.',
+        },
+      },
+      400,
+    );
   }
+  const html = (await res.text()).slice(0, 512_000); // cap parse work at ~500KB of head/body
   return c.json({ og: parseOgTags(html) });
 });
 

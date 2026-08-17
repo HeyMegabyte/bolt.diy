@@ -241,11 +241,13 @@ describe('generateHashtags', () => {
 
 describe('repurpose', () => {
   it('fetches the source, strips tags, and produces one post per platform', async () => {
-    const fetchMock = jest.fn(async () => ({
-      ok: true,
-      text: async () =>
-        '<html><script>bad()</script><style>x{}</style><h1>Headline</h1><p>Body copy.</p></html>',
-    }));
+    const fetchMock = jest.fn(
+      async () =>
+        new Response(
+          '<html><script>bad()</script><style>x{}</style><h1>Headline</h1><p>Body copy.</p></html>',
+          { status: 200 },
+        ),
+    );
     (global as any).fetch = fetchMock;
 
     let capturedPrompt = '';
@@ -273,7 +275,7 @@ describe('repurpose', () => {
 
   it('caps the extracted source text at 6000 chars', async () => {
     const huge = 'a'.repeat(10000);
-    (global as any).fetch = jest.fn(async () => ({ ok: true, text: async () => huge }));
+    (global as any).fetch = jest.fn(async () => new Response(huge, { status: 200 }));
     let capturedPrompt = '';
     const env = makeEnv({
       aiReply: (_m, params) => {
@@ -325,7 +327,7 @@ describe('repurpose', () => {
   });
 
   it('continues with empty source text when the response is not ok', async () => {
-    (global as any).fetch = jest.fn(async () => ({ ok: false, text: async () => 'ignored' }));
+    (global as any).fetch = jest.fn(async () => new Response('ignored', { status: 503 }));
     let capturedPrompt = '';
     const env = makeEnv({
       aiReply: (_m, params) => {
@@ -339,7 +341,7 @@ describe('repurpose', () => {
   });
 
   it('defaults to twitter when no target platforms are supplied', async () => {
-    (global as any).fetch = jest.fn(async () => ({ ok: true, text: async () => '<p>hi</p>' }));
+    (global as any).fetch = jest.fn(async () => new Response('<p>hi</p>', { status: 200 }));
     const env = makeEnv({ aiReply: JSON.stringify({ content: 'c', hashtags: [] }) });
     const out = await repurpose(env, { source_url: 'https://x.co', target_platforms: [] });
     expect(out.posts).toHaveLength(1);
@@ -347,7 +349,7 @@ describe('repurpose', () => {
   });
 
   it('uses the fallback shape when AI output is unparseable per platform', async () => {
-    (global as any).fetch = jest.fn(async () => ({ ok: true, text: async () => '<p>hi</p>' }));
+    (global as any).fetch = jest.fn(async () => new Response('<p>hi</p>', { status: 200 }));
     const env = makeEnv({ aiReply: 'garbage' });
     const out = await repurpose(env, {
       source_url: 'https://x.co',
@@ -357,7 +359,7 @@ describe('repurpose', () => {
   });
 
   it('caps repurposed hashtags at 8', async () => {
-    (global as any).fetch = jest.fn(async () => ({ ok: true, text: async () => '<p>hi</p>' }));
+    (global as any).fetch = jest.fn(async () => new Response('<p>hi</p>', { status: 200 }));
     const many = Array.from({ length: 12 }, (_v, i) => `t${i}`);
     const env = makeEnv({ aiReply: JSON.stringify({ content: 'c', hashtags: many }) });
     const out = await repurpose(env, { source_url: 'https://x.co', target_platforms: ['twitter'] });
