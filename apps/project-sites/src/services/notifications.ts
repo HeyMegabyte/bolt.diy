@@ -23,6 +23,7 @@ import type { Env } from '../types/env.js';
 import { log } from '../lib/log.js';
 import { getEmailProvider, type EmailRouter } from '../platform/email-router.js';
 import type { EmailKind } from '../platform/email.js';
+import { isSuppressed } from './email_suppressions.js';
 
 /**
  * Map a free-form notification category to an {@link EmailKind} for the SES rail
@@ -79,6 +80,33 @@ export async function sendEmail(
   deps: { email?: EmailRouter } = {},
 ): Promise<void> {
   const category = opts.category ?? 'transactional';
+
+  // §42/ADR-0019 suppression enforcement — for ALL rails. The SES rail's EmailRouter
+  // already checks this, but the raw Resend/SendGrid fallback `fetch`es below BYPASSED
+  // it, so a fallback send (SES throttled/failed) could re-send to a hard-bounced or
+  // complained address — damaging the shared sending domain's reputation (SES/Resend
+  // suspend on high bounce/complaint rates). Checking once here at the seam covers every
+  // rail. FAIL-OPEN: a lookup error (or no DB binding) proceeds to send — a suppression
+  // hiccup must NEVER block a legitimate transactional email (e.g. magic-link login).
+  if (env.DB) {
+    try {
+      if (await isSuppressed(env.DB, opts.to)) {
+        console.warn(
+          JSON.stringify({
+            level: 'info',
+            service: 'notifications',
+            category,
+            message: 'send_skipped_suppressed',
+            to: opts.to,
+          }),
+        );
+        return;
+      }
+    } catch {
+      /* fail-open: proceed to send */
+    }
+  }
+
   // ADR-0019 progressive-degradation: every CONFIGURED rail is tried in order
   // (SES → Resend → SendGrid); a rail that FAILS falls through to the next. We throw
   // only when EVERY configured rail has failed — a single-provider outage (e.g. a SES

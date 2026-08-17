@@ -40,6 +40,7 @@ jest.mock('../lib/log.js', () => ({
 }));
 
 import {
+  sendEmail,
   notifyDomainVerified,
   notifySiteBuilt,
   sendInviteEmail,
@@ -312,5 +313,51 @@ describe('sendInviteEmail — payload embedding', () => {
     mockFetchOnce({ headers: { 'x-resend-request-id': 'i-2' } });
     await sendInviteEmail(resendEnv(), { ...INVITE_OPTS, role: 'admin' });
     expect(lastFetchBody().html).toContain('admin');
+  });
+});
+
+describe('sendEmail — suppression enforcement across ALL rails (§42/ADR-0019)', () => {
+  /** A Resend-configured env whose DB.prepare().bind().all() yields the given
+   *  suppression lookup result (isSuppressed → dbQueryOne → dbQuery uses `.all()`).
+   *  'suppressed' = a matching row, 'clear' = none, 'error' = the query throws
+   *  (dbQuery catches internally → null → NOT suppressed → send proceeds = fail-open). */
+  function envWithDb(lookup: 'suppressed' | 'clear' | 'error'): Env {
+    const all = jest.fn(async () => {
+      if (lookup === 'error') throw new Error('d1 down');
+      return { results: lookup === 'suppressed' ? [{ email: 'x@y.com' }] : [] };
+    });
+    const bind = jest.fn().mockReturnValue({ all });
+    const prepare = jest.fn().mockReturnValue({ bind });
+    return { RESEND_API_KEY: 'resend-key-xyz', DB: { prepare } } as unknown as Env;
+  }
+  const opts = { to: 'bounced@example.com', subject: 'Hi', html: '<p>hi</p>' };
+
+  it('skips EVERY rail (no fetch) + returns when the recipient is suppressed', async () => {
+    // Provide a rail response anyway — if the (RED) unguarded code reaches the Resend
+    // fetch, this assertion catches it. GREEN: the seam returns before any rail.
+    mockFetchOnce({ ok: true, headers: { 'x-resend-request-id': 'r' } });
+    await sendEmail(envWithDb('suppressed'), opts);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('proceeds to send when the recipient is NOT suppressed', async () => {
+    mockFetchOnce({ ok: true, headers: { 'x-resend-request-id': 'r' } });
+    await sendEmail(envWithDb('clear'), opts);
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://api.resend.com/emails',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('FAILS OPEN — a suppression-lookup error proceeds to send (never blocks a legit email)', async () => {
+    mockFetchOnce({ ok: true, headers: { 'x-resend-request-id': 'r' } });
+    await sendEmail(envWithDb('error'), opts);
+    expect(global.fetch).toHaveBeenCalled();
+  });
+
+  it('has no DB binding → skips the check + sends (backward compatible)', async () => {
+    mockFetchOnce({ ok: true, headers: { 'x-resend-request-id': 'r' } });
+    await sendEmail(resendEnv(), opts);
+    expect(global.fetch).toHaveBeenCalled();
   });
 });
