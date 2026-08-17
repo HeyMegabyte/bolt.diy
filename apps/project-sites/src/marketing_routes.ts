@@ -119,10 +119,42 @@ export const MARKETING_META: Readonly<Record<string, MarketingMeta>> = {
   },
 };
 
-/** Resolve per-route marketing meta (trailing slash tolerant); null when none. */
+/**
+ * Per-post meta for the PLATFORM blog (`/blog/:slug`). The posts are static data
+ * in `frontend/src/app/services/blog.service.ts` `POSTS`; the worker mirrors their
+ * slug → title/excerpt so crawlers read the POST's own title/description (not the
+ * homepage default). `description` = the post excerpt (what the client blog-post
+ * component sets too). ⚠️ `marketing_routes.test.ts` parses blog.service.ts and
+ * fails the build if a POSTS slug is missing here (drift guard).
+ */
+export const BLOG_POST_META: Readonly<Record<string, MarketingMeta>> = {
+  '5-reasons-your-small-business-needs-a-professional-website': {
+    title: '5 Reasons Your Small Business Needs a Professional Website in 2025',
+    description:
+      'Your website is your hardest-working employee. It sells, builds trust, and brings in leads around the clock.',
+  },
+  'how-ai-is-changing-web-design-for-small-businesses': {
+    title: 'How AI Is Changing Web Design for Small Businesses',
+    description:
+      'AI website builders cut costs by 90% and deliver in minutes. Here is what that means for your business.',
+  },
+  'complete-guide-to-local-seo-for-small-business-websites': {
+    title: 'The Complete Guide to Local SEO for Small Business Websites',
+    description:
+      'Rank higher in local search results with these proven strategies. No marketing degree required.',
+  },
+};
+
+/**
+ * Resolve per-route meta (trailing-slash tolerant); null when none. Handles the
+ * static marketing map AND `/blog/:slug` posts (via {@link BLOG_POST_META}).
+ */
 export function resolveMarketingMeta(pathname: string): MarketingMeta | null {
   const clean = pathname === '/' ? '/' : pathname.replace(/\/+$/, '');
-  return MARKETING_META[clean] ?? null;
+  if (MARKETING_META[clean]) return MARKETING_META[clean];
+  const blog = /^\/blog\/([a-z0-9-]+)$/.exec(clean);
+  if (blog) return BLOG_POST_META[blog[1]] ?? null;
+  return null;
 }
 
 /** Escape a trusted string for safe injection into an HTML attribute / title. */

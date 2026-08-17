@@ -14,7 +14,19 @@ import {
   KNOWN_MARKETING_PREFIXES,
   applyMarketingMeta,
   MARKETING_META,
+  BLOG_POST_META,
 } from '../marketing_routes.js';
+
+/** Read a repo file robustly across jest cwd/__dirname quirks; null if absent. */
+function readRepoFile(rel: string): string | null {
+  const candidates = [
+    join(__dirname, '../../', rel),
+    join(process.cwd(), rel),
+    join(process.cwd(), 'apps/project-sites', rel),
+  ];
+  for (const p of candidates) if (existsSync(p)) return readFileSync(p, 'utf8');
+  return null;
+}
 
 /** Resolve app.routes.ts robustly across jest cwd/__dirname quirks. */
 function readAppRoutes(): string | null {
@@ -147,5 +159,52 @@ describe('applyMarketingMeta — per-route <head> (SEO de-index fix)', () => {
       )
       .map(([route, m]) => `${route} (title ${m.title.length}, desc ${m.description.length})`);
     expect(oversized).toEqual([]);
+  });
+});
+
+describe('applyMarketingMeta — /blog/:slug posts get the POST title/desc (not homepage)', () => {
+  const SLUG = '5-reasons-your-small-business-needs-a-professional-website';
+
+  it('injects a blog post title + description + self canonical', () => {
+    const url = `https://projectsites.dev/blog/${SLUG}`;
+    const out = applyMarketingMeta(SHELL, `/blog/${SLUG}`, url);
+    const m = BLOG_POST_META[SLUG];
+    expect(out).toContain(`<title>${m.title}</title>`);
+    expect(out).toContain(m.description);
+    expect(out).toContain(`<link rel="canonical" href="${url}">`);
+    expect(out).not.toContain('We deliver websites in minutes'); // homepage title gone
+  });
+
+  it('an UNKNOWN blog slug keeps the homepage title (safe fallback) but self-canonical', () => {
+    const url = 'https://projectsites.dev/blog/does-not-exist';
+    const out = applyMarketingMeta(SHELL, '/blog/does-not-exist', url);
+    expect(out).toContain('<title>ProjectSites — We deliver websites in minutes</title>');
+    expect(out).toContain(`<link rel="canonical" href="${url}">`);
+  });
+
+  // DRIFT GUARD: every static blog post (frontend blog.service.ts POSTS) must have
+  // a BLOG_POST_META entry, else it serves the homepage title to crawlers.
+  it('BLOG_POST_META covers every post slug in frontend blog.service.ts', () => {
+    const src = readRepoFile('frontend/src/app/services/blog.service.ts');
+    if (!src) return; // frontend not present in this checkout — skip (CI has it)
+    const slugs = [...src.matchAll(/slug:\s*'([a-z0-9-]+)'/g)].map((m) => m[1]);
+    expect(slugs.length).toBeGreaterThan(0);
+    const missing = slugs.filter((s) => !BLOG_POST_META[s]);
+    expect(missing).toEqual([]);
+  });
+
+  // DEAD-URL GUARD: the exact bug this closed — every /blog/<slug> in the sitemap
+  // must be a real post (in BLOG_POST_META), and every post must be in the sitemap.
+  it('sitemap /blog URLs and BLOG_POST_META are in lock-step (no dead URLs, no missing posts)', () => {
+    const xml = readRepoFile('frontend/public/sitemap.xml');
+    if (!xml) return;
+    const sitemapSlugs = [...xml.matchAll(/<loc>[^<]*\/blog\/([a-z0-9-]+)<\/loc>/g)].map((m) => m[1]);
+    const metaSlugs = Object.keys(BLOG_POST_META);
+    const deadInSitemap = sitemapSlugs.filter((s) => !metaSlugs.includes(s));
+    const missingFromSitemap = metaSlugs.filter((s) => !sitemapSlugs.includes(s));
+    expect({ deadInSitemap, missingFromSitemap }).toEqual({
+      deadInSitemap: [],
+      missingFromSitemap: [],
+    });
   });
 });
