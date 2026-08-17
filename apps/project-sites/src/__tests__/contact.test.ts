@@ -10,6 +10,14 @@ jest.mock('../services/email_deliverability.js', () => ({
 import { hasDeliverableMx } from '../services/email_deliverability.js';
 const mockHasDeliverableMx = hasDeliverableMx as unknown as jest.Mock;
 
+// Persistence is the PRIMARY lead-capture channel — mock db.js so each test
+// controls whether the `contacts` INSERT succeeds. Global `jest` for @swc hoisting.
+jest.mock('../services/db.js', () => ({
+  dbInsert: jest.fn(async () => ({ error: null })),
+}));
+import { dbInsert } from '../services/db.js';
+const mockDbInsert = dbInsert as unknown as jest.Mock;
+
 const mockEnv = {
   ENVIRONMENT: 'staging',
   RESEND_API_KEY: 'test-resend-key',
@@ -21,6 +29,10 @@ const mockFetch = jest.fn();
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // Reset persist to success each test (clearAllMocks does NOT restore the impl,
+  // and a leaked mockResolvedValueOnce survives it — per the iter-108 harness trap).
+  mockDbInsert.mockReset();
+  mockDbInsert.mockResolvedValue({ error: null });
   global.fetch = mockFetch.mockResolvedValue(
     new Response(JSON.stringify({ id: 'mock-msg-id' }), {
       status: 200,
@@ -269,7 +281,10 @@ describe('handleContactForm – email providers', () => {
     expect(urls.some((u) => u.includes('api.resend.com'))).toBe(true);
   });
 
-  it('throws when no email provider is configured', async () => {
+  it('still succeeds when no email provider is configured — the lead persists to D1', async () => {
+    // Email absence no longer loses the lead: it's captured in the `contacts`
+    // table first, so the handler resolves (was: threw 'Email delivery is not
+    // configured' → the visitor errored and the lead was lost).
     const noEmailEnv = { ENVIRONMENT: 'staging' } as any;
 
     await expect(
@@ -278,10 +293,14 @@ describe('handleContactForm – email providers', () => {
         email: 'bob@test.com',
         message: 'Testing no provider configured.',
       }),
-    ).rejects.toThrow('Email delivery is not configured');
+    ).resolves.toBeUndefined();
+    expect(mockDbInsert.mock.calls[0][1]).toBe('contacts');
   });
 
-  it('throws when both providers fail', async () => {
+  it('still succeeds when both email providers fail — the lead persists to D1', async () => {
+    // An all-email-rail outage no longer loses the lead (was: threw). It's durably
+    // captured in D1; honest failure requires BOTH persist AND email to fail (see
+    // the lead-persistence suite for that path).
     mockFetch.mockResolvedValue(new Response('error', { status: 500 }));
 
     await expect(
@@ -290,7 +309,7 @@ describe('handleContactForm – email providers', () => {
         email: 'bob@test.com',
         message: 'Testing both providers failing.',
       }),
-    ).rejects.toThrow();
+    ).resolves.toBeUndefined();
   });
 });
 
@@ -394,5 +413,49 @@ describe('handleContactForm – coverage gaps', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
     expect(mockFetch.mock.calls[0][0]).toBe('https://api.sendgrid.com/v3/mail/send');
     expect(mockFetch.mock.calls[1][0]).toBe('https://api.sendgrid.com/v3/mail/send');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Lead persistence — the platform contact form must NEVER lose a lead to an
+// email-rail outage (it was email-only; now it persists a durable CRM row first).
+// ---------------------------------------------------------------------------
+describe('handleContactForm – lead persistence (never lose a lead)', () => {
+  const validInput = {
+    name: 'Lead Person',
+    email: 'lead@example.com',
+    phone: '+15551234567',
+    message: 'I am interested in a website for my business.',
+  };
+
+  it('persists the lead to the contacts CRM table BEFORE emailing (never email-only)', async () => {
+    await handleContactForm(mockEnv, validInput);
+    expect(mockDbInsert).toHaveBeenCalledTimes(1);
+    const [, table, row] = mockDbInsert.mock.calls[0];
+    expect(table).toBe('contacts');
+    expect(row.name).toBe('Lead Person');
+    expect(row.email).toBe('lead@example.com');
+    // Org-less endpoint → the seeded `system` sentinel org, no owning site.
+    expect(row.org_id).toBe('system');
+    expect(row.site_id).toBeNull();
+    expect(JSON.parse(row.metadata).message).toContain('interested');
+  });
+
+  it('does NOT throw when every email rail fails but the lead persisted (lead survives)', async () => {
+    // Persist OK; all email sends 500. The old email-only handler THREW here →
+    // the visitor errored and the lead was lost. Now the lead is in D1, so the
+    // handler resolves and the visitor sees success.
+    mockDbInsert.mockResolvedValueOnce({ error: null });
+    mockFetch.mockResolvedValue(new Response('err', { status: 500 }));
+    await expect(handleContactForm(mockEnv, validInput)).resolves.toBeUndefined();
+    expect(mockDbInsert).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws ONLY when the lead is captured NOWHERE (D1 drop AND email failure)', async () => {
+    // Full outage: the persist drops AND every email rail fails → honest 5xx so
+    // the visitor retries (never a lying success that silently drops the lead).
+    mockDbInsert.mockResolvedValueOnce({ error: 'D1_ERROR: disk I/O' });
+    mockFetch.mockResolvedValue(new Response('err', { status: 500 }));
+    await expect(handleContactForm(mockEnv, validInput)).rejects.toThrow();
   });
 });

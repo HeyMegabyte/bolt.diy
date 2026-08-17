@@ -188,8 +188,10 @@ describe('POST /api/contact', () => {
       }),
     });
 
-    // Both providers fail → error propagated
-    expect(res.status).toBe(400);
+    // Both email rails fail, but the lead was persisted to the contacts table
+    // first → the visitor still succeeds. Email-only used to 400 here and LOSE
+    // the lead; persistence makes an email outage non-fatal.
+    expect(res.status).toBe(200);
   });
 
   it('falls back to SendGrid when Resend fails', async () => {
@@ -214,7 +216,7 @@ describe('POST /api/contact', () => {
     expect(mockFetch).toHaveBeenCalledTimes(3);
   });
 
-  it('returns error when no email provider configured', async () => {
+  it('still succeeds when no email provider is configured (lead persisted to D1)', async () => {
     const { app, env } = createApp({
       RESEND_API_KEY: undefined,
       SENDGRID_API_KEY: undefined,
@@ -230,9 +232,11 @@ describe('POST /api/contact', () => {
       }),
     });
 
-    expect(res.status).toBe(400);
+    // Email absence no longer loses the lead (was: 400 'Email delivery is not
+    // configured'). The contacts row is written first, so the visitor succeeds.
+    expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.error.message).toContain('Email delivery is not configured');
+    expect(body.data.success).toBe(true);
   });
 });
 

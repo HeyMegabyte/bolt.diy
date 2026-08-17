@@ -8,11 +8,12 @@
  * 2. Confirmation email to the user acknowledging receipt.
  */
 
-import { BRAND, contactFormSchema, badRequest, escapeHtml } from '@project-sites/shared';
+import { BRAND, contactFormSchema, badRequest, internalError, escapeHtml } from '@project-sites/shared';
 import type { ContactForm } from '@project-sites/shared';
 import type { Env } from '../types/env.js';
 import { getEmailProvider } from '../platform/email-router.js';
 import { hasDeliverableMx } from './email_deliverability.js';
+import { dbInsert } from './db.js';
 import { log } from '../lib/log.js';
 
 const contactLog = log.child('contact');
@@ -209,15 +210,57 @@ function buildContactConfirmationEmail(data: ContactForm): string {
 export async function handleContactForm(env: Env, input: unknown): Promise<void> {
   const validated = contactFormSchema.parse(input);
 
-  // Email 1: Notification to the team
-  await sendEmail(env, {
-    to: BRAND.CONTACT_EMAIL,
-    subject: `Contact Form: ${validated.name}`,
-    html: buildContactNotificationEmail(validated),
-    replyTo: validated.email,
+  // Capture 1 (PRIMARY, durable): persist the lead to the `contacts` CRM table
+  // FIRST. A platform contact IS a business lead — it must survive even if every
+  // email rail fails (email-only was losing leads on an all-rail outage). Mirrors
+  // the per-site form's persist-first model (search.ts). This is an org-less
+  // endpoint, so the lead belongs to the seeded `system` sentinel org (the same
+  // convention this route's audit log already uses) with no owning site.
+  // Best-effort: log a drop but keep going — the team-email below is a second
+  // capture channel, and we honest-fail only if BOTH miss (guard after Email 1).
+  let persisted = false;
+  const { error: contactErr } = await dbInsert(env.DB, 'contacts', {
+    id: crypto.randomUUID(),
+    org_id: 'system',
+    site_id: null,
+    name: validated.name,
+    email: validated.email,
+    phone: validated.phone ?? null,
+    source: 'form',
+    metadata: JSON.stringify({ message: validated.message, channel: 'platform_contact' }),
   });
+  if (contactErr) {
+    contactLog.error('contact_persist_failed', { error: contactErr });
+  } else {
+    persisted = true;
+  }
 
-  // Email 2: Confirmation to the user — guarded by a reply-deliverability check
+  // Capture 2 (notification): email the team — BEST-EFFORT. The lead is already
+  // durably captured above, so a transient email failure must NOT error the
+  // visitor (an error triggers a resubmit → duplicate lead). Log + continue.
+  let notified = false;
+  try {
+    await sendEmail(env, {
+      to: BRAND.CONTACT_EMAIL,
+      subject: `Contact Form: ${validated.name}`,
+      html: buildContactNotificationEmail(validated),
+      replyTo: validated.email,
+    });
+    notified = true;
+  } catch (err) {
+    contactLog.warn('team_notification_failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  // Honest failure ONLY when the lead was captured NOWHERE (D1 write dropped AND
+  // every email rail failed — a full outage) — never a lying success that
+  // silently drops a business lead. The visitor sees a 5xx and can retry.
+  if (!persisted && !notified) {
+    throw internalError('We could not record your message right now. Please try again in a moment.');
+  }
+
+  // Confirmation to the user — guarded by a reply-deliverability check
   // (#121). Skip the auto-receipt when the submitter's domain can't receive mail
   // (fake/typo domain, NXDOMAIN, no MX) so a hard bounce never dents our sender
   // reputation. The team still got Email 1 with the reply-to. Fail-open on DoH
@@ -228,9 +271,17 @@ export async function handleContactForm(env: Env, input: unknown): Promise<void>
     contactLog.warn('receipt_skipped_undeliverable', { domain: recipientDomain });
     return;
   }
-  await sendEmail(env, {
-    to: validated.email,
-    subject: 'We received your message — Project Sites',
-    html: buildContactConfirmationEmail(validated),
-  });
+  // Best-effort receipt: the lead is already captured, so a failed receipt send
+  // must not error the visitor (their message WAS received).
+  try {
+    await sendEmail(env, {
+      to: validated.email,
+      subject: 'We received your message — Project Sites',
+      html: buildContactConfirmationEmail(validated),
+    });
+  } catch (err) {
+    contactLog.warn('receipt_send_failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
 }
