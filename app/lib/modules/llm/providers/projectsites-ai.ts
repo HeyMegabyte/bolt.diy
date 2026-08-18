@@ -14,15 +14,15 @@ import { createOpenAI } from '@ai-sdk/openai';
  * the editor never depends on a cookie key again.
  *
  * The endpoint is OpenAI-compatible (`chat/completions` pass-through), so the
- * AI SDK just needs `createOpenAI` pointed at it.
+ * AI SDK just needs `createOpenAI` pointed at it. The API key is a fixed
+ * placeholder — the worker's soft-auth gate accepts the bolt-iframe signal,
+ * and provider secrets never reach this process.
  */
 export default class ProjectsitesAiProvider extends BaseProvider {
   name = 'ProjectSites AI';
-  getApiKeyLink = 'https://projectsites.dev/admin';
 
   config = {
     baseUrlKey: 'PS_BOLT_AI_ENDPOINT',
-    apiTokenKey: 'PS_BOLT_AI_KEY',
   };
 
   staticModels: ModelInfo[] = [
@@ -44,19 +44,16 @@ export default class ProjectsitesAiProvider extends BaseProvider {
     apiKeys?: Record<string, string>;
     providerSettings?: Record<string, IProviderSetting>;
   }): LanguageModelV1 {
-    const { baseUrl } = this.getProviderBaseUrlAndKey({
-      apiKeys: options.apiKeys,
-      providerSettings: options.providerSettings?.[this.name],
-      serverEnv: options.serverEnv as any,
-      defaultBaseUrlKey: 'PS_BOLT_AI_ENDPOINT',
-      defaultApiTokenKey: 'PS_BOLT_AI_KEY',
-    });
-
-    // M2M endpoint = the workers.dev URL. The projectsites.dev ZONE challenges
-    // non-browser POSTs (Bot Fight Mode) before they reach the worker — the
-    // fork's server-side fetch has no browser fingerprint and was 403'd there.
-    // workers.dev has no zone WAF. (Per bot-fight-mode-blocks-inbound-webhooks.)
-    const endpoint = baseUrl || 'https://project-sites.manhattan.workers.dev/api/bolt/chat';
+    // Env-overridable endpoint; the default is the M2M workers.dev URL. The
+    // projectsites.dev ZONE challenges non-browser POSTs (Bot Fight Mode)
+    // before they reach the worker — the fork's server-side fetch has no
+    // browser fingerprint and was 403'd there. workers.dev has no zone WAF.
+    // (Per bot-fight-mode-blocks-inbound-webhooks.)
+    // BASE ends at /api/bolt: createOpenAI appends /chat/completions → the
+    // registered worker route /api/bolt/chat/completions (ending at /chat made
+    // the SDK produce /chat/chat/completions → 404 'Unknown API route').
+    const serverEnv = options.serverEnv as unknown as Record<string, string> | undefined;
+    const endpoint = serverEnv?.PS_BOLT_AI_ENDPOINT || 'https://project-sites.manhattan.workers.dev/api/bolt';
     const openai = createOpenAI({
       baseURL: endpoint,
       apiKey: 'ps-internal',
