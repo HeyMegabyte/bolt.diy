@@ -627,7 +627,10 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
     const res = await postJson(
       makeApp(SESSION),
       '/api/bolt/chat',
-      { messages: [{ role: 'user', content: 'build a hero section with tailwind css' }], stream: true },
+      {
+        messages: [{ role: 'user', content: 'build a hero section with tailwind css' }],
+        stream: true,
+      },
       env,
     );
 
