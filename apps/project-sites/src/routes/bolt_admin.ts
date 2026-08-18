@@ -411,6 +411,12 @@ bolt.post('/api/bolt/vision-ocr', visionOcrHandler);
 bolt.post('/admin-api/chat/suggest-prompts', suggestPromptsHandler);
 bolt.post('/admin-api/chat', boltChatHandler);
 bolt.post('/api/bolt/chat', boltChatHandler);
+// The AI SDK's createOpenAI appends `/chat/completions` to its baseURL — the
+// fork's ProjectsitesAiProvider points at this mount, so register the
+// SDK-shaped path too (first attempt hit 'Unknown API route' on the doubled
+// suffix). All four routes run the same edge-classifying handler.
+bolt.post('/admin-api/chat/completions', boltChatHandler);
+bolt.post('/api/bolt/chat/completions', boltChatHandler);
 bolt.post('/api/bolt/chat/suggest-prompts', suggestPromptsHandler);
 
 export { bolt };

@@ -52,8 +52,19 @@ export default class ProjectsitesAiProvider extends BaseProvider {
       defaultApiTokenKey: 'PS_BOLT_AI_KEY',
     });
 
-    const endpoint = baseUrl || 'https://projectsites.dev/api/bolt/chat';
-    const openai = createOpenAI({ baseURL: endpoint, apiKey: 'ps-internal' });
+    // M2M endpoint = the workers.dev URL. The projectsites.dev ZONE challenges
+    // non-browser POSTs (Bot Fight Mode) before they reach the worker — the
+    // fork's server-side fetch has no browser fingerprint and was 403'd there.
+    // workers.dev has no zone WAF. (Per bot-fight-mode-blocks-inbound-webhooks.)
+    const endpoint = baseUrl || 'https://project-sites.manhattan.workers.dev/api/bolt/chat';
+    const openai = createOpenAI({
+      baseURL: endpoint,
+      apiKey: 'ps-internal',
+      // The fork's chat calls the worker SERVER-SIDE (no session cookie, no
+      // Origin header) — the worker's soft-auth gate requires this explicit
+      // bolt-iframe signal, else every chat 403s ("Custom error: Forbidden").
+      headers: { 'x-bolt-origin-check': 'bolt-iframe' },
+    });
 
     return openai(options.model);
   }

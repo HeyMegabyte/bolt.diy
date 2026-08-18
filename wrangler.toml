@@ -4,3 +4,9 @@ compatibility_flags = ["nodejs_compat"]
 compatibility_date = "2025-03-28"
 pages_build_output_dir = "./build/client"
 send_metrics = false
+
+# Bolt's chat MUST route through ProjectSites AI (the worker's edge router:
+# instant → Workers AI, standard/premium → Cloudflare AI Gateway) instead of
+# per-user cookie API keys. stream-text reads this from the Pages env.
+[vars]
+PS_BOLT_AI = "true"
