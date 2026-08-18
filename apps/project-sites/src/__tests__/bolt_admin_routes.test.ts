@@ -642,6 +642,10 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
     expect(callProvider).toBe('deepseek');
     expect(callPath).toBe('/v1/chat/completions');
     expect(String(callInit.body)).toContain('"stream":true');
+    // The provider's Authorization MUST ride in init.headers — gatewayFetch adds
+    // only cf-aig-* cache headers; omitting it 401s the gateway (live incident).
+    const authHdr = (callInit.headers as Record<string, string>)['Authorization'] ?? '';
+    expect(authHdr).toBe('Bearer sk-test');
   });
 
   it('PREMIUM tier: reasoning intent streams the premium model via the gateway', async () => {

@@ -215,13 +215,22 @@ export async function routeBoltChat(
     return workersAiToOpenAiSse(env, messages);
   }
 
+  // gatewayFetch adds ONLY the cf-aig-* cache headers — the provider's
+  // Authorization must be in init.headers (the gateway proxies it verbatim;
+  // it is also the fallback credential for the direct vendor URL).
+  const keyFor = (p: 'deepseek' | 'openai'): string =>
+    p === 'deepseek' ? (env.DEEPSEEK_API_KEY ?? '') : (env.OPENAI_API_KEY ?? '');
+
   const provider = chooseProviderForTier(env, tier);
   if (provider === 'anthropic') {
     // This surface speaks the OpenAI chat/completions wire format; Anthropic's
     // native protocol is not wire-compatible. premium → OpenAI via gateway.
     const upstream = await gatewayFetch(env, 'openai', '/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${keyFor('openai')}`,
+      },
       body: JSON.stringify({ model: TIER_MODELS.openai.premium, messages, stream: true }),
     });
     return gatewayResponse(upstream, tier);
@@ -230,7 +239,10 @@ export async function routeBoltChat(
   const gatewayProvider: 'deepseek' | 'openai' = provider === 'deepseek' ? 'deepseek' : 'openai';
   const upstream = await gatewayFetch(env, gatewayProvider, '/v1/chat/completions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${keyFor(gatewayProvider)}`,
+    },
     body: JSON.stringify({
       model: TIER_MODELS[gatewayProvider][tier],
       messages,
