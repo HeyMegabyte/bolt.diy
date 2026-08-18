@@ -123,10 +123,16 @@ const boltChatHandler = async (c: Context<{ Bindings: Env; Variables: Variables 
   // turn only, never the streamed answer. The soft-auth gate may have no userId
   // (iframe Origin header path) — use the orgId var or a bolt-iframe sentinel.
   const lastUser = [...(body.messages ?? [])].reverse().find((m) => m.role === 'user');
-  if (lastUser?.content) {
+  // Only audit when the caller has a REAL session (orgId set by auth middleware).
+  // The header-only M2M path (the fork's server-side call) has no org to attribute
+  // to — and audit_logs.org_id has a FK to orgs(id), so a synthetic 'bolt-iframe'
+  // sentinel would FK-violate and silently drop the write (live-verified). Skip
+  // instead of fabricating an org.
+  const orgId = c.get('orgId');
+  if (lastUser?.content && orgId) {
     c.executionCtx.waitUntil(
       writeAuditLog(c.env.DB, {
-        org_id: c.get('orgId') ?? 'bolt-iframe',
+        org_id: orgId,
         actor_id: c.get('userId') ?? null,
         action: 'bolt.ai.answered',
         message: `Editor AI answered: '${lastUser.content.slice(0, 40)}'`,

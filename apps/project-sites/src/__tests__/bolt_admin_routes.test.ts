@@ -617,6 +617,18 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
     expect((entry.metadata_json as Record<string, unknown>).query_length).toBe(12);
   });
 
+  it('does NOT audit the header-only M2M path (no session org — FK-safe skip)', async () => {
+    const aiStream = new ReadableStream<string>({
+      start(c) { c.enqueue('PONG'); c.close(); },
+    });
+    const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test', AI: makeAi(aiStream) });
+    // No SESSION vars — only the bolt iframe header (the fork's server-side path).
+    const res = await postJson(makeApp(), '/api/bolt/chat', { messages: [{ role: 'user', content: 'hi' }], stream: true }, env, IFRAME_HEADER);
+
+    expect(res.status).toBe(200);
+    expect(mockWriteAuditLog).not.toHaveBeenCalled();
+  });
+
   it('INSTANT tier: Workers AI chunks that are ALREADY OpenAI-SSE pass through verbatim (no double-wrapping — the live double-encode regression)', async () => {
     // Workers AI sometimes returns OpenAI-format SSE frames directly; wrapping
     // them again produced nested data: frames that crashed AI SDK clients and
