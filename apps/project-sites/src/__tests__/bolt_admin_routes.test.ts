@@ -593,10 +593,18 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
 
   it('writes a fire-and-forget bolt.ai.answered audit entry (palette parity)', async () => {
     const aiStream = new ReadableStream<string>({
-      start(c) { c.enqueue('PONG'); c.close(); },
+      start(c) {
+        c.enqueue('PONG');
+        c.close();
+      },
     });
     const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test', AI: makeAi(aiStream) });
-    const res = await postJson(makeApp(SESSION), '/api/bolt/chat', { messages: [{ role: 'user', content: 'what is 2+2?' }], stream: true }, env);
+    const res = await postJson(
+      makeApp(SESSION),
+      '/api/bolt/chat',
+      { messages: [{ role: 'user', content: 'what is 2+2?' }], stream: true },
+      env,
+    );
 
     expect(res.status).toBe(200);
     expect(mockWriteAuditLog).toHaveBeenCalledTimes(1);
@@ -604,7 +612,7 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
     expect(entry.action).toBe('bolt.ai.answered');
     expect(entry.org_id).toBe('org-1');
     expect(entry.actor_id).toBe('user-1');
-    expect(entry.message).toContain("what is 2+2?");
+    expect(entry.message).toContain('what is 2+2?');
     expect(entry.target_type).toBe('bolt_ai');
     expect((entry.metadata_json as Record<string, unknown>).query_length).toBe(12);
   });
