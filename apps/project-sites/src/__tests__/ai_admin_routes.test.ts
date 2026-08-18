@@ -158,6 +158,53 @@ describe('ai_admin — auth gate', () => {
   });
 });
 
+// ─── ai-logs list: meta.total so the "Calls" stat can't lie past the cap ──────
+// The endpoint caps the page (default 200) but must expose the TRUE call count
+// (a COUNT) + has_more — mirrors form-submissions + /logs + audit-logs. AI traces
+// accumulate fast, so an active site's "Calls" stat under-reported without this.
+describe('GET /api/sites/:siteId/ai-logs — meta.total', () => {
+  it('returns meta.total (COUNT) + has_more when the store exceeds the loaded page', async () => {
+    const db = makeDb([
+      OWNED_SITE,
+      { match: 'FROM ai_form_logs', resp: { all: [{ id: 'l1' }, { id: 'l2' }], first: { n: 4200 } } },
+    ]);
+    const env = makeEnv(db);
+    const res = await req(makeApp(AUTH), 'GET', '/api/sites/s1/ai-logs?limit=2', env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: unknown[];
+      meta?: { total?: number; has_more?: boolean; limit?: number };
+    };
+    expect(body.data).toHaveLength(2);
+    expect(body.meta?.total).toBe(4200);
+    expect(body.meta?.has_more).toBe(true);
+    expect(body.meta?.limit).toBe(2);
+  });
+
+  it('has_more is false when the whole store fits the page', async () => {
+    const db = makeDb([
+      OWNED_SITE,
+      { match: 'FROM ai_form_logs', resp: { all: [{ id: 'l1' }], first: { n: 1 } } },
+    ]);
+    const env = makeEnv(db);
+    const res = await req(makeApp(AUTH), 'GET', '/api/sites/s1/ai-logs', env);
+    const body = (await res.json()) as { meta?: { total?: number; has_more?: boolean } };
+    expect(body.meta?.total).toBe(1);
+    expect(body.meta?.has_more).toBe(false);
+  });
+
+  it('respects the `kind` filter in the COUNT (scoped total, not the site-wide count)', async () => {
+    const db = makeDb([
+      OWNED_SITE,
+      { match: 'FROM ai_form_logs', resp: { all: [{ id: 'l1' }], first: { n: 7 } } },
+    ]);
+    const env = makeEnv(db);
+    const res = await req(makeApp(AUTH), 'GET', '/api/sites/s1/ai-logs?kind=router', env);
+    const body = (await res.json()) as { meta?: { total?: number } };
+    expect(body.meta?.total).toBe(7);
+  });
+});
+
 // ─── Org scoping (siteOwned) — 404 non-leak ──────────────────────────────────
 
 describe('ai_admin — site org scoping (404 non-leak)', () => {

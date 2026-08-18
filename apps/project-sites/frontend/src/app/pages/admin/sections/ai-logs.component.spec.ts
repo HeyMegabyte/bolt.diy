@@ -39,6 +39,28 @@ describe('AdminAiLogsComponent (traces load-error)', () => {
     expect(c.loading()).toBe(false);
   });
 
+  // The endpoint caps the page but returns the TRUE call count in meta.total — the
+  // "Calls" stat / cap-note must reflect it, else an active AI site's real volume
+  // (cost + debugging signal) is under-reported past the cap.
+  it('totalCount reflects the server meta.total (not the loaded page); hasHiddenCalls fires when calls are hidden', () => {
+    const c = make(
+      jasmine.createSpy('get').and.returnValue(
+        of({ data: [{ id: 't1' }, { id: 't2' }], meta: { total: 4200, has_more: true } }),
+      ),
+    );
+    c.reload();
+    expect(c.rows().length).toBe(2); // the loaded page
+    expect(c.totalCount()).toBe(4200); // TRUE site-wide count from meta
+    expect(c.hasHiddenCalls()).toBeTrue();
+  });
+
+  it('no hidden-calls note when the whole store is loaded (meta absent → total === loaded)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [{ id: 't1' }] })));
+    c.reload();
+    expect(c.totalCount()).toBe(1);
+    expect(c.hasHiddenCalls()).toBeFalse();
+  });
+
   it('a load error sets a persistent loadError (not a silent empty grid)', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
     c.reload();

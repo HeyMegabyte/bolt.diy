@@ -259,7 +259,20 @@ aiAdmin.get('/api/sites/:siteId/ai-logs', async (c) => {
          ORDER BY created_at DESC LIMIT ?`,
       ).bind(siteId, limit);
   const rows = await stmt.all();
-  return c.json({ data: rows.results ?? [] });
+  const list = rows.results ?? [];
+  // TRUE count (respecting the same `kind` filter) so the admin "Calls" stat can't
+  // under-report once a site's AI traces exceed the page cap — mirrors
+  // form-submissions + /logs + audit-logs. A hardcoded LIMIT with no total silently
+  // hides calls (cost/debugging signal) on any active AI site.
+  const countStmt = kind
+    ? c.env.DB.prepare(`SELECT COUNT(*) AS n FROM ai_form_logs WHERE site_id = ? AND trace_kind = ?`).bind(
+        siteId,
+        kind,
+      )
+    : c.env.DB.prepare(`SELECT COUNT(*) AS n FROM ai_form_logs WHERE site_id = ?`).bind(siteId);
+  const countRow = await countStmt.first<{ n: number }>();
+  const total = Number(countRow?.n ?? list.length);
+  return c.json({ data: list, meta: { limit, total, has_more: list.length < total } });
 });
 
 /**

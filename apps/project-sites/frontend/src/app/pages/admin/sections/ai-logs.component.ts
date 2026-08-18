@@ -250,6 +250,13 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
       </div>
       }
 
+      @if (hasHiddenCalls()) {
+        <p class="text-[0.7rem] text-amber-300/90 mt-1" role="status" data-testid="ai-logs-cap-note"
+           title="The stats + grid cover the {{ rows().length }} most recent AI calls. Older ones are still stored.">
+          Showing the latest {{ rows().length }} of {{ totalCount() }} AI calls — the stats above cover this window.
+        </p>
+      }
+
       @if (loadError() && rows().length === 0 && !loading()) {
         <div class="card" role="alert" data-testid="ai-logs-load-error">
           <p class="text-red-300 text-sm m-0 mb-2">{{ loadError() }}</p>
@@ -682,6 +689,15 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
 
   /** Raw trace rows from the API. Drives every derived signal below. */
   rows = signal<TraceRow[]>([]);
+  /** Raw `meta.total` from the last load (a worker COUNT); 0 when unknown. */
+  private readonly metaTotal = signal(0);
+  /** TRUE site-wide AI-call count from the worker (independent of the page cap).
+   *  Falls back to the loaded length for an older worker w/o meta; never fewer than
+   *  what's on screen. */
+  readonly totalCount = computed(() => Math.max(this.metaTotal(), this.rows().length));
+  /** True when the store holds more calls than the loaded page — drives the honest
+   *  "showing latest N of M calls" note so the window's stats aren't mistaken for totals. */
+  readonly hasHiddenCalls = computed(() => this.totalCount() > this.rows().length);
   loading = signal(false);
   /** Persistent load failure — shown only when there are no rows (so a failed fetch isn't a blank/empty masquerade); stale data stays visible otherwise. */
   loadError = signal<string | null>(null);
@@ -1250,8 +1266,8 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
     const s = this.state.selectedSite();
     if (!s) return;
     this.loading.set(true);
-    this.api.get<{ data: TraceRow[] }>(`/sites/${s.id}/ai-logs`, undefined, { silent: true }).subscribe({
-      next: (r) => { this.rows.set(r.data ?? []); this.loadError.set(null); this.loading.set(false); this.consecutiveErrors.set(0); },
+    this.api.get<{ data: TraceRow[]; meta?: { total?: number; has_more?: boolean } }>(`/sites/${s.id}/ai-logs`, undefined, { silent: true }).subscribe({
+      next: (r) => { this.rows.set(r.data ?? []); this.metaTotal.set(r.meta?.total ?? 0); this.loadError.set(null); this.loading.set(false); this.consecutiveErrors.set(0); },
       // Silent error → empty grid masquerades as "no traces". Record it; the
       // banner shows only when there are no rows (stale data stays visible on a poll blip).
       error: () => { this.loadError.set('Could not load AI traces — retry.'); this.loading.set(false); this.consecutiveErrors.update((n) => n + 1); },
