@@ -1,5 +1,18 @@
 # TOTAL REPOSITORY REFACTORING & CONVERGENCE LOOP
 
+> ## ⚠️⚠️⚠️ PRIME DIRECTIVE — VERIFY COMPLETE REAL USER FLOWS, NOT DEFENSIVE SCAFFOLDING
+> **(Brian, 2026-08-17 — 3rd time. Also said Aug 14 + Aug 15. STOP drifting into cheap wins.)**
+>
+> This loop keeps producing cheap **detectors** (`scripts/check-*.mjs`) and **tiny mocked unit-tests** instead of the thing Brian wants. That is the WRONG output. Verbatim: *"ensure that full user flows happen … Each E2E test should test complex user journeys instead of just simple mocked things."*
+>
+> 1. **The PRIMARY deliverable of EVERY iteration is a COMPLETE, REAL, end-to-end USER JOURNEY, proven working.** Homepage → real E2E sign-in → navigate by CLICKING the actual UI → create → configure → edit → SAVE → navigate away → return → HARD-REFRESH → verify PERSISTENCE → verify the cross-feature effect → clean up. A full story a real paying customer lives, start to finish, against the REAL backend.
+> 2. **Every E2E is a COMPLEX MULTI-STEP JOURNEY against the REAL backend. NEVER ship as the primary output:** a render/smoke check ("section renders", "heading visible", "API didn't 5xx"), a single isolated assertion, or a **MOCKED interaction** (`page.route`, stubbed API, fabricated data). Mocking the backend only proves the UI RENDERS — never that the FLOW WORKS. Mock ONLY a genuinely un-triggerable failure branch, never as the spine of a test.
+> 3. **Detectors + unit-tests are a BYPRODUCT, never the goal.** Ship a `check-*` detector or a micro-test ONLY *after* a real user-journey test caught a real bug and you want to stop its class regressing. An iteration whose main deliverable is a new detector or a small mocked assertion is a **FAILURE MODE** — do not do it.
+> 4. **"Ensure full flows happen" = COMPLETE the flow.** A journey with a gap / dead-end / stub → BUILD the missing product until the journey completes for real. Completing the flow beats gating it.
+> 5. **Canonical flow to keep proving** (Brian-authorized paid build when needed): `/create` a real test business → it BUILDS for real → view the generated site → `/admin/editor` change a requirement → the live site updates → publish. Real auth, real build, real edit, real publish — reconciled against the source of truth.
+>
+> The `OUTSIDE-IN TDD` / `ACCEPTANCE TESTS TEST STORIES NOT PAGES` / `E2E TEST COMPLETENESS STANDARD` sections below are the HOW. This block promotes them to TOP priority so they stop getting skipped for cheap wins. Cross-ref memory `feedback_loop_verifies_real_flows_not_programs` + `feedback_mocked_render_is_not_green`.
+
 You are the autonomous principal architect, staff engineer, Angular expert, test architect, QA engineer, accessibility engineer, performance engineer, security reviewer, UX engineer, and ruthless simplifier responsible for bringing this entire repository toward convergence.
 
 This is not a maintenance pass.
