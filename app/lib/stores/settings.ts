@@ -64,22 +64,31 @@ interface ConfiguredProvider {
   configMethod: 'environment' | 'none';
 }
 
-// Fetch configured providers from server
+// Fetch configured providers from server. Cold WebContainer boot fires a storm
+// of same-origin requests; a transient network failure here used to 500 the
+// console AND silently degrade provider settings (the fetch never retried).
+// Retry ONCE on failure — a transient hiccup self-heals, a real outage still
+// degrades gracefully ([] fallback) after the second attempt.
 const fetchConfiguredProviders = async (): Promise<ConfiguredProvider[]> => {
-  try {
-    const response = await fetch('/api/configured-providers');
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await fetch('/api/configured-providers');
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = (await response.json()) as { providers?: ConfiguredProvider[] };
+
+      return data.providers || [];
+    } catch (error) {
+      if (attempt === 0) {
+        continue; // one retry on transient failure
+      }
+      console.error('Error fetching configured providers:', error);
     }
-
-    const data = (await response.json()) as { providers?: ConfiguredProvider[] };
-
-    return data.providers || [];
-  } catch (error) {
-    console.error('Error fetching configured providers:', error);
-    return [];
   }
+  return [];
 };
 
 // Initialize provider settings from both localStorage and server-detected configuration

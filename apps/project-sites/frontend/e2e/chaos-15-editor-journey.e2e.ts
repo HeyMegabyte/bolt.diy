@@ -112,4 +112,50 @@ test.describe('CHAOS 15 — Editor AI round-trip (keystone)', () => {
       `console warnings (DoD=0): ${e.consoleWarnings.join('; ')}`,
     ).toEqual([]);
   });
+
+  // The third editor-AI path: "Improve with AI" (POST /api/enhancer → edge
+  // router). It was silently 500ing on the dead per-user Anthropic key; the
+  // PS_BOLT_AI override fixed chat + llmcall + enhancer, but only chat got a
+  // regression test. This locks the enhancer in: type → Improve → the input
+  // must be REPLACED by the streamed enhanced prompt.
+  test('"Improve with AI" enhances the typed prompt through the edge router', async ({ page }) => {
+    test.setTimeout(300_000);
+    const e = trackErrors(page);
+    await seedAuth(page, KEY);
+    await page.goto('/admin/editor', { waitUntil: 'domcontentloaded' });
+
+    const frame = page.frameLocator('iframe[src*="editor.projectsites.dev"]').first();
+    const chatBox = frame.locator(`textarea[placeholder="${BOLT_PROMPT_PLACEHOLDER}"]`);
+    await expect(chatBox, `bolt chat input never appeared (WebContainer boot ${BOOT_TIMEOUT / 1000}s)`).toBeVisible({
+      timeout: BOOT_TIMEOUT,
+    });
+
+    const original = 'Build a hero section with a headline and a call to action button.';
+    await chatBox.fill(original);
+    const improveBtn = frame.locator('button[title="Improve with AI"]');
+    await expect(improveBtn, 'Improve with AI enables once the prompt is typed').toBeEnabled();
+    // Dispatch the click at the DOM level: Playwright's click (even force:true)
+    // still hit-tests at coordinates, and the hero's entrance overlay eats the
+    // mouse event — a DOM click() invokes the handler directly (verified: the
+    // overlay-intercepted force-click produced NO /api/enhancer request).
+    await improveBtn.evaluate((el) => (el as HTMLButtonElement).click());
+
+    // The enhancer streams the enhanced prompt back INTO the input — poll until
+    // the value differs from the original (condition-based, no sleep).
+    await expect
+      .poll(async () => (await chatBox.inputValue().catch(() => '')).trim(), {
+        timeout: ANSWER_TIMEOUT,
+        message: 'Improve with AI never replaced the prompt — the enhancer path is dead',
+      })
+      .not.toBe(original);
+
+    await assertAlive(page);
+    expect(e.pageErrors, `pageerrors: ${e.pageErrors.join('; ')}`).toEqual([]);
+    expect(e.serverErrors, `5xx: ${e.serverErrors.join('; ')}`).toEqual([]);
+    expect(e.consoleErrors, `console errors: ${e.consoleErrors.join('; ')}`).toEqual([]);
+    expect(
+      e.consoleWarnings,
+      `console warnings (DoD=0): ${e.consoleWarnings.join('; ')}`,
+    ).toEqual([]);
+  });
 });
