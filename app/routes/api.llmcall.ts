@@ -186,7 +186,17 @@ async function llmCallAction({ context, request }: ActionFunctionArgs) {
         });
       }
 
-      const providerInfo = PROVIDER_LIST.find((p) => p.name === provider.name);
+      // ProjectSites AI preference (mirrors stream-text): when PS_BOLT_AI=true
+      // the editor routes through the worker's edge router (instant → Workers AI,
+      // standard/premium → AI Gateway) instead of per-user cookie keys. The
+      // non-streaming branch built its own provider — that skipped the override
+      // and kept hitting the dead per-user Anthropic key.
+      const serverEnv = context.cloudflare?.env as unknown as Record<string, string> | undefined;
+      const projectsitesAi =
+        serverEnv && serverEnv.PS_BOLT_AI === 'true'
+          ? PROVIDER_LIST.find((p) => p.name === 'ProjectSites AI')
+          : undefined;
+      const providerInfo = projectsitesAi ?? PROVIDER_LIST.find((p) => p.name === provider.name);
 
       if (!providerInfo) {
         throw new Error('Provider not found');

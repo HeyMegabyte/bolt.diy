@@ -105,13 +105,16 @@ const boltChatHandler = async (c: Context<{ Bindings: Env; Variables: Variables 
   const body = (await c.req.json().catch(() => null)) as {
     messages?: { role: string; content: string }[];
     model?: string;
+    stream?: boolean;
   } | null;
   if (!body || !Array.isArray(body.messages) || body.messages.length === 0) {
     return c.json({ error: 'messages_required' }, 400);
   }
 
   // THE edge decision: classify → Workers AI (instant, free) → else AI Gateway.
-  return routeBoltChat(c.env, body.messages, body.model ?? null);
+  // `stream` drives the response shape (SSE vs chat.completion JSON) so both
+  // the fork's streamText AND generateText (llmcall non-streaming) paths work.
+  return routeBoltChat(c.env, body.messages, body.model ?? null, body.stream !== false);
 };
 
 /**

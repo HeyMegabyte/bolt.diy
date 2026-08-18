@@ -125,6 +125,34 @@ function sseEscape(s: string): string {
 }
 
 /**
+ * Non-streaming Workers AI answer as an OpenAI chat.completion JSON object —
+ * the shape `generateText` parses (`choices[0].message.content`).
+ */
+async function workersAiToOpenAiJson(
+  env: Env,
+  messages: { role: string; content: string }[],
+): Promise<Response> {
+  try {
+    const ai = env.AI as unknown as {
+      run: (model: string, opts: unknown) => Promise<{ response?: string } | ReadableStream<string>>;
+    };
+    const out = await ai.run(INSTANT_MODEL, { messages, max_tokens: 1024 });
+    const text = typeof out === 'object' && out && 'response' in out ? (out.response ?? '') : '';
+    return Response.json({
+      id: `wa-${Date.now()}`,
+      object: 'chat.completion',
+      model: INSTANT_MODEL,
+      choices: [{ index: 0, message: { role: 'assistant', content: text }, finish_reason: 'stop' }],
+    });
+  } catch {
+    return Response.json(
+      { error: { code: 'INSTANT_AI_FAILED', message: 'Workers AI unavailable' } },
+      { status: 502 },
+    );
+  }
+}
+
+/**
  * Stream a Workers AI answer as OpenAI-compatible SSE frames, so OpenAI-SDK
  * clients consume it unchanged. Never throws — errors become an error frame.
  */
@@ -208,11 +236,12 @@ export async function routeBoltChat(
   env: Env,
   messages: { role: string; content: string }[],
   modelHint?: string | null,
+  stream = true,
 ): Promise<Response> {
   const tier = tierFromModelHint(modelHint) ?? classifyPromptTier(messages, modelHint);
 
   if (tier === 'instant') {
-    return workersAiToOpenAiSse(env, messages);
+    return stream ? workersAiToOpenAiSse(env, messages) : workersAiToOpenAiJson(env, messages);
   }
 
   // gatewayFetch adds ONLY the cf-aig-* cache headers — the provider's
@@ -231,9 +260,9 @@ export async function routeBoltChat(
         'Content-Type': 'application/json',
         Authorization: `Bearer ${keyFor('openai')}`,
       },
-      body: JSON.stringify({ model: TIER_MODELS.openai.premium, messages, stream: true }),
+      body: JSON.stringify({ model: TIER_MODELS.openai.premium, messages, stream }),
     });
-    return gatewayResponse(upstream, tier);
+    return gatewayResponse(upstream, tier, stream);
   }
 
   const gatewayProvider: 'deepseek' | 'openai' = provider === 'deepseek' ? 'deepseek' : 'openai';
@@ -246,16 +275,17 @@ export async function routeBoltChat(
     body: JSON.stringify({
       model: TIER_MODELS[gatewayProvider][tier],
       messages,
-      stream: true,
+      stream,
     }),
   });
-  return gatewayResponse(upstream, tier);
+  return gatewayResponse(upstream, tier, stream);
 }
 
 /** Wrap a gatewayFetch result as the SSE response (502 JSON on upstream failure). */
 function gatewayResponse(
   upstream: Awaited<ReturnType<typeof gatewayFetch>>,
   tier: Exclude<AiTier, 'instant'>,
+  stream: boolean,
 ): Response {
   if (!upstream.response.ok) {
     return Response.json(
@@ -266,7 +296,9 @@ function gatewayResponse(
   return new Response(upstream.response.body, {
     status: 200,
     headers: {
-      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Content-Type': stream
+        ? 'text/event-stream; charset=utf-8'
+        : 'application/json',
       'Cache-Control': 'no-cache',
       'X-AI-Gateway': upstream.gatewayUsed ? '1' : '0',
       'X-Edge-Tier': tier,

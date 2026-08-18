@@ -699,6 +699,22 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
     expect(mockGatewayFetch).toHaveBeenCalledTimes(1);
   });
 
+  it('NON-STREAMING (stream:false) returns chat.completion JSON — the llmcall generateText shape', async () => {
+    const aiStream = new ReadableStream<string>({
+      start(c) { c.enqueue('PONG'); c.close(); },
+    });
+    // Workers AI non-streaming run() returns {response} — mock that shape.
+    const ai = { run: jest.fn(async () => ({ response: 'PONG-CHECK' })) };
+    const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test', AI: ai });
+    const res = await postJson(makeApp(SESSION), '/api/bolt/chat', { messages: [{ role: 'user', content: 'hi' }], stream: false }, env);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('application/json');
+    const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    expect(json.choices?.[0]?.message?.content).toBe('PONG-CHECK');
+    expect(mockGatewayFetch).not.toHaveBeenCalled();
+  });
+
   it('502s when the upstream provider fails (honest error, never a silent hang)', async () => {
     mockGatewayFetch.mockResolvedValue({
       response: new Response('upstream exploded', { status: 500 }),
