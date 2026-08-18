@@ -50,6 +50,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../types/env.js';
+import { routeBoltChat } from '../services/edge_ai_router.js';
 
 const bolt = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -83,6 +84,35 @@ function isBoltCallerAllowed(c: Context<{ Bindings: Env; Variables: Variables }>
   if (boltHeader === 'bolt-iframe') return true;
   return false;
 }
+
+/**
+ * POST /api/bolt/chat (+ legacy /admin-api/chat) — the editor's custom AI.
+ *
+ * Bolt's chat streams from HERE, not from per-user provider keys: the worker
+ * routes every call through {@link chooseProviderForTier} (DeepSeek preferred,
+ * OpenAI fallback) and {@link gatewayFetch} — which uses the Cloudflare AI
+ * Gateway when `CF_ACCOUNT_ID` is set and `AI_GATEWAY_ENABLED !== "false"`,
+ * else the provider directly. The endpoint is OpenAI-compatible
+ * (`chat/completions` pass-through, SSE stream) so the fork's AI SDK needs no
+ * protocol changes. Kills the "user's Anthropic key has no credits" class:
+ * secrets live in the worker, never in a bolt cookie.
+ */
+const boltChatHandler = async (c: Context<{ Bindings: Env; Variables: Variables }>) => {
+  if (!isBoltCallerAllowed(c)) {
+    return c.json({ error: 'forbidden' }, 403);
+  }
+
+  const body = (await c.req.json().catch(() => null)) as {
+    messages?: { role: string; content: string }[];
+    model?: string;
+  } | null;
+  if (!body || !Array.isArray(body.messages) || body.messages.length === 0) {
+    return c.json({ error: 'messages_required' }, 400);
+  }
+
+  // THE edge decision: classify → Workers AI (instant, free) → else AI Gateway.
+  return routeBoltChat(c.env, body.messages, body.model ?? null);
+};
 
 /**
  * Mirrors IDB chat-state to D1 once every 30s from the bolt.diy client.
@@ -379,6 +409,8 @@ bolt.post('/admin-api/vision-ocr', visionOcrHandler);
 bolt.post('/api/bolt/vision-ocr', visionOcrHandler);
 
 bolt.post('/admin-api/chat/suggest-prompts', suggestPromptsHandler);
+bolt.post('/admin-api/chat', boltChatHandler);
+bolt.post('/api/bolt/chat', boltChatHandler);
 bolt.post('/api/bolt/chat/suggest-prompts', suggestPromptsHandler);
 
 export { bolt };

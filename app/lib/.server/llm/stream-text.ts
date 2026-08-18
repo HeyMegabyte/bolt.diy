@@ -104,7 +104,15 @@ export async function streamText(props: {
     return newMessage;
   });
 
-  const provider = PROVIDER_LIST.find((p) => p.name === currentProvider) || DEFAULT_PROVIDER;
+  // ProjectSites AI: when the Pages env flags it, bolt's chat routes through the
+  // worker's custom AI (tier routing + conditional AI Gateway) instead of any
+  // per-user provider — no cookie keys, no dead-credit keys. The worker owns
+  // the secrets; the editor just streams from /api/bolt/chat.
+  const projectsitesAi = PROVIDER_LIST.find((p) => p.name === 'ProjectSites AI');
+  const useProjectsitesAi = !!(serverEnv && (serverEnv as unknown as Record<string, string>).PS_BOLT_AI === 'true') && !!projectsitesAi;
+  const provider = useProjectsitesAi
+    ? projectsitesAi!
+    : PROVIDER_LIST.find((p) => p.name === currentProvider) || DEFAULT_PROVIDER;
   const staticModels = LLMManager.getInstance().getStaticModelListFromProvider(provider);
   let modelDetails = staticModels.find((m) => m.name === currentModel);
 

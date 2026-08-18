@@ -23,6 +23,7 @@ const KEY = process.env.E2E_API_KEY ?? '';
 // exists; media lived in the reverted admin-v2) so both silently rendered the 404.
 const SECTIONS = [
   '/admin',
+  '/admin/editor', // the bolt+WebContainer+AI surface — omitted for 20+ fires; render-swept here, INTERACTION-swept by chaos-15 (the editor AI round-trip)
   '/admin/analytics',
   '/admin/domains',
   '/admin/social',

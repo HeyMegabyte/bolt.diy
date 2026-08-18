@@ -22,6 +22,11 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { bolt } from '../routes/bolt_admin.js';
 
+jest.mock('../services/ai_gateway.js', () => ({
+  gatewayFetch: jest.fn(),
+  DIRECT_BASE_URLS_EXPORT: {},
+}));
+
 // ─── Boundary mocks ──────────────────────────────────────────────────────────
 
 /** In-memory KV mock (suggest-prompts cache). */
@@ -522,5 +527,109 @@ describe('POST /api/bolt/chat/suggest-prompts', () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as { suggestions: unknown[] };
     expect(json.suggestions).toHaveLength(1);
+  });
+});
+
+
+// ─── POST /api/bolt/chat — the editor's custom AI (tier routing + AI Gateway) ───
+
+import { gatewayFetch } from '../services/ai_gateway.js';
+const mockGatewayFetch = gatewayFetch as unknown as jest.Mock;
+
+describe('bolt custom-AI chat endpoint — edge-first routing', () => {
+  beforeEach(() => {
+    mockGatewayFetch.mockReset();
+  });
+
+  it('403s without a session, trusted origin, or bolt header', async () => {
+    const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test' });
+    const res = await postJson(makeApp(), '/api/bolt/chat', { messages: [{ role: 'user', content: 'hi' }] }, env);
+    expect(res.status).toBe(403);
+    expect(mockGatewayFetch).not.toHaveBeenCalled();
+  });
+
+  it('400s when messages are missing/empty', async () => {
+    const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test' });
+    const res = await postJson(makeApp(SESSION), '/api/bolt/chat', { messages: [] }, env);
+    expect(res.status).toBe(400);
+    expect(mockGatewayFetch).not.toHaveBeenCalled();
+  });
+
+  it('INSTANT tier: short Q&A answers via Workers AI at the edge — gateway NEVER called', async () => {
+    const chunks = ['PONG'];
+    const aiStream = new ReadableStream<string>({
+      start(c) { for (const x of chunks) c.enqueue(x); c.close(); },
+    });
+    const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test', AI: makeAi(aiStream) });
+    const res = await postJson(makeApp(SESSION), '/api/bolt/chat', { messages: [{ role: 'user', content: 'what is 2+2?' }] }, env);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-edge-tier')).toBe('instant');
+    expect(res.headers.get('x-ai-gateway')).toBeNull();
+    const text = await res.text();
+    expect(text).toContain('PONG');
+    expect(text).toContain('data: [DONE]');
+    expect(mockGatewayFetch).not.toHaveBeenCalled();
+  });
+
+  it('STANDARD tier: build/code intent streams via DeepSeek through the AI Gateway', async () => {
+    mockGatewayFetch.mockResolvedValue({
+      response: new Response('data: {"choices":[{"delta":{"content":"PONG"}}]}\n\ndata: [DONE]\n\n', { status: 200 }),
+      gatewayUsed: true,
+    });
+    const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test' });
+    const res = await postJson(makeApp(SESSION), '/api/bolt/chat', { messages: [{ role: 'user', content: 'build a hero section with tailwind css' }] }, env);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-edge-tier')).toBe('standard');
+    expect(res.headers.get('x-ai-gateway')).toBe('1');
+    const text = await res.text();
+    expect(text).toContain('PONG');
+
+    expect(mockGatewayFetch).toHaveBeenCalledTimes(1);
+    const [callEnv, callProvider, callPath, callInit] = mockGatewayFetch.mock.calls[0];
+    expect(callProvider).toBe('deepseek');
+    expect(callPath).toBe('chat/completions');
+    expect(String(callInit.body)).toContain('"stream":true');
+  });
+
+  it('PREMIUM tier: reasoning intent streams the premium model via the gateway', async () => {
+    mockGatewayFetch.mockResolvedValue({
+      response: new Response('data: {"choices":[{"delta":{"content":"X"}}]}\n\ndata: [DONE]\n\n', { status: 200 }),
+      gatewayUsed: true,
+    });
+    const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test' });
+    const res = await postJson(makeApp(SESSION), '/api/bolt/chat', { messages: [{ role: 'user', content: 'Analyze the architecture trade-offs step by step and propose a plan' }] }, env);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-edge-tier')).toBe('premium');
+    // No ANTHROPIC_API_KEY in the test env → premium falls back to OpenAI via
+    // the gateway (OpenAI-compat wire format), model gpt-4o.
+    const [callEnv, callProvider, callPath, callInit] = mockGatewayFetch.mock.calls[0];
+    expect(callProvider).toBe('openai');
+    expect(String(callInit.body)).toContain('gpt-4o');
+  });
+
+  it('MODEL HINT: a claude-opus-4-6 chip request routes premium (gpt-4o via gateway) regardless of text', async () => {
+    mockGatewayFetch.mockResolvedValue({
+      response: new Response('data: {"choices":[{"delta":{"content":"Y"}}]}\n\ndata: [DONE]\n\n', { status: 200 }),
+      gatewayUsed: true,
+    });
+    const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test' });
+    const res = await postJson(makeApp(SESSION), '/api/bolt/chat', { messages: [{ role: 'user', content: 'hi' }], model: 'claude-opus-4-6' }, env);
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-edge-tier')).toBe('premium');
+    expect(mockGatewayFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('502s when the upstream provider fails (honest error, never a silent hang)', async () => {
+    mockGatewayFetch.mockResolvedValue({
+      response: new Response('upstream exploded', { status: 500 }),
+      gatewayUsed: true,
+    });
+    const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test' });
+    const res = await postJson(makeApp(SESSION), '/api/bolt/chat', { messages: [{ role: 'user', content: 'build a page' }] }, env);
+    expect(res.status).toBe(502);
   });
 });
