@@ -619,11 +619,20 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
 
   it('does NOT audit the header-only M2M path (no session org — FK-safe skip)', async () => {
     const aiStream = new ReadableStream<string>({
-      start(c) { c.enqueue('PONG'); c.close(); },
+      start(c) {
+        c.enqueue('PONG');
+        c.close();
+      },
     });
     const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test', AI: makeAi(aiStream) });
     // No SESSION vars — only the bolt iframe header (the fork's server-side path).
-    const res = await postJson(makeApp(), '/api/bolt/chat', { messages: [{ role: 'user', content: 'hi' }], stream: true }, env, IFRAME_HEADER);
+    const res = await postJson(
+      makeApp(),
+      '/api/bolt/chat',
+      { messages: [{ role: 'user', content: 'hi' }], stream: true },
+      env,
+      IFRAME_HEADER,
+    );
 
     expect(res.status).toBe(200);
     expect(mockWriteAuditLog).not.toHaveBeenCalled();
