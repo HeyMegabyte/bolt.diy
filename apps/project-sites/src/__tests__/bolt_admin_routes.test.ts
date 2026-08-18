@@ -640,7 +640,7 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
     expect(mockGatewayFetch).toHaveBeenCalledTimes(1);
     const [callEnv, callProvider, callPath, callInit] = mockGatewayFetch.mock.calls[0];
     expect(callProvider).toBe('deepseek');
-    expect(callPath).toBe('chat/completions');
+    expect(callPath).toBe('/v1/chat/completions');
     expect(String(callInit.body)).toContain('"stream":true');
   });
 

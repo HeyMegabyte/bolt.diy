@@ -219,7 +219,7 @@ export async function routeBoltChat(
   if (provider === 'anthropic') {
     // This surface speaks the OpenAI chat/completions wire format; Anthropic's
     // native protocol is not wire-compatible. premium → OpenAI via gateway.
-    const upstream = await gatewayFetch(env, 'openai', 'chat/completions', {
+    const upstream = await gatewayFetch(env, 'openai', '/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: TIER_MODELS.openai.premium, messages, stream: true }),
@@ -228,7 +228,7 @@ export async function routeBoltChat(
   }
 
   const gatewayProvider: 'deepseek' | 'openai' = provider === 'deepseek' ? 'deepseek' : 'openai';
-  const upstream = await gatewayFetch(env, gatewayProvider, 'chat/completions', {
+  const upstream = await gatewayFetch(env, gatewayProvider, '/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
