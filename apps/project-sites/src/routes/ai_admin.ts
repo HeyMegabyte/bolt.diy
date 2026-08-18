@@ -265,10 +265,9 @@ aiAdmin.get('/api/sites/:siteId/ai-logs', async (c) => {
   // form-submissions + /logs + audit-logs. A hardcoded LIMIT with no total silently
   // hides calls (cost/debugging signal) on any active AI site.
   const countStmt = kind
-    ? c.env.DB.prepare(`SELECT COUNT(*) AS n FROM ai_form_logs WHERE site_id = ? AND trace_kind = ?`).bind(
-        siteId,
-        kind,
-      )
+    ? c.env.DB.prepare(
+        `SELECT COUNT(*) AS n FROM ai_form_logs WHERE site_id = ? AND trace_kind = ?`,
+      ).bind(siteId, kind)
     : c.env.DB.prepare(`SELECT COUNT(*) AS n FROM ai_form_logs WHERE site_id = ?`).bind(siteId);
   const countRow = await countStmt.first<{ n: number }>();
   const total = Number(countRow?.n ?? list.length);

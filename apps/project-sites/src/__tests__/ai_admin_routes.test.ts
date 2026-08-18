@@ -166,7 +166,10 @@ describe('GET /api/sites/:siteId/ai-logs — meta.total', () => {
   it('returns meta.total (COUNT) + has_more when the store exceeds the loaded page', async () => {
     const db = makeDb([
       OWNED_SITE,
-      { match: 'FROM ai_form_logs', resp: { all: [{ id: 'l1' }, { id: 'l2' }], first: { n: 4200 } } },
+      {
+        match: 'FROM ai_form_logs',
+        resp: { all: [{ id: 'l1' }, { id: 'l2' }], first: { n: 4200 } },
+      },
     ]);
     const env = makeEnv(db);
     const res = await req(makeApp(AUTH), 'GET', '/api/sites/s1/ai-logs?limit=2', env);
