@@ -51,6 +51,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { routeBoltChat } from '../services/edge_ai_router.js';
+import { writeAuditLog } from '../services/audit.js';
 
 const bolt = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -116,6 +117,29 @@ const boltChatHandler = async (c: Context<{ Bindings: Env; Variables: Variables 
   // the fork's streamText AND generateText (llmcall non-streaming) paths work.
   // OpenAI convention: stream defaults to FALSE (generateText omits the field);
   // only an explicit stream:true gets SSE.
+  //
+  // Audit (palette precedent): fire-and-forget `bolt.ai.answered` so editor-AI
+  // usage is visible in the admin audit trail — first 40 chars of the last user
+  // turn only, never the streamed answer. The soft-auth gate may have no userId
+  // (iframe Origin header path) — use the orgId var or a bolt-iframe sentinel.
+  const lastUser = [...(body.messages ?? [])].reverse().find((m) => m.role === 'user');
+  if (lastUser?.content) {
+    c.executionCtx.waitUntil(
+      writeAuditLog(c.env.DB, {
+        org_id: c.get('orgId') ?? 'bolt-iframe',
+        actor_id: c.get('userId') ?? null,
+        action: 'bolt.ai.answered',
+        message: `Editor AI answered: '${lastUser.content.slice(0, 40)}'`,
+        target_type: 'bolt_ai',
+        metadata_json: {
+          model_hint: body.model ?? null,
+          stream: body.stream === true,
+          query_length: lastUser.content.length,
+        },
+      }),
+    );
+  }
+
   return routeBoltChat(c.env, body.messages, body.model ?? null, body.stream === true);
 };
 

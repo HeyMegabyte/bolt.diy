@@ -27,6 +27,10 @@ jest.mock('../services/ai_gateway.js', () => ({
   DIRECT_BASE_URLS_EXPORT: {},
 }));
 
+jest.mock('../services/audit.js', () => ({
+  writeAuditLog: jest.fn(async () => undefined),
+}));
+
 // ─── Boundary mocks ──────────────────────────────────────────────────────────
 
 /** In-memory KV mock (suggest-prompts cache). */
@@ -533,11 +537,14 @@ describe('POST /api/bolt/chat/suggest-prompts', () => {
 // ─── POST /api/bolt/chat — the editor's custom AI (tier routing + AI Gateway) ───
 
 import { gatewayFetch } from '../services/ai_gateway.js';
+import { writeAuditLog } from '../services/audit.js';
 const mockGatewayFetch = gatewayFetch as unknown as jest.Mock;
+const mockWriteAuditLog = writeAuditLog as unknown as jest.Mock;
 
 describe('bolt custom-AI chat endpoint — edge-first routing', () => {
   beforeEach(() => {
     mockGatewayFetch.mockReset();
+    mockWriteAuditLog.mockReset();
   });
 
   it('403s without a session, trusted origin, or bolt header', async () => {
@@ -582,6 +589,24 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
     expect(text).toContain('PONG');
     expect(text).toContain('data: [DONE]');
     expect(mockGatewayFetch).not.toHaveBeenCalled();
+  });
+
+  it('writes a fire-and-forget bolt.ai.answered audit entry (palette parity)', async () => {
+    const aiStream = new ReadableStream<string>({
+      start(c) { c.enqueue('PONG'); c.close(); },
+    });
+    const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test', AI: makeAi(aiStream) });
+    const res = await postJson(makeApp(SESSION), '/api/bolt/chat', { messages: [{ role: 'user', content: 'what is 2+2?' }], stream: true }, env);
+
+    expect(res.status).toBe(200);
+    expect(mockWriteAuditLog).toHaveBeenCalledTimes(1);
+    const entry = mockWriteAuditLog.mock.calls[0][1];
+    expect(entry.action).toBe('bolt.ai.answered');
+    expect(entry.org_id).toBe('org-1');
+    expect(entry.actor_id).toBe('user-1');
+    expect(entry.message).toContain("what is 2+2?");
+    expect(entry.target_type).toBe('bolt_ai');
+    expect((entry.metadata_json as Record<string, unknown>).query_length).toBe(12);
   });
 
   it('INSTANT tier: Workers AI chunks that are ALREADY OpenAI-SSE pass through verbatim (no double-wrapping — the live double-encode regression)', async () => {

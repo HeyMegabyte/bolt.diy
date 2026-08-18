@@ -282,7 +282,13 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
               disabled={props.input.length === 0 || props.enhancingPrompt}
               className={classNames('transition-all', props.enhancingPrompt ? 'opacity-100' : '')}
               onClick={() => {
-                props.enhancePrompt?.();
+                // Only celebrate when the handler EXISTS — a missing enhancePrompt
+                // prop (no-op click) used to toast a lying 'Prompt enhanced!'.
+                // The enhancer itself replaces the input; the toast confirms it ran.
+                if (!props.enhancePrompt) {
+                  return;
+                }
+                props.enhancePrompt();
                 toast.success('Prompt enhanced!');
               }}
             >
