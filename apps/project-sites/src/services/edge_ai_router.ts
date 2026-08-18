@@ -148,19 +148,31 @@ async function workersAiToOpenAiSse(
   const encoder = new TextEncoder();
   const body = new ReadableStream<Uint8Array>({
     async start(controller) {
+      let sawDone = false;
       try {
-        // Workers AI stream chunks are raw text deltas; read via the reader
-        // (the runtime stream is not typed async-iterable — same pattern as
-        // the palette stream in ai_admin.ts).
+        // Workers AI stream chunks are read via the reader (not typed
+        // async-iterable — same pattern as the palette in ai_admin.ts).
+        // They arrive in one of TWO shapes, so the shim handles both:
+        //   • OpenAI-format SSE frames (`data: {"choices":[...]}`) — some
+        //     Workers AI chat streams return these VERBATIM; wrapping them
+        //     again double-encodes and breaks AI SDK clients (live-incident:
+        //     the editor bounced to its landing screen on nested `data:`).
+        //   • raw text deltas — wrapped into an OpenAI delta frame here.
         const reader = stream!.getReader();
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          const text = typeof value === 'string' ? value : new TextDecoder().decode(value);
-          const frame = `data: {"id":"wa","choices":[{"delta":{"content":"${sseEscape(text)}"}}]}\n\n`;
-          controller.enqueue(encoder.encode(frame));
+          const text = (typeof value === 'string' ? value : new TextDecoder().decode(value)).trim();
+          if (!text) continue;
+          if (text.includes('[DONE]')) sawDone = true;
+          if (text.startsWith('data:')) {
+            controller.enqueue(encoder.encode(`${text}\n\n`));
+          } else {
+            const frame = `data: {"id":"wa","choices":[{"delta":{"content":"${sseEscape(text)}"}}]}\n\n`;
+            controller.enqueue(encoder.encode(frame));
+          }
         }
-        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        if (!sawDone) controller.enqueue(encoder.encode('data: [DONE]\n\n'));
       } catch {
         controller.enqueue(
           encoder.encode(
