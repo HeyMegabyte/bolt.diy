@@ -855,7 +855,7 @@ describe('GET /api/audit/rows', () => {
     // The scannable English summary the UI renders (audit.component line 553+)
     // must come from the ENDPOINT, not the FE action-name fallback — the SELECT
     // previously omitted `message` so the fallback always fired.
-    expect(json.data[0].message).toContain("Editor AI answered");
+    expect(json.data[0].message).toContain('Editor AI answered');
   });
 
   // A recording DB that captures the prepared SQL + bound params so we can assert
