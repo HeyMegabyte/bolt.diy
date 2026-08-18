@@ -701,12 +701,20 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
 
   it('NON-STREAMING (stream:false) returns chat.completion JSON — the llmcall generateText shape', async () => {
     const aiStream = new ReadableStream<string>({
-      start(c) { c.enqueue('PONG'); c.close(); },
+      start(c) {
+        c.enqueue('PONG');
+        c.close();
+      },
     });
     // Workers AI non-streaming run() returns {response} — mock that shape.
     const ai = { run: jest.fn(async () => ({ response: 'PONG-CHECK' })) };
     const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test', AI: ai });
-    const res = await postJson(makeApp(SESSION), '/api/bolt/chat', { messages: [{ role: 'user', content: 'hi' }], stream: false }, env);
+    const res = await postJson(
+      makeApp(SESSION),
+      '/api/bolt/chat',
+      { messages: [{ role: 'user', content: 'hi' }], stream: false },
+      env,
+    );
 
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('application/json');

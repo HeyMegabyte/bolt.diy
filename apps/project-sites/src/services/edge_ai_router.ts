@@ -134,7 +134,10 @@ async function workersAiToOpenAiJson(
 ): Promise<Response> {
   try {
     const ai = env.AI as unknown as {
-      run: (model: string, opts: unknown) => Promise<{ response?: string } | ReadableStream<string>>;
+      run: (
+        model: string,
+        opts: unknown,
+      ) => Promise<{ response?: string } | ReadableStream<string>>;
     };
     const out = await ai.run(INSTANT_MODEL, { messages, max_tokens: 1024 });
     const text = typeof out === 'object' && out && 'response' in out ? (out.response ?? '') : '';
@@ -296,9 +299,7 @@ function gatewayResponse(
   return new Response(upstream.response.body, {
     status: 200,
     headers: {
-      'Content-Type': stream
-        ? 'text/event-stream; charset=utf-8'
-        : 'application/json',
+      'Content-Type': stream ? 'text/event-stream; charset=utf-8' : 'application/json',
       'Cache-Control': 'no-cache',
       'X-AI-Gateway': upstream.gatewayUsed ? '1' : '0',
       'X-Edge-Tier': tier,
