@@ -1777,7 +1777,7 @@ aiAdmin.get('/api/audit/rows', async (c) => {
   }
   binds.push(limit);
   const rows = await c.env.DB.prepare(
-    `SELECT id, action, target_type, target_id, actor_id, metadata_json, request_id, created_at
+    `SELECT id, action, message, target_type, target_id, actor_id, metadata_json, request_id, created_at
      FROM audit_logs WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT ?`,
   )
     .bind(...binds)

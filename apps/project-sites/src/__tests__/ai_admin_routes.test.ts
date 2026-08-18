@@ -830,19 +830,32 @@ describe('GET /api/billing/site-costs', () => {
 // ─── Audit rows ───────────────────────────────────────────────────────────────
 
 describe('GET /api/audit/rows', () => {
-  it('returns audit rows with parsed metadata', async () => {
+  it('returns audit rows with parsed metadata AND the human message column', async () => {
     const env = makeEnv(
       makeDb([
         {
           match: 'FROM audit_logs WHERE org_id = ?',
-          resp: { all: [{ id: 'a1', action: 'org.deleted', metadata_json: '{"k":1}' }] },
+          resp: {
+            all: [
+              {
+                id: 'a1',
+                action: 'bolt.ai.answered',
+                message: "Editor AI answered: 'what is 2+2?'",
+                metadata_json: '{"k":1}',
+              },
+            ],
+          },
         },
       ]),
     );
     const res = await req(makeApp(AUTH), 'GET', '/api/audit/rows', env);
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { data: Array<{ metadata: unknown }> };
+    const json = (await res.json()) as { data: Array<{ metadata: unknown; message?: string }> };
     expect(json.data[0].metadata).toEqual({ k: 1 });
+    // The scannable English summary the UI renders (audit.component line 553+)
+    // must come from the ENDPOINT, not the FE action-name fallback — the SELECT
+    // previously omitted `message` so the fallback always fired.
+    expect(json.data[0].message).toContain("Editor AI answered");
   });
 
   // A recording DB that captures the prepared SQL + bound params so we can assert
