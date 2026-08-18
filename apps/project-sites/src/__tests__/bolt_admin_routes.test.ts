@@ -593,10 +593,18 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
       'data: {"choices":[{"delta":{"content":"NG"}}]}\n\ndata: [DONE]\n\n',
     ];
     const aiStream = new ReadableStream<string>({
-      start(c) { for (const x of chunks) c.enqueue(x); c.close(); },
+      start(c) {
+        for (const x of chunks) c.enqueue(x);
+        c.close();
+      },
     });
     const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test', AI: makeAi(aiStream) });
-    const res = await postJson(makeApp(SESSION), '/api/bolt/chat', { messages: [{ role: 'user', content: 'hi' }] }, env);
+    const res = await postJson(
+      makeApp(SESSION),
+      '/api/bolt/chat',
+      { messages: [{ role: 'user', content: 'hi' }] },
+      env,
+    );
 
     expect(res.status).toBe(200);
     const text = await res.text();
