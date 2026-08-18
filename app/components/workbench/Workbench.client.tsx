@@ -38,7 +38,9 @@ import { workbenchStore, type WorkbenchViewType } from '~/lib/stores/workbench';
 import { classNames } from '~/utils/classNames';
 import { cubicEasingFn } from '~/utils/easings';
 import { renderLogger } from '~/utils/logger';
+import { DataPanel } from './DataPanel';
 import { EditorPanel } from './EditorPanel';
+import { FunctionsPanel } from './FunctionsPanel';
 import { Preview } from './Preview';
 import { StatusBar } from './StatusBar.client';
 import { QuickJumpPalette, ShortcutsOverlay, openInStackBlitz, useEditorHotkeys } from './EditorOverlays.client';
@@ -67,6 +69,8 @@ const viewTransition = { ease: cubicEasingFn };
 const TOP_TABS: { value: WorkbenchViewType; text: string; icon: string }[] = [
   { value: 'code', text: 'Code', icon: 'i-ph:code-duotone' },
   { value: 'preview', text: 'Preview', icon: 'i-ph:eye-duotone' },
+  { value: 'functions', text: 'Functions', icon: 'i-ph:lightning-duotone' },
+  { value: 'data', text: 'Data', icon: 'i-ph:chart-bar-duotone' },
 ];
 
 const VIEW_ORDER: WorkbenchViewType[] = TOP_TABS.map((t) => t.value);
@@ -388,6 +392,14 @@ export const Workbench = memo(
                     {/* Preview — read-only rendered output */}
                     <View initial={{ x: '100%' }} animate={{ x: getViewX('preview', selectedView) }}>
                       <Preview setSelectedElement={setSelectedElement} />
+                    </View>
+                    {/* Functions — Workers/functions manager */}
+                    <View initial={{ x: '100%' }} animate={{ x: getViewX('functions', selectedView) }}>
+                      <FunctionsPanel />
+                    </View>
+                    {/* Data — resource health overview */}
+                    <View initial={{ x: '100%' }} animate={{ x: getViewX('data', selectedView) }}>
+                      <DataPanel />
                     </View>
                   </div>
                   {/* Item 36 — StatusBar pinned to the bottom of the workbench */}
