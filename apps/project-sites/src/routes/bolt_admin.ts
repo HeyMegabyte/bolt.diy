@@ -114,7 +114,9 @@ const boltChatHandler = async (c: Context<{ Bindings: Env; Variables: Variables 
   // THE edge decision: classify → Workers AI (instant, free) → else AI Gateway.
   // `stream` drives the response shape (SSE vs chat.completion JSON) so both
   // the fork's streamText AND generateText (llmcall non-streaming) paths work.
-  return routeBoltChat(c.env, body.messages, body.model ?? null, body.stream !== false);
+  // OpenAI convention: stream defaults to FALSE (generateText omits the field);
+  // only an explicit stream:true gets SSE.
+  return routeBoltChat(c.env, body.messages, body.model ?? null, body.stream === true);
 };
 
 /**

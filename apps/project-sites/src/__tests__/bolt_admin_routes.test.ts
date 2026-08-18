@@ -545,7 +545,7 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
     const res = await postJson(
       makeApp(),
       '/api/bolt/chat',
-      { messages: [{ role: 'user', content: 'hi' }] },
+      { messages: [{ role: 'user', content: 'hi' }], stream: true },
       env,
     );
     expect(res.status).toBe(403);
@@ -571,7 +571,7 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
     const res = await postJson(
       makeApp(SESSION),
       '/api/bolt/chat',
-      { messages: [{ role: 'user', content: 'what is 2+2?' }] },
+      { messages: [{ role: 'user', content: 'what is 2+2?' }], stream: true },
       env,
     );
 
@@ -602,7 +602,7 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
     const res = await postJson(
       makeApp(SESSION),
       '/api/bolt/chat',
-      { messages: [{ role: 'user', content: 'hi' }] },
+      { messages: [{ role: 'user', content: 'hi' }], stream: true },
       env,
     );
 
@@ -627,7 +627,7 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
     const res = await postJson(
       makeApp(SESSION),
       '/api/bolt/chat',
-      { messages: [{ role: 'user', content: 'build a hero section with tailwind css' }] },
+      { messages: [{ role: 'user', content: 'build a hero section with tailwind css' }], stream: true },
       env,
     );
 
