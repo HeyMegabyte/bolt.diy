@@ -43,7 +43,9 @@ describe('classifyPromptTier — the edge decision', () => {
 
   it('model hints override heuristics (the bolt model chip wins)', () => {
     expect(tierFromModelHint('claude-opus-4-6')).toBe('premium');
-    expect(classifyPromptTier([{ role: 'user', content: 'hi' }], 'claude-opus-4-6')).toBe('premium');
+    expect(classifyPromptTier([{ role: 'user', content: 'hi' }], 'claude-opus-4-6')).toBe(
+      'premium',
+    );
     expect(classifyPromptTier([{ role: 'user', content: 'hi' }], 'deepseek-chat')).toBe('standard');
     expect(tierFromModelHint('unknown-model')).toBeNull();
   });

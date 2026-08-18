@@ -530,7 +530,6 @@ describe('POST /api/bolt/chat/suggest-prompts', () => {
   });
 });
 
-
 // ─── POST /api/bolt/chat — the editor's custom AI (tier routing + AI Gateway) ───
 
 import { gatewayFetch } from '../services/ai_gateway.js';
@@ -543,7 +542,12 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
 
   it('403s without a session, trusted origin, or bolt header', async () => {
     const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test' });
-    const res = await postJson(makeApp(), '/api/bolt/chat', { messages: [{ role: 'user', content: 'hi' }] }, env);
+    const res = await postJson(
+      makeApp(),
+      '/api/bolt/chat',
+      { messages: [{ role: 'user', content: 'hi' }] },
+      env,
+    );
     expect(res.status).toBe(403);
     expect(mockGatewayFetch).not.toHaveBeenCalled();
   });
@@ -558,10 +562,18 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
   it('INSTANT tier: short Q&A answers via Workers AI at the edge — gateway NEVER called', async () => {
     const chunks = ['PONG'];
     const aiStream = new ReadableStream<string>({
-      start(c) { for (const x of chunks) c.enqueue(x); c.close(); },
+      start(c) {
+        for (const x of chunks) c.enqueue(x);
+        c.close();
+      },
     });
     const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test', AI: makeAi(aiStream) });
-    const res = await postJson(makeApp(SESSION), '/api/bolt/chat', { messages: [{ role: 'user', content: 'what is 2+2?' }] }, env);
+    const res = await postJson(
+      makeApp(SESSION),
+      '/api/bolt/chat',
+      { messages: [{ role: 'user', content: 'what is 2+2?' }] },
+      env,
+    );
 
     expect(res.status).toBe(200);
     expect(res.headers.get('x-edge-tier')).toBe('instant');
@@ -574,11 +586,19 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
 
   it('STANDARD tier: build/code intent streams via DeepSeek through the AI Gateway', async () => {
     mockGatewayFetch.mockResolvedValue({
-      response: new Response('data: {"choices":[{"delta":{"content":"PONG"}}]}\n\ndata: [DONE]\n\n', { status: 200 }),
+      response: new Response(
+        'data: {"choices":[{"delta":{"content":"PONG"}}]}\n\ndata: [DONE]\n\n',
+        { status: 200 },
+      ),
       gatewayUsed: true,
     });
     const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test' });
-    const res = await postJson(makeApp(SESSION), '/api/bolt/chat', { messages: [{ role: 'user', content: 'build a hero section with tailwind css' }] }, env);
+    const res = await postJson(
+      makeApp(SESSION),
+      '/api/bolt/chat',
+      { messages: [{ role: 'user', content: 'build a hero section with tailwind css' }] },
+      env,
+    );
 
     expect(res.status).toBe(200);
     expect(res.headers.get('x-edge-tier')).toBe('standard');
@@ -595,11 +615,25 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
 
   it('PREMIUM tier: reasoning intent streams the premium model via the gateway', async () => {
     mockGatewayFetch.mockResolvedValue({
-      response: new Response('data: {"choices":[{"delta":{"content":"X"}}]}\n\ndata: [DONE]\n\n', { status: 200 }),
+      response: new Response('data: {"choices":[{"delta":{"content":"X"}}]}\n\ndata: [DONE]\n\n', {
+        status: 200,
+      }),
       gatewayUsed: true,
     });
     const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test' });
-    const res = await postJson(makeApp(SESSION), '/api/bolt/chat', { messages: [{ role: 'user', content: 'Analyze the architecture trade-offs step by step and propose a plan' }] }, env);
+    const res = await postJson(
+      makeApp(SESSION),
+      '/api/bolt/chat',
+      {
+        messages: [
+          {
+            role: 'user',
+            content: 'Analyze the architecture trade-offs step by step and propose a plan',
+          },
+        ],
+      },
+      env,
+    );
 
     expect(res.status).toBe(200);
     expect(res.headers.get('x-edge-tier')).toBe('premium');
@@ -612,11 +646,18 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
 
   it('MODEL HINT: a claude-opus-4-6 chip request routes premium (gpt-4o via gateway) regardless of text', async () => {
     mockGatewayFetch.mockResolvedValue({
-      response: new Response('data: {"choices":[{"delta":{"content":"Y"}}]}\n\ndata: [DONE]\n\n', { status: 200 }),
+      response: new Response('data: {"choices":[{"delta":{"content":"Y"}}]}\n\ndata: [DONE]\n\n', {
+        status: 200,
+      }),
       gatewayUsed: true,
     });
     const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test' });
-    const res = await postJson(makeApp(SESSION), '/api/bolt/chat', { messages: [{ role: 'user', content: 'hi' }], model: 'claude-opus-4-6' }, env);
+    const res = await postJson(
+      makeApp(SESSION),
+      '/api/bolt/chat',
+      { messages: [{ role: 'user', content: 'hi' }], model: 'claude-opus-4-6' },
+      env,
+    );
 
     expect(res.status).toBe(200);
     expect(res.headers.get('x-edge-tier')).toBe('premium');
@@ -629,7 +670,12 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
       gatewayUsed: true,
     });
     const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-test' });
-    const res = await postJson(makeApp(SESSION), '/api/bolt/chat', { messages: [{ role: 'user', content: 'build a page' }] }, env);
+    const res = await postJson(
+      makeApp(SESSION),
+      '/api/bolt/chat',
+      { messages: [{ role: 'user', content: 'build a page' }] },
+      env,
+    );
     expect(res.status).toBe(502);
   });
 });
