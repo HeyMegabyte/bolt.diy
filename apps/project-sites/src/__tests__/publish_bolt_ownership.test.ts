@@ -33,7 +33,7 @@ function makeEnv(cfg: DbConfig) {
   const r2Puts: string[] = [];
   const kvDeletes: string[] = [];
   // Resolve the row a SELECT should yield (dbQueryOne reads `.all().results[0]`;
-  // resolvePublishOrgId reads `.first()` directly — serve both shapes).
+  // the mock also serves `.first()` defensively for any direct-read consumer).
   const rowFor = (sql: string): Record<string, unknown> | null => {
     if (/FROM sites WHERE slug = \?/i.test(sql)) {
       return cfg.siteBySlugOrg == null ? null : { org_id: cfg.siteBySlugOrg };

@@ -1,6 +1,8 @@
 /**
  * @module e2e/pwa
- * @description PWA surface evidence for the `pwa_manifest_full` flag — LIVE prod.
+ * @description Platform PWA surface evidence — static manifest + ngsw worker — LIVE prod.
+ * (The flag-gated per-site `/api/pwa/manifest` endpoint was removed in the
+ * child-site feature cut, batch 9; child sites are pure-static.)
  *
  * MODERNIZED 2026-07-31 (Pass-14 stale-era queue). The original spec predated
  * the Angular admin SPA: it asserted `manifest.name === 'Project Sites'`,
@@ -22,11 +24,6 @@
  *    registrationStrategy: 'registerWhenStable:30000' })`. Artifacts served at
  *    `/ngsw-worker.js` + `/ngsw.json`. Legacy hand-rolled `/sw.js` (Workbox-style,
  *    `frontend/public/sw.js`) is still shipped but is NOT the registered worker.
- *  - Flag-gated per-site manifest API: `src/routes/features.ts`
- *    `GET /api/pwa/manifest` behind `requireFlag('pwa_manifest_full')` — 404
- *    (never 403) when dark; FLAG_DOCS checklist (docs.ts) = screenshots 3+
- *    wide/narrow, shortcuts 3+, share_target, file_handlers, protocol_handlers.
- *    No offline.html in the checklist → intentionally not asserted.
  *
  * Contract notes: NO networkidle, bounded timeouts, resilientGet for every
  * request-context call (per-IP tarpit), zero-console-error house filter,
@@ -80,7 +77,7 @@ interface ManifestShape {
   protocol_handlers?: { protocol?: string }[];
 }
 
-test.describe('PWA-EVIDENCE — pwa_manifest_full platform surface (live prod)', () => {
+test.describe('PWA-EVIDENCE — platform PWA surface (live prod)', () => {
   test('PWA-01 — /site.webmanifest is valid JSON with installability fields; icons resolve', async ({
     request,
   }) => {
@@ -114,10 +111,9 @@ test.describe('PWA-EVIDENCE — pwa_manifest_full platform surface (live prod)',
     for (const src of uniqueSrcs) {
       const iconRes = await resilientGet(request, new URL(src, BASE).toString());
       expectStatus(iconRes, [200], `manifest icon ${src}`);
-      expect(
-        iconRes.headers()['content-type'] ?? '',
-        `manifest icon ${src} is an image`,
-      ).toMatch(/^image\//);
+      expect(iconRes.headers()['content-type'] ?? '', `manifest icon ${src} is an image`).toMatch(
+        /^image\//,
+      );
     }
   });
 
@@ -158,41 +154,6 @@ test.describe('PWA-EVIDENCE — pwa_manifest_full platform surface (live prod)',
     const legacySw = await resilientGet(request, `${BASE}/sw.js`);
     expectStatus(legacySw, [200], 'legacy /sw.js');
     expect(legacySw.headers()['content-type'] ?? '', '/sw.js is JavaScript').toMatch(/javascript/);
-  });
-
-  test('PWA-04 — flag-gated /api/pwa/manifest honors the FLAG_DOCS completeness contract', async ({
-    request,
-  }) => {
-    // requireFlag('pwa_manifest_full'): 200 when on, 404 (NEVER 403) when dark.
-    // Live D1 currently has the flag ON (curl-verified 200 on 2026-07-31), but the
-    // registry default is experimental/off — accept both honest states so a
-    // killswitch flip never false-fails the suite, while 403/5xx always fail.
-    const res = await resilientGet(request, `${BASE}/api/pwa/manifest`);
-    expectStatus(res, [200, 404], 'pwa_manifest_full flag gate (404 never 403 when dark)');
-    expect(res.status(), 'flag gate must never leak as 403').not.toBe(403);
-
-    if (res.status() === 200) {
-      const m = (await res.json()) as ManifestShape;
-      // FLAG_DOCS checklist (src/modules/feature_flags/docs.ts § pwa_manifest_full):
-      // screenshots 3+ covering wide AND narrow, shortcuts 3+, share_target,
-      // file_handlers, protocol_handlers. Mirrors src/__tests__/pwa_manifest.test.ts.
-      expect(m.name, 'per-site manifest name').toBeTruthy();
-      expect(m.start_url, 'per-site manifest start_url').toBeTruthy();
-      expect(m.display).toBe('standalone');
-
-      const shots = m.screenshots ?? [];
-      expect(shots.length, '3+ store screenshots').toBeGreaterThanOrEqual(3);
-      const factors = new Set(shots.map((s) => s.form_factor));
-      expect(factors.has('wide'), 'wide form_factor screenshot').toBe(true);
-      expect(factors.has('narrow'), 'narrow form_factor screenshot').toBe(true);
-
-      expect((m.shortcuts ?? []).length, '3+ shortcuts').toBeGreaterThanOrEqual(3);
-      expect(m.share_target?.method, 'share_target declared').toBeTruthy();
-      expect((m.file_handlers ?? []).length, 'file_handlers declared').toBeGreaterThanOrEqual(1);
-      const protocols = m.protocol_handlers ?? [];
-      expect(protocols.length, 'protocol_handlers declared').toBeGreaterThanOrEqual(1);
-      expect(protocols[0]?.protocol ?? '', 'custom protocol uses web+ prefix').toMatch(/^web\+/);
-    }
   });
 
   test('PWA-05 — homepage carries the manifest link, theme-color, and SW wiring', async ({

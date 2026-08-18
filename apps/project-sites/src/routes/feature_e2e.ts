@@ -535,27 +535,6 @@ const CHECK_REGISTRY: Readonly<Record<string, readonly E2eCheck[]>> = {
       url: '/v1/bogus',
     },
   ],
-  observability_gateway: [
-    {
-      expectStatus: 404,
-      kind: 'http',
-      label: '/monitoring/posthog flag-gated OFF today → 404',
-      url: '/monitoring/posthog',
-    },
-    {
-      expectStatus: 404,
-      kind: 'http',
-      label: '/monitoring/sentry flag-gated OFF today → 404',
-      url: '/monitoring/sentry',
-    },
-    {
-      expectStatus: 200,
-      kind: 'http',
-      label: 'registry entry present for observability_gateway',
-      url: '/api/feature-flags',
-    },
-    { expectStatus: 200, kind: 'http', label: 'worker health responds', url: '/health' },
-  ],
   onboarding_copilot: [
     {
       expectStatus: 404,
@@ -660,26 +639,6 @@ const CHECK_REGISTRY: Readonly<Record<string, readonly E2eCheck[]>> = {
     },
     { expectStatus: 200, kind: 'http', label: 'worker health responds', url: '/health' },
     { kind: 'browser', label: 'admin shell loads', selector: 'body', url: '/admin' },
-  ],
-  pwa_manifest_full: [
-    {
-      expectStatus: 404,
-      kind: 'http',
-      label: 'PWA manifest endpoint gated — 404 when pwa_manifest_full OFF (default)',
-      url: '/api/pwa/manifest?org_id=demo-org',
-    },
-    {
-      kind: 'browser',
-      label: 'Feature Flags admin lists pwa_manifest_full (passes today)',
-      textIncludes: 'pwa_manifest_full',
-      url: '/admin/feature-flags',
-    },
-    {
-      expectStatus: 200,
-      kind: 'http',
-      label: 'Marketing homepage reachable (baseline 200)',
-      url: '/',
-    },
   ],
   referral_loop: [
     {
@@ -875,26 +834,6 @@ const CHECK_REGISTRY: Readonly<Record<string, readonly E2eCheck[]>> = {
       label: 'Feature Flags admin lists token_burn_meter',
       textIncludes: 'token_burn_meter',
       url: '/admin/feature-flags',
-    },
-  ],
-  vectorize_search: [
-    {
-      expectStatus: 200,
-      kind: 'http',
-      label: 'Public health endpoint 200 (always passes)',
-      url: '/api/health',
-    },
-    {
-      expectStatus: 404,
-      kind: 'http',
-      label: 'Search route 404s while flag OFF (default off)',
-      url: '/api/sites/site_demo/search?q=about',
-    },
-    {
-      kind: 'browser',
-      label: 'Admin shell renders (flag is backend-only)',
-      selector: 'app-admin-dashboard, [data-testid=admin-not-found-home]',
-      url: '/admin',
     },
   ],
   visual_automation: [

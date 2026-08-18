@@ -605,11 +605,6 @@ features.post('/api/usage/record', requireFlag('token_burn_meter'), async (c) =>
 // Approval workflow — owned, auth + ownership-guarded (NO demo defaults).
 // The agency org is the caller's authed session org (set by the auth
 
-// PWA manifest
-features.get('/api/pwa/manifest', requireFlag('pwa_manifest_full'), (c) =>
-  c.json(F.getPwaManifest(c.env, c.req.query('org_id') ?? 'demo-org')),
-);
-
 // ── 30 advanced features — semantic per-feature endpoints ──────────────
 
 const json = async (c: { req: { json: () => Promise<unknown> } }) =>

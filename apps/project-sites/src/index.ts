@@ -146,7 +146,6 @@ import { promptStudio } from '../libs/features/prompt_studio/handlers.js'; // pr
 import { aiGatewayGuardrails } from '../libs/features/ai_gateway_guardrails/handlers.js'; // Llama Guard middleware (flag: ai_gateway_guardrails)
 import { wireframePlanning } from '../libs/features/wireframe_planning/handlers.js'; // pre-gen wireframe plan (flag: wireframe_planning)
 import { cmdkAiActionsRouter } from '../libs/features/cmdk_ai_actions/handlers.js'; // Cmd+K AI actions (flag: cmdk_ai_actions)
-import { observabilityGateway } from '../libs/features/observability_gateway/handlers.js'; // POST /monitoring/:provider — customer-site Sentry/PostHog gateway (flag: observability_gateway)
 import { proxyToContainer } from './services/container_dispatcher.js';
 import { resolveAppHost } from './services/app_host_resolver.js';
 import { getContentType, resolveSite, serveSiteFromR2 } from './services/site_serving.js';
@@ -823,7 +822,6 @@ app.all('*', async (c, next) => {
   return binding.get(binding.idFromName('gotenberg-singleton')).fetch(c.req.raw);
 });
 app.route('/', createJobsRoutes()); // POST /api/jobs + GET /api/jobs/:id/status — authed WorkflowRouter dispatch seam (§20); routes to CF Workflows/Inngest/Hatchet via getJobRouter(env)
-app.route('/', observabilityGateway); // POST /monitoring/:provider — customer-site Sentry/PostHog gateway (flag: observability_gateway) — must precede the catch-all
 
 // ── 40-list build wave (Brian-selected, 2026-06-17) — all flag-gated → 404 when off ──
 app.route('/', paymentsRail); // /api/payments/* (flag: payments_rail)

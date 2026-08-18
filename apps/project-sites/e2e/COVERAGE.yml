@@ -89,7 +89,6 @@ modals_interactions:
 
 observability:
   error_boundary:   { status: covered, specs: [error-boundary.spec.ts] }
-  gateway:          { status: covered, specs: [observability_gateway.spec.ts] }
 
 site_serving:
   serving:          { status: covered, specs: [site-serving.spec.ts] }

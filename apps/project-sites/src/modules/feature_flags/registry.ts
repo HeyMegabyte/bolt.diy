@@ -284,15 +284,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',
   },
-  observability_gateway: {
-    default_enabled: false,
-    default_rollout_percent: 0,
-    description:
-      'Customer-site observability gateway so raw Sentry/PostHog ingest keys never ship in the customer browser bundle.\n\n• POST /monitoring/:provider mounted in index.ts before the catch-all; isFlagOn-gated — off returns 404.\n• Worker tenant-tags, best-effort PII-redacts, samples, and quota-caps each event before server-side forward; rollups write to Analytics Engine.\n• Fail-soft: vendor 5xx still returns 202. Backend-only; no admin UI.',
-    key: 'observability_gateway',
-    owner_email: 'hey@megabyte.space',
-    stage: 'experimental',
-  },
   onboarding_copilot: {
     default_enabled: false,
     default_rollout_percent: 0,
@@ -347,16 +338,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
   // Observability (items 39-42)
   // Media gen (items 43-46)
   // Platform extension (items 47-50, 47 + 48-slice + 49-slice already stable)
-  // Gap surface (re-folded back from the trim pass)
-  pwa_manifest_full: {
-    default_enabled: false,
-    default_rollout_percent: 0,
-    description:
-      'Serves a full per-site PWA manifest (screenshots, shortcuts, share_target, file_handlers, protocol_handlers) required for App Store / Play Store listings.\n\n• Worker route GET /api/pwa/manifest behind requireFlag(\'pwa_manifest_full\') returns the enriched manifest JSON.\n• feature_e2e.test asserts the manifest response includes rel="manifest"; e2e/pwa.spec.ts covers it (5/5).\n• Backend-only surface — no dedicated admin section renders it.\n• Off (default) → the manifest endpoint 404s.',
-    key: 'pwa_manifest_full',
-    owner_email: 'brian@megabyte.space',
-    stage: 'beta', // beta 2026-07-31: e2e verified — e2e/pwa.spec.ts (5/5 live),
-  },
   referral_loop: {
     default_enabled: false,
     default_rollout_percent: 0,
@@ -430,15 +411,6 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     description:
       "Live monthly AI-token spend meter surfaced in the editor and the AI Endpoints admin section, tracking per-model burn against the tier cap.\n\n• Worker routes GET /api/usage/burn (used_usd, projected_monthly_usd, by_model, 80%/100% thresholds) and POST /api/usage/record, both behind requireFlag('token_burn_meter').\n• site-generation workflow gates its token accounting on the flag (services/build_budget.ts records feature_slug 'token_burn_meter').\n• The /admin/ai-endpoints section renders a spend-vs-cap budget meter tied to this feature.\n• Off (default) → both usage endpoints 404 (no existence leak).",
     key: 'token_burn_meter',
-    owner_email: 'brian@megabyte.space',
-    stage: 'experimental',
-  },
-  vectorize_search: {
-    default_enabled: false,
-    default_rollout_percent: 0,
-    description:
-      'Semantic search over published site content via Cloudflare Vectorize; content is indexed asynchronously so publishes are never blocked.\n\n• GET /api/sites/:id/search?q=... returns {results:[{score,text,...}]}; 404s when off (default off); empty/invalid q returns 200 {results:[]}.\n• Indexing runs on every publish (POST /api/publish/bolt via waitUntil) and again in the site-generation Workflow after validate-build.\n• Requires the RAG_INDEX Vectorize binding (768-dim cosine, bge-base-en-v1.5); silently skips indexing when the binding is absent.\n• Backend/API-only: no admin UI renders search results.',
-    key: 'vectorize_search',
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',
   },

@@ -423,24 +423,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Disable the flag → /v1/models and /api/router/* all 404',
     ],
   },
-  observability_gateway: {
-    checklist: [
-      'POST /monitoring/:provider — customer sites forward Sentry/PostHog events',
-      'Raw vendor keys never ship to the browser (worker-side forward only)',
-      'Every event tenant-tagged + PII-redacted + sampled + quota-capped',
-      'Rollup datapoints → Analytics Engine keyed by {orgId, siteId, provider}',
-      'Fail-soft: vendor 5xx → customer site still gets 202 (event dropped, never errored)',
-    ],
-    e2e_tests: ['e2e/observability_gateway.spec.ts'],
-    explanation:
-      'Customer-site observability gateway. Customer sites POST their Sentry/PostHog events to POST /monitoring/:provider so raw vendor ingest keys never appear in the customer browser bundle. The worker tenant-tags, PII-redacts (best-effort regex sweep), samples, and quota-caps each event before forwarding server-side to the vendor; rollups are written to Analytics Engine keyed by org/site/provider. Disabled by default → the route 404s (never 403). Registered (fire-3) to satisfy the feature-drift + docs guards for the concurrently-built libs/features/observability_gateway module.',
-    smoke_test: [
-      'POST /monitoring/posthog {batch:[...]} → 202 (forwarded server-side)',
-      'Inspect forwarded payload → no raw vendor key in the response, PII fields redacted',
-      'Exceed the per-site quota → events past the cap are dropped (still 202)',
-      'Disable the flag → the route 404s',
-    ],
-  },
   onboarding_copilot: {
     checklist: [
       'PLG activation checklist for a new org',
@@ -515,20 +497,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'GET /api/admin/prompts → versioned templates with active variant',
       'Hot-patch a template via the studio → the next generation uses it with no redeploy; rollback restores the prior version',
       'Disable the flag → the studio routes 404',
-    ],
-  },
-  pwa_manifest_full: {
-    checklist: [
-      'Full PWA manifest per site',
-      'screenshots[] (3+ wide/narrow) for store listings',
-      'shortcuts[] (3+), share_target, file_handlers, protocol_handlers',
-      'Per [[always]] this is a per-site Hard Gate',
-    ],
-    e2e_tests: ['e2e/pwa.spec.ts'],
-    explanation:
-      'Full PWA manifest with screenshots (3+ form_factor:wide/narrow), shortcuts (3+), share_target, file_handlers, protocol_handlers. Required for App Store + Play Store listings. Per [[always]] this is a per-site Hard Gate.',
-    smoke_test: [
-      'GET /api/pwa/manifest?org_id=demo-org → returns manifest with screenshots[] (3), shortcuts[] (3), share_target, file_handlers, protocol_handlers',
     ],
   },
   referral_loop: {
@@ -653,22 +621,6 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       "POST /api/usage/record with body {org_id:'demo-org', model:'claude-sonnet-4-6', input_tokens:1000, output_tokens:500} → returns event id + USD cents",
       'Repeat the POST several times — GET /api/usage/burn should reflect cumulative spend',
       'UI: editor header chip shows live "$X / $Y this month" with projection — click expands per-model breakdown modal',
-    ],
-  },
-  vectorize_search: {
-    checklist: [
-      'GET /api/sites/:id/search?q=... — semantic search over published site content',
-      'Site files indexed asynchronously via waitUntil on every POST /api/publish/bolt',
-      'Site files also indexed in the site-generation Workflow after validate-build step',
-      'Requires RAG_INDEX (Vectorize, 768-dim cosine) + AI bindings; silently skips when absent',
-      'Server returns 404 (never 403) when flag is off',
-    ],
-    explanation:
-      'Enables semantic search over published site content via Cloudflare Vectorize (GET /api/sites/:id/search?q=...). Text and HTML files are indexed asynchronously on every publish via waitUntil so the response is never blocked, and again inside the site-generation Workflow after the validate-build step. Embeddings are computed via Workers AI bge-base-en-v1.5 (768-dim). Requires the RAG_INDEX Vectorize binding; silently skips indexing when the binding is absent. Server returns 404 (never 403) when disabled. Empty or invalid queries return {results:[]} with a 200. Failure mode: missing binding causes silent no-op; search returns empty results rather than erroring.',
-    smoke_test: [
-      'Enable flag → GET /api/sites/:id/search?q=about → 200 {results:[{score,text,...}]} (after publishing)',
-      'GET /api/sites/:id/search?q= (empty) → 200 {results:[]}',
-      'Disable the flag → GET /api/sites/:id/search?q=test → 404',
     ],
   },
   visual_automation: {
@@ -901,14 +853,6 @@ export const FLAG_SPEC_EXTRAS: Record<string, Pick<FlagDocs, 'e2e_tests' | 'scre
       'unknown /v1 path stays 404 (not SPA soft-200)',
     ],
   },
-  observability_gateway: {
-    e2e_tests: [
-      'POST /monitoring/posthog flag-gated OFF today → 404',
-      'POST /monitoring/sentry flag-gated OFF today → 404',
-      'registry entry present for observability_gateway',
-      'worker health responds',
-    ],
-  },
   onboarding_copilot: {
     e2e_tests: [
       'checklist route flag-gated OFF today → 404',
@@ -954,13 +898,6 @@ export const FLAG_SPEC_EXTRAS: Record<string, Pick<FlagDocs, 'e2e_tests' | 'scre
       'registry entry present for prompt_studio',
       'worker health responds',
       'admin shell loads',
-    ],
-  },
-  pwa_manifest_full: {
-    e2e_tests: [
-      'PWA manifest endpoint gated — 404 when pwa_manifest_full OFF (default)',
-      'Feature Flags admin lists pwa_manifest_full (passes today)',
-      'Marketing homepage reachable (baseline 200)',
     ],
   },
   referral_loop: {
@@ -1055,13 +992,6 @@ export const FLAG_SPEC_EXTRAS: Record<string, Pick<FlagDocs, 'e2e_tests' | 'scre
         caption: 'AI Endpoints section showing the token-burn budget meter (spend vs cap)',
         url: '/assets/flag-shots/token_burn_meter-1.png',
       },
-    ],
-  },
-  vectorize_search: {
-    e2e_tests: [
-      'Public health endpoint 200 (always passes)',
-      'Search route 404s while flag OFF (default off)',
-      'Admin shell renders (flag is backend-only)',
     ],
   },
   visual_automation: {

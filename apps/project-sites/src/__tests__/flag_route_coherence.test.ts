@@ -27,7 +27,6 @@ const LIVE_ROUTE_FLAGS = [
   'email_deliverability_wizard',
   // features.ts grab-bag (wired + tested in prior loop iters)
   'token_burn_meter',
-  'pwa_manifest_full',
   // model_registry gates /v1/models + the folded AI router (/api/router/pick|stats,
   // ex-ai_auto_router, merged into this flag 2026-08-14)
   'model_registry',

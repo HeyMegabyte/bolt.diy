@@ -75,7 +75,6 @@ const FLAG_PRIMARY_PATH: Record<string, { method: 'GET' | 'POST'; path: string }
   runway_style_ref:            { method: 'POST', path: '/api/gen/style-ref/upload' },
   logo_regenerator:            { method: 'POST', path: '/api/gen/brand-kit' },
   i18n_auto_locale:            { method: 'GET',  path: '/api/locale/detect?city=newark&state=nj' },
-  pwa_manifest_full:           { method: 'GET',  path: '/api/pwa/manifest?org_id=demo-org' },
   web_push:                    { method: 'POST', path: '/api/push/subscribe' },
   auto_changelog:              { method: 'POST', path: '/api/changelog/generate' },
   tier_rate_limit:             { method: 'GET',  path: '/api/tier-rate-limit/status' },

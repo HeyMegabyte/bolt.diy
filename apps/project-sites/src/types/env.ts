@@ -247,9 +247,9 @@ export interface Env {
 
   // ── Vectorize (RAG) ───────────────────────────────────────
   /**
-   * Cloudflare Vectorize index for semantic search over published site content.
-   * 768-dim cosine metric, populated by bge-base-en-v1.5 embeddings.
-   * Optional — `vectorize_search` feature flag is always off when binding absent.
+   * Cloudflare Vectorize index (768-dim cosine, bge-base-en-v1.5 embeddings).
+   * Retained data-safe after the vectorize_search feature removal (child-site
+   * cut, batch 9) — currently unread by any code path. Optional binding.
    *
    * Uses a local structural interface (VectorizeBinding) rather than the
    * @cloudflare/workers-types VectorizeIndex to avoid VectorizeVectorMetadata

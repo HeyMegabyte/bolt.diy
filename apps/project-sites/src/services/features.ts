@@ -4,8 +4,8 @@
  * Originally a 50-export "ALL-STAR" grab-bag; the 46 exports backing trimmed
  * feature flags were knip-dead (zero-runtime-impact, tree-shaken) and were
  * removed 2026-06-09. What remains is the genuinely-wired set: the token-cost
- * meter (`recordTokenEvent` / `getMonthlyBurn` + the model-rate helpers)
- * and `getPwaManifest`. Routes call these from `routes/features.ts`.
+ * meter (`recordTokenEvent` / `getMonthlyBurn` + the model-rate helpers).
+ * Routes call these from `routes/features.ts`.
  * D1 writes are real.
  */
 
@@ -110,72 +110,5 @@ export async function getMonthlyBurn(env: Env, orgId: string) {
       { pct: 80, alert: 'warning' },
       { pct: 100, alert: 'critical' },
     ],
-  };
-}
-
-export function getPwaManifest(_env: Env, orgId: string) {
-  return {
-    name: 'Project Sites',
-    short_name: 'PS',
-    start_url: '/admin',
-    display: 'standalone',
-    theme_color: '#060610',
-    background_color: '#060610',
-    icons: [
-      { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-      { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-      { src: '/icons/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-    ],
-    screenshots: [
-      {
-        src: '/screenshots/wide-dashboard.png',
-        sizes: '1280x720',
-        type: 'image/png',
-        form_factor: 'wide',
-        label: 'Admin dashboard',
-      },
-      {
-        src: '/screenshots/wide-editor.png',
-        sizes: '1280x720',
-        type: 'image/png',
-        form_factor: 'wide',
-        label: 'AI editor',
-      },
-      {
-        src: '/screenshots/narrow-mobile.png',
-        sizes: '390x844',
-        type: 'image/png',
-        form_factor: 'narrow',
-        label: 'Mobile admin',
-      },
-    ],
-    shortcuts: [
-      {
-        name: 'New site',
-        short_name: 'New',
-        url: '/admin/new',
-        description: 'Generate a new site from a prompt',
-      },
-      { name: 'Billing', url: '/admin/billing', description: 'View usage + invoices' },
-      { name: 'Dashboard', url: '/admin/dashboard', description: 'Site list' },
-    ],
-    share_target: {
-      action: '/admin/share-import',
-      method: 'POST',
-      enctype: 'multipart/form-data',
-      params: {
-        title: 'title',
-        text: 'text',
-        url: 'url',
-        files: [{ name: 'image', accept: ['image/*'] }],
-      },
-    },
-    file_handlers: [
-      {
-        action: '/admin/import',
-        accept: { 'application/json': ['.json'], 'text/markdown': ['.md'] },
-      },
-    ],
-    protocol_handlers: [{ protocol: 'web+projectsites', url: '/admin/handle?uri=%s' }],
   };
 }
