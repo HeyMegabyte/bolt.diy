@@ -1513,7 +1513,12 @@ api.get('/api/sites/:id/workflow', async (c) => {
   }
 
   try {
-    const instance = await c.env.SITE_WORKFLOW.get(siteId);
+    // Reset creates a SUFFIXED instance (`{siteId}-reset-{ts}`) when the bare
+    // `siteId` instance already exists in a terminal state — the status endpoint
+    // must honor the instance id the reset response returned, else it reports
+    // the stale errored instance forever (the journey found this live).
+    const instanceId = c.req.query('instance_id') || siteId;
+    const instance = await c.env.SITE_WORKFLOW.get(instanceId);
     const status = await instance.status();
 
     // Serialize workflow error to a human-readable string.

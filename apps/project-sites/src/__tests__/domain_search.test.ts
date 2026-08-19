@@ -331,4 +331,35 @@ describe('GET /api/sites/:id/workflow', () => {
     expect(log.metadata.elapsed_ms).toBe(4500);
     expect(log.metadata.phase).toBe('data_collection');
   });
+
+  it('honors ?instance_id= so reset-suffixed builds are reported, not the stale errored one', async () => {
+    // The reset endpoint creates `{siteId}-reset-{ts}` instances when the bare
+    // siteId instance already exists terminal — the status endpoint must read
+    // THAT id, else it reports the stale errored instance forever (found live
+    // 2026-08-19 while the fresh build was running).
+    const mockWorkflow = {
+      get: jest.fn().mockReturnValue({
+        id: 'site-1-reset-999',
+        status: jest.fn().mockResolvedValue({ status: 'running', error: null, output: null }),
+      }),
+    };
+
+    const { app, env } = createAuthenticatedApp({
+      SITE_WORKFLOW: mockWorkflow as unknown as Env['SITE_WORKFLOW'],
+    });
+    mockDbQueryOne.mockResolvedValueOnce({ id: TEST_SITE_ID, status: 'building' });
+    mockGetSiteAuditLogs.mockResolvedValueOnce({ data: [] });
+
+    const res = await app.request(
+      `/api/sites/${TEST_SITE_ID}/workflow?instance_id=${TEST_SITE_ID}-reset-999`,
+      {},
+      env,
+    );
+    expect(res.status).toBe(200);
+    expect(mockWorkflow.get).toHaveBeenCalledWith(`${TEST_SITE_ID}-reset-999`);
+
+    const body = await res.json();
+    expect(body.data.instance_id).toBe('site-1-reset-999');
+    expect(body.data.workflow_status).toBe('running');
+  });
 });
