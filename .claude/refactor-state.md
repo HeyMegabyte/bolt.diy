@@ -688,3 +688,13 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ Module-level PS_REQUEST_FILES responder (bolt):** the only responder was route-scoped (unmounted on nav). Always-on module responder answers with workbench files.
 - **📋 Journey status:** publish → title/canonical ✅ · analytics visit ✅ · editor loads 43 real files ✅ · AI edit grounds to index.html ✅ · bridge round-trip ✅. REMAINING: the artifact "Click to open Workbench" apply does not populate the workbench store (PS_FILES_READY files=0) — bolt-internal artifact→workbench sync.
 - **NEXT TARGET:** bolt artifact-apply → workbenchStore sync (chatId-scoped files) → Save & Deploy publishes the edited index.html → journey CLOSE.
+
+## 🔧 iter 214 (JOURNEY CLOSED — the editor publish bridge carries content end-to-end)
+
+- **✅ Final rung 1 (bolt):** imported boltArtifact file actions never reached the workbench in embedded mode — importChat's full-document navigation wiped the memory-only files store, so PS_FILES_READY answered with ZERO files. `materializeImportedFiles()` now parses the chat export's file actions into sessionStorage (survives the reload); the embedded-mode init drains it.
+- **✅ Final rung 2 (bolt):** the restore's `createFile` awaited a #webcontainer promise that NEVER settles in embedded mode (the first restore hung silently). New `workbenchStore.setVirtualFile()` writes the files map directly — WebContainer-free.
+- **✅ Final rung 3 (frontend):** the editor replies to PS_REQUEST_FILES from BOTH the route handler and the module responder (same correlationId) → double publish. Service dedupes replies by correlationId; distinct saves publish distinctly. RED→GREEN, 16/16.
+- **✅ LIVE VERIFIED end-to-end:** admin → editor loads 43 files → Save & Deploy → PS_FILES_READY files=43 → deduped to ONE POST /api/sites/e2e-site-3/publish-bolt (200) → site `published` + new build version `2026-08-19T13-18-17-288Z`.
+- **📋 Journey legs ALL GREEN:** template build → published → title/canonical → analytics visit → editor loads real files → AI edit → bridge publish → live site reflects.
+- **🛡️ Regression guard:** chaos-18-template-build-journey.e2e.ts covers the whole journey incl. the bridge leg (polls live site for the change token).
+- **NEXT TARGET:** rotate to a fresh disposable business + run chaos-18 headless against the new journey to prove repeatability (no browser-only steps), then the dangling-dash H1 (template guard shipped; live site needs a rebuild to pick it up).
