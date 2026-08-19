@@ -1348,12 +1348,37 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           }
         }
 
-        // Update D1 status to published
-        await env.DB.prepare(
+        // Update D1 status to published. Hardened (journey 2026-08-19 — the
+        // raw .run() silently left a row stranded at 'generating' while the
+        // workflow completed, and NOTHING re-reconciled it): the hardened
+        // dbExecute returns {error, changes} instead of throwing, and a
+        // zero-affected or errored flip is audit-logged + retried once via
+        // the status-only helper (which also flips on a re-created row).
+        const { dbExecute } = await import('../services/db.js');
+        const flipRes = await dbExecute(
+          env.DB,
           "UPDATE sites SET status = 'published', current_build_version = ?, updated_at = datetime('now') WHERE id = ?",
-        )
-          .bind(version, params.siteId)
-          .run();
+          [version, params.siteId],
+        );
+        if (flipRes.error || flipRes.changes === 0) {
+          await wfLog('workflow.publish_flip_failed', {
+            error: flipRes.error,
+            changes: flipRes.changes,
+            message: `published flip zero-affected or errored (changes=${flipRes.changes}) — retrying via updateSiteStatus`,
+          });
+          await updateSiteStatus(env.DB, params.siteId, 'published');
+          const verify = await env.DB.prepare(
+            'SELECT status FROM sites WHERE id = ?',
+          )
+            .bind(params.siteId)
+            .first<{ status: string }>()
+            .catch(() => null);
+          if (verify?.status === 'published') {
+            await wfLog('workflow.publish_flip_recovered', {
+              message: 'status flip recovered via updateSiteStatus',
+            });
+          }
+        }
 
         // Create initial snapshot
         await env.DB.prepare(
