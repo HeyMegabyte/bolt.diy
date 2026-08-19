@@ -659,3 +659,9 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ Added (`e37efdbd`):** the gate's error list revealed the remaining token carriers: the template's ERROR PAGES (offline/500/something-went-wrong) that the LLM never edits. A deterministic post-copy pass now substitutes every {BUSINESS_*} token in every text file from the materialized brand.json — zero LLM compliance. node --check clean. Deployed `b2fa97f6`.
 - **📋 Journey:** substitution-pass build `e2e-site-3-reset-1787136954569` RUNNING.
 - **NEXT TARGET:** title + complete-message assert → editor-change leg → journey CLOSE.
+
+## 🔧 iter 210 (image rebuild forced — the substitution pass was never IN the container)
+
+- **✅ Fixed (`153d7643`):** the server-only substitution-pass change didn't rebuild the container image (wrangler skipped "no changes"), so the pass never ran. A Dockerfile touch forced the rebuild. Deployed `d7904006`.
+- **📋 Journey:** token-substitution build `e2e-site-3-reset-1787137428573` RUNNING on the image that actually contains the substitution pass.
+- **NEXT TARGET:** title + complete-message assert → editor-change leg → journey CLOSE.
