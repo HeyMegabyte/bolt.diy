@@ -705,3 +705,13 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ Worker slice (committed `d90dc6cc`, `6769b0c5`, NOT yet deployed):** anonymous `POST /api/publish/bolt` wrote a root manifest with NO `files` key (the lying-empty source the chat endpoint had to dodge). Now writes `files: [{name,size,type}]`. + `x-chat-debug` instrumentation removed. 10,976/10,976 green.
 - **⏸️ DEPLOY HELD (legitimate shared-tree hold):** the concurrent session's build on e2e-site-3 (`-1787146967491`, started 13:42, `generating` through 14:05) owns the container; deploying the worker would evict it. 
 - **NEXT TARGET (first action):** when `sites.status` leaves `generating` for e2e-site-3 → `cd apps/project-sites && CLOUDFLARE_API_KEY=$(get-secret CLOUDFLARE_API_KEY) CLOUDFLARE_EMAIL=blzalewski@gmail.com npx wrangler deploy --env production --config wrangler.toml` → assert `curl /api/health | jq .environment == "production"` → then re-run the journey rebuild (now also validates the template's brand-survival + dangling-dash fixes).
+
+## 🔧 iter 216 (lakeside-dental "Booting workspace" — root cause + fix; container self-diagnosis)
+
+- **🔍 User-reported:** lakeside-dental.projectsites.dev editor stuck on "Booting workspace", console showed `Chat ID changed from 1 to default`.
+- **Root cause 1 (the stuck overlay):** the boot skeleton + PS_BOLT_CHAT_READY emitter probed for the LEGACY placeholder 'Build a professional website for' — the current chat input placeholder is 'What are we shipping?' → probe never fired → only the 30s timeout cleared it. Probes now accept both + discuss variant.
+- **Root cause 2 (the `default` chat id + missing slug):** the importChatFrom effect cleared ALL search params, so the import navigation dropped `slug` — the skeleton read "Booting workspace" and files-store locked to the 'default' chat id. slug now survives the import navigation.
+- **Verified live (browser):** lakeside-dental editor now boots straight to the chat input — no stuck overlay. (Its `status=error` + no build means an empty chat is CORRECT; the overlay was the defect.)
+- **✅ Container self-diagnosis:** every 'npm build failed or produced no dist/ files' path now records its WHY (install/build exit + tail, empty/missing dist, no package.json) into the workflow-visible error string. Dockerfile FORCE-REBUILD 3. Deployed `75ef3886`.
+- **⚠️ Journey rebuild failed TWICE with npm-build errors even though the template builds clean locally — the WHY-wiring above is the instrument to catch it on the next attempt.**
+- **NEXT TARGET:** re-trigger the journey build — the container's WHY-string will now name the exact failure; fix that layer.
