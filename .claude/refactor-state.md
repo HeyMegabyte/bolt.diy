@@ -679,3 +679,12 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **⚠️ Prod incident (self-inflicted):** bare `wrangler deploy` (no `--env production`) → every /api 500'd VALIDATION_ERROR for ~2min. Memory saved; recipe = deploy with `--env production` + assert health `.environment == "production"`.
 - **📋 Journey:** rebuild `-1787139430783` RUNNING on repaired code. Expect CLEAN publish: title "Cedar Ridge Bakeshop" + canonical single-dot.
 - **NEXT TARGET:** title/canonical assert on terminal → editor-change leg (PS_DEPLOY_REQUEST bridge, browser fire) → journey CLOSE.
+
+## 🔧 iter 213 (journey editor leg — five stacked defects closed, bridge round-trip LIVE)
+
+- **✅ Chat export (worker):** empty-editor root cause was a MANIFEST PATH lie — endpoint read the site-root manifest (legacy bolt artifact / old `files: []` copy) while the container writes version-pinned. Falls through to D1 `current_build_version` → pinned manifest. v2 `{name,size,type}[]` shape normalized; vite `_src` fallback to compiled; assistant intro now lists real paths (grounds the model); shell actions gated on an actual package.json (was ENOENT-spamming).
+- **✅ Bridge (frontend):** Save & Deploy toasted "Editor not ready" forever — lazy iframe registered null at ngAfterViewInit. Setter ViewChild re-registers on materialization. `PS_REQUEST_FILES` now reaches the editor and `PS_FILES_READY` replies flow back (verified in-browser, both directions).
+- **✅ Embedded-mode survival (bolt):** chat-import's full navigation to /chat/{id} dropped the `embedded` param → embedded mode turned OFF → module listener never attached. Now stamps `ps_embedded=1` in localStorage and recovers on in-iframe reloads.
+- **✅ Module-level PS_REQUEST_FILES responder (bolt):** the only responder was route-scoped (unmounted on nav). Always-on module responder answers with workbench files.
+- **📋 Journey status:** publish → title/canonical ✅ · analytics visit ✅ · editor loads 43 real files ✅ · AI edit grounds to index.html ✅ · bridge round-trip ✅. REMAINING: the artifact "Click to open Workbench" apply does not populate the workbench store (PS_FILES_READY files=0) — bolt-internal artifact→workbench sync.
+- **NEXT TARGET:** bolt artifact-apply → workbenchStore sync (chatId-scoped files) → Save & Deploy publishes the edited index.html → journey CLOSE.
