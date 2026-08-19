@@ -719,7 +719,11 @@ export const validateBrandNameMatch = (
     if (!title) continue;
     const t = title[1].trim();
     if (!t) continue;
-    const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const norm = (x: string) =>
+      x
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
     const tNorm = norm(t);
     const eNorm = norm(expected);
     // Accept verbatim containment OR the title STARTS with the expected name
@@ -1033,9 +1037,7 @@ export const loadBuildFromR2 = async (bucket: R2Bucket, prefix: string): Promise
  * const [fixed, n] = repairDoubleDotCanonical(await loadBuildFromR2(bucket, prefix));
  * if (n > 0) await bucket.put(`${prefix}index.html`, fixed.find(f => f.path === 'index.html')?.text ?? '');
  */
-export const repairDoubleDotCanonical = (
-  files: BuildFile[],
-): [BuildFile[], number] => {
+export const repairDoubleDotCanonical = (files: BuildFile[]): [BuildFile[], number] => {
   const BAD = '..projectsites.dev';
   let repaired = 0;
   const fixed = files.map((f) => {

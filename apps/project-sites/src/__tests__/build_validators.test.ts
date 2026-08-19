@@ -831,7 +831,11 @@ describe('validateNoBrandPlaceholders (2026-08-19 leak class)', () => {
 
 describe('validateBrandNameMatch (invented-name class, 2026-08-19)', () => {
   const files = [
-    { path: 'index.html', size: 100, text: '<title>Artisan Sourdough Bakery & Seasonal Pies | Business</title>' },
+    {
+      path: 'index.html',
+      size: 100,
+      text: '<title>Artisan Sourdough Bakery & Seasonal Pies | Business</title>',
+    },
   ];
 
   it('flags a title that does NOT contain the expected business name', () => {
@@ -842,7 +846,13 @@ describe('validateBrandNameMatch (invented-name class, 2026-08-19)', () => {
 
   it('accepts a title containing the name verbatim', () => {
     const ok = validateBrandNameMatch(
-      [{ path: 'index.html', size: 100, text: '<title>Cedar Ridge Bakeshop — Fresh Daily</title>' }],
+      [
+        {
+          path: 'index.html',
+          size: 100,
+          text: '<title>Cedar Ridge Bakeshop — Fresh Daily</title>',
+        },
+      ],
       'Cedar Ridge Bakeshop',
     );
     expect(ok).toEqual([]);
@@ -874,12 +884,18 @@ describe('repairDoubleDotCanonical', () => {
         size: 300,
         text: '{"url":"https://urban-fitness..projectsites.dev/assets/hero.webp"}',
       },
-      { path: 'sitemap.xml', size: 150, text: '<loc>https://urban-fitness..projectsites.dev/</loc>' },
+      {
+        path: 'sitemap.xml',
+        size: 150,
+        text: '<loc>https://urban-fitness..projectsites.dev/</loc>',
+      },
       { path: 'favicon.png', size: 400, text: undefined },
     ];
     const [fixed, repaired] = repairDoubleDotCanonical(input);
     expect(repaired).toBe(3);
-    expect(fixed[0]?.text).toBe('<link rel="canonical" href="https://urban-fitness.projectsites.dev/" />');
+    expect(fixed[0]?.text).toBe(
+      '<link rel="canonical" href="https://urban-fitness.projectsites.dev/" />',
+    );
     expect(fixed[1]?.text).toContain('urban-fitness.projectsites.dev');
     expect(fixed[2]?.text).toBe('<loc>https://urban-fitness.projectsites.dev/</loc>');
     expect(fixed[3]?.text).toBeUndefined(); // binary untouched
@@ -888,7 +904,11 @@ describe('repairDoubleDotCanonical', () => {
 
   it('returns 0 repaired when clean', () => {
     const [, repaired] = repairDoubleDotCanonical([
-      { path: 'index.html', size: 100, text: '<link rel="canonical" href="https://x.projectsites.dev/" />' },
+      {
+        path: 'index.html',
+        size: 100,
+        text: '<link rel="canonical" href="https://x.projectsites.dev/" />',
+      },
     ]);
     expect(repaired).toBe(0);
   });
