@@ -561,3 +561,10 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **⚠️ SELF-INFLICTED ROOT CAUSE:** my own mid-build worker deploys killed two verification builds. **LOOP RULE (applies every future fire): NEVER deploy the worker while a site build is in flight — either wait for terminal or accept that the journey's restart logic absorbs it.** The restart tolerance is now in place either way.
 - **📋 Journey:** final verification build `e2e-site-3-reset-1787123011741` RUNNING with no deploys queued behind it. Poller asserts the verbatim title on terminal.
 - **NEXT TARGET:** title assert → editor-change leg (browser fire).
+
+## 🔧 iter 195 (journey reconciliation — instance identity + ladder sweep complete)
+
+- **✅ Ladder sweep CLOSED:** the only remaining explicit-provider pins are vision (explicit openai — required, DeepSeek has no vision) + capture-metadata literals. Social/retrospective/voice all ladder-routed. No further conversion candidates.
+- **✅ Pointer verified:** `GET /api/sites/e2e-site-3/workflow` (NO param) resolves the running instance via latest_workflow_instance — the no-param path is production-correct.
+- **📋 Journey:** build `e2e-site-3-reset-1787123011741` RUNNING (the earlier confusing logs were cross-instance audit rows — the status endpoint now reports the right instance). Background poller asserts the verbatim "Cedar Ridge Bakeshop" title on terminal.
+- **NEXT TARGET:** title assert on terminal → editor-change leg.
