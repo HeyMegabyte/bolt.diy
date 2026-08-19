@@ -891,6 +891,11 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     let finalStatus: ContainerStatus | null = null;
     // Eviction recovery: restart the build ONCE when the container dies mid-build.
     let buildRestarted = false;
+    // Boot-grace deadline — after a restart, the FRESH DO needs 1-3 min to
+    // boot (image + git pull inside startAndWaitForPorts). Its first polls
+    // legitimately return unknown-job / no KV record; abandoning then is a
+    // false negative. While now < graceUntil, unknown-job polls keep waiting.
+    let restartGraceUntil = 0;
     let kvFinalRecord: KvBuildRecord | null = null;
     let lastFreshAt = Date.now();
     let lastSeenStatus: string | null = null;
@@ -1159,6 +1164,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             },
           );
           jobId = restartJobId;
+          restartGraceUntil = Date.now() + 3 * 60_000;
           lastFreshAt = Date.now();
           lastSeenStatus = null;
           lastSeenStep = null;
