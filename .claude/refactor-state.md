@@ -627,3 +627,10 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ Fixed (`6691674e`):** the name-match validator was only in the report-only validate-build step — the "Small-Batch Sourdough Bread | Business" build published anyway. The pre-publish gate now runs BOTH brand validators before the published flip. 92/92 tests. Deployed `435565eb`.
 - **📋 Journey:** dual-gate build `e2e-site-3-reset-1787130935960` RUNNING. Expected: the title either carries the REAL name or the build errors honestly.
 - **NEXT TARGET:** title assert on terminal → editor-change leg → journey CLOSE.
+
+## 🔧 iter 205 (canonical double-dot caught — gate extended)
+
+- **✅ New defect class found in the same build:** `canonical https://urban-fitness..projectsites.dev/` — the LLM replaced the template's {BUSINESS_URL} token with an already-suffixed slug. validateBrandNameMatch now flags malformed canonicals (.. / {BUSINESS / undefined) as `brand.bad_canonical`. 84/84 tests. Deployed `ccfc2f50`.
+- **📋 Journey:** canonical-gated build `e2e-site-3-reset-1787132038379` RUNNING.
+- **The brand-gate class is now: placeholders + generic-name + invented-name + canonical sanity — all pre-publish.**
+- **NEXT TARGET:** title assert → editor-change leg → journey CLOSE.
