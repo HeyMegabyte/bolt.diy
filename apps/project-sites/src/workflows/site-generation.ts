@@ -752,7 +752,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     const callbackUrl =
       env.INTERNAL_CALLBACK_URL || `https://${DOMAINS.SITES_BASE}/api/internal/build-status`;
 
-    const jobId = await step.do(
+    let jobId = await step.do(
       'start-build',
       {
         retries: { limit: 2, delay: '10 seconds', backoff: 'exponential' },
@@ -830,6 +830,8 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     const STALE_THRESHOLD_MS = 8 * 60_000;
 
     let finalStatus: ContainerStatus | null = null;
+    // Eviction recovery: restart the build ONCE when the container dies mid-build.
+    let buildRestarted = false;
     let kvFinalRecord: KvBuildRecord | null = null;
     let lastFreshAt = Date.now();
     let lastSeenStatus: string | null = null;
@@ -911,6 +913,60 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             break;
           }
         }
+
+        // 2026-08-19: the container died mid-build (CF Containers wall-clock or
+        // instance pressure) — restart ONCE. The previous behavior errored the
+        // whole site on any eviction; one clean restart recovers the common
+        // case and the second eviction still errors (honest, no infinite loop).
+        if (!buildRestarted) {
+          buildRestarted = true;
+          await wfLog('workflow.container_evicted_restart', {
+            poll: i,
+            message: 'Container DO lost the job — restarting the build once',
+          });
+          const restartJobId = await step.do(
+            'restart-build-after-eviction',
+            { retries: { limit: 1, delay: '10 seconds' }, timeout: '5 minutes' },
+            async () => {
+              const container = getContainer();
+              const _deepseekKey = (env as unknown as { DEEPSEEK_API_KEY?: string }).DEEPSEEK_API_KEY;
+              const _buildLlmProvider = (env as unknown as { BUILD_LLM_PROVIDER?: string }).BUILD_LLM_PROVIDER;
+              const useDeepSeek = !!_deepseekKey && _buildLlmProvider !== 'anthropic';
+              const payload = {
+                slug: params.slug,
+                _anthropicKey: env.ANTHROPIC_API_KEY || '',
+                ...(useDeepSeek && {
+                  _deepseekKey,
+                  _anthropicBaseUrl: 'https://api.deepseek.com/anthropic',
+                  _anthropicModel: 'deepseek-chat',
+                }),
+                prompt,
+                contextFiles,
+                envVars,
+                timeoutMin: 14,
+                callbackUrl,
+                callbackSecret,
+              };
+              const res = await container.fetch('http://container/build', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              });
+              if (!res.ok) {
+                const errText = await res.text().catch(() => 'Unknown');
+                throw new Error(`Restart failed: ${res.status} ${errText}`);
+              }
+              const result = (await res.json()) as { jobId?: string; error?: string };
+              if (result.error) throw new Error(`Restart error: ${result.error}`);
+              if (!result.jobId) throw new Error('Restart returned no jobId');
+              return result.jobId;
+            },
+          );
+          jobId = restartJobId;
+          await wfLog('workflow.build_restarted', { poll: i, jobId: restartJobId });
+          continue;
+        }
+
         await wfLog('workflow.container_unknown_job', {
           poll: i,
           message: 'Container DO lost job and KV has no terminal record — abandoning build',
