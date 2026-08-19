@@ -637,6 +637,16 @@ http.createServer((q, r) => {
                 for (const [tok, rep] of Object.entries(TOKENS)) {
                   if (content.includes(tok)) { content = content.split(tok).join(rep); changed = true; replaced++; }
                 }
+                // Empty-tagline repair — an empty {BUSINESS_TAGLINE} leaves a
+                // dangling 'NAME — ' in <title>/og:title (the live 'Cedar Ridge
+                // Bakeshop — ' title, journey 2026-08-19). Collapse any
+                // substituted ' —  '/' — ' remnant that ends a text node.
+                if (content.includes('\u2014')) {
+                  content = content
+                    .replace(/\u2014\s*(<\/title>|<\/meta>|"\s*\/?>|'\s*\/?>)/gi, '$1')
+                    .replace(/\s\u2014\s*$/gm, '');
+                  changed = true;
+                }
                 // Double-dot canonical repair — the LLM writes
                 // https://<slug>..projectsites.dev (slug already dot-suffixed
                 // in its mental model). Mechanical repair, no LLM compliance.
