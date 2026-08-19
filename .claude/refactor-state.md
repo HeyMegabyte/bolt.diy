@@ -545,3 +545,12 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ Social auto-pilot + retrospective now ladder-routed (`2fbeb113`).** Both pinned `provider: 'anthropic'` with cross-vendor model names (claude-sonnet-4-6 / claude-haiku-4-5) — volume work that bypassed Brian's ladder AND would 404 on any non-Anthropic rung. Converted to `tier: 'standard'` (DeepSeek via gateway). The only remaining explicit-Anthropic pins are vision calls + provider-specific integrations (legitimate). Suites 26/26 + 8/8 + 8/8; tsc clean; deployed `995c7d52`.
 - **📋 Journey:** the brand-seed verification build still RUNNING at t+12m (container phase). Poller active; terminal title assert pending.
 - **NEXT TARGET:** title assert on terminal + editor-change leg (browser fire).
+
+## 🔧 iter 193 (DTCG brand seed + template fallback hardening — the name defect fully closed)
+
+- **✅ Root cause of "Business" titles: the template's `brand.ts` is a W3C DTCG resolver** — `isLeaf()` requires `$value` on every leaf. The plain-object seed resolved to undefined → the generic fallback. TWO fixes, both shipped:
+  - **Worker (`c75d171b`):** the seed now emits DTCG tokens (`{$value, $type}`) for every business field. Deployed `716aa685`.
+  - **Template (`e659fc4`, template.projectsites.dev):** `brand.business` now picks per-field fallbacks — a partially-materialized brand file still shows the real name. typecheck + 88 tests + build green. The container git-pulls the template at build time, so this lands with no image rebuild.
+- **📋 Journey:** in-flight build still running; background poller asserts the verbatim "Cedar Ridge Bakeshop" title on terminal.
+- **Template-feedback rule applied:** the DTCG-shape contract belongs in the template's AGENTS.md so future builders don't repeat the plain-object mistake — noted for next fire.
+- **NEXT TARGET:** title assert on terminal + document the DTCG contract in template AGENTS.md + editor-change leg.
