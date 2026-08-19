@@ -532,3 +532,10 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **📋 Journey:** fresh build RUNNING via the pointer. Terminal legs (visit/analytics re-check on the NEW build + name assertion = "Cedar Ridge Bakeshop") next fire.
 - **⚠️ NOTE for concurrent sessions:** `sites.latest_workflow_instance` column exists in prod D1 (added directly, no migration file). Do NOT re-add it via a migration.
 - **NEXT TARGET:** poll the running build to published → assert the live site now says Cedar Ridge Bakeshop → editor-change leg.
+
+## 🔧 iter 191 (brand-materialization fix + journey build in flight)
+
+- **✅ Deterministic `_brand.json` seed (`c8a48323`).** The second name defect: the template's `src/brand.ts` imports `../_brand.json` AT BUILD TIME. The workflow never produced it → even with the verbatim-name prompt rule the site shipped as "Business". The container materializes contextFiles as `_{key}` — so the workflow now writes `contextFiles['brand.json']` from the reset params (name/phone/address/url/context). Identity-critical strings are MATERIALIZED at the boundary, never left to LLM compliance. tsc clean, workflow 8/8, deployed `2bd50c5e`.
+- **📋 Journey:** verification build `e2e-site-3-reset-1787121192690` in flight (background poller will assert the title says "Cedar Ridge Bakeshop" on terminal).
+- **Also:** migration `0630` tracked for fresh-DB provisioning (prod column already applied directly; d1_migrations runner is drifted at 0014 — do NOT re-apply on prod).
+- **NEXT TARGET:** assert the verbatim title on terminal + editor-change leg (browser-capable fire).
