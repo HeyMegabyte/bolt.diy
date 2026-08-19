@@ -524,3 +524,11 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ REGRESSION LOCK (`97973501`):** `chaos-18-template-build-journey.e2e.ts` — reset → poll correct instance → published → h1 → analytics reconcile → editor change via PS_DEPLOY_REQUEST → live-site marker. `--list` proves it loads.
 - **📋 REMAINING journey leg (deferred to a browser-capable fire):** the editor-chat change needs a REAL browser on /admin/editor (memory: headless can't render deep admin; Browserbase when available). chaos-18 covers it; run it when the browser tier is reachable.
 - **NEXT TARGET:** (a) run chaos-18's editor leg via Browserbase/CF-browser, (b) template-feedback harvest from this build (the "Hearth & Crumb" name drift: reset passed Cedar Ridge but the site says Hearth & Crumb — the container used prior research data; check the workflow's business_name propagation).
+
+## 🔧 iter 190 (journey harvest — verbatim-name + instance-pointer land)
+
+- **✅ Verbatim business name (`57223dc6`).** The journey's completed build shipped titled "Hearth & Crumb" for a "Cedar Ridge Bakeshop" reset — the orchestrator invented a brand. buildPrompt now locks the name VERBATIM (title/h1/footer/JSON-LD/grep-leftovers) with the defect cited inline. Unit test added (workflow 8/8).
+- **✅ Instance pointer (`57223dc6`).** `sites.latest_workflow_instance` (additive column, applied via direct D1 execute — the d1_migrations runner had drifted on an older duplicate so the migration FILE was omitted deliberately) written by reset, read by the status endpoint as the no-param fallback. Live-verified: the fresh reset resolves via the pointer with NO query param (`e2e-site-3-reset-1787120166343 | running`).
+- **📋 Journey:** fresh build RUNNING via the pointer. Terminal legs (visit/analytics re-check on the NEW build + name assertion = "Cedar Ridge Bakeshop") next fire.
+- **⚠️ NOTE for concurrent sessions:** `sites.latest_workflow_instance` column exists in prod D1 (added directly, no migration file). Do NOT re-add it via a migration.
+- **NEXT TARGET:** poll the running build to published → assert the live site now says Cedar Ridge Bakeshop → editor-change leg.
