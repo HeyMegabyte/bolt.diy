@@ -288,20 +288,28 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
     setStatus(jobId, { step: 'npm-build' });
 
     let buildOk = false;
+    // WHY-tracker — the workflow only surfaces the generic error; recording
+    // the container-side reason makes the next failure self-diagnosing
+    // (journey 2026-08-19: repeated 'npm build failed' with zero root-cause
+    // visibility).
+    let buildFailReason = '';
     if (jobs[jobId] && jobs[jobId].skipBuild) {
       // Smoke-test path: skip npm install/build, treat any non-underscore files as the upload set.
       buildOk = liveFileCount(dir) > 0;
       console.warn(`[${jobId}] skipBuild=true, file count=${liveFileCount(dir)}, buildOk=${buildOk}`);
+      if (!buildOk) buildFailReason = 'skipBuild=true and no live files';
     } else if (fs.existsSync(path.join(dir, 'package.json'))) {
       try {
         const inst = await runAsync(`cd ${dir} && npm install --legacy-peer-deps 2>&1`, 300000, 50 * 1024 * 1024);
         if (inst.code !== 0) {
           console.warn(`[${jobId}] npm install exit=${inst.code} tail=`, inst.stdout.slice(-500));
+          buildFailReason = `npm install failed code=${inst.code}: ${inst.stdout.slice(-300)}`;
           throw new Error(`npm install failed code=${inst.code}`);
         }
         const bld = await runAsync(`cd ${dir} && npm run build 2>&1`, 300000, 50 * 1024 * 1024);
         if (bld.code !== 0) {
           console.warn(`[${jobId}] npm build exit=${bld.code} tail=`, bld.stdout.slice(-500));
+          buildFailReason = `npm build failed code=${bld.code}: ${bld.stdout.slice(-300)}`;
           throw new Error(`npm build failed code=${bld.code}`);
         }
         const distDir = path.join(dir, 'dist');
@@ -312,21 +320,25 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
             console.warn(`[${jobId}] npm build ok: ${distFiles.length} dist files`);
           } else {
             console.warn(`[${jobId}] dist/ empty after build`);
+            buildFailReason = 'dist/ exists but is empty after npm run build';
           }
         } else {
           console.warn(`[${jobId}] dist/ missing after build`);
+          buildFailReason = 'dist/ missing after npm run build';
         }
       } catch (be) {
         console.warn(`[${jobId}] Build error:`, be.message.slice(0, 500));
+        buildFailReason = buildFailReason || be.message.slice(0, 500);
       }
     } else {
       console.warn(`[${jobId}] No package.json — skipping build`);
+      buildFailReason = 'no package.json in build dir — Claude Code never produced a buildable project';
     }
 
     if (!buildOk) {
       setStatus(jobId, {
         status: 'error',
-        error: 'npm build failed or produced no dist/ files',
+        error: `npm build failed or produced no dist/ files — ${buildFailReason || 'unknown'}`, 
         step: 'done',
         files: [],
       });

@@ -161,9 +161,14 @@ function BootSkeleton() {
     }, 200);
 
     // Embedded mode never boots WC — listen for the chat-ready text probe.
-    const READY_TEXT = 'Build a professional website for';
+    // Accept BOTH the legacy dynamic placeholder AND the current chat input
+    // placeholder (journey 2026-08-19: the current placeholder is
+    // 'What are we shipping?' — the old single-string probe NEVER fired, so
+    // the skeleton only cleared via the 30s timeout).
+    const READY_TEXTS = ['Build a professional website for', 'What are we shipping?', 'What are we discussing?'];
     const probe = () =>
-      document.body?.innerText?.includes(READY_TEXT) || !!document.querySelector(`[placeholder*="${READY_TEXT}"]`);
+      READY_TEXTS.some((t) => document.body?.innerText?.includes(t)) ||
+      READY_TEXTS.some((t) => !!document.querySelector(`[placeholder*="${t}"]`));
     const textInterval = window.setInterval(() => {
       if (probe()) {
         markReady();
@@ -274,7 +279,7 @@ export default function App() {
      * so once any element on the page carries that string we know the
      * editor shell is up enough to invite input.
      */
-    const READY_TEXT = 'Build a professional website for';
+    const READY_TEXTS = ['Build a professional website for', 'What are we shipping?', 'What are we discussing?'];
     const fireReady = () => {
       window.parent.postMessage({ type: 'PS_BOLT_CHAT_READY' }, PARENT_ORIGIN);
 
@@ -289,7 +294,8 @@ export default function App() {
       );
     };
     const probe = () =>
-      document.body?.innerText?.includes(READY_TEXT) || !!document.querySelector(`[placeholder*="${READY_TEXT}"]`);
+      READY_TEXTS.some((t) => document.body?.innerText?.includes(t)) ||
+      READY_TEXTS.some((t) => !!document.querySelector(`[placeholder*="${t}"]`));
 
     if (probe()) {
       fireReady();

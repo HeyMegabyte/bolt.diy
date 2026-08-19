@@ -595,7 +595,19 @@ export const ChatImpl = memo(
 
       if (importUrl && !importTriggeredRef.current) {
         importTriggeredRef.current = true;
-        setSearchParams({});
+        /*
+         * Preserve `slug` (and keep the URL params minimal) instead of
+         * clearing ALL search params — the import then navigates to
+         * /chat/{id} with NO slug, so the boot skeleton reads "Booting
+         * workspace" instead of the site name, and the files-store lock
+         * lookup falls back to the 'default' chat id the console showed
+         * (journey 2026-08-19).
+         */
+        setSearchParams((prev) => {
+          const next = new URLSearchParams();
+          if (slug) next.set('slug', slug);
+          return next;
+        });
 
         toast.info(slug ? `Loading ${slug} into editor...` : 'Importing chat from Project Sites...');
 

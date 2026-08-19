@@ -143,3 +143,43 @@ describe('embedded-mode — standalone (not embedded)', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 });
+
+describe('materializeImportedFiles', () => {
+  const FILES_MESSAGE = (extra: string) =>
+    'Intro text <boltArtifact id="a" title="Site"><boltAction type="file" filePath="index.html">' +
+    '<html><h1>Hello</h1></html></boltAction><boltAction type="shell">npm install</boltAction>' +
+    extra +
+    '</boltArtifact>';
+
+  beforeEach(() => {
+    window.sessionStorage.clear();
+  });
+
+  it('stashes parsed file actions into sessionStorage under the materialization key', async () => {
+    const { mod } = await importWith({ embedded: true });
+    const count = mod.materializeImportedFiles([{ content: FILES_MESSAGE('') }]);
+    expect(count).toBe(1);
+    const raw = window.sessionStorage.getItem('ps_materialized_files');
+    expect(raw).toBeTruthy();
+    const files = JSON.parse(raw ?? '{}');
+    expect(files['index.html']).toContain('<html><h1>Hello</h1></html>');
+  });
+
+  it('skips shell actions (only type=file counts) and returns 0 for a shell-only artifact', async () => {
+    const { mod } = await importWith({ embedded: true });
+    const count = mod.materializeImportedFiles([
+      { content: '<boltArtifact><boltAction type="shell">npm install</boltAction></boltArtifact>' },
+    ]);
+    expect(count).toBe(0);
+    expect(window.sessionStorage.getItem('ps_materialized_files')).toBeNull();
+  });
+
+  it('drains the stash exactly once (single-consumption) — the restore handoff contract', async () => {
+    const { mod } = await importWith({ embedded: true });
+    window.sessionStorage.setItem('ps_materialized_files', JSON.stringify({ 'index.html': '<h1>x</h1>' }));
+    mod.restoreMaterializedFiles();
+    expect(window.sessionStorage.getItem('ps_materialized_files')).toBeNull();
+    // A second restore is a no-op — nothing left to drain.
+    expect(() => mod.restoreMaterializedFiles()).not.toThrow();
+  });
+});
