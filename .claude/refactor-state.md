@@ -594,3 +594,10 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **📋 Journey:** verification build `e2e-site-3-reset-1787125578259` RUNNING (the first where the seed survives the container untouched). Poller asserts the verbatim "Cedar Ridge Bakeshop" title.
 - **Progress note:** capacity fixed (builds now complete in ~5 min and publish); the name stack is down to this single remaining layer.
 - **NEXT TARGET:** title assert on terminal → editor-change leg → then journey CLOSED.
+
+## 🔧 iter 200 (the mechanical gate — brand-placeholder validator)
+
+- **✅ validateNoBrandPlaceholders (`c34762cf`).** Prompt fixes failed twice (the LLM rewrote the seed from the template's shipped copy). The validator is now a BUILD-BREAKING gate in validateBuild: `{BUSINESS_*}` tokens in HTML → error `brand.placeholder_leak`; `<title>` starting "Business" → error `brand.generic_name`. 80/80 tests. Deployed `537d691b`.
+- **📋 Journey:** validator-gated build `e2e-site-3-reset-1787127081536` RUNNING. Poller asserts the verbatim title.
+- **⚠️ The name-stack journey has now exercised SIX layers** (payload → D1 → seed → prompt → template fallback → validator). Each layer is independently fixed; the remaining risk is the LLM writing a plausible-but-wrong name (not caught by any gate) — flagged for a `brand.name_mismatch` validator comparing the title against `params.businessName` if the next build still drifts.
+- **NEXT TARGET:** title assert on terminal → name_mismatch validator if needed → editor-change leg.
