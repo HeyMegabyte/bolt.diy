@@ -738,3 +738,10 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ Em-dash repair (iter 218) deployed + waiting validation.**
 - **📋 Journey:** heartbeat-fixed validation build `-1787153140206` RUNNING.
 - **NEXT TARGET:** terminal assert — a clean publish proves the restart+heartbeat pair; then the title assert (no dangling dash).
+
+## 🔧 iter 220 (boot-grace — the restart DO needs 1-3 min; unknown-job during boot is not abandonment)
+
+- **🔍 Iter 219's fix half-worked:** the restart fired, the heartbeat followed the fresh DO — but the abandon path fired 31s later anyway. The fresh DO needs 1-3 min to boot (image + git pull inside startAndWaitForPorts); its first polls legitimately return unknown-job + no KV record. The abandon logic treated that boot state as a dead job.
+- **✅ Boot-grace window:** a 3-minute grace after either restart now keeps polling through the boot; only a POST-grace unknown-job (a REAL dead job) abandons. `restartGraceUntil` tracked per workflow. 10,979/10,979 green. Deployed `ae9a1d37`.
+- **📋 Journey:** boot-grace validation build `-1787153911893` RUNNING.
+- **NEXT TARGET:** terminal assert — this SHOULD be the first build to survive an eviction + restart end-to-end; then the title assert (no dangling dash).
