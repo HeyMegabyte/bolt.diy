@@ -568,3 +568,9 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ Pointer verified:** `GET /api/sites/e2e-site-3/workflow` (NO param) resolves the running instance via latest_workflow_instance — the no-param path is production-correct.
 - **📋 Journey:** build `e2e-site-3-reset-1787123011741` RUNNING (the earlier confusing logs were cross-instance audit rows — the status endpoint now reports the right instance). Background poller asserts the verbatim "Cedar Ridge Bakeshop" title on terminal.
 - **NEXT TARGET:** title assert on terminal → editor-change leg.
+
+## 🔧 iter 196 (the FINAL name root cause — v1/v2 payload asymmetry)
+
+- **✅ ROOT CAUSE FOUND (`efc988a4`):** the reset handler accepted ONLY the nested `body.business?.name` — the journey's FLAT `business_name` resets (the v1 shape create-from-search accepts) silently kept the STALE site name on every rebuild. That's why the brand seed got "Urban Fitness Co" and the site said "Business" regardless of the DTCG fix. Normalized v1+v2 → `resolvedBusiness` (D1 update + workflow params + audit). Regression test 10/10. Deployed `104216e5`; live-verified a flat reset now updates D1 to "Cedar Ridge Bakeshop".
+- **📋 Journey:** FINAL verification build `e2e-site-3-reset-1787124454106` RUNNING — this is the first build where the workflow actually receives the correct business name. Poller asserts the verbatim title on terminal.
+- **NEXT TARGET:** title assert on terminal → editor-change leg. The name-defect stack is now fully fixed at every layer (payload → D1 → seed → DTCG → template fallback).
