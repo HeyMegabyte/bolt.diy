@@ -1014,3 +1014,34 @@ export const loadBuildFromR2 = async (bucket: R2Bucket, prefix: string): Promise
   } while (cursor);
   return files;
 };
+
+/**
+ * Deterministically repair the `..projectsites.dev` double-dot hostname in a
+ * build's text files, returning the repaired copies.
+ *
+ * @remarks
+ * The container's pre-build token pass substitutes raw {BUSINESS_*} tokens, but
+ * the build LLM writes the canonical as `https://<slug>..projectsites.dev`
+ * (slug already dot-suffixed in its model) DURING the build — after that pass
+ * ran. This repair runs in finalize-build AFTER the container uploads, so the
+ * gate sees the corrected text. Pure — does NOT mutate the input array.
+ *
+ * @param files - Build files loaded via {@link loadBuildFromR2}
+ * @returns [repairedFiles, repairedCount]
+ *
+ * @example
+ * const [fixed, n] = repairDoubleDotCanonical(await loadBuildFromR2(bucket, prefix));
+ * if (n > 0) await bucket.put(`${prefix}index.html`, fixed.find(f => f.path === 'index.html')?.text ?? '');
+ */
+export const repairDoubleDotCanonical = (
+  files: BuildFile[],
+): [BuildFile[], number] => {
+  const BAD = '..projectsites.dev';
+  let repaired = 0;
+  const fixed = files.map((f) => {
+    if (typeof f.text !== 'string' || !f.text.includes(BAD)) return f;
+    repaired++;
+    return { ...f, text: f.text.split(BAD).join('.projectsites.dev') };
+  });
+  return [fixed, repaired];
+};

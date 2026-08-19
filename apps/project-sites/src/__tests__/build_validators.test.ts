@@ -21,6 +21,7 @@ import {
   validateJsonLdStructure,
   validateNoBrandPlaceholders,
   validateBrandNameMatch,
+  repairDoubleDotCanonical,
   validateBuild,
   type BuildFile,
 } from '../services/build_validators';
@@ -857,5 +858,38 @@ describe('validateBrandNameMatch (invented-name class, 2026-08-19)', () => {
 
   it('is a no-op without an expected name (backward compatible)', () => {
     expect(validateBrandNameMatch(files)).toEqual([]);
+  });
+});
+
+describe('repairDoubleDotCanonical', () => {
+  it('repairs ..projectsites.dev in canonical + OG url + inline text, preserving text', () => {
+    const input: BuildFile[] = [
+      {
+        path: 'index.html',
+        size: 200,
+        text: '<link rel="canonical" href="https://urban-fitness..projectsites.dev/" />',
+      },
+      {
+        path: 'assets/index-Bx1a.js',
+        size: 300,
+        text: '{"url":"https://urban-fitness..projectsites.dev/assets/hero.webp"}',
+      },
+      { path: 'sitemap.xml', size: 150, text: '<loc>https://urban-fitness..projectsites.dev/</loc>' },
+      { path: 'favicon.png', size: 400, text: undefined },
+    ];
+    const [fixed, repaired] = repairDoubleDotCanonical(input);
+    expect(repaired).toBe(3);
+    expect(fixed[0]?.text).toBe('<link rel="canonical" href="https://urban-fitness.projectsites.dev/" />');
+    expect(fixed[1]?.text).toContain('urban-fitness.projectsites.dev');
+    expect(fixed[2]?.text).toBe('<loc>https://urban-fitness.projectsites.dev/</loc>');
+    expect(fixed[3]?.text).toBeUndefined(); // binary untouched
+    expect(input[0]?.text).toContain('..projectsites.dev'); // input not mutated
+  });
+
+  it('returns 0 repaired when clean', () => {
+    const [, repaired] = repairDoubleDotCanonical([
+      { path: 'index.html', size: 100, text: '<link rel="canonical" href="https://x.projectsites.dev/" />' },
+    ]);
+    expect(repaired).toBe(0);
   });
 });

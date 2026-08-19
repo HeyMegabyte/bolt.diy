@@ -1293,13 +1293,35 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         // error instead of published (the step-3.5 report still logs the detail).
         {
           try {
-            const files = await loadBuildFromR2(
+            const rawFiles = await loadBuildFromR2(
               env.SITES_BUCKET,
               `sites/${params.slug}/${version}/`,
             );
-            const { validateNoBrandPlaceholders, validateBrandNameMatch } = await import(
-              '../services/build_validators.js'
-            );
+            const {
+              validateNoBrandPlaceholders,
+              validateBrandNameMatch,
+              repairDoubleDotCanonical,
+            } = await import('../services/build_validators.js');
+
+            // DOUBLE-DOT REPAIR + PERSIST — the container's pre-build token pass
+            // runs BEFORE the LLM, but the LLM writes the canonical as
+            // `https://<slug>..projectsites.dev` DURING the build. Repair the
+            // uploaded copies first (deterministic, no LLM compliance), persist
+            // the corrected text back to R2, and gate the REPAIRED build — the
+            // double-dot class can never gate-fail a repairable build again.
+            const [files, doubleDotRepaired] = repairDoubleDotCanonical(rawFiles);
+            if (doubleDotRepaired > 0) {
+              for (const f of files) {
+                if (typeof f.text === 'string') {
+                  await env.SITES_BUCKET.put(`sites/${params.slug}/${version}/${f.path}`, f.text);
+                }
+              }
+              await wfLog('workflow.double_dot_repaired', {
+                repairedFiles: doubleDotRepaired,
+                message: `Repaired ..projectsites.dev canonical in ${doubleDotRepaired} file(s) before the brand gate`,
+              });
+            }
+
             // BOTH brand gates: placeholders AND the invented-name mismatch.
             // (The name-match check was only wired into the report-only
             // validate-build step — a mismatch published anyway.)
