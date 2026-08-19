@@ -1287,6 +1287,34 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           }
         })();
 
+        // BRAND GATE — runs BEFORE the published flip (the step-3.5 validate-build
+        // runs AFTER publish, so brand placeholders shipped live twice). Load the
+        // uploaded files and run ONLY the brand validator; a hit flips the site to
+        // error instead of published (the step-3.5 report still logs the detail).
+        {
+          try {
+            const files = await loadBuildFromR2(env.SITES_BUCKET, `sites/${params.slug}/${version}/`);
+            const { validateNoBrandPlaceholders } = await import('../services/build_validators.js');
+            const brandViolations = validateNoBrandPlaceholders(files);
+            if (brandViolations.length > 0) {
+              await updateSiteStatus(env.DB, params.siteId, 'error');
+              await wfLog('workflow.brand_gate_failed', {
+                violations: brandViolations.slice(0, 10),
+                message: `Brand gate failed — refusing to publish: ${brandViolations[0]?.message ?? 'unknown'}`,
+              });
+              throw new Error(
+                `Brand gate failed: ${brandViolations.map((v) => v.message).join('; ')}`,
+              );
+            }
+          } catch (err) {
+            if (err instanceof Error && err.message.startsWith('Brand gate failed')) {
+              throw err; // real brand failure — propagate
+            }
+            // load/build-validator errors are NOT brand failures — fail-soft so a
+            // validator bug never blocks a legitimate publish.
+          }
+        }
+
         // Update D1 status to published
         await env.DB.prepare(
           "UPDATE sites SET status = 'published', current_build_version = ?, updated_at = datetime('now') WHERE id = ?",
