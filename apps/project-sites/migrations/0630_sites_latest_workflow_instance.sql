@@ -1,0 +1,13 @@
+-- 0630 — authoritative pointer to the site's MOST RECENT build workflow instance.
+--
+-- Journey defect 2026-08-19: reset created a suffixed instance
+-- (`{siteId}-reset-{ts}`) when the bare `siteId` instance already existed
+-- terminal. The status endpoint read `get(siteId)` and reported the STALE
+-- errored instance forever, and D1 `status` is a project state (not the
+-- instance pointer), so two resets raced and the newer instance's
+-- finalize-build was unreachable from the polling surface.
+--
+-- This column is written by the workflow's start step and read by the
+-- status endpoint as the fallback when no ?instance_id= is supplied.
+-- Purely additive — no backfill needed (NULL = old behavior).
+ALTER TABLE sites ADD COLUMN latest_workflow_instance TEXT;
