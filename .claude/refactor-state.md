@@ -621,3 +621,9 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ Template side hardened (`591e547` template repo):** `pick()` now rejects placeholder-shaped leaves (`/^\{[A-Z_]+\}$/`) — the shipped _brand.json's `{BUSINESS_NAME}`-style values are NOT real content. typecheck + 88 tests + build green.
 - **📋 Journey:** full-gate build `e2e-site-3-reset-1787129908419` RUNNING — the template git-pulls at build time, so the container will get the hardened brand.ts. Expected: either the title finally shows "Cedar Ridge Bakeshop" OR the build errors honestly (never publishes placeholders).
 - **NEXT TARGET:** title assert on terminal → editor-change leg → journey CLOSE.
+
+## 🔧 iter 204 (dual-gate — name mismatch now blocks publish too)
+
+- **✅ Fixed (`6691674e`):** the name-match validator was only in the report-only validate-build step — the "Small-Batch Sourdough Bread | Business" build published anyway. The pre-publish gate now runs BOTH brand validators before the published flip. 92/92 tests. Deployed `435565eb`.
+- **📋 Journey:** dual-gate build `e2e-site-3-reset-1787130935960` RUNNING. Expected: the title either carries the REAL name or the build errors honestly.
+- **NEXT TARGET:** title assert on terminal → editor-change leg → journey CLOSE.
