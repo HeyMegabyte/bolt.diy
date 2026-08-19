@@ -586,6 +586,55 @@ http.createServer((q, r) => {
           console.warn(`[${jobId}] contextFiles written (post-template-copy): ${Object.keys(P.contextFiles).join(', ')}`);
         }
 
+        // MECHANICAL TOKEN SUBSTITUTION — the template ships error pages
+        // (offline.html, 500.html, something-went-wrong) with RAW
+        // {BUSINESS_NAME}-style tokens the LLM never touches; the brand gate
+        // correctly blocks those. Substitute them here, deterministically, in
+        // EVERY text file of the build dir — no LLM compliance involved.
+        // (Journey 2026-08-19: the gate's error list showed offline/500 pages
+        // were the remaining token carriers.)
+        try {
+          const brandJson = P.contextFiles && P.contextFiles['brand.json'];
+          if (brandJson) {
+            const brand = JSON.parse(brandJson);
+            const biz = brand.business || {};
+            const val = (leaf) => (leaf && typeof leaf.$value === 'string' ? leaf.$value : '');
+            const TOKENS = {
+              '{BUSINESS_NAME}': val(biz.name),
+              '{BUSINESS_SHORT_NAME}': val(biz.shortName) || val(biz.name).slice(0, 12),
+              '{BUSINESS_TAGLINE}': val(biz.tagline),
+              '{BUSINESS_DESCRIPTION}': val(biz.description),
+              '{BUSINESS_URL}': val(biz.url),
+              '{BUSINESS_EMAIL}': val(biz.email),
+              '{BUSINESS_PHONE}': val(biz.phone),
+              '{BUSINESS_ADDRESS}': val(biz.address),
+              '{BUSINESS_HOURS}': val(biz.hours),
+              '{BUSINESS_CLASS}': val(biz.businessClass) || 'organization',
+            };
+            const TEXT_EXT = new Set(['.html', '.htm', '.js', '.mjs', '.css', '.json', '.xml', '.txt', '.svg', '.webmanifest', '.md']);
+            let replaced = 0;
+            const walk = (d) => {
+              for (const f of fs.readdirSync(d)) {
+                if (f === 'node_modules' || f === '.git' || f === '.claude') continue;
+                const fp = path.join(d, f);
+                const st = fs.statSync(fp);
+                if (st.isDirectory()) { walk(fp); continue; }
+                if (!TEXT_EXT.has(path.extname(f).toLowerCase())) continue;
+                let content = fs.readFileSync(fp, 'utf-8');
+                let changed = false;
+                for (const [tok, rep] of Object.entries(TOKENS)) {
+                  if (content.includes(tok)) { content = content.split(tok).join(rep); changed = true; replaced++; }
+                }
+                if (changed) fs.writeFileSync(fp, content);
+              }
+            };
+            walk(dir);
+            console.warn(`[${jobId}] Token substitution: ${replaced} replacements in build dir`);
+          }
+        } catch (subErr) {
+          console.warn(`[${jobId}] Token substitution skipped: ${subErr.message}`);
+        }
+
         if (P.claudeMd) fs.writeFileSync(path.join(dir, 'CLAUDE.md'), P.claudeMd);
 
         try { x(`chown -R cuser:cuser ${dir}`, { stdio: 'pipe', shell: true }); } catch {}
