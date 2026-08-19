@@ -342,6 +342,20 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     const containerName = `${params.slug}-build-${params.siteId.slice(0, 8)}-${runNonce}`;
     const containerId = env.SITE_BUILDER.idFromName(containerName);
     const getContainer = () => env.SITE_BUILDER!.get(containerId);
+    /*
+     * Restart must target a FRESH DO. The eviction-recovery paths previously
+     * re-posted /build to the SAME container that just lost the job — a dead
+     * DO re-hibernates and the retry dies the same way (journey 2026-08-19:
+     * the one-shot restart never rescued a single eviction). Each restart
+     * mints a new name-derived DO (fresh image, fresh memory), so the retry
+     * is genuinely independent of the evicted instance.
+     */
+    let restartNonce = 0;
+    const freshRestartContainer = () => {
+      const builder = env.SITE_BUILDER;
+      if (!builder) throw new Error('SITE_BUILDER container not configured');
+      return builder.get(builder.idFromName(`${containerName}-r${++restartNonce}`));
+    };
 
     // ── Minimal mode: short-circuit, prove container infra ──
     if (params.minimalMode) {
@@ -964,7 +978,10 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             'restart-build-after-eviction',
             { retries: { limit: 1, delay: '10 seconds' }, timeout: '5 minutes' },
             async () => {
-              const container = getContainer();
+              // FRESH DO — re-posting to the evicted container guarantees a
+              // second eviction (its memory is gone). A new name-derived DO
+              // boots a fresh image and the build genuinely restarts.
+              const container = freshRestartContainer();
               const _deepseekKey = (env as unknown as { DEEPSEEK_API_KEY?: string })
                 .DEEPSEEK_API_KEY;
               const _buildLlmProvider = (env as unknown as { BUILD_LLM_PROVIDER?: string })
@@ -1087,7 +1104,8 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             'restart-build-after-stale',
             { retries: { limit: 1, delay: '10 seconds' }, timeout: '5 minutes' },
             async () => {
-              const container = getContainer();
+              // FRESH DO — see the eviction restart's rationale.
+              const container = freshRestartContainer();
               const _deepseekKey = (env as unknown as { DEEPSEEK_API_KEY?: string })
                 .DEEPSEEK_API_KEY;
               const _buildLlmProvider = (env as unknown as { BUILD_LLM_PROVIDER?: string })
