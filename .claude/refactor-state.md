@@ -581,3 +581,9 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **🔍 Also found:** 215 orphaned SiteBuilderContainer DO instances from the broken-pipeline era (they self-expire on sleepAfter; the stop-on-terminal fix prevents new orphans).
 - **📋 Journey:** post-fix build `e2e-site-3-reset-1787124954640` RUNNING (poller asserts the verbatim title on terminal — first build with the correct D1 name + DTCG seed + slot release).
 - **NEXT TARGET:** title assert on terminal → editor-change leg.
+
+## 🔧 iter 198 (capacity — the pool exhaustion fix completes)
+
+- **✅ max_instances 10→20 + sleepAfter 90m→25m (`8452eab0`).** The stop-on-terminal fix alone didn't unblock: warm instances inside their sleep window still hold slots. The 20-cap absorbs journey builds + concurrent customers; the 25m window releases orphans faster. Deployed `b9682cce`.
+- **📋 Journey:** build `e2e-site-3-reset-1787125165514` RUNNING post-capacity-fix. Poller asserts the verbatim title.
+- **NEXT TARGET:** title assert on terminal → editor-change leg.
