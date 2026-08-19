@@ -47,7 +47,15 @@ export async function selectContext(props: {
     return message;
   });
 
-  const provider = PROVIDER_LIST.find((p) => p.name === currentProvider) || DEFAULT_PROVIDER;
+  // ProjectSites AI override (same seam as stream-text / create-summary):
+  // the context-buffer selector previously resolved the conversation's cookie
+  // provider (e.g. Anthropic) and hit the user's dead-credit key directly —
+  // same "Chat request failed" class on long build chats.
+  const projectsitesAi =
+    serverEnv && (serverEnv as unknown as Record<string, string>).PS_BOLT_AI === 'true'
+      ? PROVIDER_LIST.find((p) => p.name === 'ProjectSites AI')
+      : undefined;
+  const provider = projectsitesAi || PROVIDER_LIST.find((p) => p.name === currentProvider) || DEFAULT_PROVIDER;
   const staticModels = LLMManager.getInstance().getStaticModelListFromProvider(provider);
   let modelDetails = staticModels.find((m) => m.name === currentModel);
 
