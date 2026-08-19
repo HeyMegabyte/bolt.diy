@@ -262,7 +262,7 @@ export function buildPrompt(params: SiteGenerationParams): string {
     "The Cloudflare Workers Container is KILLED at ~15 minutes wall-clock, so this build MUST finish under 14. The template in ~/template/ is ALREADY a complete, gorgeous, WCAG-2.2-AA, multi-page site (Stripe/Linear/Vercel polish, animations, dark theme, SEO scaffolding baked in). Your job is MINOR CUSTOMIZATION of that template with this business's real data — NOT a from-scratch rebuild and NOT a multi-subagent audit swarm (there is no time for either). Do the work DIRECTLY.",
     '',
     '## Build steps (do these IN ORDER, directly — no fan-out)',
-    `0. MATERIALIZE _brand.json FIRST (the template's src/brand.ts imports it at BUILD TIME — without it the site ships as "Business" with generic copy). Write /home/cuser/build/_brand.json with at least: {"business":{"name":"${safeName}", "tagline":"","description":"","email":"","phone":"${phone}","address":"${address}","url":"https://${slug}.${DOMAINS.SITES_SUFFIX}"}}. The name MUST be exactly "${safeName}".`,
+    `0. _brand.json is ALREADY MATERIALIZED for you — the workflow wrote the real business data (name="${safeName}") into the build dir's _brand.json. NEVER rewrite or regenerate it; the template's shipped copy has {BUSINESS_NAME} placeholders and overwriting it ships those placeholders LIVE. Read it, use it.`,
     '1. Read the essential context: _brand.json, _scraped_content.json, _research.json, _assets.json, _domain_features.json.',
     '2. Customize ~/template/ IN PLACE (`cd` into the build dir):',
     '   - Brand: apply colors / logo / fonts from _brand.json to the theme tokens.',
