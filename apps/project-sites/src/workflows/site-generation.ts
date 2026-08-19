@@ -1065,6 +1065,64 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       }
 
       if (ageMs > STALE_THRESHOLD_MS) {
+        // Staleness recovery (same one-shot policy as the unknown-job path):
+        // a worker deploy mid-build evicts the container — its KV lastUpdate
+        // freezes and the heartbeat goes stale. Restart ONCE; a second stale
+        // still errors honestly. (Journey: my own mid-build deploys triggered
+        // this on the verification build.)
+        if (!buildRestarted) {
+          buildRestarted = true;
+          await wfLog('workflow.container_stale_restart', {
+            poll: i,
+            age_ms: ageMs,
+            message: `Status stale ${(ageMs / 1000) | 0}s — restarting the build once`,
+          });
+          const restartJobId = await step.do(
+            'restart-build-after-stale',
+            { retries: { limit: 1, delay: '10 seconds' }, timeout: '5 minutes' },
+            async () => {
+              const container = getContainer();
+              const _deepseekKey = (env as unknown as { DEEPSEEK_API_KEY?: string }).DEEPSEEK_API_KEY;
+              const _buildLlmProvider = (env as unknown as { BUILD_LLM_PROVIDER?: string }).BUILD_LLM_PROVIDER;
+              const useDeepSeek = !!_deepseekKey && _buildLlmProvider !== 'anthropic';
+              const payload = {
+                slug: params.slug,
+                _anthropicKey: env.ANTHROPIC_API_KEY || '',
+                ...(useDeepSeek && {
+                  _deepseekKey,
+                  _anthropicBaseUrl: 'https://api.deepseek.com/anthropic',
+                  _anthropicModel: 'deepseek-chat',
+                }),
+                prompt,
+                contextFiles,
+                envVars,
+                timeoutMin: 14,
+                callbackUrl,
+                callbackSecret,
+              };
+              const res = await container.fetch('http://container/build', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              });
+              if (!res.ok) {
+                const errText = await res.text().catch(() => 'Unknown');
+                throw new Error(`Restart failed: ${res.status} ${errText}`);
+              }
+              const result = (await res.json()) as { jobId?: string; error?: string };
+              if (result.error) throw new Error(`Restart error: ${result.error}`);
+              if (!result.jobId) throw new Error('Restart returned no jobId');
+              return result.jobId;
+            },
+          );
+          jobId = restartJobId;
+          lastFreshAt = Date.now();
+          lastSeenStatus = null;
+          lastSeenStep = null;
+          await wfLog('workflow.build_restarted', { poll: i, jobId: restartJobId, reason: 'stale' });
+          continue;
+        }
+
         await wfLog('workflow.container_stale', {
           poll: i,
           age_ms: ageMs,
