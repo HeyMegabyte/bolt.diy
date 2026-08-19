@@ -509,3 +509,9 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **📋 Journey state:** fresh build `e2e-site-3-reset-1787117629539` RUNNING (background poller live; terminal → visit → analytics → editor-change legs next).
 - **Template feedback:** lesson folded to memory `container-build-eviction-recovery` + wrangler.toml comment; container-plane sweeps must never touch core builder blocks.
 - **NEXT TARGET:** journey leg 2 on terminal (visit / analytics / editor change) + fold chaos-18.
+
+## 🔧 iter 188 (folded the deletion slice + journey build still cooking)
+
+- **✅ FOLDED the earlier agent slice (`417c2d2a`):** deleted `saveToProjectSites` + `#gatherPublishFiles` + `#writeProjectSiteMeta` from `app/lib/stores/workbench.ts` (−139 LOC) — zero callers by import-grep (kept `#readProjectSiteMeta`/`#getProjectSitesUrl`, live public wrappers). Fork tsc + build clean, Pages `0221cb50`. Worktree pruned.
+- **📋 Journey:** build `e2e-site-3-reset-1787117629539` still RUNNING (site: generating — past the pre-fix death point; container build is the 14-min template-first phase). Background poller active; visit → analytics → editor-change legs land on terminal.
+- **NEXT TARGET:** journey terminal legs + fold chaos-18 once published.
