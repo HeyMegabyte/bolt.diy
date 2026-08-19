@@ -653,3 +653,9 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **📋 Journey:** retry-fixed build `e2e-site-3-reset-1787135653136` RUNNING — the first build where the workflow receives "Cedar Ridge Bakeshop" end-to-end. Poller asserts title + the workflow.complete message (must show the name).
 - **The stack is now: payload (both creates) → D1 → seed (post-copy) → template fallback → gates (placeholder/name/canonical).**
 - **NEXT TARGET:** title + complete-message assert on terminal → editor-change leg → journey CLOSE.
+
+## 🔧 iter 209 (mechanical token substitution — the LAST deterministic layer)
+
+- **✅ Added (`e37efdbd`):** the gate's error list revealed the remaining token carriers: the template's ERROR PAGES (offline/500/something-went-wrong) that the LLM never edits. A deterministic post-copy pass now substitutes every {BUSINESS_*} token in every text file from the materialized brand.json — zero LLM compliance. node --check clean. Deployed `b2fa97f6`.
+- **📋 Journey:** substitution-pass build `e2e-site-3-reset-1787136954569` RUNNING.
+- **NEXT TARGET:** title + complete-message assert → editor-change leg → journey CLOSE.
