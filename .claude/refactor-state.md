@@ -634,3 +634,9 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **📋 Journey:** canonical-gated build `e2e-site-3-reset-1787132038379` RUNNING.
 - **The brand-gate class is now: placeholders + generic-name + invented-name + canonical sanity — all pre-publish.**
 - **NEXT TARGET:** title assert → editor-change leg → journey CLOSE.
+
+## 🔧 iter 206 (THE ROOT CAUSE — the template copy overwrote the seed)
+
+- **✅ FOUND IT (`e8ecd3ee`):** the container `cp -r`'d the template (whose shipped _brand.json carries {BUSINESS_NAME} placeholders) OVER the workflow's materialized seed on EVERY build. That's why every prompt/gate/template fix appeared to fail — the seed never survived the copy. contextFiles are now written AFTER the copy; the seed always wins. node --check clean. Deployed `15eb33e6` (image rebuild).
+- **📋 Journey:** ordering-fixed build `e2e-site-3-reset-1787132593580` RUNNING — the FIRST build where the materialized name actually survives into the container.
+- **NEXT TARGET:** title assert on terminal → editor-change leg → journey CLOSE.
