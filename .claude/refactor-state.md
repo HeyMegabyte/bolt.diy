@@ -607,3 +607,10 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ Fixed (`f8f7fb64`):** the validate-build step (carrying the new brand validator) runs at step 3.5 — AFTER finalize-build flips D1 to published. That's why the validator "didn't fire" — it fired too late. finalize-build now runs the brand check on the uploaded R2 files BEFORE the published flip: a hit → site error + workflow.brand_gate_failed, never publish. Load/validator errors fail-soft. Deployed `8761b992`.
 - **📋 Journey:** brand-gated build `e2e-site-3-reset-1787127574147` RUNNING. Expected: either a placeholder-leak build now ERRORS instead of publishing, or a clean build publishes with the right title. Either outcome proves the gate.
 - **NEXT TARGET:** read the gated outcome → name_mismatch validator if the title drifts (plausible-but-wrong name) → editor-change leg.
+
+## 🔧 iter 202 (name_mismatch validator — the invented-name class is BUILD-BREAKING)
+
+- **✅ validateBrandNameMatch (`07d48e7c`).** The 20-min in-flight build revealed the NEXT layer: the LLM writes custom titles in components ("Artisan Sourdough Bakery | Business"), bypassing the brand resolver entirely. New validator requires the `<title>` to contain or start with the REAL business name — wired via `opts.expectedBusinessName` (no-op without it). 84/84 tests. Deployed `c469f641`.
+- **📋 Journey:** the in-flight build (running when deployed) will hit the gate at validate-build; the NEXT reset runs end-to-end under the full gate stack. Poller still watching.
+- **The name stack is now SEVEN layers** (payload → D1 → seed → prompt → template fallback → placeholder gate → name-match gate). Each layer independently tested.
+- **NEXT TARGET:** next reset under the full stack → title assert → editor-change leg → journey CLOSE.
