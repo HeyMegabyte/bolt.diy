@@ -276,8 +276,11 @@ export async function generateAutoPilotPostForNetwork(
   const result = await callExternalLLM(env, {
     system: renderedSystem,
     user: userPrompt,
-    provider: 'anthropic',
-    model: 'claude-sonnet-4-6',
+    // Ladder-routed (Brian 2026-08-19): social copy is VOLUME generation —
+    // standard tier → DeepSeek via the gateway. The old explicit Anthropic
+    // pin bypassed the ladder; the claude-sonnet-4-6 model name would 404 on
+    // any non-Anthropic rung, so the tier's own default model applies.
+    tier: 'standard',
     temperature: 0.85,
     maxTokens: 1200,
     jsonMode: true,

@@ -307,16 +307,15 @@ describe('generateAutoPilotPostForNetwork', () => {
     const opts = mLLM.mock.calls[0][1] as {
       system: string;
       jsonMode: boolean;
-      model: string;
-      provider: string;
+      tier?: string;
     };
     expect(opts.system).toContain('Acme Co');
     expect(opts.system).toContain('small business');
     expect(opts.system).toContain('Based in 123 Main St.');
     expect(opts.system).toContain('linkedin'); // target_networks substituted
     expect(opts.jsonMode).toBe(true);
-    expect(opts.model).toBe('claude-sonnet-4-6');
-    expect(opts.provider).toBe('anthropic');
+    // Ladder-routed (Brian 2026-08-19): tier standard, no pinned model/provider.
+    expect(opts.tier).toBe('standard');
   });
 
   it('clamps text beyond the per-network char limit and appends an ellipsis', async () => {

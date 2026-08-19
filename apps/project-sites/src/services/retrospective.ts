@@ -94,11 +94,11 @@ export async function buildRetrospective(args: {
         'You are a senior web engineer reviewing a site build. Identify 1-3 specific, actionable patterns worth encoding as rules. Be concrete. No fluff.',
       user: prompt,
       maxTokens: 1200,
-      provider: 'anthropic',
-      // Evergreen alias (not the dated `-20251001` snapshot) per model-routing —
-      // auto-tracks the latest Haiku 4.5 build; a pinned snapshot eventually retires
-      // and 400s, an evergreen alias survives the bump.
-      model: 'claude-haiku-4-5',
+      // Ladder-routed (Brian 2026-08-19): post-build reflection is cheap volume —
+      // standard tier → DeepSeek via the gateway. The explicit Anthropic pin
+      // bypassed the ladder, and the haiku model name would 404 on any
+      // non-Anthropic rung.
+      tier: 'standard',
     });
     llmFindings = llm.output;
   } catch (err) {
