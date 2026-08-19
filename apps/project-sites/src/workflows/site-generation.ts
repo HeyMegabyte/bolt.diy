@@ -1297,8 +1297,16 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
               env.SITES_BUCKET,
               `sites/${params.slug}/${version}/`,
             );
-            const { validateNoBrandPlaceholders } = await import('../services/build_validators.js');
-            const brandViolations = validateNoBrandPlaceholders(files);
+            const { validateNoBrandPlaceholders, validateBrandNameMatch } = await import(
+              '../services/build_validators.js'
+            );
+            // BOTH brand gates: placeholders AND the invented-name mismatch.
+            // (The name-match check was only wired into the report-only
+            // validate-build step — a mismatch published anyway.)
+            const brandViolations = [
+              ...validateNoBrandPlaceholders(files),
+              ...validateBrandNameMatch(files, params.businessName),
+            ];
             if (brandViolations.length > 0) {
               await updateSiteStatus(env.DB, params.siteId, 'error');
               await wfLog('workflow.brand_gate_failed', {
