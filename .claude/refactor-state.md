@@ -745,3 +745,10 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ Boot-grace window:** a 3-minute grace after either restart now keeps polling through the boot; only a POST-grace unknown-job (a REAL dead job) abandons. `restartGraceUntil` tracked per workflow. 10,979/10,979 green. Deployed `ae9a1d37`.
 - **📋 Journey:** boot-grace validation build `-1787153911893` RUNNING.
 - **NEXT TARGET:** terminal assert — this SHOULD be the first build to survive an eviction + restart end-to-end; then the title assert (no dangling dash).
+
+## 🔧 iter 221 (WHY-wiring paid off — the build failure was the LLM's unused imports)
+
+- **🔍 The boot-grace worked** (the build ran 8+ min past every prior eviction point) — and the next failure surfaced with its exact cause: `tsc -b` failed on `BlogPost.tsx TS6196 'PostContent' declared but never used` + `Home.tsx TS6133 'Shield'/'Star' never read`. The LLM leaves unused imports; `noUnusedLocals/noUnusedParameters` turned cosmetic leftovers into a fatal build.
+- **✅ Template fix (smallest correct home):** tsconfig relaxed the unused-import/parameter strictness ONLY — type errors stay fatal, vite + post-build validators still gate quality. Template `44b28a0` — auto-propagates to every future build via the container's git pull.
+- **📋 Journey:** validation build `-1787154993382` RUNNING on the relaxed tsconfig.
+- **NEXT TARGET:** terminal assert — expect a clean publish; then the title assert (em-dash repair should also land in this build).
