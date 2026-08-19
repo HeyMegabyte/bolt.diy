@@ -706,7 +706,12 @@ export const validateNoBrandPlaceholders = (files: BuildFile[]): Violation[] => 
   for (const file of files) {
     if (!isHtml(file.path) || !file.text) continue;
     const stripped = stripScripts(file.text);
-    for (const token of ['{BUSINESS_NAME}', '{BUSINESS_TAGLINE}', '{BUSINESS_SHORT_NAME}', '{BUSINESS_DESCRIPTION}']) {
+    for (const token of [
+      '{BUSINESS_NAME}',
+      '{BUSINESS_TAGLINE}',
+      '{BUSINESS_SHORT_NAME}',
+      '{BUSINESS_DESCRIPTION}',
+    ]) {
       if (stripped.includes(token)) {
         out.push({
           code: 'brand.placeholder_leak',
@@ -723,7 +728,8 @@ export const validateNoBrandPlaceholders = (files: BuildFile[]): Violation[] => 
       out.push({
         code: 'brand.generic_name',
         severity: 'error',
-        message: 'Site title starts with the generic "Business" fallback — _brand.json did not materialize',
+        message:
+          'Site title starts with the generic "Business" fallback — _brand.json did not materialize',
         file: file.path,
       });
     }

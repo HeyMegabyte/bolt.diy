@@ -799,7 +799,11 @@ describe('validateJsonLdStructure', () => {
 describe('validateNoBrandPlaceholders (2026-08-19 leak class)', () => {
   it('flags the template placeholder tokens as ERROR', () => {
     const files = [
-      { path: 'index.html', size: 100, text: '<title>{BUSINESS_NAME} — {BUSINESS_TAGLINE}</title>' },
+      {
+        path: 'index.html',
+        size: 100,
+        text: '<title>{BUSINESS_NAME} — {BUSINESS_TAGLINE}</title>',
+      },
     ];
     const v = validateNoBrandPlaceholders(files);
     expect(v.length).toBeGreaterThanOrEqual(1);

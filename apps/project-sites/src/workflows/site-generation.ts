@@ -1293,7 +1293,10 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         // error instead of published (the step-3.5 report still logs the detail).
         {
           try {
-            const files = await loadBuildFromR2(env.SITES_BUCKET, `sites/${params.slug}/${version}/`);
+            const files = await loadBuildFromR2(
+              env.SITES_BUCKET,
+              `sites/${params.slug}/${version}/`,
+            );
             const { validateNoBrandPlaceholders } = await import('../services/build_validators.js');
             const brandViolations = validateNoBrandPlaceholders(files);
             if (brandViolations.length > 0) {
