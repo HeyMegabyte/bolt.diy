@@ -74,14 +74,30 @@ async function sendEmail(
   // through the shared seam. Resend/SendGrid below remain the fallback until SES
   // is proven live — progressive degradation by env presence, no feature flag.
   // Auth emails are sign-in/magic-link, so they route to SES (SES_KINDS).
+  // try/catch for ADR-0019 parity with notifications.ts: an SES reject (sandbox
+  // throttle, unverified recipient) must FALL THROUGH to the fallback rails —
+  // the previous uncaught await aborted the whole chain and the magic-link
+  // handler's fail-open catch turned it into a silent 200 with NO email sent.
   if (env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY && env.SES_FROM_EMAIL) {
-    await getEmailProvider(env).sendTransactional({
-      kind: 'magic-link',
-      to: opts.to,
-      subject: opts.subject,
-      html: opts.html,
-    });
-    return;
+    try {
+      await getEmailProvider(env).sendTransactional({
+        kind: 'magic-link',
+        to: opts.to,
+        subject: opts.subject,
+        html: opts.html,
+      });
+      return;
+    } catch (err) {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'auth',
+          message: 'SES send failed, falling through to fallback rails',
+          error: err instanceof Error ? err.message : String(err),
+          to: opts.to,
+        }),
+      );
+    }
   }
 
   // Listmonk fallback — self-hosted on CF, sends transactional via SMTP.

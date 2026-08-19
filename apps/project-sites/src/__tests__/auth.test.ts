@@ -93,6 +93,37 @@ describe('createMagicLink', () => {
     expect(urls.some((u) => u.includes('api.resend.com'))).toBe(false);
   });
 
+  it('FALLS THROUGH to the fallback rails when the SES rail FAILS (ADR-0019 parity with notifications.ts)', async () => {
+    // The SES branch in auth.ts's local sendEmail had NO try/catch: an SES
+    // reject (sandbox throttle, unverified recipient) aborted the WHOLE chain —
+    // Listmonk/Resend/SendGrid fallbacks never ran, and the magic-link handler's
+    // fail-open catch converted it into a silent 200 with NO email ever sent.
+    // Regression lock: SES failure must fall through, not abort.
+    const sesEnv = {
+      ...mockEnv,
+      AWS_ACCESS_KEY_ID: 'AKIAEXAMPLE',
+      AWS_SECRET_ACCESS_KEY: 'secret-key',
+      AWS_REGION: 'us-east-1',
+      SES_FROM_EMAIL: 'noreply@projectsites.dev',
+      RESEND_API_KEY: 'test-resend-key',
+    } as any;
+    const mockFetch = jest
+      .fn()
+      // First call (SES) → reject
+      .mockResolvedValueOnce(new Response('MessageRejected: Email address is not verified', { status: 400 }))
+      // Second call (Resend fallback) → 200 success
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'msg-fallback' }), { status: 200 }));
+    global.fetch = mockFetch;
+
+    await createMagicLink(mockDb, sesEnv, input);
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    const urls = mockFetch.mock.calls.map((c) => String(c[0]));
+    expect(urls.some((u) => u.includes('amazonaws.com'))).toBe(true);
+    // SES failure must fall through to Resend — the abort bug's regression lock.
+    expect(urls.some((u) => u.includes('api.resend.com'))).toBe(true);
+  });
+
   it('calls dbInsert on magic_links table', async () => {
     await createMagicLink(mockDb, mockEnv, input);
 
