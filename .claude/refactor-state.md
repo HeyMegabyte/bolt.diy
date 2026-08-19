@@ -601,3 +601,9 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **📋 Journey:** validator-gated build `e2e-site-3-reset-1787127081536` RUNNING. Poller asserts the verbatim title.
 - **⚠️ The name-stack journey has now exercised SIX layers** (payload → D1 → seed → prompt → template fallback → validator). Each layer is independently fixed; the remaining risk is the LLM writing a plausible-but-wrong name (not caught by any gate) — flagged for a `brand.name_mismatch` validator comparing the title against `params.businessName` if the next build still drifts.
 - **NEXT TARGET:** title assert on terminal → name_mismatch validator if needed → editor-change leg.
+
+## 🔧 iter 201 (the gate ORDER bug — validator ran after publish)
+
+- **✅ Fixed (`f8f7fb64`):** the validate-build step (carrying the new brand validator) runs at step 3.5 — AFTER finalize-build flips D1 to published. That's why the validator "didn't fire" — it fired too late. finalize-build now runs the brand check on the uploaded R2 files BEFORE the published flip: a hit → site error + workflow.brand_gate_failed, never publish. Load/validator errors fail-soft. Deployed `8761b992`.
+- **📋 Journey:** brand-gated build `e2e-site-3-reset-1787127574147` RUNNING. Expected: either a placeholder-leak build now ERRORS instead of publishing, or a clean build publishes with the right title. Either outcome proves the gate.
+- **NEXT TARGET:** read the gated outcome → name_mismatch validator if the title drifts (plausible-but-wrong name) → editor-change leg.
