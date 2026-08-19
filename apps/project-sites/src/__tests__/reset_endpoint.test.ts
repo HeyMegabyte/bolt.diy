@@ -313,6 +313,33 @@ describe('POST /api/sites/:id/reset', () => {
     expect(retryArgs.params.orgId).toBe(TEST_ORG_ID);
   });
 
+  it('accepts the v1 FLAT business_name (normalized — the journey defect where flat resets kept stale names)', async () => {
+    const mockCreate = jest.fn().mockResolvedValue({ id: 'wf-flat-1' });
+    const mockWorkflow = { create: mockCreate };
+    const { app, env } = createAuthenticatedApp({
+      SITE_WORKFLOW: mockWorkflow as unknown as Env['SITE_WORKFLOW'],
+    });
+    mockDbQueryOne.mockResolvedValueOnce({
+      id: TEST_SITE_ID,
+      slug: 'my-biz',
+      org_id: TEST_ORG_ID,
+      business_name: 'Old Name',
+    });
+
+    const res = await app.request(
+      `/api/sites/${TEST_SITE_ID}/reset`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ business_name: 'New Name', business_address: '1 Flat St' }),
+      },
+      env,
+    );
+    expect(res.status).toBe(200);
+    const createArgs = mockCreate.mock.calls[0][0];
+    expect(createArgs.params.businessName).withContext?.('flat business_name must reach the workflow') ?? expect(createArgs.params.businessName).toBe('New Name');
+  });
+
   it('writes audit log on successful reset', async () => {
     const { app, env } = createAuthenticatedApp();
     mockDbQueryOne.mockResolvedValueOnce({

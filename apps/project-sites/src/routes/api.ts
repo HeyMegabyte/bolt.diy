@@ -4260,6 +4260,11 @@ api.post('/api/sites/:id/reset', async (c) => {
 
   let body: {
     business?: { name?: string; address?: string; place_id?: string; website?: string };
+    // v1 flat aliases — create-from-search accepts both formats; reset accepted
+    // ONLY the nested form, so flat-format callers (the journey) silently kept
+    // the STALE site name on every rebuild. Normalized below.
+    business_name?: string;
+    business_address?: string;
     additional_context?: string;
     /**
      * Convergence loop hint: 1-indexed iteration number. When > 1, the workflow
@@ -4280,6 +4285,14 @@ api.post('/api/sites/:id/reset', async (c) => {
   } catch {
     // Empty or malformed body is acceptable — reset with defaults
   }
+
+  // Normalize v1 (flat) + v2 (nested) payload shapes to ONE shape used below —
+  // mirrors create-from-search. A flat business_name must flow into the workflow
+  // params + the sites.business_name update or rebuilds carry the stale brand.
+  const resolvedBusiness = {
+    name: body.business?.name || body.business_name || null,
+    address: body.business?.address || body.business_address || null,
+  };
 
   const iteration =
     typeof body.directive_version === 'number' && body.directive_version > 0
@@ -4311,13 +4324,13 @@ api.post('/api/sites/:id/reset', async (c) => {
   const updates: string[] = ["status = 'building'", "updated_at = datetime('now')"];
   const params: unknown[] = [];
 
-  if (body.business?.name) {
+  if (resolvedBusiness.name) {
     updates.push('business_name = ?');
-    params.push(body.business.name.trim().slice(0, 200));
+    params.push(resolvedBusiness.name.trim().slice(0, 200));
   }
-  if (body.business?.address) {
+  if (resolvedBusiness.address) {
     updates.push('business_address = ?');
-    params.push(body.business.address.trim().slice(0, 500));
+    params.push(resolvedBusiness.address.trim().slice(0, 500));
   }
   if (body.business?.place_id) {
     updates.push('google_place_id = ?');
@@ -4339,8 +4352,8 @@ api.post('/api/sites/:id/reset', async (c) => {
           siteId,
           orgId,
           slug: site.slug,
-          businessName: body.business?.name || site.business_name || '',
-          businessAddress: body.business?.address || site.business_address || '',
+          businessName: resolvedBusiness.name || site.business_name || '',
+          businessAddress: resolvedBusiness.address || site.business_address || '',
           businessWebsite: body.business?.website || '',
           googlePlaceId: body.business?.place_id || site.google_place_id || '',
           additionalContext: body.additional_context || body.expert_notes || '',
@@ -4441,7 +4454,7 @@ api.post('/api/sites/:id/reset', async (c) => {
     metadata_json: {
       site_id: siteId,
       slug: site.slug,
-      business_name: body.business?.name || null,
+      business_name: resolvedBusiness.name || null,
       has_context: !!body.additional_context,
       workflow_available: !!workflowInstanceId,
     },
