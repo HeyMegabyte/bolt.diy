@@ -274,6 +274,7 @@ export function buildPrompt(params: SiteGenerationParams): string {
     '5. `node /home/cuser/upload-to-r2.mjs` to publish. Env vars CF_API_TOKEN, CF_ACCOUNT_ID, R2_BUCKET_NAME, SITE_SLUG, SITE_VERSION are set.',
     '',
     '## Hard Rules',
+    `- THE BUSINESS NAME IS EXACTLY "${safeName}" — use it VERBATIM as the site title, every h1, the footer copyright, the JSON-LD Organization name, and every visible brand string. NEVER invent a different name (no "rebranding", no creative renaming). The template ships sample names — replace EVERY one of them, and grep for leftover names before uploading. (Journey defect 2026-08-19: a build for "${safeName}" shipped titled "Hearth & Crumb".)`,
     '- TEMPLATE-FIRST: the template is the quality floor — you CUSTOMIZE it, you never regenerate it. Most of the site is already built; leverage it.',
     '- TIME BUDGET is absolute: finish under 14 minutes. Do NOT run the visual-qa / seo-auditor / accessibility-auditor / performance-profiler / security-reviewer / completeness-checker swarm and do NOT loop-until-perfect — the single run-validators pass in step 4 is the ship gate. Deeper QA (GPT-4o visual scoring, Lighthouse, a11y) runs POST-publish via the snapshot-quality workflow, which files follow-ups; it does not block this build.',
     "- Real content only — every visible string is the real business's copy, never a placeholder.",

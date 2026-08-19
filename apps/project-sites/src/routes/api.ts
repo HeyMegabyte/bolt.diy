@@ -1513,11 +1513,19 @@ api.get('/api/sites/:id/workflow', async (c) => {
   }
 
   try {
-    // Reset creates a SUFFIXED instance (`{siteId}-reset-{ts}`) when the bare
-    // `siteId` instance already exists in a terminal state — the status endpoint
-    // must honor the instance id the reset response returned, else it reports
-    // the stale errored instance forever (the journey found this live).
-    const instanceId = c.req.query('instance_id') || siteId;
+    // Instance resolution order: explicit ?instance_id= → the site's recorded
+    // latest_workflow_instance pointer → bare siteId. Reset creates SUFFIXED
+    // instances (`{siteId}-reset-{ts}`), so the bare lookup reports the stale
+    // errored instance forever (journey defect 2026-08-19).
+    let instanceId = c.req.query('instance_id') || null;
+    if (!instanceId) {
+      const pointer = await dbQueryOne<{ latest_workflow_instance: string | null }>(
+        c.env.DB,
+        'SELECT latest_workflow_instance FROM sites WHERE id = ? LIMIT 1',
+        [siteId],
+      );
+      instanceId = pointer?.latest_workflow_instance || siteId;
+    }
     const instance = await c.env.SITE_WORKFLOW.get(instanceId);
     const status = await instance.status();
 
@@ -4406,6 +4414,20 @@ api.post('/api/sites/:id/reset', async (c) => {
           .catch(() => {});
       }
     }
+  }
+
+  // Authoritative instance pointer — the status endpoint reads this when no
+  // ?instance_id= is supplied, so the LATEST reset-suffixed build is always
+  // the one reported (journey defect: stale bare-siteId instances masked the
+  // live build's progress forever). Best-effort — a pointer miss falls back
+  // to the legacy siteId lookup.
+  if (workflowInstanceId) {
+    await c.env.DB.prepare(
+      "UPDATE sites SET latest_workflow_instance = ? WHERE id = ?",
+    )
+      .bind(workflowInstanceId, siteId)
+      .run()
+      .catch(() => {});
   }
 
   // Always write audit logs regardless of workflow availability

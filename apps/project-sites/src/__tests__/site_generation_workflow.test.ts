@@ -131,4 +131,11 @@ describe('buildPrompt — template-first, ≤14-min', () => {
     expect(out).toContain("Vito's Salon");
     expect(out).toContain('warm premium feel');
   });
+
+  it('locks the business name VERBATIM (the Hearth & Crumb defect — a build shipped the wrong brand)', () => {
+    const out = buildPrompt(p);
+    expect(out).toContain('THE BUSINESS NAME IS EXACTLY "Vito\'s Salon"');
+    expect(out).toMatch(/NEVER invent a different name/i);
+    expect(out).toMatch(/grep for leftover names/i);
+  });
 });
