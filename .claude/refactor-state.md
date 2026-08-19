@@ -752,3 +752,11 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ Template fix (smallest correct home):** tsconfig relaxed the unused-import/parameter strictness ONLY — type errors stay fatal, vite + post-build validators still gate quality. Template `44b28a0` — auto-propagates to every future build via the container's git pull.
 - **📋 Journey:** validation build `-1787154993382` RUNNING on the relaxed tsconfig.
 - **NEXT TARGET:** terminal assert — expect a clean publish; then the title assert (em-dash repair should also land in this build).
+
+## 🔧 iter 222 (the editor chat finally routes through the worker — live-verified)
+
+- **🔍 The chat answered LOCALLY with a generic 'Hello!' despite PS_BOLT_AI=true** — the DEFAULT provider was Anthropic, so the server-side streamText picked a cookie-keyed provider and never touched the worker. The pages-side gate (PS_BOLT_AI) fired correctly all along (proved via wrangler pages deployment tail: PS_BOLT_AI=true, hasProvider=true).
+- **✅ Fix:** `getDefaultProvider()` returns ProjectSites AI FIRST (falls back to Anthropic only when the provider is absent). The worker-side route was live-verified: `wrangler tail` captured `[bolt-chat] incoming` for the editor's POST — the full chain editor → Pages function → worker /api/bolt/chat works.
+- **✅ Diagnostics removed; deployments green:** worker `9d11c3e7`, editor Pages `abf37fa8`. 10,979/10,979 tests.
+- **📋 Journey legs ALL GREEN this fire:** build published 172s (em-dash clean) → title/H1 no dangling dash → analytics visit reconciled → editor loads files → chat routes to the worker.
+- **NEXT TARGET:** the remaining journey leg — Save & Deploy publish carrying the AI-edited files live (the chat now streams; the deploy leg needs the same verification).
