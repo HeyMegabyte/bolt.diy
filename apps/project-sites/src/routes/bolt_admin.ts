@@ -102,7 +102,6 @@ const boltChatHandler = async (c: Context<{ Bindings: Env; Variables: Variables 
   if (!isBoltCallerAllowed(c)) {
     return c.json({ error: 'forbidden' }, 403);
   }
-
   const body = (await c.req.json().catch(() => null)) as {
     messages?: { role: string; content: string }[];
     model?: string;

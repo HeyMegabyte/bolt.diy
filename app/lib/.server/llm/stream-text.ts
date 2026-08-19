@@ -109,7 +109,8 @@ export async function streamText(props: {
   // per-user provider — no cookie keys, no dead-credit keys. The worker owns
   // the secrets; the editor just streams from /api/bolt/chat.
   const projectsitesAi = PROVIDER_LIST.find((p) => p.name === 'ProjectSites AI');
-  const useProjectsitesAi = !!(serverEnv && (serverEnv as unknown as Record<string, string>).PS_BOLT_AI === 'true') && !!projectsitesAi;
+  const psEnv = serverEnv as unknown as Record<string, string> | undefined;
+  const useProjectsitesAi = !!(psEnv?.PS_BOLT_AI === 'true') && !!projectsitesAi;
   const provider = useProjectsitesAi
     ? projectsitesAi!
     : PROVIDER_LIST.find((p) => p.name === currentProvider) || DEFAULT_PROVIDER;

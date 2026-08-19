@@ -201,7 +201,20 @@ export class LLMManager {
   }
 
   getDefaultProvider(): BaseProvider {
-    // Explicitly default to Anthropic if available
+    /*
+     * ProjectSites AI FIRST when present — the embedded editor's chat must
+     * route through the worker's tier-routed AI (no per-user keys, no
+     * dead-credit failures). The provider resolves to the worker's
+     * /api/bolt endpoint; the worker owns the secrets. Falls back to
+     * Anthropic only when the ProjectSites provider is absent (standalone
+     * fork contexts).
+     */
+    const projectsitesAi = this._providers.get('ProjectSites AI');
+
+    if (projectsitesAi) {
+      return projectsitesAi;
+    }
+
     const anthropic = this._providers.get('Anthropic');
 
     if (anthropic) {
