@@ -25,15 +25,24 @@ function makeEnv(
   } as unknown as Record<string, string | undefined>;
 }
 
-describe('chooseProviderForTier — premium tier', () => {
-  it('returns anthropic when ANTHROPIC_API_KEY is set', () => {
-    const env = makeEnv({ ANTHROPIC_API_KEY: 'sk-ant-test', OPENAI_API_KEY: 'sk-openai' });
-    expect(chooseProviderForTier(env as never, 'premium')).toBe('anthropic');
+describe('chooseProviderForTier — premium tier (DeepSeek is THE upstream, Brian 2026-08-19)', () => {
+  it('prefers deepseek even when ANTHROPIC + OPENAI are also set', () => {
+    const env = makeEnv({
+      ANTHROPIC_API_KEY: 'sk-ant-test',
+      OPENAI_API_KEY: 'sk-openai',
+      DEEPSEEK_API_KEY: 'sk-ds-test',
+    });
+    expect(chooseProviderForTier(env as never, 'premium')).toBe('deepseek');
   });
 
-  it('falls back to openai when ANTHROPIC_API_KEY is absent', () => {
-    const env = makeEnv({ OPENAI_API_KEY: 'sk-openai' });
+  it('falls back to openai when DEEPSEEK_API_KEY is absent', () => {
+    const env = makeEnv({ ANTHROPIC_API_KEY: 'sk-ant-test', OPENAI_API_KEY: 'sk-openai' });
     expect(chooseProviderForTier(env as never, 'premium')).toBe('openai');
+  });
+
+  it('uses anthropic only as the last resort (no deepseek, no openai)', () => {
+    const env = makeEnv({ ANTHROPIC_API_KEY: 'sk-ant-test' });
+    expect(chooseProviderForTier(env as never, 'premium')).toBe('anthropic');
   });
 
   it('falls back to openai when no keys are set', () => {

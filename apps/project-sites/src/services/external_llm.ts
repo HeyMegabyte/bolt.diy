@@ -349,9 +349,11 @@ function recordSuccess(provider: 'openai' | 'anthropic' | 'deepseek'): void {
 /**
  * Choose provider for a given cost tier.
  *
- * - `premium`  — Anthropic when ANTHROPIC_API_KEY present, else OpenAI
- * - `standard` — DeepSeek when DEEPSEEK_API_KEY present, else OpenAI
- * - `instant`  — DeepSeek when DEEPSEEK_API_KEY present, else OpenAI
+ * DeepSeek is THE upstream provider (Brian 2026-08-19): every tier prefers it
+ * when DEEPSEEK_API_KEY is present — `premium` → deepseek-reasoner via the AI
+ * Gateway, `standard` → deepseek-chat, `instant` → Workers AI (never reaches
+ * this fn). OpenAI is the fallback; Anthropic only as the last resort (and the
+ * OpenAI-compat chat surface maps it back to the OpenAI gateway rail).
  *
  * @remarks Vision calls MUST NOT use this; pass `provider:'openai'` explicitly
  * to `callExternalLLMWithVision` — DeepSeek has no vision API.
@@ -365,11 +367,10 @@ export function chooseProviderForTier(
   env: Env,
   tier: 'premium' | 'standard' | 'instant',
 ): 'openai' | 'anthropic' | 'deepseek' {
-  if (tier === 'premium') {
-    return env.ANTHROPIC_API_KEY ? 'anthropic' : 'openai';
-  }
-  // standard and instant both prefer DeepSeek
-  return env.DEEPSEEK_API_KEY ? 'deepseek' : 'openai';
+  if (env.DEEPSEEK_API_KEY) return 'deepseek';
+  if (env.OPENAI_API_KEY) return 'openai';
+  if (tier === 'premium' && env.ANTHROPIC_API_KEY) return 'anthropic';
+  return 'openai';
 }
 
 /**
