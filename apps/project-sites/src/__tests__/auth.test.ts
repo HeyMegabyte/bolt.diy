@@ -110,7 +110,9 @@ describe('createMagicLink', () => {
     const mockFetch = jest
       .fn()
       // First call (SES) → reject
-      .mockResolvedValueOnce(new Response('MessageRejected: Email address is not verified', { status: 400 }))
+      .mockResolvedValueOnce(
+        new Response('MessageRejected: Email address is not verified', { status: 400 }),
+      )
       // Second call (Resend fallback) → 200 success
       .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'msg-fallback' }), { status: 200 }));
     global.fetch = mockFetch;
