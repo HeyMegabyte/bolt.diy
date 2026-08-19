@@ -554,3 +554,10 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **📋 Journey:** in-flight build still running; background poller asserts the verbatim "Cedar Ridge Bakeshop" title on terminal.
 - **Template-feedback rule applied:** the DTCG-shape contract belongs in the template's AGENTS.md so future builders don't repeat the plain-object mistake — noted for next fire.
 - **NEXT TARGET:** title assert on terminal + document the DTCG contract in template AGENTS.md + editor-change leg.
+
+## 🔧 iter 194 (staleness-restart + the no-deploy-during-build lesson)
+
+- **✅ Staleness now restarts once (`754640ae`).** The DTCG-verification build died "Container stopped reporting status (stale)": a worker deploy mid-build evicts the container, KV lastUpdate freezes, the 8-min staleness fires — and the eviction-restart only covered the unknown-job path. Staleness now restarts once with freshness reset before erroring. Deployed `8670f859`.
+- **⚠️ SELF-INFLICTED ROOT CAUSE:** my own mid-build worker deploys killed two verification builds. **LOOP RULE (applies every future fire): NEVER deploy the worker while a site build is in flight — either wait for terminal or accept that the journey's restart logic absorbs it.** The restart tolerance is now in place either way.
+- **📋 Journey:** final verification build `e2e-site-3-reset-1787123011741` RUNNING with no deploys queued behind it. Poller asserts the verbatim title on terminal.
+- **NEXT TARGET:** title assert → editor-change leg (browser fire).
