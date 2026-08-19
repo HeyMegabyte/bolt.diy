@@ -359,16 +359,17 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
   },
   lead_scanner: {
     checklist: [
-      'POST /api/admin/leads/scan — Google Places text-search → scored leads',
+      'POST /api/admin/leads/scan — Places-first, FREE OSM/Nominatim fallback discovery',
       'Keeps the no-website businesses (the scanner’s purpose)',
       'Persists each as a claim-able lead via createLead (place_id-deduped)',
-      'Returns a scan summary (scanned / created / skipped / errors)',
+      'Returns a scan summary (scanned / created / skipped / errors) + source + degraded note',
       'Outreach send is a separate, explicitly-enabled step — never auto-sends',
     ],
     explanation:
-      'Super-Admin lead scanner. A free-text Google Places query (e.g. "roofers newark nj") runs a text search, each result is scored (no-website detection, rating/review signals, priority), and the no-website businesses are persisted as claim-able leads via createLead — deduped by place_id within the batch and by a unique index across batches. Returns a tally summary. Read-and-create only: it never sends outreach (that is a separate, explicitly-enabled action). Disabled by default → the route 404s (never 403). Compliant email enrichment is NOT done here (Places emails are not used).',
+      'Super-Admin lead scanner. A free-text query (e.g. "roofers newark nj") discovers businesses via Google Places Text Search first; when Places returns nothing (its API key is billing-dead — REQUEST_DENIED), the worker falls back to a FREE chain: parse the category phrase → geocode the place via Nominatim → Overpass query for businesses WITHOUT a website tag (4 mirrors, UA-identified, rate-limit backoff). Results are scored (no-website, signals, priority) and persisted as claim-able leads via createLead — deduped by place_id within the batch and by a unique index across batches. `source` tags provenance (google_places|osm); `degraded` carries an honest failure note instead of a lying "scanned 0". Read-and-create only: it never sends outreach. Live-verified 2026-08-19 via e2e/admin-verify/verify-lead-scanner.mjs (Brooklyn salons 200, Phoenix auto repair 200, Newark restaurants 200 — all no-website, osm-sourced).',
     smoke_test: [
-      'POST /api/admin/leads/scan {query:"plumbers austin tx"} → 200 {summary:{scanned, created, skippedHasWebsite, skippedDuplicate, errors}}',
+      'POST /api/admin/leads/scan {query:"hair salons in Brooklyn NY"} → 200 {summary.scanned:200, summary.created:200, source:"osm"}',
+      'GET /api/admin/leads?onlyNoWebsite=true → the created businesses appear (hasWebsite:false, source:"osm")',
       'Re-run the same query → created stays flat (place_id dedupe), no duplicate leads',
       'POST with a 1-char query → 400 VALIDATION_ERROR',
       'Disable the flag → the route 404s',
@@ -819,6 +820,7 @@ export const FLAG_SPEC_EXTRAS: Record<string, Pick<FlagDocs, 'e2e_tests' | 'scre
       'Scan route 404s while flag OFF (default off)',
       'Admin Leads section renders scan form (super-admin)',
       'Leads empty-state / submit control present',
+      'Live scan populated (e2e/admin-verify/verify-lead-scanner.mjs — 3 queries, real OSM leads)',
     ],
     screenshots: [
       {

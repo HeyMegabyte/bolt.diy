@@ -20,6 +20,7 @@ import { isSuperAdmin } from '../services/sysadmin.js';
 import { searchPlacesByQuery } from '../services/places_search.js';
 import { scanResultsToLeads } from '../services/lead_scan.js';
 import { createLead, listLeads, getLead } from '../services/lead_store.js';
+import { discoverLeadsForQuery } from '../services/lead_query_discovery.js';
 import { tryEmitEvent } from '../services/emit_event.js';
 import { createClaimLink } from '../services/claim_links.js';
 import type { PlacesResult } from '../services/google_places.js';
@@ -114,13 +115,39 @@ adminLeads.post('/api/admin/leads/scan', async (c) => {
     return c.json(errorBody('VALIDATION_ERROR', 'Invalid scan request', requestId), 400);
   }
 
+  // Discovery chain: Google Places first (richest), then the FREE OSM/Nominatim
+  // query engine. Places is billing-dead (GCP billing disabled → REQUEST_DENIED)
+  // so the OSM path is what actually populates leads today; both map to the same
+  // PlacesResult shape so scoring/storage are unchanged. `degraded` carries an
+  // honest failure note instead of a lying "scanned 0".
   const hits = await searchPlacesByQuery(c.env.GOOGLE_PLACES_API_KEY, parsed.data.query);
-  const results = hits.map(hitToResult);
+  let results: PlacesResult[];
+  let source: 'google_places' | 'osm';
+  let degraded: string | null = null;
+  if (hits.length > 0) {
+    results = hits.map(hitToResult);
+    source = 'google_places';
+  } else {
+    if (c.env.GOOGLE_PLACES_API_KEY) {
+      degraded = 'Google Places returned no results (billing may not be enabled on this API key).';
+    }
+    const osm = await discoverLeadsForQuery(parsed.data.query);
+    results = osm.results;
+    source = 'osm';
+    // The OSM failure note is more actionable than the generic Places note —
+    // surface it when both engines came up empty.
+    degraded = osm.degraded ?? degraded;
+  }
 
   const summary = await scanResultsToLeads(
     results,
     { createLead: (profile, meta) => createLead(c.env.DB, profile, meta) },
-    parsed.data.onlyNoWebsite === undefined ? {} : { onlyNoWebsite: parsed.data.onlyNoWebsite },
+    {
+      source,
+      ...(parsed.data.onlyNoWebsite === undefined
+        ? {}
+        : { onlyNoWebsite: parsed.data.onlyNoWebsite }),
+    },
   );
 
   // Emit a lead.discovered batch event onto the durable bus when the scan added
@@ -139,6 +166,7 @@ adminLeads.post('/api/admin/leads/scan', async (c) => {
           query: parsed.data.query,
           scanned: summary.scanned,
           created: summary.created,
+          source,
           onlyNoWebsite: parsed.data.onlyNoWebsite ?? true,
         },
       },
@@ -146,7 +174,7 @@ adminLeads.post('/api/admin/leads/scan', async (c) => {
     );
   }
 
-  return c.json({ summary }, 200);
+  return c.json({ summary, source, degraded }, 200);
 });
 
 /** The authed user id (set by gateLeadScanner upstream), or undefined. */

@@ -50,15 +50,17 @@ function toProfile(r: PlacesResult): ClaimLeadProfile {
  *
  * @param results - Raw Google Places results.
  * @param deps - Injected `createLead`.
- * @param opts - `onlyNoWebsite` (default true) keeps only the prime no-website leads.
+ * @param opts - `onlyNoWebsite` (default true) keeps only the prime no-website leads;
+ *   `source` tags the lead provenance (default 'google_places'; the OSM fallback passes 'osm').
  * @returns A {@link ScanSummary}; never throws (a per-lead failure counts as an error).
  */
 export async function scanResultsToLeads(
   results: PlacesResult[],
   deps: ScanDeps,
-  opts: { onlyNoWebsite?: boolean } = {},
+  opts: { onlyNoWebsite?: boolean; source?: string } = {},
 ): Promise<ScanSummary> {
   const onlyNoWebsite = opts.onlyNoWebsite ?? true;
+  const source = opts.source ?? 'google_places';
   const summary: ScanSummary = {
     scanned: 0,
     created: 0,
@@ -95,7 +97,7 @@ export async function scanResultsToLeads(
         hasWebsite: score.hasWebsite,
         leadScore: score.leadScore,
         priority: score.priority,
-        source: 'google_places',
+        source,
       });
       summary.created++;
     } catch {

@@ -16,22 +16,16 @@ describe('buildOpenApiDocument (zod-to-openapi)', () => {
     expect(doc.servers?.[0]?.url).toBe('https://projectsites.dev');
   });
 
-  it('registers the search + health paths', () => {
+  it('registers the health path (the search path was removed with vectorize_search, batch 9)', () => {
     expect(doc.paths?.['/health']).toBeDefined();
-    expect(doc.paths?.['/api/sites/{id}/search']).toBeDefined();
+    expect(doc.paths?.['/api/sites/{id}/search']).toBeUndefined();
   });
 
   it('derives reusable component schemas from the Zod schemas', () => {
     const schemas = doc.components?.schemas ?? {};
-    expect(schemas.SearchResponse).toBeDefined();
-    expect(schemas.SearchResult).toBeDefined();
     expect(schemas.ErrorEnvelope).toBeDefined();
-  });
-
-  it('documents the search 200 response as a SearchResponse ref', () => {
-    const op = doc.paths?.['/api/sites/{id}/search']?.get;
-    const schema = op?.responses?.['200']?.content?.['application/json']?.schema;
-    expect(JSON.stringify(schema)).toContain('SearchResponse');
+    expect(schemas.SearchResponse).toBeUndefined();
+    expect(schemas.SearchResult).toBeUndefined();
   });
 
   it('declares bearerAuth as a security scheme', () => {
@@ -49,6 +43,6 @@ describe('GET /api/openapi.json route (hono-openapi describeRoute)', () => {
     expect(res.headers.get('cache-control')).toContain('max-age');
     const body = (await res.json()) as { openapi: string; paths: Record<string, unknown> };
     expect(body.openapi).toBe('3.1.0');
-    expect(body.paths['/api/sites/{id}/search']).toBeDefined();
+    expect(body.paths['/health']).toBeDefined();
   });
 });

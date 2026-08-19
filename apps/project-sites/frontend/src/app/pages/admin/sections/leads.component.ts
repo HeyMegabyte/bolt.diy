@@ -115,6 +115,9 @@ const METROS: readonly MetroPreset[] = [
           <span class="pb-2 text-xs text-text-secondary" role="status" aria-live="polite"
             >Scanned {{ s.scanned }} · added {{ s.created }}</span
           >
+          @if (s.degraded) {
+            <span class="pb-2 text-xs text-amber-300" role="alert">⚠ {{ s.degraded }}</span>
+          }
         }
       </form>
 
@@ -135,7 +138,8 @@ const METROS: readonly MetroPreset[] = [
               href="https://crm.projectsites.dev"
               target="_blank"
               rel="noopener"
-              class="text-primary underline">crm.projectsites.dev</a
+              class="text-primary underline"
+              >crm.projectsites.dev</a
             >. No outreach is sent.
           </p>
         </div>
@@ -301,7 +305,11 @@ export class AdminLeadsComponent implements OnInit {
   readonly loading = signal(false);
   readonly loadError = signal(false);
   readonly leads = signal<LeadSummary[]>([]);
-  readonly lastScan = signal<{ scanned: number; created: number } | null>(null);
+  readonly lastScan = signal<{
+    scanned: number;
+    created: number;
+    degraded: string | null;
+  } | null>(null);
   private readonly copyingIds = signal<ReadonlySet<string>>(new Set());
 
   /** True while this lead's claim link is being minted (per-row busy guard). */
@@ -330,23 +338,43 @@ export class AdminLeadsComponent implements OnInit {
     });
   }
 
-  /** Run a Places no-website scan, then refresh the list. Double-submit guarded. */
+  /**
+   * Run the scan (Places first, free OSM/Nominatim fallback server-side), then
+   * refresh the list. Double-submit guarded. `degraded` failures surface as an
+   * honest amber note + error toast instead of a lying "Scanned 0 · added 0".
+   */
   scan(): void {
     const query = this.query.trim();
     if (query.length < 2 || this.scanning()) return;
     this.scanning.set(true);
     this.api
-      .post<{ summary: { scanned: number; created: number } }>('/admin/leads/scan', {
+      .post<{
+        summary: { scanned: number; created: number };
+        source?: 'google_places' | 'osm';
+        degraded?: string | null;
+      }>('/admin/leads/scan', {
         query,
         onlyNoWebsite: this.onlyNoWebsite(),
       })
       .subscribe({
         next: (res) => {
           this.scanning.set(false);
-          this.lastScan.set(res?.summary ?? null);
-          this.toast.success(
-            `Scanned ${res?.summary?.scanned ?? 0} · added ${res?.summary?.created ?? 0} leads.`,
-          );
+          this.lastScan.set({
+            scanned: res?.summary?.scanned ?? 0,
+            created: res?.summary?.created ?? 0,
+            degraded: res?.degraded ?? null,
+          });
+          if ((res?.summary?.created ?? 0) > 0) {
+            this.toast.success(
+              `Scanned ${res?.summary?.scanned ?? 0} · added ${res?.summary?.created ?? 0} leads${
+                res?.source === 'osm' ? ' (free OSM search)' : ''
+              }.`,
+            );
+          } else if (res?.degraded) {
+            this.toast.error(`No leads found — ${res.degraded}`);
+          } else {
+            this.toast.info('No new leads — try another query or a different area.');
+          }
           this.loadLeads();
         },
         error: () => this.scanning.set(false),

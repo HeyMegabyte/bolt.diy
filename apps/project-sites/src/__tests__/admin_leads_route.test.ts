@@ -22,6 +22,7 @@ jest.mock('../services/lead_store.js', () => ({
   getLead: jest.fn(),
 }));
 jest.mock('../services/claim_links.js', () => ({ createClaimLink: jest.fn() }));
+jest.mock('../services/lead_query_discovery.js', () => ({ discoverLeadsForQuery: jest.fn() }));
 
 const mockIsFlagOn = isFlagOn as jest.MockedFunction<typeof isFlagOn>;
 const mockIsSuperAdmin = isSuperAdmin as jest.MockedFunction<typeof isSuperAdmin>;
@@ -35,6 +36,8 @@ const mockListLeads = require('../services/lead_store.js').listLeads as jest.Moc
 const mockGetLead = require('../services/lead_store.js').getLead as jest.Mock;
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const mockCreateClaimLink = require('../services/claim_links.js').createClaimLink as jest.Mock;
+const mockDiscover = require('../services/lead_query_discovery.js')
+  .discoverLeadsForQuery as jest.Mock;
 
 /** Mount the route behind a middleware that injects the authed-session vars. */
 function makeApp(auth: { userId?: string; orgId?: string }) {
@@ -243,5 +246,63 @@ describe('POST /api/admin/leads/:id/claim-link', () => {
     expect(body.token).toBe('abc12345');
     expect(body.claimUrl).toBe('https://projectsites.dev/api/claim/abc12345');
     expect(mockCreateClaimLink).toHaveBeenCalledWith(env.DB, 'lead_1');
+  });
+});
+
+describe('scan fallback chain (Places billing-dead → free OSM)', () => {
+  it('falls back to query discovery when Places returns nothing and stores OSM-sourced leads', async () => {
+    mockIsFlagOn.mockResolvedValue(true);
+    mockIsSuperAdmin.mockResolvedValue(true);
+    mockSearch.mockResolvedValue([]);
+    mockDiscover.mockResolvedValue({
+      results: [hit({ place_id: 'osm:node/9', name: 'OSM Joe' })],
+      degraded: null,
+    });
+    const res = await post(makeApp({ userId: 'u1', orgId: 'o1' }), {
+      query: 'plumbers in Newark NJ',
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      summary: { scanned: number; created: number };
+      source: string;
+      degraded: string | null;
+    };
+    expect(body.summary.scanned).toBe(1);
+    expect(body.summary.created).toBe(1);
+    expect(body.source).toBe('osm');
+    expect(mockCreateLead).toHaveBeenCalled();
+    // createLead(db, profile, meta) — meta is the 3rd argument.
+    const meta = mockCreateLead.mock.calls[0][2] as { source?: string };
+    expect(meta.source).toBe('osm');
+  });
+
+  it('surfaces an honest degraded message when both engines come up empty', async () => {
+    mockIsFlagOn.mockResolvedValue(true);
+    mockIsSuperAdmin.mockResolvedValue(true);
+    mockSearch.mockResolvedValue([]);
+    mockDiscover.mockResolvedValue({
+      results: [],
+      degraded: 'Could not geocode \"Nowhereville ZZ\".',
+    });
+    const res = await post(makeApp({ userId: 'u1', orgId: 'o1' }), {
+      query: 'plumbers in Nowhereville ZZ',
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { summary: { created: number }; degraded: string | null };
+    expect(body.summary.created).toBe(0);
+    expect(body.degraded).toContain('geocode');
+  });
+
+  it('keeps the Places-first path when Places still returns hits', async () => {
+    mockIsFlagOn.mockResolvedValue(true);
+    mockIsSuperAdmin.mockResolvedValue(true);
+    mockSearch.mockResolvedValue([hit()]);
+    mockDiscover.mockResolvedValue({ results: [], degraded: null });
+    const res = await post(makeApp({ userId: 'u1', orgId: 'o1' }), {
+      query: 'roofers in Austin TX',
+    });
+    const body = (await res.json()) as { source: string };
+    expect(body.source).toBe('google_places');
+    expect(mockDiscover).not.toHaveBeenCalled();
   });
 });

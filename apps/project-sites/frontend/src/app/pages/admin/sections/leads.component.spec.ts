@@ -74,10 +74,27 @@ describe('AdminLeadsComponent', () => {
       query: 'roofers newark nj',
       onlyNoWebsite: true,
     });
-    expect(c.lastScan()).toEqual({ scanned: 3, created: 2 });
+    expect(c.lastScan()).toEqual({ scanned: 3, created: 2, degraded: null });
     expect(toast.success).toHaveBeenCalled();
     // reload fired (get called again after the post)
     expect(api.get).toHaveBeenCalled();
+    expect(c.scanning()).toBe(false);
+  });
+
+  it('surfaces the degraded note + an error toast when a scan finds nothing (honest empty)', () => {
+    api.post.and.returnValue(
+      of({
+        summary: { scanned: 0, created: 0 },
+        source: 'osm',
+        degraded: 'Could not geocode "Nowhereville ZZ" (free Nominatim lookup).',
+      }),
+    );
+    const c = make();
+    c.query = 'plumbers in Nowhereville ZZ';
+    c.scan();
+    expect(c.lastScan()?.degraded).toContain('geocode');
+    expect(toast.error).toHaveBeenCalledWith(jasmine.stringContaining('geocode'));
+    expect(toast.success).not.toHaveBeenCalled();
     expect(c.scanning()).toBe(false);
   });
 
