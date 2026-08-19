@@ -475,3 +475,14 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **Deployed** worker version `6aa55c5b` (Docker + global CF key). Live-verified: health 200, `/api/auth/magic-link` 200 + real `expires_at` (fail-open intact), homepage 200.
 - **Audit verdict on the rest of notifications.ts:** sendEmail chain, suppression seam, and structured logging are all ADR-0019-correct + test-locked. The deliverability audit is CLOSED — one bug, fixed with regression lock.
 - **NEXT TARGET:** back to reduction — fork `app/lib/modules/llm/` dead-export sweep came back clean (every member has callers; 23 providers = 23 registry imports). Candidates: `app/lib/hooks/usePromptEnhancer.ts` actionToFallbackMessage defensive net (verify keep), or worker `services/` grep for the SAME uncaught-primary-rail pattern in other send helpers (claim.ts / abandoned_builds_cron use the shared sendEmail → already safe).
+
+## 🔧 iter 184 (Brian directive: DeepSeek = THE AI Gateway upstream — last dead-key leaks closed)
+
+- **Directive:** "make it use our AI gateway … conditionally determine Workers AI vs AI Gateway … Use DeepSeek as the upstream AI Gateway CloudFlare provider." Edge router + gateway were ALREADY live-verified (x-ai-gateway:1, x-edge-tier:premium) — the residual bug was TWO fork surfaces that still reached the user's dead cookie Anthropic key:
+  - `app/lib/.server/llm/create-summary.ts` — build-mode summarizer (api.chat on long chats) had NO PS_BOLT_AI override → "credit balance too low" → "Chat request failed" (the user's exact error).
+  - `app/routes/api.models.ts` — network model-listing with cookie apiKeys at editor boot (same class).
+- **Worker:** `chooseProviderForTier` now DeepSeek-FIRST for every tier (premium → deepseek-reasoner via gateway, standard → deepseek-chat), OpenAI fallback, Anthropic last-resort only (no-keys default stays openai — the OpenAI-compat rail). Tests rewritten RED→GREEN (tiers 18/18, external_llm 48/48).
+- **Fork:** create-summary PS_BOLT_AI override (same seam as stream-text); api.models PS_BOLT_AI → static chips only (0 network, 0 cookie keys). tsc + build clean.
+- **Deployed:** worker `8095adcc`, Pages `30f9a46d`. **Live-verified:** premium (claude-opus-4-6 hint) streams via gateway model `deepseek-v4-flash` + reasoning_tokens (x-ai-gateway:1); fork /api/chat streams PONG-CHECK with Anthropic selection; /api/models 200 in 0.12s static.
+- **⚠️ MCP note:** fork MCPService is stdio (unavailable on Pages — documented); worker MCP surfaces route through the gateway per the standing contract. No new MCP integration built this iter (not required by the directive; flag if Brian wants editor-tool MCPs routed through the edge AI).
+- **NEXT TARGET:** back to reduction loop — recheck `chooseProviderForTier` non-tier callers (vision paths MUST stay explicit-openai; verified unchanged) or the deferred social.component split.
