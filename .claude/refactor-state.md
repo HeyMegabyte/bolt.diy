@@ -715,3 +715,11 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ Container self-diagnosis:** every 'npm build failed or produced no dist/ files' path now records its WHY (install/build exit + tail, empty/missing dist, no package.json) into the workflow-visible error string. Dockerfile FORCE-REBUILD 3. Deployed `75ef3886`.
 - **⚠️ Journey rebuild failed TWICE with npm-build errors even though the template builds clean locally — the WHY-wiring above is the instrument to catch it on the next attempt.**
 - **NEXT TARGET:** re-trigger the journey build — the container's WHY-string will now name the exact failure; fix that layer.
+
+## 🔧 iter 217 (eviction restarts targeted the DEAD container — fresh-DO recovery)
+
+- **🔍 The instrumented build named the real killer:** `Container DO evicted before build completed (job state lost)` — NOT npm. The prior 'npm build failed' errors were the SAME eviction presenting differently (the DO died mid-npm, the job map vanished, and the next poll saw unknown-job).
+- **✅ Root cause of the un-rescuable restart:** the one-shot restart re-posted /build to the SAME container that just lost the job — a dead DO re-hibernates and the retry dies identically. Both restart paths (eviction + stale) now mint a FRESH name-derived DO (`-r1`, `-r2`…) per retry via `freshRestartContainer()` — the recovery is genuinely independent of the evicted instance.
+- **✅ Container WHY-wiring deployed** (`b97e2e07`, image FORCE-REBUILD 3): every build failure now names its cause.
+- **📋 Journey:** fresh-DO build `-1787151064181` RUNNING on the fixed restart code.
+- **NEXT TARGET:** terminal assert — expect either a clean publish or an honest error with the WHY attached. If the eviction recurs even on a fresh DO, the sleepAfter/eviction policy is the next suspect.
