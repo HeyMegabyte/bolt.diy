@@ -767,6 +767,11 @@ export class AppInstancesComponent implements OnInit, OnDestroy {
             </div>
           </aside>
         </div>
+      } @else if (notFound()) {
+        <div class="card notice notice-red" role="alert">
+          <strong>Instance not found.</strong>
+          <span class="block text-[0.74rem] mt-1">No instance with id <code class="font-mono">{{ instanceId() }}</code>.</span>
+        </div>
       } @else if (loadFailed()) {
         <app-error-card
           title="Couldn't load this instance"
@@ -1004,6 +1009,12 @@ export class AppInstanceDetailComponent implements OnInit, OnDestroy {
   logs = signal<readonly LogLine[]>([]);
   loading = signal<boolean>(false);
   loadFailed = signal<boolean>(false);
+  /** True on a genuine 404 — renders the branded "Instance not found." notice
+   *  (with the id), NOT the retryable network-error card. The worker returns
+   *  status 404 "app_instance not found" for unknown ids; the handler comment
+   *  claimed to distinguish this case but routed EVERY error to the retry card
+   *  (chaos-16 journey 2026-08-19). */
+  notFound = signal<boolean>(false);
   /** Worker request_id from a failed instance load → copyable support reference on the error card. */
   loadErrorRef = signal('');
   logsLoading = signal<boolean>(false);
@@ -1031,6 +1042,7 @@ export class AppInstanceDetailComponent implements OnInit, OnDestroy {
     if (!id) return;
     this.loading.set(true);
     this.loadFailed.set(false);
+    this.notFound.set(false);
     this.loadErrorRef.set('');
     this.api.get<{ instance: Record<string, unknown> }>(`/apps/instances/${id}`).subscribe({
       next: (r) => {
@@ -1052,8 +1064,15 @@ export class AppInstanceDetailComponent implements OnInit, OnDestroy {
         this.instance.set(null);
         // Distinguish a network/server failure from a genuine not-found so
         // the user sees a retry affordance instead of a dead "not found".
-        this.loadFailed.set(true);
-        this.loadErrorRef.set(this.requestIdFrom(err));
+        // A real 404 (worker "app_instance not found") is NOT a retryable
+        // failure — surface the branded notice with the id.
+        const status = (err as { status?: number } | undefined)?.status;
+        if (status === 404) {
+          this.notFound.set(true);
+        } else {
+          this.loadFailed.set(true);
+          this.loadErrorRef.set(this.requestIdFrom(err));
+        }
       },
     });
   }

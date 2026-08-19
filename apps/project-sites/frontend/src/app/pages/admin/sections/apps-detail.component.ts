@@ -222,7 +222,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
                     (ngModelChange)="onSubdomainChange($event)"
                     placeholder="my-{{ a.id }}"
                     aria-label="Subdomain"
-                    pattern="[a-z0-9-]+"
+                    [pattern]="subdomainPattern"
                     data-testid="apps-deploy-subdomain" />
                   <span class="subdomain-suffix">.app.projectsites.dev</span>
                 </div>
@@ -985,6 +985,17 @@ export class AppDetailComponent implements OnInit {
     this.subdomainTouched.set(true);
     this.subdomainSignal.set(value);
   }
+
+  /**
+   * Native-validation pattern for the subdomain input. Chrome compiles HTML
+   * `pattern` attributes as `v`-flag regexes, which REJECT any unescaped dash
+   * in a character class ("Invalid character class" console error — the
+   * chaos-15 console gate caught it 2026-08-19). The runtime string must carry
+   * the literal `\-` escape; Angular's template compiler collapses `\-` in a
+   * static attribute, so the value is bound from this TS constant (whose
+   * source `\\-` survives compilation as `\-`).
+   */
+  readonly subdomainPattern = '[\\-a-z0-9]+';
 
   categoryLabel(a: CatalogApp): string {
     return a.category.charAt(0).toUpperCase() + a.category.slice(1);

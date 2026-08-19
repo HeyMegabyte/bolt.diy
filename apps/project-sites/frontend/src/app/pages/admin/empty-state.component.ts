@@ -14,7 +14,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
   selector: 'app-empty-state',
   standalone: true,
   template: `
-    <div class="empty-state-pretty" role="status" aria-live="polite">
+    <div class="empty-state-pretty" role="status" aria-live="polite" data-testid="empty-state">
       @if (icon) {
         <!-- Colorful emoji icons map to monochrome cyan SVGs (cockpit cyan/black
              standard); on-brand mono symbols (⌬ ▦ etc.) + anything unmapped fall
@@ -36,11 +36,11 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
           }
         </div>
       }
-      <h3 class="glow-h-grad text-xl font-semibold m-0">{{ title }}</h3>
+      <h3 class="glow-h-grad text-xl font-semibold m-0" data-testid="empty-title">{{ title }}</h3>
       @if (body) { <p class="text-[0.88rem] text-text-secondary max-w-[480px] mx-auto m-0 leading-relaxed">{{ body }}</p> }
       @if (primary || secondary) {
         <div class="flex gap-2 justify-center mt-1 flex-wrap">
-          @if (primary)   { <button class="btn-primary" (click)="primaryClick.emit()">{{ primary }}</button> }
+          @if (primary)   { <button class="btn-primary" data-testid="empty-cta" (click)="primaryClick.emit()">{{ primary }}</button> }
           @if (secondary) { <button class="btn-ghost" (click)="secondaryClick.emit()">{{ secondary }}</button> }
         </div>
       }

@@ -62,6 +62,9 @@ export class ImportFromUrlComponent {
   businessName = signal('');
   /** Optional subdomain override; defaults to slugified business name. */
   targetSlug = signal('');
+  /** `v`-flag-safe native pattern (dash escaped) — bound from TS so Angular
+   *  can't collapse the escape (same class as apps-detail subdomainPattern). */
+  readonly slugPattern = '[\\-a-z0-9]+';
   /** UI is `idle | crawling | success | error` — drives button + preview state. */
   state = signal<'idle' | 'crawling' | 'success' | 'error'>('idle');
   /** Last error message surfaced from the worker. */

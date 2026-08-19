@@ -122,24 +122,16 @@ export interface CatalogApp {
 }
 
 /**
- * Top-10 catalog slugs whose per-image DO subclasses are deployed. Keep
- * in lockstep with worker `src/durable_objects/app_runtime_subclasses.ts`
- * and wrangler.toml `[[env.production.containers]]` blocks.
+ * Live/Soon classification — ONE source of truth: the per-app `supported`
+ * flag on each catalog entry (a slug is "Live" only when its upstream
+ * container is wired to boot today). A duplicate slugs-array here drifted
+ * from the flags (9-Live vs 4-Live) and re-badged every catalog card Live
+ * while the deploy backend couldn't keep the promise (journey 2026-08-19).
+ * Keep the FLAG in lockstep with the worker's deployed per-image bindings
+ * in wrangler.toml `[[env.production.containers]]` blocks.
  */
-export const SUPPORTED_APP_SLUGS: ReadonlyArray<string> = [
-  'langflow',
-  'listmonk',
-  'litellm',
-  'lobe-chat',
-  'open-webui',
-  'payload',
-  'phoenix',
-  'stirling-pdf',
-  'umami',
-];
-
 export function isAppSupported(id: string): boolean {
-  return SUPPORTED_APP_SLUGS.includes(id);
+  return APPS_CATALOG.some((a) => a.id === id && a.supported === true);
 }
 
 export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
@@ -266,6 +258,7 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
   {
     id: 'lobe-chat',
     name: 'Lobe Chat',
+    supported: false,
     tagline: 'Polished ChatGPT-style UI for 30+ providers',
     description:
       'Cinematic chat interface for OpenAI, Anthropic, Gemini, Ollama, and local models. Plugins, vision, RAG, agent marketplace. Lighthouse 95+, PWA-ready.',
@@ -298,6 +291,7 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
   {
     id: 'langflow',
     name: 'Langflow',
+    supported: false,
     tagline: 'Visual builder for LangChain + LangGraph agents',
     description:
       'Drag-drop graph editor for RAG pipelines, agents, MCP servers. Exports Python. Backed by DataStax. The polished alternative to writing LangChain by hand.',
@@ -331,6 +325,7 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
   {
     id: 'litellm',
     name: 'LiteLLM',
+    supported: false,
     tagline: 'OpenAI-compatible proxy for 100+ providers',
     description:
       'Unified API gateway across Anthropic, OpenAI, Bedrock, Vertex, Ollama, and 95 more. Virtual keys, spend tracking, rate limits, observability hooks.',
@@ -361,6 +356,7 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
   },
   {
     id: 'phoenix',
+    supported: false,
     name: 'Arize Phoenix',
     tagline: 'OSS LLM tracing + evals',
     description:
@@ -392,6 +388,7 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
   },
   {
     id: 'stirling-pdf',
+    supported: false,
     name: 'Stirling PDF',
     tagline: '60+ PDF tools — the OSS Acrobat',
     description:

@@ -55,3 +55,26 @@ describe('AdminEmptyStateComponent (a11y parity)', () => {
     expect(glyph?.querySelector('.empty-emoji')?.textContent?.trim()).toBe('▦');
   });
 });
+
+describe('AdminEmptyStateComponent (E2E testid contract — chaos-15/16 locators)', () => {
+  let fx: ComponentFixture<EmptyStateComponent>;
+  afterEach(() => TestBed.resetTestingModule());
+
+  function render(): HTMLElement {
+    TestBed.configureTestingModule({ imports: [EmptyStateComponent] });
+    fx = TestBed.createComponent(EmptyStateComponent);
+    fx.componentRef.setInput('icon', '🚀');
+    fx.componentRef.setInput('title', 'No app instances yet');
+    fx.componentRef.setInput('body', 'Deploy your first self-hosted app.');
+    fx.componentRef.setInput('primary', 'Browse the app store');
+    fx.detectChanges();
+    return fx.nativeElement as HTMLElement;
+  }
+
+  it('carries the same testid contract as the components/states kit', () => {
+    const root = render();
+    expect(root.querySelector('[data-testid="empty-state"]')).withContext('root testid').not.toBeNull();
+    expect(root.querySelector('[data-testid="empty-title"]')).withContext('title testid').not.toBeNull();
+    expect(root.querySelector('[data-testid="empty-cta"]')).withContext('primary CTA testid').not.toBeNull();
+  });
+});

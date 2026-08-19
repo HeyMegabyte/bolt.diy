@@ -505,3 +505,25 @@ describe('AppInstancesComponent (stale-while-revalidate cache)', () => {
     expect(api.get).toHaveBeenCalled();
   });
 });
+
+  // A genuine 404 (the worker returns status 404 "app_instance not found") is a
+  // NOT-FOUND, not a retryable failure — the detail panel must render the
+  // branded "Instance not found." notice with the id, not a misleading
+  // "retry this network error" card (chaos-16 journey 2026-08-19).
+  it('load() 404 renders the not-found notice (never the retry card)', () => {
+    TestBed.configureTestingModule({
+      imports: [AppInstanceDetailComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => throwError(() => ({ status: 404, error: { error: { code: 'NOT_FOUND' } } })), post: () => of({}), patch: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { success: () => 0, error: () => 0, warning: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => 'ghost' } }, paramMap: of({ get: () => 'ghost' }) } },
+        provideRouter([]),
+      ],
+    });
+    const c = TestBed.createComponent(AppInstanceDetailComponent).componentInstance;
+    c.instanceId.set('ghost');
+    c.load();
+    expect(c.loadFailed()).withContext('a 404 is not a retryable load failure').toBeFalse();
+    expect(c.notFound()).withContext('the not-found notice state is set').toBeTrue();
+  });

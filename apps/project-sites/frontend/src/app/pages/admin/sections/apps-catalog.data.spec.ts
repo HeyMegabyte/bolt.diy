@@ -1,4 +1,4 @@
-import { APPS_CATALOG, APP_CATEGORIES, SUPPORTED_APP_SLUGS, isAppSupported, withHyperdrive, type InfraDep } from './apps-catalog.data';
+import { APPS_CATALOG, APP_CATEGORIES, isAppSupported, withHyperdrive, type InfraDep } from './apps-catalog.data';
 
 /**
  * Data-integrity guard for the self-hostable app catalog (67 hand-authored
@@ -9,7 +9,10 @@ import { APPS_CATALOG, APP_CATEGORIES, SUPPORTED_APP_SLUGS, isAppSupported, with
  *  - an empty required field renders a blank/broken catalog card
  *  - an unknown category hides the app from every filter chip
  *  - a category chip with zero apps is a dead filter
- *  - a SUPPORTED_APP_SLUGS entry not matching a real app id mislabels Live/Soon
+ *  - a supported:true flag whose app is NOT bootable today mislabels Live/Soon
+ *    (the flag is the SSOT — one source, no parallel slugs array, journey
+ *    2026-08-19: a duplicate slugs array re-badged 9 cards Live while only 4
+ *    had wired containers)
  */
 describe('apps-catalog.data (catalog integrity)', () => {
   const catIds = new Set(APP_CATEGORIES.map((c) => c.id));
@@ -57,19 +60,16 @@ describe('apps-catalog.data (catalog integrity)', () => {
     }
   });
 
-  it('every SUPPORTED_APP_SLUGS entry references a real app id', () => {
-    const ids = new Set(APPS_CATALOG.map((a) => a.id));
-    for (const slug of SUPPORTED_APP_SLUGS) {
-      expect(ids.has(slug)).withContext(`supported slug "${slug}" is not a real app id`).toBeTrue();
+  it('the supported flag is boolean on every app (no undefined Live/Soon mislabels)', () => {
+    for (const a of APPS_CATALOG) {
+      expect(typeof a.supported).withContext(`${a.id} supported flag must be true|false`).toBe('boolean');
     }
   });
 
   it('every Live (deployable) app documents a non-empty feature checklist', () => {
-    for (const slug of SUPPORTED_APP_SLUGS) {
-      const app = APPS_CATALOG.find((a) => a.id === slug);
-      expect(app).withContext(`supported slug ${slug} exists`).toBeDefined();
-      expect((app?.features?.length ?? 0))
-        .withContext(`${slug} (Live) should list its features in the About checklist`)
+    for (const a of APPS_CATALOG.filter((x) => x.supported === true)) {
+      expect((a.features?.length ?? 0))
+        .withContext(`${a.id} (Live) should list its features in the About checklist`)
         .toBeGreaterThan(0);
     }
   });
@@ -83,12 +83,10 @@ describe('apps-catalog.data (catalog integrity)', () => {
     }
   });
 
-  it('isAppSupported() agrees with the supported-slug set', () => {
-    for (const slug of SUPPORTED_APP_SLUGS) {
-      expect(isAppSupported(slug)).withContext(`${slug} should be supported`).toBeTrue();
+  it('isAppSupported() agrees with the per-app supported flag (SSOT)', () => {
+    for (const a of APPS_CATALOG) {
+      expect(isAppSupported(a.id)).withContext(`${a.id} should match its flag (${a.supported})`).toBe(a.supported === true);
     }
-    const unsupported = APPS_CATALOG.find((a) => !SUPPORTED_APP_SLUGS.includes(a.id));
-    if (unsupported) expect(isAppSupported(unsupported.id)).withContext(`${unsupported.id} should be Soon`).toBeFalse();
     expect(isAppSupported('___not_a_real_app___')).toBeFalse();
   });
 });
