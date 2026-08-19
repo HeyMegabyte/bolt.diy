@@ -46,7 +46,7 @@ import { log } from '../lib/log.js';
 const gatewayLog = log.child('ai_gateway');
 
 /** Supported upstream providers routed through the gateway. */
-export type GatewayProvider = 'openai' | 'anthropic' | 'deepseek';
+export type GatewayProvider = 'fable' | 'openai' | 'kimi' | 'anthropic' | 'deepseek';
 
 /** Default AI Gateway name when {@link Env.AI_GATEWAY_NAME} is unset. */
 export const DEFAULT_GATEWAY_NAME = 'projectsites';
@@ -56,7 +56,9 @@ export const DEFAULT_CACHE_TTL_SECONDS = 3600;
 
 /** Direct vendor base URLs — the fallback target when the gateway errors. */
 const DIRECT_BASE_URLS: Record<GatewayProvider, string> = {
+  fable: 'https://api.anthropic.com',
   openai: 'https://api.openai.com',
+  kimi: 'https://api.moonshot.ai',
   anthropic: 'https://api.anthropic.com',
   deepseek: 'https://api.deepseek.com',
 };

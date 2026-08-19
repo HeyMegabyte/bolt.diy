@@ -349,11 +349,12 @@ function recordSuccess(provider: 'openai' | 'anthropic' | 'deepseek'): void {
 /**
  * Choose provider for a given cost tier.
  *
- * DeepSeek is THE upstream provider (Brian 2026-08-19): every tier prefers it
- * when DEEPSEEK_API_KEY is present — `premium` → deepseek-reasoner via the AI
- * Gateway, `standard` → deepseek-chat, `instant` → Workers AI (never reaches
- * this fn). OpenAI is the fallback; Anthropic only as the last resort (and the
- * OpenAI-compat chat surface maps it back to the OpenAI gateway rail).
+ * PREMIUM ladder (Brian 2026-08-19): Claude Code Fable 5 → ChatGPT (OpenAI)
+ * → Kimi K3 → DeepSeek. Each rung is key-gated and skipped when absent —
+ * Fable + Kimi currently carry no credits, so premium serves OpenAI today
+ * and falls through the ladder automatically when their keys land.
+ * `standard`/`instant`: DeepSeek first (the volume generator), OpenAI
+ * fallback, Anthropic last resort.
  *
  * @remarks Vision calls MUST NOT use this; pass `provider:'openai'` explicitly
  * to `callExternalLLMWithVision` — DeepSeek has no vision API.
@@ -366,10 +367,17 @@ function recordSuccess(provider: 'openai' | 'anthropic' | 'deepseek'): void {
 export function chooseProviderForTier(
   env: Env,
   tier: 'premium' | 'standard' | 'instant',
-): 'openai' | 'anthropic' | 'deepseek' {
+): 'fable' | 'openai' | 'kimi' | 'anthropic' | 'deepseek' {
+  if (tier === 'premium') {
+    if (env.FABLE_API_KEY) return 'fable';
+    if (env.OPENAI_API_KEY) return 'openai';
+    if (env.KIMI_API_KEY) return 'kimi';
+    if (env.DEEPSEEK_API_KEY) return 'deepseek';
+    return 'openai';
+  }
   if (env.DEEPSEEK_API_KEY) return 'deepseek';
   if (env.OPENAI_API_KEY) return 'openai';
-  if (tier === 'premium' && env.ANTHROPIC_API_KEY) return 'anthropic';
+  if (env.ANTHROPIC_API_KEY) return 'anthropic';
   return 'openai';
 }
 
@@ -388,7 +396,7 @@ function chooseProvider(
   env: Env,
   preference?: 'openai' | 'anthropic' | 'deepseek' | 'auto',
   tier?: 'premium' | 'standard' | 'instant',
-): 'openai' | 'anthropic' | 'deepseek' {
+): 'fable' | 'openai' | 'kimi' | 'anthropic' | 'deepseek' {
   if (preference === 'openai') return 'openai';
   if (preference === 'anthropic') return 'anthropic';
   if (preference === 'deepseek') return 'deepseek';
@@ -813,9 +821,14 @@ export async function callExternalLLM(
   options: ExternalLLMOptions,
 ): Promise<ExternalLLMResult> {
   const primary = chooseProvider(env, options.provider, options.tier);
-  const fallback: 'openai' | 'anthropic' = primary === 'openai' ? 'anthropic' : 'openai';
+  // Fallback is always a non-ladder standard vendor (openai/anthropic/deepseek).
+  const fallback: 'openai' | 'anthropic' | 'deepseek' =
+    primary === 'openai' ? 'anthropic' : primary === 'anthropic' ? 'openai' : primary === 'deepseek' ? 'openai' : 'openai';
 
-  const providers: Array<'openai' | 'anthropic' | 'deepseek'> = [primary, fallback];
+  const providers: Array<'openai' | 'anthropic' | 'deepseek'> = [
+    primary === 'fable' || primary === 'kimi' ? 'openai' : primary,
+    fallback,
+  ];
 
   const distinctId = resolveDistinctId(options.traceContext);
   const traceId = options.traceContext?.traceId;

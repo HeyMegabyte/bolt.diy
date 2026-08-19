@@ -348,6 +348,10 @@ export interface Env {
   GROQ_API_KEY?: string;
   /** DeepSeek API key — used for standard/instant tiers (OpenAI-compatible, model deepseek-chat). */
   DEEPSEEK_API_KEY?: string;
+  /** Fable 5 API key — top premium rung (Brian ladder 2026-08-19). No credits yet; unset today. */
+  FABLE_API_KEY?: string;
+  /** Kimi K3 API key — third premium rung (Brian ladder 2026-08-19). No credits yet; unset today. */
+  KIMI_API_KEY?: string;
   /** AWS access key for Amazon SES (transactional email, ADR-0019). wrangler secret. */
   AWS_ACCESS_KEY_ID?: string;
   /** AWS secret key for Amazon SES. wrangler secret. */

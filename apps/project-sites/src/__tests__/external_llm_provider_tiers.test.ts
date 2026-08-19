@@ -25,27 +25,37 @@ function makeEnv(
   } as unknown as Record<string, string | undefined>;
 }
 
-describe('chooseProviderForTier — premium tier (DeepSeek is THE upstream, Brian 2026-08-19)', () => {
-  it('prefers deepseek even when ANTHROPIC + OPENAI are also set', () => {
+describe('chooseProviderForTier — premium ladder (Fable 5 → ChatGPT → Kimi K3 → DeepSeek, Brian 2026-08-19)', () => {
+  it('returns fable when FABLE_API_KEY is set (top rung)', () => {
     const env = makeEnv({
-      ANTHROPIC_API_KEY: 'sk-ant-test',
+      FABLE_API_KEY: 'sk-fable-test',
       OPENAI_API_KEY: 'sk-openai',
+      KIMI_API_KEY: 'sk-kimi-test',
       DEEPSEEK_API_KEY: 'sk-ds-test',
     });
-    expect(chooseProviderForTier(env as never, 'premium')).toBe('deepseek');
+    expect(chooseProviderForTier(env as never, 'premium')).toBe('fable');
   });
 
-  it('falls back to openai when DEEPSEEK_API_KEY is absent', () => {
-    const env = makeEnv({ ANTHROPIC_API_KEY: 'sk-ant-test', OPENAI_API_KEY: 'sk-openai' });
+  it('skips the unkeyed fable rung and serves openai (Fable has no credits yet)', () => {
+    const env = makeEnv({
+      OPENAI_API_KEY: 'sk-openai',
+      KIMI_API_KEY: 'sk-kimi-test',
+      DEEPSEEK_API_KEY: 'sk-ds-test',
+    });
     expect(chooseProviderForTier(env as never, 'premium')).toBe('openai');
   });
 
-  it('uses anthropic only as the last resort (no deepseek, no openai)', () => {
-    const env = makeEnv({ ANTHROPIC_API_KEY: 'sk-ant-test' });
-    expect(chooseProviderForTier(env as never, 'premium')).toBe('anthropic');
+  it('serves kimi when fable + openai are both unkeyed', () => {
+    const env = makeEnv({ KIMI_API_KEY: 'sk-kimi-test', DEEPSEEK_API_KEY: 'sk-ds-test' });
+    expect(chooseProviderForTier(env as never, 'premium')).toBe('kimi');
   });
 
-  it('falls back to openai when no keys are set', () => {
+  it('serves deepseek as the last premium rung', () => {
+    const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-ds-test' });
+    expect(chooseProviderForTier(env as never, 'premium')).toBe('deepseek');
+  });
+
+  it('defaults to openai when NO premium rung key is set', () => {
     const env = makeEnv();
     expect(chooseProviderForTier(env as never, 'premium')).toBe('openai');
   });

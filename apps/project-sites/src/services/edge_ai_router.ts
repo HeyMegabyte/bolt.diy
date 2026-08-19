@@ -40,9 +40,11 @@ const INSTANT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast' as const;
  * tier's preferred provider lacks its key, `chooseProviderForTier` falls back
  * to OpenAI — the models below cover both providers at both tiers.
  */
-const TIER_MODELS: Record<'deepseek' | 'openai', Record<Exclude<AiTier, 'instant'>, string>> = {
-  deepseek: { standard: 'deepseek-chat', premium: 'deepseek-reasoner' },
+const TIER_MODELS: Record<'fable' | 'openai' | 'kimi' | 'deepseek', Record<Exclude<AiTier, 'instant'>, string>> = {
+  fable: { standard: 'claude-sonnet-4-6', premium: 'claude-opus-4-6' },
   openai: { standard: 'gpt-4o-mini', premium: 'gpt-4o' },
+  kimi: { standard: 'kimi-k3', premium: 'kimi-k3' },
+  deepseek: { standard: 'deepseek-chat', premium: 'deepseek-reasoner' },
 };
 
 /** Model-name hints the bolt editor sends → tier (its static model chips). */
@@ -250,25 +252,38 @@ export async function routeBoltChat(
   // gatewayFetch adds ONLY the cf-aig-* cache headers — the provider's
   // Authorization must be in init.headers (the gateway proxies it verbatim;
   // it is also the fallback credential for the direct vendor URL).
-  const keyFor = (p: 'deepseek' | 'openai'): string =>
-    p === 'deepseek' ? (env.DEEPSEEK_API_KEY ?? '') : (env.OPENAI_API_KEY ?? '');
+  // NOTE the fable/key gate: gatewayFetch derives the provider header FROM the
+  // provider slug, so 'fable' would send `x-provider: fable` to the gateway's
+  // anthropic base — but Anthropic-derived slugs fall back to 'anthropic' below
+  // via the WIRE-COMPATIBLE slug. Wire compatibility (OpenAI chat/completions):
+  // fable → anthropic slug, kimi → openai slug; only openai/deepseek keep
+  // their own.
+  const keyFor = (p: 'deepseek' | 'openai' | 'kimi'): string =>
+    p === 'deepseek' ? (env.DEEPSEEK_API_KEY ?? '') : p === 'kimi' ? (env.KIMI_API_KEY ?? '') : (env.OPENAI_API_KEY ?? '');
 
   const provider = chooseProviderForTier(env, tier);
-  if (provider === 'anthropic') {
-    // This surface speaks the OpenAI chat/completions wire format; Anthropic's
-    // native protocol is not wire-compatible. premium → OpenAI via gateway.
-    const upstream = await gatewayFetch(env, 'openai', '/v1/chat/completions', {
+  if (provider === 'fable' || provider === 'anthropic') {
+    // Anthropic-protocol premium rung (Fable 5). The gateway speaks the
+    // anthropic slug natively; model is the anthropic-native name.
+    const upstream = await gatewayFetch(env, 'anthropic', '/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${keyFor('openai')}`,
+        'x-api-key': env.FABLE_API_KEY ?? env.ANTHROPIC_API_KEY ?? '',
+        'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify({ model: TIER_MODELS.openai.premium, messages, stream }),
+      body: JSON.stringify({
+        model: provider === 'fable' ? TIER_MODELS.fable.premium : 'claude-opus-4-6',
+        max_tokens: 4096,
+        stream,
+        messages: messages.map((m) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content })),
+      }),
     });
     return gatewayResponse(upstream, tier, stream);
   }
 
-  const gatewayProvider: 'deepseek' | 'openai' = provider === 'deepseek' ? 'deepseek' : 'openai';
+  const gatewayProvider: 'deepseek' | 'openai' | 'kimi' =
+    provider === 'deepseek' ? 'deepseek' : provider === 'kimi' ? 'kimi' : 'openai';
   const upstream = await gatewayFetch(env, gatewayProvider, '/v1/chat/completions', {
     method: 'POST',
     headers: {
