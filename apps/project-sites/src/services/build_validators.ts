@@ -1047,3 +1047,40 @@ export const repairDoubleDotCanonical = (files: BuildFile[]): [BuildFile[], numb
   });
   return [fixed, repaired];
 };
+
+/**
+ * Collapse the dangling 'NAME — ' the LLM writes when the tagline is empty.
+ *
+ * The seed tagline is '' and the LLM composes '<title>{NAME} — {TAGLINE}'
+ * during the build (same mid-build authorship as the double-dot class), so
+ * the pre-build token pass cannot catch it. Runs in finalize-build AFTER
+ * upload, before the brand gate. Pure — no input mutation.
+ *
+ * @example
+ * repairDanglingEmDash([{ path: 'index.html', size: 50, text: '<title>Cedar Ridge Bakeshop — </title>' }])
+ */
+export const repairDanglingEmDash = (files: BuildFile[]): [BuildFile[], number] => {
+  let repaired = 0;
+  const fixed = files.map((f) => {
+    if (typeof f.text !== 'string') return f;
+    let t = f.text;
+    const fixedTitle = t.replace(
+      /(<title>[^<]*?)\s*\u2014\s*(<\/title>)/gi,
+      '$1$2',
+    );
+    if (fixedTitle !== t) {
+      repaired++;
+      t = fixedTitle;
+    }
+    const fixedH1 = t.replace(/(<h1[^>]*>[^<]*?)\s*\u2014\s*(<\/h1>)/gi, '$1$2');
+    if (fixedH1 !== t) {
+      repaired++;
+      t = fixedH1;
+    }
+    return repaired > 0 && t !== f.text ? { ...f, text: t } : f;
+  });
+  // recount precisely — map above mutates `repaired` per file, but only the
+  // final changed set counts.
+  const changed = fixed.filter((f, i) => f.text !== files[i]?.text).length;
+  return [fixed, changed];
+};

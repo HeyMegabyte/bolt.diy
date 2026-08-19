@@ -22,6 +22,7 @@ import {
   validateNoBrandPlaceholders,
   validateBrandNameMatch,
   repairDoubleDotCanonical,
+  repairDanglingEmDash,
   validateBuild,
   type BuildFile,
 } from '../services/build_validators';
@@ -911,5 +912,35 @@ describe('repairDoubleDotCanonical', () => {
       },
     ]);
     expect(repaired).toBe(0);
+  });
+});
+
+describe('repairDanglingEmDash', () => {
+  it('collapses the dangling em-dash in <title> + <h1> when the tagline is empty', () => {
+    const [fixed, n] = repairDanglingEmDash([
+      {
+        path: 'index.html',
+        size: 200,
+        text: '<title>Cedar Ridge Bakeshop — </title><h1>Cedar Ridge Bakeshop —</h1>',
+      },
+    ]);
+    expect(n).toBe(1);
+    expect(fixed[0]?.text).toBe(
+      '<title>Cedar Ridge Bakeshop</title><h1>Cedar Ridge Bakeshop</h1>',
+    );
+  });
+
+  it('leaves a REAL tagline untouched', () => {
+    const [, n] = repairDanglingEmDash([
+      { path: 'index.html', size: 100, text: '<title>Acme — Fresh Daily</title>' },
+    ]);
+    expect(n).toBe(0);
+  });
+
+  it('does not mutate the input', () => {
+    const input = [{ path: 'index.html', size: 50, text: '<title>X — </title>' }];
+    const [fixed] = repairDanglingEmDash(input);
+    expect(fixed[0]?.text).toBe('<title>X</title>');
+    expect(input[0]?.text).toBe('<title>X — </title>');
   });
 });

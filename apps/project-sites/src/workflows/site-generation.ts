@@ -1319,6 +1319,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
               validateNoBrandPlaceholders,
               validateBrandNameMatch,
               repairDoubleDotCanonical,
+              repairDanglingEmDash,
             } = await import('../services/build_validators.js');
 
             // DOUBLE-DOT REPAIR + PERSIST — the container's pre-build token pass
@@ -1340,12 +1341,30 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
               });
             }
 
+            // DANGLING EM-DASH REPAIR + PERSIST — same mid-build authorship
+            // class: the LLM composes '<title>NAME — </title>' when the
+            // tagline is empty (the seed is ''). Collapse it, persist, gate
+            // the repaired copies.
+            const [dashRepairedFiles, dashRepaired] = repairDanglingEmDash(files);
+            if (dashRepaired > 0) {
+              for (const f of dashRepairedFiles) {
+                if (typeof f.text === 'string') {
+                  await env.SITES_BUCKET.put(`sites/${params.slug}/${version}/${f.path}`, f.text);
+                }
+              }
+              await wfLog('workflow.dangling_dash_repaired', {
+                repairedFiles: dashRepaired,
+                message: `Repaired dangling em-dash in ${dashRepaired} file(s) before the brand gate`,
+              });
+            }
+            const gatedFiles = dashRepaired > 0 ? dashRepairedFiles : files;
+
             // BOTH brand gates: placeholders AND the invented-name mismatch.
             // (The name-match check was only wired into the report-only
             // validate-build step — a mismatch published anyway.)
             const brandViolations = [
-              ...validateNoBrandPlaceholders(files),
-              ...validateBrandNameMatch(files, params.businessName),
+              ...validateNoBrandPlaceholders(gatedFiles),
+              ...validateBrandNameMatch(gatedFiles, params.businessName),
             ];
             if (brandViolations.length > 0) {
               await updateSiteStatus(env.DB, params.siteId, 'error');
