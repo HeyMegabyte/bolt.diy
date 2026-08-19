@@ -640,3 +640,9 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ FOUND IT (`e8ecd3ee`):** the container `cp -r`'d the template (whose shipped _brand.json carries {BUSINESS_NAME} placeholders) OVER the workflow's materialized seed on EVERY build. That's why every prompt/gate/template fix appeared to fail — the seed never survived the copy. contextFiles are now written AFTER the copy; the seed always wins. node --check clean. Deployed `15eb33e6` (image rebuild).
 - **📋 Journey:** ordering-fixed build `e2e-site-3-reset-1787132593580` RUNNING — the FIRST build where the materialized name actually survives into the container.
 - **NEXT TARGET:** title assert on terminal → editor-change leg → journey CLOSE.
+
+## 🔧 iter 207 (cross-instance confusion cost a cycle — post-fix build in flight)
+
+- **📋 The prior build (1787132593580) completed BEFORE the ordering-fix image went live — the "gate caught it" run was a DIFFERENT instance.** The stale-status trap + cross-instance log confusion cost one cycle. The status endpoint now resolves the right instance, but the workflow-level lesson stands: a deploy mid-build invalidates the run's evidence.
+- **📋 Journey:** POST-ordering-fix build `e2e-site-3-reset-1787133430998` RUNNING with the image that writes contextFiles after the template copy. Title + canonical asserted on terminal.
+- **NEXT TARGET:** title/canonical assert on terminal → editor-change leg → journey CLOSE.
