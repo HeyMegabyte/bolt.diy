@@ -548,6 +548,31 @@ export class FilesStore {
   }
 
   async saveFile(filePath: string, content: string) {
+    /*
+     * EMBEDDED MODE: the WebContainer NEVER boots (no SharedArrayBuffer in a
+     * cross-origin iframe), so `await this.#webcontainer` hangs every
+     * AI-authored file save forever — the artifact runner never completes,
+     * nothing paints, and Save & Deploy publishes zero edits (journey
+     * 2026-08-19 — the exact 'chat answers but the transcript stays empty'
+     * defect). In embedded mode, write the in-memory files map directly —
+     * the module-level PS_FILES_READY responder reads this same map.
+     */
+    const embedded = new URLSearchParams(window.location.search).has('embedded') ||
+      (() => { try { return localStorage.getItem('ps_embedded') === '1'; } catch { return false; } })();
+
+    if (embedded) {
+      const currentFile = this.files.get()[filePath];
+      const isLocked = currentFile?.type === 'file' ? currentFile.isLocked : false;
+      this.files.setKey(filePath, {
+        type: 'file',
+        content,
+        isBinary: false,
+        isLocked,
+      });
+      logger.info('File saved (embedded — in-memory map)');
+      return;
+    }
+
     const webcontainer = await this.#webcontainer;
 
     try {

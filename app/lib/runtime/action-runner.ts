@@ -313,6 +313,23 @@ export class ActionRunner {
       unreachable('Expected file action');
     }
 
+    /*
+     * EMBEDDED MODE: the WebContainer never boots (no SharedArrayBuffer in a
+     * cross-origin iframe). Awaiting it here hung every AI file action —
+     * the exact 'chat streams but no file lands' defect (journey 2026-08-19).
+     * In embedded mode, run the file write through the workbench's
+     * WebContainer-free saveFile, which updates the in-memory files map the
+     * PS_FILES_READY responder publishes.
+     */
+    const embedded = new URLSearchParams(window.location.search).has('embedded') ||
+      (() => { try { return localStorage.getItem('ps_embedded') === '1'; } catch { return false; } })();
+
+    if (embedded) {
+      const { workbenchStore } = await import('~/lib/stores/workbench');
+      await workbenchStore.setVirtualFile(action.filePath, action.content);
+      return;
+    }
+
     const webcontainer = await this.#webcontainer;
     const relativePath = nodePath.relative(webcontainer.workdir, action.filePath);
 
