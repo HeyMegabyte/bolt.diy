@@ -3159,7 +3159,12 @@ api.post('/api/publish/bolt', async (c) => {
       JSON.stringify({
         current_version: version,
         slug,
-        files: files.map((f) => ({ name: f.path, size: f.content.length, type: mimeTypes[f.path.split('.').pop()?.toLowerCase() ?? ''] ?? 'application/octet-stream' })),
+        files: files.map((f) => ({
+          name: f.path,
+          size: f.content.length,
+          type:
+            mimeTypes[f.path.split('.').pop()?.toLowerCase() ?? ''] ?? 'application/octet-stream',
+        })),
         updated_at: new Date().toISOString(),
         source: 'bolt',
       }),

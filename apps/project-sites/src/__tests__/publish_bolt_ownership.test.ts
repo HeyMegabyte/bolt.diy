@@ -158,14 +158,18 @@ describe('POST /api/publish/bolt — the root manifest must never lie about its 
     });
     const manifestPut = r2Puts.find((k) => k.endsWith('/_manifest.json'));
     expect(manifestPut).toBeDefined();
-    const putCall = (env.SITES_BUCKET.put as jest.Mock).mock.calls.find(
-      (c) => String(c[0]).endsWith('/_manifest.json'),
+    const putCall = (env.SITES_BUCKET.put as jest.Mock).mock.calls.find((c) =>
+      String(c[0]).endsWith('/_manifest.json'),
     );
     expect(putCall).toBeDefined();
     const manifestJson = JSON.parse(String(putCall[1]));
     expect(manifestJson.files).toBeInstanceOf(Array);
     expect(manifestJson.files).toHaveLength(1);
-    expect(manifestJson.files[0]).toEqual({ name: 'index.html', size: '<html><h1>x</h1></html>'.length, type: 'text/html' });
+    expect(manifestJson.files[0]).toEqual({
+      name: 'index.html',
+      size: '<html><h1>x</h1></html>'.length,
+      type: 'text/html',
+    });
   });
 });
 
