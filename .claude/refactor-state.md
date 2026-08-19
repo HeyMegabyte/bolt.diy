@@ -671,3 +671,11 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ Added (`e9f4b591`):** the substitution pass cleared every placeholder; the gate's list shrank to ONE violation — the LLM's `https://<slug>..projectsites.dev` canonical. The pass now mechanically repairs `..projectsites.dev` → `.projectsites.dev`. Dockerfile touched (image rebuild). Deployed `d39baad8`.
 - **📋 Journey:** double-dot-repaired build `e2e-site-3-reset-1787138197669` RUNNING. Expected: clean publish with a valid canonical.
 - **NEXT TARGET:** title + canonical assert on terminal → editor-change leg → journey CLOSE.
+
+## 🔧 iter 212 (double-dot closed at the RIGHT layer)
+
+- **✅ Added:** `repairDoubleDotCanonical` in `build_validators.ts` — runs in finalize-build AFTER upload, persists corrected text to R2, gate validates REPAIRED copies. Pre-build token pass was the wrong layer (LLM writes the double-dot DURING build). RED→GREEN, 86/86.
+- **✅ Template (same-turn feedback):** `normalizeUrl` in brand.ts collapses `..projectsites.dev` at resolution — every consumer (JSON-LD/OG/canonical) inherits. Pushed `d88f219`.
+- **⚠️ Prod incident (self-inflicted):** bare `wrangler deploy` (no `--env production`) → every /api 500'd VALIDATION_ERROR for ~2min. Memory saved; recipe = deploy with `--env production` + assert health `.environment == "production"`.
+- **📋 Journey:** rebuild `-1787139430783` RUNNING on repaired code. Expect CLEAN publish: title "Cedar Ridge Bakeshop" + canonical single-dot.
+- **NEXT TARGET:** title/canonical assert on terminal → editor-change leg (PS_DEPLOY_REQUEST bridge, browser fire) → journey CLOSE.
