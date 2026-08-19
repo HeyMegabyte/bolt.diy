@@ -767,3 +767,9 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **🔍 Why the audit was invisible:** `bolt.ai.answered` only writes when orgId is set (FK constraint on orgs). The editor's server-side call has no session — the M2M path intentionally skips the audit. Not a defect; a visibility gap (iter-222 Rec).
 - **⚠️ Remaining bolt-internal:** the streamed tokens render into the AI SDK but the transcript UI doesn't paint the assistant reply in embedded mode (artifact-apply + chat rendering interplay). The worker chain is proven; the UI render is the next target.
 - **NEXT TARGET:** bolt embedded chat transcript rendering (the streamed completion not painting in the iframe) + the audit visibility for header-only calls.
+
+## 🔧 iter 224 (two more WebContainer-await hangs fixed; the file-context injection is the last layer)
+
+- **✅ Fixed:** `FilesStore.saveFile` + `ActionRunner.#runFileAction` both awaited `#webcontainer` — which never resolves in embedded mode. Every AI-authored file action hung forever: the runner never completed, nothing painted, Save & Deploy published the ORIGINAL files without the edit. Both now bypass the container in embedded mode and write the in-memory files map. Deployed Pages `60b73eb3`.
+- **🔍 Diagnosed the remaining gap:** the AI answers GENERICALLY ('Define target audience' suggestions) because the ProjectSites AI provider sends bare `messages` to the worker — the workbench FILES context never enters the prompt, so the model can't produce file actions. The worker chain is proven (tail: 200 + real generations); the prompt lacks the site.
+- **NEXT TARGET:** inject the workbench files context into the ProjectSites AI chat call (the provider's getModelInstance or the stream-text files path) — then the AI produces real file edits and the journey's last leg closes.
