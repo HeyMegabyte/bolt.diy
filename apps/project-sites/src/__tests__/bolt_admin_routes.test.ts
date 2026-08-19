@@ -729,8 +729,39 @@ describe('bolt custom-AI chat endpoint — edge-first routing', () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get('x-edge-tier')).toBe('premium');
-    // No ANTHROPIC_API_KEY in the test env → premium falls back to OpenAI via
-    // the gateway (OpenAI-compat wire format), model gpt-4o.
+    // Premium ladder (Fable → OpenAI → Kimi → DeepSeek) is KEY-GATED per
+    // chooseProviderForTier: only DEEPSEEK_API_KEY is set in this env, so the
+    // ladder falls through to deepseek-reasoner.
+    const [callEnv, callProvider, callPath, callInit] = mockGatewayFetch.mock.calls[0];
+    expect(callProvider).toBe('deepseek');
+    expect(String(callInit.body)).toContain('deepseek-reasoner');
+  });
+
+  it('PREMIUM tier: an OpenAI key rung serves gpt-4o via the gateway (ladder rung 2)', async () => {
+    mockGatewayFetch.mockResolvedValue({
+      response: new Response('data: {"choices":[{"delta":{"content":"X"}}]}\n\ndata: [DONE]\n\n', {
+        status: 200,
+      }),
+      gatewayUsed: true,
+    });
+    const env = makeEnv({ DEEPSEEK_API_KEY: 'sk-deepseek', OPENAI_API_KEY: 'sk-openai' });
+    const res = await postJson(
+      makeApp(SESSION),
+      '/api/bolt/chat',
+      {
+        messages: [
+          {
+            role: 'user',
+            content: 'Analyze the architecture trade-offs step by step and propose a plan',
+          },
+        ],
+      },
+      env,
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-edge-tier')).toBe('premium');
+    // OPENAI_API_KEY set → the ladder stops at OpenAI before reaching DeepSeek.
     const [callEnv, callProvider, callPath, callInit] = mockGatewayFetch.mock.calls[0];
     expect(callProvider).toBe('openai');
     expect(String(callInit.body)).toContain('gpt-4o');

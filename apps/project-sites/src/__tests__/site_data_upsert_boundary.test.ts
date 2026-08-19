@@ -21,6 +21,11 @@ import { errorHandler } from '../middleware/error_handler.js';
 import { search } from '../routes/search.js';
 
 let lastRun: { sql: string; binds: unknown[] } | null = null;
+// The authz guard (`ownsSiteData`) was added AFTER this suite landed
+// (d203ecd6, IDOR family): every data/* route first checks
+// `SELECT 1 FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL`.
+// `.first()` must return a truthy row for the OWNERSHIP probe or every test
+// 404s before reaching the body logic this suite exists to cover.
 const mockDb = {
   prepare: jest.fn((sql: string) => ({
     bind: jest.fn((...binds: unknown[]) => ({
@@ -29,7 +34,7 @@ const mockDb = {
         return {};
       }),
       all: jest.fn().mockResolvedValue({ results: [] }),
-      first: jest.fn().mockResolvedValue(null),
+      first: jest.fn().mockResolvedValue(sql.includes('FROM sites') ? { ok: 1 } : null),
     })),
   })),
 } as unknown as D1Database;
