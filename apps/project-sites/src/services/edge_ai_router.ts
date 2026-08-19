@@ -40,7 +40,10 @@ const INSTANT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast' as const;
  * tier's preferred provider lacks its key, `chooseProviderForTier` falls back
  * to OpenAI — the models below cover both providers at both tiers.
  */
-const TIER_MODELS: Record<'fable' | 'openai' | 'kimi' | 'deepseek', Record<Exclude<AiTier, 'instant'>, string>> = {
+const TIER_MODELS: Record<
+  'fable' | 'openai' | 'kimi' | 'deepseek',
+  Record<Exclude<AiTier, 'instant'>, string>
+> = {
   fable: { standard: 'claude-sonnet-4-6', premium: 'claude-opus-4-6' },
   openai: { standard: 'gpt-4o-mini', premium: 'gpt-4o' },
   kimi: { standard: 'kimi-k3', premium: 'kimi-k3' },
@@ -259,7 +262,11 @@ export async function routeBoltChat(
   // fable → anthropic slug, kimi → openai slug; only openai/deepseek keep
   // their own.
   const keyFor = (p: 'deepseek' | 'openai' | 'kimi'): string =>
-    p === 'deepseek' ? (env.DEEPSEEK_API_KEY ?? '') : p === 'kimi' ? (env.KIMI_API_KEY ?? '') : (env.OPENAI_API_KEY ?? '');
+    p === 'deepseek'
+      ? (env.DEEPSEEK_API_KEY ?? '')
+      : p === 'kimi'
+        ? (env.KIMI_API_KEY ?? '')
+        : (env.OPENAI_API_KEY ?? '');
 
   const provider = chooseProviderForTier(env, tier);
   if (provider === 'fable' || provider === 'anthropic') {
@@ -276,7 +283,10 @@ export async function routeBoltChat(
         model: provider === 'fable' ? TIER_MODELS.fable.premium : 'claude-opus-4-6',
         max_tokens: 4096,
         stream,
-        messages: messages.map((m) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content })),
+        messages: messages.map((m) => ({
+          role: m.role === 'assistant' ? 'assistant' : 'user',
+          content: m.content,
+        })),
       }),
     });
     return gatewayResponse(upstream, tier, stream);

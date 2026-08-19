@@ -823,7 +823,13 @@ export async function callExternalLLM(
   const primary = chooseProvider(env, options.provider, options.tier);
   // Fallback is always a non-ladder standard vendor (openai/anthropic/deepseek).
   const fallback: 'openai' | 'anthropic' | 'deepseek' =
-    primary === 'openai' ? 'anthropic' : primary === 'anthropic' ? 'openai' : primary === 'deepseek' ? 'openai' : 'openai';
+    primary === 'openai'
+      ? 'anthropic'
+      : primary === 'anthropic'
+        ? 'openai'
+        : primary === 'deepseek'
+          ? 'openai'
+          : 'openai';
 
   const providers: Array<'openai' | 'anthropic' | 'deepseek'> = [
     primary === 'fable' || primary === 'kimi' ? 'openai' : primary,
