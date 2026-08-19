@@ -1660,6 +1660,20 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       }
     });
 
+    // Release the container DO slot on terminal — without this the instance
+    // holds its running-slot for the full sleepAfter (90m), and repeated
+    // builds exhaust the max_instances pool ('Maximum number of running
+    // container instances exceeded' — hit live 2026-08-19 after ~10 journey
+    // builds). stop() is a SIGTERM: the job already terminal, nothing lost.
+    if (env.SITE_BUILDER) {
+      try {
+        const stub = getContainer() as unknown as { stop: () => Promise<void> };
+        await stub.stop().catch(() => {});
+      } catch {
+        /* best-effort — the sleepAfter expiry is the backstop */
+      }
+    }
+
     return {
       siteId: params.siteId,
       slug: params.slug,
