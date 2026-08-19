@@ -732,6 +732,22 @@ export const validateBrandNameMatch = (
         file: file.path,
       });
     }
+
+    // Canonical URL sanity — the journey shipped
+    // https://urban-fitness..projectsites.dev/ (double dot from a template
+    // token replaced with an already-suffixed slug).
+    const canonical = stripped.match(/<link\s+rel="canonical"\s+href="([^"]*)"/i);
+    if (canonical) {
+      const href = canonical[1];
+      if (href.includes('..') || href.includes('{BUSINESS') || href.includes('undefined')) {
+        out.push({
+          code: 'brand.bad_canonical',
+          severity: 'error',
+          message: `Malformed canonical URL "${href}" — template token replacement produced a broken hostname`,
+          file: file.path,
+        });
+      }
+    }
   }
   return out;
 };
