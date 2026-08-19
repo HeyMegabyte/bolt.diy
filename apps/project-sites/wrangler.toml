@@ -239,6 +239,10 @@ SENTRY_RELEASE = "project-sites@dev"
 name = "site-generation-workflow-production"
 binding = "SITE_WORKFLOW"
 class_name = "SiteGenerationWorkflow"
+# Workflow instances do NOT inherit the Worker's Durable Object bindings —
+# the build step needs SITE_BUILDER explicitly listed or env.SITE_BUILDER is
+# undefined inside the workflow (the 'container not configured' error).
+bindings = ["SITE_BUILDER"]
 
 # Workflows v2: resumable Google Drive ingest pipeline (item #60).
 # Replaces the inline syncDriveFolder + hourly cron synchronous path.
@@ -294,11 +298,18 @@ dataset = "projectsites_admin_v1"
 
 # Claude Code build container — custom image with Claude Code + skills + template pre-baked
 # standard-4 = 4 vCPU, 12 GiB RAM, 8 GB disk. Larger size accelerates parallel prompt execution.
-#[[env.production.containers]]
-#class_name = "SiteBuilderContainer"
-#image = "./Dockerfile"
-#max_instances = 10
-#instance_type = "standard-4"
+# RESTORED 2026-08-19 — 655ccf2c commented this out while adding the catalog plane; it broke
+# EVERY AI site build (workflow throws 'SITE_BUILDER container not configured'). The builder is
+# the core product pipeline — never folds into a catalog-plane sweep.
+[[env.production.containers]]
+class_name = "SiteBuilderContainer"
+image = "./Dockerfile"
+max_instances = 10
+instance_type = "standard-4"
+
+[[env.production.durable_objects.bindings]]
+name = "SITE_BUILDER"
+class_name = "SiteBuilderContainer"
 #
 ## AppRuntimeContainer — base "coming soon" placeholder. Catalog apps that
 ## don't yet have a dedicated per-image DO subclass route here and surface
