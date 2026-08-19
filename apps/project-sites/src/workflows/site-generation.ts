@@ -976,7 +976,10 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           });
           const restartJobId = await step.do(
             'restart-build-after-eviction',
-            { retries: { limit: 3, delay: '30 seconds', backoff: 'exponential' }, timeout: '5 minutes' },
+            {
+              retries: { limit: 3, delay: '30 seconds', backoff: 'exponential' },
+              timeout: '5 minutes',
+            },
             async () => {
               // FRESH DO — re-posting to the evicted container guarantees a
               // second eviction (its memory is gone). A new name-derived DO
@@ -1102,7 +1105,10 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           });
           const restartJobId = await step.do(
             'restart-build-after-stale',
-            { retries: { limit: 3, delay: '30 seconds', backoff: 'exponential' }, timeout: '5 minutes' },
+            {
+              retries: { limit: 3, delay: '30 seconds', backoff: 'exponential' },
+              timeout: '5 minutes',
+            },
             async () => {
               // FRESH DO — see the eviction restart's rationale.
               const container = freshRestartContainer();
@@ -1404,9 +1410,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             message: `published flip zero-affected or errored (changes=${flipRes.changes}) — retrying via updateSiteStatus`,
           });
           await updateSiteStatus(env.DB, params.siteId, 'published');
-          const verify = await env.DB.prepare(
-            'SELECT status FROM sites WHERE id = ?',
-          )
+          const verify = await env.DB.prepare('SELECT status FROM sites WHERE id = ?')
             .bind(params.siteId)
             .first<{ status: string }>()
             .catch(() => null);

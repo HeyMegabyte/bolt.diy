@@ -1064,10 +1064,7 @@ export const repairDanglingEmDash = (files: BuildFile[]): [BuildFile[], number] 
   const fixed = files.map((f) => {
     if (typeof f.text !== 'string') return f;
     let t = f.text;
-    const fixedTitle = t.replace(
-      /(<title>[^<]*?)\s*\u2014\s*(<\/title>)/gi,
-      '$1$2',
-    );
+    const fixedTitle = t.replace(/(<title>[^<]*?)\s*\u2014\s*(<\/title>)/gi, '$1$2');
     if (fixedTitle !== t) {
       repaired++;
       t = fixedTitle;

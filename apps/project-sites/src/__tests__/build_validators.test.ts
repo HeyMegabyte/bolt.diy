@@ -925,9 +925,7 @@ describe('repairDanglingEmDash', () => {
       },
     ]);
     expect(n).toBe(1);
-    expect(fixed[0]?.text).toBe(
-      '<title>Cedar Ridge Bakeshop</title><h1>Cedar Ridge Bakeshop</h1>',
-    );
+    expect(fixed[0]?.text).toBe('<title>Cedar Ridge Bakeshop</title><h1>Cedar Ridge Bakeshop</h1>');
   });
 
   it('leaves a REAL tagline untouched', () => {
