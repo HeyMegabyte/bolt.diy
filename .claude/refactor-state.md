@@ -587,3 +587,10 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ max_instances 10→20 + sleepAfter 90m→25m (`8452eab0`).** The stop-on-terminal fix alone didn't unblock: warm instances inside their sleep window still hold slots. The 20-cap absorbs journey builds + concurrent customers; the 25m window releases orphans faster. Deployed `b9682cce`.
 - **📋 Journey:** build `e2e-site-3-reset-1787125165514` RUNNING post-capacity-fix. Poller asserts the verbatim title.
 - **NEXT TARGET:** title assert on terminal → editor-change leg.
+
+## 🔧 iter 199 (placeholder leak — the LLM was overwriting the seed)
+
+- **✅ Fixed (`4954ca11`):** the previous step-0 told Claude to MATERIALIZE _brand.json — it rewrote the deterministic seed from the template's SHIPPED copy, shipping {BUSINESS_NAME} placeholders LIVE. Step 0 now says the file is already materialized and must NEVER be rewritten. The workflow is the only writer. Deployed `579242f7`.
+- **📋 Journey:** verification build `e2e-site-3-reset-1787125578259` RUNNING (the first where the seed survives the container untouched). Poller asserts the verbatim "Cedar Ridge Bakeshop" title.
+- **Progress note:** capacity fixed (builds now complete in ~5 min and publish); the name stack is down to this single remaining layer.
+- **NEXT TARGET:** title assert on terminal → editor-change leg → then journey CLOSED.
