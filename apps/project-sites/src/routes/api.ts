@@ -4435,9 +4435,7 @@ api.post('/api/sites/:id/reset', async (c) => {
   // live build's progress forever). Best-effort — a pointer miss falls back
   // to the legacy siteId lookup.
   if (workflowInstanceId) {
-    await c.env.DB.prepare(
-      "UPDATE sites SET latest_workflow_instance = ? WHERE id = ?",
-    )
+    await c.env.DB.prepare('UPDATE sites SET latest_workflow_instance = ? WHERE id = ?')
       .bind(workflowInstanceId, siteId)
       .run()
       .catch(() => {});

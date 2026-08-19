@@ -559,7 +559,11 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     // be `{ $value: ... }` (the resolver's isLeaf() checks for `$value`;
     // a plain-object leaf resolves undefined → the "Business" fallback).
     const safeName = (params.businessName || 'Business').replace(/[^\w\s\-'.]/g, '').slice(0, 100);
-    const tok = (value: string, description = '') => ({ $value: value, $type: 'string', ...(description ? { $description: description } : {}) });
+    const tok = (value: string, description = '') => ({
+      $value: value,
+      $type: 'string',
+      ...(description ? { $description: description } : {}),
+    });
     contextFiles['brand.json'] = JSON.stringify(
       {
         business: {
@@ -961,8 +965,10 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             { retries: { limit: 1, delay: '10 seconds' }, timeout: '5 minutes' },
             async () => {
               const container = getContainer();
-              const _deepseekKey = (env as unknown as { DEEPSEEK_API_KEY?: string }).DEEPSEEK_API_KEY;
-              const _buildLlmProvider = (env as unknown as { BUILD_LLM_PROVIDER?: string }).BUILD_LLM_PROVIDER;
+              const _deepseekKey = (env as unknown as { DEEPSEEK_API_KEY?: string })
+                .DEEPSEEK_API_KEY;
+              const _buildLlmProvider = (env as unknown as { BUILD_LLM_PROVIDER?: string })
+                .BUILD_LLM_PROVIDER;
               const useDeepSeek = !!_deepseekKey && _buildLlmProvider !== 'anthropic';
               const payload = {
                 slug: params.slug,
@@ -1082,8 +1088,10 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             { retries: { limit: 1, delay: '10 seconds' }, timeout: '5 minutes' },
             async () => {
               const container = getContainer();
-              const _deepseekKey = (env as unknown as { DEEPSEEK_API_KEY?: string }).DEEPSEEK_API_KEY;
-              const _buildLlmProvider = (env as unknown as { BUILD_LLM_PROVIDER?: string }).BUILD_LLM_PROVIDER;
+              const _deepseekKey = (env as unknown as { DEEPSEEK_API_KEY?: string })
+                .DEEPSEEK_API_KEY;
+              const _buildLlmProvider = (env as unknown as { BUILD_LLM_PROVIDER?: string })
+                .BUILD_LLM_PROVIDER;
               const useDeepSeek = !!_deepseekKey && _buildLlmProvider !== 'anthropic';
               const payload = {
                 slug: params.slug,
@@ -1119,7 +1127,11 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           lastFreshAt = Date.now();
           lastSeenStatus = null;
           lastSeenStep = null;
-          await wfLog('workflow.build_restarted', { poll: i, jobId: restartJobId, reason: 'stale' });
+          await wfLog('workflow.build_restarted', {
+            poll: i,
+            jobId: restartJobId,
+            reason: 'stale',
+          });
           continue;
         }
 

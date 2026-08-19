@@ -337,7 +337,9 @@ describe('POST /api/sites/:id/reset', () => {
     );
     expect(res.status).toBe(200);
     const createArgs = mockCreate.mock.calls[0][0];
-    expect(createArgs.params.businessName).withContext?.('flat business_name must reach the workflow') ?? expect(createArgs.params.businessName).toBe('New Name');
+    expect(createArgs.params.businessName).withContext?.(
+      'flat business_name must reach the workflow',
+    ) ?? expect(createArgs.params.businessName).toBe('New Name');
   });
 
   it('writes audit log on successful reset', async () => {
