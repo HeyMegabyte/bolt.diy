@@ -572,6 +572,10 @@ http.createServer((q, r) => {
           } catch {}
         }
 
+        // ORDERING (journey defect 2026-08-19): contextFiles MUST be written AFTER
+        // the template copy — the template's shipped _brand.json carries
+        // {BUSINESS_NAME} placeholders and the cp -r OVERWROTE the workflow's
+        // materialized seed on every build. The seed writes last and wins.
         if (P.contextFiles && typeof P.contextFiles === 'object') {
           for (const k in P.contextFiles) {
             fs.writeFileSync(
@@ -579,6 +583,7 @@ http.createServer((q, r) => {
               typeof P.contextFiles[k] === 'string' ? P.contextFiles[k] : JSON.stringify(P.contextFiles[k], null, 2)
             );
           }
+          console.warn(`[${jobId}] contextFiles written (post-template-copy): ${Object.keys(P.contextFiles).join(', ')}`);
         }
 
         if (P.claudeMd) fs.writeFileSync(path.join(dir, 'CLAUDE.md'), P.claudeMd);
