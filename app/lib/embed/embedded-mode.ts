@@ -266,6 +266,95 @@ type MessageHandler = (message: ParentToChildMessage) => void;
 
 const handlers: MessageHandler[] = [];
 
+/*
+ * Workbench materialization across the chat-import reload (journey
+ * 2026-08-19 — the LAST rung of the editor bridge).
+ *
+ * The imported boltArtifact's <boltAction type="file"> blocks never reach
+ * the workbench in embedded mode: importChat() creates a fresh chat and
+ * does a FULL-DOCUMENT navigation, and the files store is memory-only —
+ * everything is wiped on that reload. So Save & Deploy's PS_FILES_READY
+ * answered with ZERO files and the publish leg could never carry content.
+ *
+ * Two-phase fix:
+ *  - `materializeImportedFiles(messages)` parses every artifact file
+ *    action from the chat export and STASHES {path → content} in
+ *    sessionStorage (survives the reload).
+ *  - `restoreMaterializedFiles()` — called from the module init below —
+ *    drains the stash into workbenchStore.createFile() on the fresh
+ *    document, so getTextFiles() (and therefore PS_FILES_READY) finally
+ *    carries the real site files.
+ *
+ * sessionStorage is per-tab and per-origin; a standalone bolt visit (or a
+ * different embed) never sees the stash. The regex mirrors
+ * FileDiffBadges.tsx (tolerates unterminated actions, strips code fences).
+ */
+const MATERIALIZED_KEY = 'ps_materialized_files';
+const FILE_ACTION_RE =
+  /<boltAction[^>]*type="file"[^>]*filePath="([^"]+)"[^>]*>([\s\S]*?)(?=<\/boltAction>|<boltAction|$)/g;
+
+export function materializeImportedFiles(messages: Array<{ content?: string }>): number {
+  try {
+    const files: Record<string, string> = {};
+    for (const m of messages) {
+      const content = typeof m?.content === 'string' ? m.content : '';
+      FILE_ACTION_RE.lastIndex = 0;
+      let match: RegExpExecArray | null;
+      while ((match = FILE_ACTION_RE.exec(content)) !== null) {
+        const filePath = (match[1] ?? '').trim();
+        if (!filePath) {
+          continue;
+        }
+        const body = (match[2] ?? '')
+          .replace(/^\s*```\w*\n?/, '')
+          .replace(/\n```\s*$/, '');
+        files[filePath] = body;
+      }
+    }
+    const count = Object.keys(files).length;
+    if (count > 0) {
+      window.sessionStorage.setItem(MATERIALIZED_KEY, JSON.stringify(files));
+    }
+    return count;
+  } catch {
+    return 0;
+  }
+}
+
+export function restoreMaterializedFiles(): void {
+  try {
+    const raw = window.sessionStorage.getItem(MATERIALIZED_KEY);
+    if (!raw) {
+      return;
+    }
+    window.sessionStorage.removeItem(MATERIALIZED_KEY);
+    const files = JSON.parse(raw) as Record<string, string>;
+    import('~/lib/stores/workbench').then(({ workbenchStore }) => {
+      /*
+       * setVirtualFile — NOT createFile. createFile awaits the WebContainer
+       * promise which never settles in embedded mode, so an await-based
+       * restore hangs forever and getTextFiles() stays empty.
+       */
+      let restored = 0;
+      for (const [filePath, content] of Object.entries(files)) {
+        try {
+          workbenchStore.setVirtualFile(filePath, content);
+          restored++;
+        } catch {
+          // a single bad path must not abort the rest
+        }
+      }
+      if (restored > 0) {
+        postToParent({ type: 'PS_TOAST', kind: 'info', level: 'info', message: `Editor workbench restored (${restored} files) — Save & Deploy now carries the site` });
+      }
+    }).catch(() => {
+      // workbench store failed to load — the stash is already drained; fail soft
+    });
+  } catch {
+    // malformed stash — drop it
+  }
+}
+
 /** Register a handler for incoming parent messages. Returns an unsubscribe function. */
 export function onParentMessage(handler: MessageHandler): () => void {
   handlers.push(handler);
@@ -344,6 +433,9 @@ export function postToastToParent(level: NonNullable<PSToastMessage['kind']>, me
 
 if (isEmbedded && typeof window !== 'undefined') {
   window.addEventListener('message', handleMessage);
+
+  // Drain any pre-navigation materialization stash into the workbench.
+  restoreMaterializedFiles();
 
   /*
    * ROUTE-INDEPENDENT PS_REQUEST_FILES responder (journey 2026-08-19 — the

@@ -30,6 +30,7 @@ import { useMCPStore } from '~/lib/stores/mcp';
 import type { LlmErrorAlertType } from '~/types/actions';
 import {
   isEmbedded,
+  materializeImportedFiles,
   onParentMessage,
   postToParent,
   postTelemetryToParent,
@@ -610,6 +611,20 @@ export const ChatImpl = memo(
             const chatData = data as { messages?: unknown[]; description?: string };
 
             if (chatData && chatData.messages && Array.isArray(chatData.messages)) {
+              /*
+               * Materialize the imported boltArtifact's file actions into
+               * sessionStorage BEFORE importChat's full-document navigation
+               * wipes the memory-only workbench. The embedded-mode module
+               * init drains the stash on the fresh document, so Save &
+               * Deploy's PS_FILES_READY carries the real site files.
+               * (journey 2026-08-19 — the last publish-bridge rung)
+               */
+              const materialized = materializeImportedFiles(
+                chatData.messages as Array<{ content?: string }>,
+              );
+              if (materialized > 0 && isEmbedded) {
+                toast.info(`Restoring ${materialized} files into the workbench...`);
+              }
               importChat(chatData.description || 'Imported from Project Sites', chatData.messages as Message[]);
             } else {
               toast.error('Invalid chat data format');

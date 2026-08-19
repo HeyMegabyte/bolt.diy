@@ -379,6 +379,26 @@ export class WorkbenchStore {
     return this.#filesStore.isFolderLocked(folderPath);
   }
 
+  /**
+   * Write a text file into the workbench WITHOUT the WebContainer.
+   *
+   * `FilesStore.createFile` awaits `#webcontainer` — a promise that NEVER
+   * settles in embedded mode ("Skipping boot — embedded mode"), so any
+   * restore path that awaits createFile hangs forever and getTextFiles()
+   * (the PS_FILES_READY source) stays empty (journey 2026-08-19 — the
+   * last publish-bridge rung). This bypasses the container and writes the
+   * files map directly, matching the text dirent shape FilesStore uses.
+   */
+  setVirtualFile(filePath: string, content: string): void {
+    this.files.setKey(filePath, {
+      type: 'file',
+      content,
+      isBinary: false,
+      isLocked: false,
+    });
+    this.setSelectedFile(filePath);
+  }
+
   async createFile(filePath: string, content: string | Uint8Array = '') {
     try {
       const success = await this.#filesStore.createFile(filePath, content);

@@ -95,6 +95,11 @@ export class BoltEmbedService {
   private messageHandler: ((e: MessageEvent) => void) | null = null;
   /** In-flight `PS_LIST_FILES` requests keyed by correlationId (item 45). */
   private readonly pendingFileLists = new Map<string, (files: BoltFileEntry[]) => void>();
+  /** correlationIds of `PS_FILES_READY` replies already published — the editor
+   *  answers a `PS_REQUEST_FILES` from BOTH the route-scoped chat handler AND
+   *  the module-level responder (same correlationId), so without dedupe every
+   *  Save & Deploy double-published (journey 2026-08-19). */
+  private readonly publishedCorrelationIds = new Set<string>();
   /** Optional consumer for `PS_DEPLOY_REQUEST` messages from the editor (item 43). */
   private deployHandler: ((req: { files: Record<string, string>; chat?: { messages: unknown[]; description?: string; exportDate?: string } }) => void) | null = null;
   /** Toast ids already mirrored to the editor — prevents echo loops (item 44). */
@@ -417,9 +422,20 @@ export class BoltEmbedService {
           // the "user can actually interact" signal — dismiss the veil.
           this.dismissVeil('app_running');
           break;
-        case 'PS_FILES_READY':
+        case 'PS_FILES_READY': {
+          // Dedupe: the editor replies once per registered responder — the
+          // route-scoped chat handler AND the module-level responder both
+          // answer the SAME correlationId. Publish once per save; a second
+          // identical reply is a no-op (distinct saves carry distinct ids).
+          if (msg.correlationId) {
+            if (this.publishedCorrelationIds.has(msg.correlationId)) {
+              break;
+            }
+            this.publishedCorrelationIds.add(msg.correlationId);
+          }
           this.uploadFiles((msg.files as Record<string, string> | undefined) ?? {}, msg.chat);
           break;
+        }
         case 'PS_GENERATION_STATUS':
           if (msg.status === 'complete') {
             this.toast.success('AI generation complete');

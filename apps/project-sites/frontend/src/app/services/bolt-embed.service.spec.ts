@@ -147,6 +147,57 @@ describe('BoltEmbedService — importChatFrom gating (publish-aware, no 404 cons
  * stare at a permanent veil (a broken editor). Locks the dismiss paths AND the
  * security boundary: an UNTRUSTED origin must never force the veil away.
  */
+describe('BoltEmbedService (PS_FILES_READY dedupe — module + route responders both reply)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function dedupeSetup(): {
+    svc: Testable;
+    boot: (site: unknown) => void;
+    fire: (origin: string, data: unknown) => void;
+    publish: jasmine.Spy;
+  } {
+    const publish = jasmine.createSpy('publishFromBolt').and.returnValue(
+      of({ data: { slug: 'dup-site', version: 'v1', url: 'u' } }),
+    );
+    TestBed.configureTestingModule({
+      providers: [
+        BoltEmbedService,
+        { provide: DomSanitizer, useValue: { bypassSecurityTrustResourceUrl: (u: string) => u } },
+        { provide: ApiService, useValue: { get: () => of({}), post: () => of({}), publishFromBolt: publish } },
+        { provide: ToastService, useValue: { toasts: signal([]), error: jasmine.createSpy('error'), success: jasmine.createSpy('success') } },
+      ],
+    });
+    const svc = TestBed.inject(BoltEmbedService) as unknown as Testable;
+    svc.attachMessageListener();
+    const boot = (site: unknown): void =>
+      (svc as unknown as { bootForSite: (s: unknown) => void }).bootForSite(site);
+    const fire = (origin: string, data: unknown): void =>
+      svc.messageHandler(new MessageEvent('message', { origin, data }));
+    return { svc, boot, fire, publish };
+  }
+
+  it('publishes exactly ONCE when the same PS_FILES_READY reply arrives twice (the journey duplicate)', async () => {
+    const { boot, fire, publish } = dedupeSetup();
+    boot({ id: 's1', slug: 'dup-site', business_name: 'Dup', status: 'published', current_build_version: 'v1' });
+    const files = { 'index.html': '<h1>dup</h1>' };
+    const reply = { type: 'PS_FILES_READY', files, correlationId: 'dup-1' };
+    fire('https://editor.projectsites.dev', reply);
+    fire('https://editor.projectsites.dev', reply);
+    await new Promise((r) => setTimeout(r, 80));
+    expect(publish).toHaveBeenCalledTimes(1);
+  });
+
+  it('publishes DISTINCT replies separately (different correlationIds are different saves)', async () => {
+    const { boot, fire, publish } = dedupeSetup();
+    boot({ id: 's1', slug: 'dup-site', business_name: 'Dup', status: 'published', current_build_version: 'v1' });
+    const files = { 'index.html': '<h1>a</h1>' };
+    fire('https://editor.projectsites.dev', { type: 'PS_FILES_READY', files, correlationId: 'save-1' });
+    fire('https://editor.projectsites.dev', { type: 'PS_FILES_READY', files, correlationId: 'save-2' });
+    await new Promise((r) => setTimeout(r, 80));
+    expect(publish).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe('BoltEmbedService (veil dismiss → editorReady)', () => {
   afterEach(() => TestBed.resetTestingModule());
   const ready = (svc: unknown): boolean => (svc as { editorReady(): boolean }).editorReady();
