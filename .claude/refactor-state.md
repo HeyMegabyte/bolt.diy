@@ -461,3 +461,9 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **TDD:** 5 new Karma contract tests RED→GREEN (legacy-key-never-resurfaces assertions on the payload seam). Karma **1659/1659 SUCCESS**. `tsc --noEmit` clean. `build:prod` clean (known social CSS warning only). Deployed R2 291/291 + purged; served `main-DEBA5QLF.js` hash-verified live; `verify:production` PASS.
 - ⚠️ The voice round-trip LIVE E2E is chaos-17 (concurrent session's in-flight spec) — this FE fix makes its save-persistence assertion pass on the real fix. Do NOT re-open agent-settings mapping without re-running its Karma contract block.
 - **NEXT TARGET** (after chaos-16/17 land): deferred bigger waves — social.component split · ag-grid→TanStack — or the `notifications.ts` deliverability audit if still unexamined.
+
+## 🔧 iter 182 (reduction fire — fork dead provider deletion)
+
+- **DELETED `app/lib/modules/llm/providers/onyx.ts` (−125 LOC).** Verdict chain (per dead-code-scan-baseline): added 2026-08-08 (40a91de1, touched ONLY that file) → never registered in `registry.ts` → zero `ONYX_*` env refs repo-wide → no worker routes → `ai.projectsites.dev` does not resolve (000). Built-ahead for an Onyx integration never wired; the edge AI router (`ProjectsitesAiProvider`) is the registered live path. Fork tsc clean, build clean, Pages deploy `09e60fff`, live `/api/chat` streams.
+- ⚠️ Fork provider dir now 23 files = 23 registry imports (1:1). Any future provider file without a registry import = dead on arrival — same grep chain applies.
+- **NEXT TARGET (reduction)**: fork `app/lib/modules/llm/` — check `providers.ts`/`base-provider.ts`/`types.ts` for dead exports via grep (candidates: unused helpers in base-provider after the provider consolidation). Then worker-side: `notifications.ts` deliverability audit if still unexamined.
