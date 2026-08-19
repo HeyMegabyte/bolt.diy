@@ -1,7 +1,11 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
-import { VoiceAgentSettingsComponent } from './agent-settings.component';
+import {
+  VoiceAgentSettingsComponent,
+  mapVoiceRowToSettings,
+  settingsToVoicePayload,
+} from './agent-settings.component';
 import { ApiService } from '../../../../services/api.service';
 import { ToastService } from '../../../../services/toast.service';
 import { AdminStateService } from '../../admin-state.service';
@@ -109,5 +113,110 @@ describe('VoiceAgentSettingsComponent (a failed load can no longer be saved over
     const c = makeWith(get);
     c.reload();
     expect(c.loadError()).withContext('un-provisioned org degrades to defaults silently').toBeNull();
+  });
+});
+
+/**
+ * Field-name contract (regression for the 2026-08-18 silent-drop class): the
+ * worker's `agentSettingsBody` Zod + `voice_agent_settings` D1 columns use
+ * `voice_voice_id` / `voice_model` / `business_hours_json`. The legacy FE keys
+ * `voice_id` / `llm_model` / `business_hours` (object) were silently STRIPPED
+ * by the schema — so EVERY save NULLED the chosen voice + LLM model and
+ * business hours never persisted. The mapping helpers are the single seam;
+ * a legacy key resurfacing in the payload = RED.
+ */
+describe('VoiceAgentSettingsComponent (worker field-name contract — no silent drops)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function makeBare(): VoiceAgentSettingsComponent {
+    TestBed.configureTestingModule({
+      imports: [VoiceAgentSettingsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: {} }), put: () => of({ data: {} }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    TestBed.overrideComponent(VoiceAgentSettingsComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(VoiceAgentSettingsComponent).componentInstance;
+  }
+
+  it('mapVoiceRowToSettings maps the raw D1 row (snake keys, INT 0/1 booleans, business_hours_json)', () => {
+    const s = mapVoiceRowToSettings({
+      voice_system_prompt: 'greet',
+      sms_system_prompt: 'sms greet',
+      voice_voice_id: 'bella',
+      voice_model: 'claude-opus-4-7',
+      sms_model: 'claude-haiku-4-5',
+      recording_enabled: 0,
+      video_browse_enabled: 1,
+      business_hours_json: '{"start":"08:00","end":"16:00","tz":"UTC"}',
+    });
+    expect(s.voice_voice_id).withContext('row voice_voice_id → settings.voice_voice_id').toBe('bella');
+    expect(s.voice_model).withContext('row voice_model → settings.voice_model').toBe('claude-opus-4-7');
+    expect(s.recording_enabled).withContext('INT 0 → false').toBe(false);
+    expect(s.video_browse_enabled).withContext('INT 1 → true').toBe(true);
+    expect(s.business_hours_enabled).withContext('non-null business_hours_json enables the hours UI').toBe(true);
+    expect(s.business_hours).toEqual({ start: '08:00', end: '16:00', tz: 'UTC' });
+  });
+
+  it('mapVoiceRowToSettings degrades to defaults on a missing row or corrupt hours JSON', () => {
+    const missing = mapVoiceRowToSettings(null);
+    expect(missing.business_hours_enabled).withContext('no row → hours off').toBe(false);
+    expect(missing.voice_voice_id).withContext('no row → default voice').toBeDefined();
+    const corrupt = mapVoiceRowToSettings({ business_hours_json: '{not-json', voice_voice_id: null });
+    expect(corrupt.business_hours_enabled).withContext('corrupt JSON → hours off, never throws').toBe(false);
+    expect(corrupt.voice_voice_id).withContext('null column → default voice').toBeDefined();
+  });
+
+  it('settingsToVoicePayload sends worker field names and NEVER the legacy voice_id/llm_model keys', () => {
+    const c = makeBare();
+    const payload = settingsToVoicePayload('s1', c.settings);
+    expect(payload['voice_voice_id']).withContext('worker wants voice_voice_id').toBeDefined();
+    expect(payload['voice_model']).withContext('worker wants voice_model').toBeDefined();
+    expect(payload['business_hours_json']).withContext('worker wants business_hours_json').toBeNull();
+    expect('voice_id' in payload).withContext('legacy voice_id key must never return').toBe(false);
+    expect('llm_model' in payload).withContext('legacy llm_model key must never return').toBe(false);
+    expect('voice_provider' in payload).withContext('dead provider control must never return').toBe(false);
+    expect('sms_signature' in payload).withContext('dead SMS controls must never return').toBe(false);
+    expect(payload['siteId']).withContext('siteId stays camelCase (Zod requires it)').toBe('s1');
+  });
+
+  it('settingsToVoicePayload serializes business_hours_json (string) when enabled, null when disabled', () => {
+    const c = makeBare();
+    c.settings.business_hours_enabled = true;
+    c.settings.business_hours = { start: '09:30', end: '17:45', tz: 'America/New_York' };
+    const on = settingsToVoicePayload('s1', c.settings);
+    expect(on['business_hours_json']).toEqual(JSON.stringify({ start: '09:30', end: '17:45', tz: 'America/New_York' }));
+    c.settings.business_hours_enabled = false;
+    const off = settingsToVoicePayload('s1', c.settings);
+    expect(off['business_hours_json']).withContext('disabled hours → null column').toBeNull();
+  });
+
+  it('reload() hydrates through the row mapper (voice_voice_id lands in settings)', () => {
+    const get = jasmine.createSpy('get').and.returnValue(
+      of({
+        settings: {
+          voice_voice_id: 'antoni',
+          voice_model: 'claude-sonnet-4-6',
+          recording_enabled: 1,
+          business_hours_json: '{"start":"07:00","end":"15:00","tz":"America/New_York"}',
+        },
+      }),
+    );
+    TestBed.configureTestingModule({
+      imports: [VoiceAgentSettingsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get, put: () => of({ data: {} }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      ],
+    });
+    TestBed.overrideComponent(VoiceAgentSettingsComponent, { set: { template: '<div></div>', imports: [] } });
+    const c = TestBed.createComponent(VoiceAgentSettingsComponent).componentInstance;
+    c.reload();
+    expect(c.settings.voice_voice_id).withContext('saved voice surfaces after reload (was: blank forever)').toBe('antoni');
+    expect(c.settings.voice_model).withContext('saved voice model surfaces after reload').toBe('claude-sonnet-4-6');
+    expect(c.settings.business_hours_enabled).withContext('saved hours re-enable the hours UI').toBe(true);
   });
 });

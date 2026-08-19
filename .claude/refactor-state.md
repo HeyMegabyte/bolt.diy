@@ -404,6 +404,26 @@ Brian: *"come up with 100 super-full tests… make them even more weird and craz
 
 **Folded into the catalog (prior targets, now flow-mapped):** `contact_email` never populated → Flow #36 (research/brand phase must write `sites.contact_email`; all 4 prod sites empty). Newsletter/donations → #37. og:image template root-cause + ~50 `env.AN.run` observability sites → lower-priority background. The contact-form fix (iter 62) already satisfies Flow #36's ingest half.
 
+## 🎯 COVERAGE MATRIX — actionable element → master journey (directive 8 exit gate)
+
+The 5 master journeys (chaos-1..5) + stitched extension journeys (chaos-6..17) partition EVERY meaningful interactive surface. ✓ = pressed AND business-result asserted (per the 2026-08-16/17 prod passes + iter-151 69/69 + iter-154 70/70). 🔴 = authored/in-flight this iteration.
+
+| Surface / action | Journey | State |
+|---|---|---|
+| Marketing shell + XSS + hostile query/hash + real 404 + bogus /api 404 + nav/footer links + conversion-funnel endpoints + served-site canonical | chaos-1 | ✓ |
+| Create funnel + hostile fills + domain-search degradation + AI improve-prompt hostile | chaos-2 | ✓ |
+| Sign-in render + magic-link hostile/API + unauthed routes + OAuth 302 + sessions panel + billing chips + DNS + password→magic-link | chaos-3 | ✓ |
+| Settings hostile round-trip + 9 tabs + phone/system-prompt/env-vars CRUD + API-token flag-gate + team invite→cancel + social cadence/composer + profile/notifications/delete-guard + Cmd+K audit + snapshots gate + AI endpoints + webhooks + timeline notes + forms MCP + MCP site-scoping + voice no-wipe + site-features reconcile + honest-error-card | chaos-4 | ✓ |
+| Security headers + 6bp overflow + PWA + hostile query/hash + rapid nav + subdomain 404 (UNAUTHED only — the shallowest master) | chaos-5 | ✓ |
+| Conversion+i18n / analytics tabs / keyboard-focus / mobile responsive / header-overlays | chaos-6..10 | ✓ |
+| Domains: AI-search graceful + custom-domain validation (Register NEVER clicked — real charge) | chaos-11 | ✓ |
+| Forms count / audit count / ai-logs count | chaos-12..14 | ✓ |
+| **Apps catalog: search + Esc-clear + lifecycle tabs (All/Live/Soon) + category multi-select UNION + clear + tag-chip round-trip + empty-state reset + card→detail + h2/features + pager next/prev + AI recs + live deploy form (env/subdomain persist, deploy NEVER clicked) + coming-soon contract** | **chaos-15** | 🔴 running this pass |
+| Apps instances list + `/admin/apps/instances/:id` detail | chaos-16 (agent) | 🔴 authoring |
+| Voice config round-trip (settings save persistence) | chaos-17 (agent) | 🔴 authoring |
+
+**iter 180 (this pass, in flight):** iter-151 NEXT named "apps catalog/install/instances + voice round-trip" as under-probed. Main thread authored **chaos-15-apps-catalog** (TDD-RED: the catalog had ZERO E2E despite being fully testid-mapped — 9 apps / 4 live / 5 soon / 7 categories). Running vs prod. Two parallel test-writer agents author chaos-16 (apps-instances) + chaos-17 (voice config round-trip — note iter-154 already fixed the mcp_connection_ids wipe; the remaining documented gap is the frontend↔worker voice field-name mismatch, concurrent-session territory). Coverage exit gate: every catalog element now maps to chaos-15; next iteration runs 16/17 and re-checks the matrix.
+
 ## ⚠️⚠️ OPERATING MODE CHANGE (Brian, iter 56) — STOP PROGRAMMING, VERIFY REAL FLOWS ⚠️⚠️
 Brian: *"delete all other things that are dead weight and address the fact that the loop is trying to program it. It should not be, instead you should focus on ensuring everything from the UI works properly with real-life test scenarios that ensure entire flows work."* See [[feedback_loop_verifies_real_flows_not_programs]].
 - **The loop's job is now REAL end-to-end product-flow verification, NOT programming** (no more regex micro-fixes / dead-code hunts / built-ahead infra). iter 56 deleted `html_ast` (Brian-confirmed dead weight) — that's the LAST such cleanup; do NOT mass-delete more (~220 uncalled services are mostly intentional built-ahead per [[dead-code-scan-baseline]]).
@@ -431,3 +451,13 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 **Deferred bigger waves (fresh context + Browserbase visual gate):** social.component split; ag-grid→TanStack. **Careful-only:** `build_validators`/`voice_webhooks` jscpd clones (extract only with full test verification).
 - **site-mcp tokens CRUD** — only when `site_mcp_server` is promoted (per CLAUDE.md convert-on-promotion); table (`site_mcp_tokens`, 0514) + FE + contract ready. Still DARK → not a live bug.
 - If nothing safe+high-value surfaces: an honest verification checkpoint is legitimate — do NOT force marginal/risky changes. Future ≥3-instance bug classes → add a `check-*.mjs` detector + fixture + CI step.
+
+## 🔧 iter 181 (voice field-name contract — the chaos-17 documented gap, fixed from a non-colliding slice)
+
+- **FIXED the live voice silent-drop class:** FE `agent-settings` sent legacy keys `voice_id` / `llm_model` / a `business_hours` OBJECT — the worker's `agentSettingsBody` Zod silently STRIPS unknown fields, so EVERY save NULLED `voice_voice_id` + `voice_model` and business hours NEVER persisted (confirmed vs `migrations/0036b_voice.sql`; provider is infra-fixed `twilio-callgpt`, schema never writes it).
+- **Slice:** FE conforms to the worker+DB contract. New exported mapping seam in `agent-settings.component.ts`: `mapVoiceRowToSettings()` (raw D1 row → UI model; coerces INT 0/1 booleans, parses `business_hours_json`) + `settingsToVoicePayload()` (worker field names; hours → JSON string|null). GET hydration now typed `{ settings: raw row | null }` — the old `AgentSettings` response type was the lie that hid the bug.
+- **DELETED 4 dead controls** (zero worker/DB/pipeline backing anywhere): provider select, SMS max-chars / signature / opt-out inputs.
+- **Also fixed a pre-existing RED** (unrelated to the slice, same fire): `pricing.component.spec.ts` broke when iter 170's i18n pass added `TranslateModule` — missing `TranslateService` stub (the pipe subscribes `onTranslationChange`/`onLangChange`/`onFallbackLangChange` + `get`). The `yoursite.projectsites.dev` guarantee now guards `assets/i18n/en.json` via fetch (copy moved out of the template).
+- **TDD:** 5 new Karma contract tests RED→GREEN (legacy-key-never-resurfaces assertions on the payload seam). Karma **1659/1659 SUCCESS**. `tsc --noEmit` clean. `build:prod` clean (known social CSS warning only). Deployed R2 291/291 + purged; served `main-DEBA5QLF.js` hash-verified live; `verify:production` PASS.
+- ⚠️ The voice round-trip LIVE E2E is chaos-17 (concurrent session's in-flight spec) — this FE fix makes its save-persistence assertion pass on the real fix. Do NOT re-open agent-settings mapping without re-running its Karma contract block.
+- **NEXT TARGET** (after chaos-16/17 land): deferred bigger waves — social.component split · ag-grid→TanStack — or the `notifications.ts` deliverability audit if still unexamined.
