@@ -3427,21 +3427,49 @@ function emptyBoltChatResponse(slug: string): Response {
 api.get('/api/sites/by-slug/:slug/chat', async (c) => {
   const slug = c.req.param('slug');
 
-  // Read manifest to get current version and file list
-  const manifest = await c.env.SITES_BUCKET.get(`sites/${slug}/_manifest.json`);
-
-  if (!manifest) {
-    return emptyBoltChatResponse(slug);
-  }
-
-  const manifestData = (await manifest.json()) as {
+  // Manifest resolution order (journey 2026-08-19 — the editor was
+  // permanently EMPTY for workflow-built sites):
+  //   1. Site-root `sites/{slug}/_manifest.json` — the legacy bolt-publish
+  //      artifact. An OLD upload path also wrote a root copy with
+  //      `files: []` for workflow builds — a root manifest that EXISTS but
+  //      lists nothing. A root manifest is only usable when it actually
+  //      lists files.
+  //   2. D1 `sites.current_build_version` → `sites/{slug}/{version}/_manifest.json`
+  //      — the REAL workflow write path. D1 is the authoritative pointer;
+  //      used whenever the root copy is missing OR file-less.
+  type ManifestShape = {
     current_version: string;
-    files?: string[];
-    source_files?: string[];
+    // v1 shape: string[] of paths. v2 shape (container manifest writer):
+    // { name, size, type }[]. Normalized below.
+    files?: Array<string | { name?: string; size?: number; type?: string }>;
+    source_files?: Array<string | { name?: string; size?: number; type?: string }>;
     is_vite_project?: boolean;
   };
+  const listFiles = (d: ManifestShape | null | undefined): boolean =>
+    Array.isArray(d?.files) && (d?.files?.length ?? 0) > 0;
 
-  if (!manifestData.current_version) {
+  let manifestData: ManifestShape | null = null;
+  const rootManifest = await c.env.SITES_BUCKET.get(`sites/${slug}/_manifest.json`);
+  if (rootManifest) {
+    manifestData = (await rootManifest.json()) as ManifestShape;
+  }
+  if (!manifestData || !listFiles(manifestData)) {
+    const versionRow = await c.env.DB.prepare(
+      'SELECT current_build_version FROM sites WHERE slug = ? AND deleted_at IS NULL',
+    )
+      .bind(slug)
+      .first<{ current_build_version: string | null }>()
+      .catch(() => null);
+    const fallbackVersion = versionRow?.current_build_version;
+    if (fallbackVersion) {
+      const pinned = await c.env.SITES_BUCKET.get(
+        `sites/${slug}/${fallbackVersion}/_manifest.json`,
+      );
+      if (pinned) manifestData = (await pinned.json()) as ManifestShape;
+    }
+  }
+
+  if (!manifestData?.current_version) {
     return emptyBoltChatResponse(slug);
   }
 
@@ -3493,7 +3521,18 @@ api.get('/api/sites/by-slug/:slug/chat', async (c) => {
 
   // Determine which files to include — from manifest or R2 listing
   // For Vite projects, prefer source_files (editor needs source, not built output)
-  let filePaths: string[] = (isVite ? manifestData.source_files : manifestData.files) ?? [];
+  // Normalize v1 (string[]) + v2 ({name,size,type}[]) manifest shapes —
+  // the container manifest writer emits objects, the legacy writers strings.
+  const normalizeManifestPaths = (
+    entries?: Array<string | { name?: string; size?: number; type?: string }>,
+  ): string[] =>
+    (entries ?? [])
+      .map((e) => (typeof e === 'string' ? e : (e.name ?? '')))
+      .filter(Boolean);
+
+  let filePaths: string[] = normalizeManifestPaths(
+    isVite ? manifestData.source_files : manifestData.files,
+  );
 
   // If manifest doesn't list files, list the R2 prefix
   if (filePaths.length === 0) {
@@ -3517,12 +3556,40 @@ api.get('/api/sites/by-slug/:slug/chat', async (c) => {
     return { path: filePath, content };
   });
 
-  const files = (await Promise.all(fileReads)).filter(
+  // Vite `_src` fallback — the workflow's container builds do not ship a
+  // `_src/` directory (the manifest says `is_vite_project: true` with only
+  // compiled `files`). A pure `_src` read then returns zero files → another
+  // lying-empty editor. Fall back to the compiled `files` entries at the
+  // version root so the editor always opens with the real site content.
+  const readFiles = (await Promise.all(fileReads)).filter(
     (f): f is { path: string; content: string } => f !== null,
   );
+  let files = readFiles;
+  if (files.length === 0 && isVite) {
+    const compiledFilePaths = normalizeManifestPaths(manifestData.files)
+      .filter((p) => !p.startsWith('_meta/') && p !== 'research.json')
+      .filter(isTextFile);
+    const compiledPrefix = `sites/${slug}/${version}/`;
+    const compiledReads = await Promise.all(
+      compiledFilePaths.map(async (filePath) => {
+        const obj = await c.env.SITES_BUCKET.get(`${compiledPrefix}${filePath}`);
+        if (!obj) return null;
+        const content = await obj.text();
+        return { path: filePath, content };
+      }),
+    );
+    files = compiledReads.filter(
+      (f): f is { path: string; content: string } => f !== null,
+    );
+  }
 
   if (files.length === 0) {
-    return emptyBoltChatResponse(slug);
+    const dbg = emptyBoltChatResponse(slug);
+    dbg.headers.set(
+      'x-chat-debug',
+      `no-files:isVite=${isVite}:manifestFiles=${(manifestData.files ?? []).length}:srcFiles=${(manifestData.source_files ?? []).length}:filePaths=${filePaths.length}:ver=${manifestData.current_version}`,
+    );
+    return dbg;
   }
 
   // Look up business name from D1
@@ -3551,7 +3618,15 @@ api.get('/api/sites/by-slug/:slug/chat', async (c) => {
   );
 
   // For Vite projects, add install + start actions so the dev server starts
-  const postFileActions = isVite
+  // Shell actions ONLY when a package.json actually exists in the imported
+  // set. The container builds are compiled output (index.html + assets/*.js,
+  // NO package.json) yet the manifest flags `is_vite_project: true` — the old
+  // unconditional shell actions made bolt run `npm install` in a project with
+  // no package.json on EVERY open (ENOENT spam + "Start Application" failure,
+  // journey 2026-08-19). A build with a real package.json (source-published
+  // bolt sites) still gets the install + dev-server boot.
+  const hasPackageJson = files.some((f) => f.path === 'package.json');
+  const postFileActions = isVite && hasPackageJson
     ? [
         '<boltAction type="shell">npm install --legacy-peer-deps</boltAction>',
         '<boltAction type="start">npm run dev</boltAction>',
@@ -3559,7 +3634,7 @@ api.get('/api/sites/by-slug/:slug/chat', async (c) => {
     : [];
 
   const assistantContent = [
-    `I've built a professional website for ${businessName} with ${files.length} files.\n`,
+    `I've built a professional website for ${businessName} with ${files.length} files. The project files are:\n${sortedFiles.map((f) => `- ${f.path}`).join('\n')}\n`,
     `<boltArtifact id="site-${slug}" title="${businessName} Website">`,
     ...fileActions,
     ...postFileActions,

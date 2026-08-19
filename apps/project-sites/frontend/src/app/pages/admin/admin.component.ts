@@ -134,7 +134,19 @@ export class AdminComponent implements OnInit, OnDestroy {
   private translate = inject(TranslateService);
   private appShell = inject(AppShellService);
 
-  @ViewChild('boltFrame') private boltFrameRef?: ElementRef<HTMLIFrameElement>;
+  // Setter-based ViewChild — the iframe is materialized LAZILY by
+  // `@if (bolt.iframeUrl())` in the template, so it does NOT exist at
+  // ngAfterViewInit (no site selected yet). The old one-time
+  // `ngAfterViewInit { registerIframe(ref ?? null) }` permanently nulled the
+  // service's iframeEl; every later Save & Deploy toasted "Editor not ready"
+  // and the PS_REQUEST_FILES bridge never fired (journey 2026-08-19 — the
+  // editor loaded files but publishing was dead). The setter re-registers on
+  // EVERY query-result change: null→element (site selected → iframe mounts)
+  // and element→null (teardown / sign-out).
+  @ViewChild('boltFrame')
+  set boltFrameRef(ref: ElementRef<HTMLIFrameElement> | undefined) {
+    this.bolt.registerIframe(ref?.nativeElement ?? null);
+  }
   @ViewChild('siteSearchInput') private siteSearchInputRef?: ElementRef<HTMLInputElement>;
   @ViewChildren('siteOption') private siteOptionRefs?: QueryList<ElementRef<HTMLButtonElement>>;
   private injector = inject(Injector);
@@ -336,9 +348,12 @@ export class AdminComponent implements OnInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    // Hand the iframe element to the embed service so it can postMessage
-    // into the live editor without a DOM query.
-    this.bolt.registerIframe(this.boltFrameRef?.nativeElement ?? null);
+    // The bolt iframe registers itself via the `boltFrameRef` setter on every
+    // materialization change (see the setter's doc comment — the lazy
+    // `@if (bolt.iframeUrl())` mount means ngAfterViewInit runs BEFORE the
+    // iframe exists; a registerIframe(null) here permanently nulled the
+    // service's element and killed Save & Deploy). Keep the hook for other
+    // view-child work; do NOT re-register the iframe here.
   }
 
   /**

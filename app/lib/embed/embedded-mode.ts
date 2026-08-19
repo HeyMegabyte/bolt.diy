@@ -185,9 +185,44 @@ function detectEmbedded(): boolean {
 
   try {
     const inIframe = window.parent !== window;
+    if (!inIframe) {
+      return false;
+    }
+
     const hasParam = new URLSearchParams(window.location.search).has('embedded');
 
-    return inIframe && hasParam;
+    /*
+     * Embedded mode must SURVIVE SPA navigation (journey 2026-08-19).
+     *
+     * The chat-import flow navigates the document to `/chat/{id}` — a FULL
+     * reload whose URL carries NO `embedded` param. The old param-only
+     * detection silently turned embedded mode OFF on that reload: the
+     * module-level `handleMessage` listener never attached, so the parent's
+     * Save & Deploy (`PS_REQUEST_FILES`) found zero handlers and the
+     * publish leg of the bridge dead-aired forever.
+     *
+     * An embedded session now stamps `ps_embedded=1` into localStorage at
+     * first boot (param present). Any later reload inside the admin iframe
+     * recovers the flag. Standalone visits are unaffected — a top-level
+     * window has `inIframe === false` and never reads the stamp. The
+     * origin allowlist on both sides of the bridge still gates every
+     * message, so a third-party iframe can't act on the protocol.
+     */
+    if (hasParam) {
+      try {
+        window.localStorage.setItem('ps_embedded', '1');
+      } catch {
+        // storage may be unavailable (private mode) — param still wins this boot
+      }
+
+      return true;
+    }
+
+    try {
+      return window.localStorage.getItem('ps_embedded') === '1';
+    } catch {
+      return false;
+    }
   } catch {
     // Cross-origin access to window.parent may throw
     return false;
@@ -309,6 +344,38 @@ export function postToastToParent(level: NonNullable<PSToastMessage['kind']>, me
 
 if (isEmbedded && typeof window !== 'undefined') {
   window.addEventListener('message', handleMessage);
+
+  /*
+   * ROUTE-INDEPENDENT PS_REQUEST_FILES responder (journey 2026-08-19 — the
+   * publish leg of the editor bridge was dead).
+   *
+   * The only responder lived inside Chat.client.tsx's `useEffect` — a
+   * ROUTE-scoped handler. "Click to open Workbench" (or any nav) unmounts
+   * the chat route, the handler unsubscribes, and a later admin-side
+   * Save & Deploy (`PS_REQUEST_FILES`) reaches an EMPTY handlers array —
+   * the editor never replies, the parent times out with "Save timed out",
+   * and a user's editor change can never publish. The workbench store is
+   * module-global and survives route nav, so answer at this always-on
+   * module level instead. Chat.client.tsx's own responder handles
+   * `includeChat` (chat export) — keep both; the module responder only
+   * guarantees the FILES reply so a publish can never dead-air again.
+   */
+  onParentMessage((msg) => {
+    if (msg.type !== 'PS_REQUEST_FILES') {
+      return;
+    }
+
+    import('~/lib/stores/workbench').then(({ workbenchStore }) => {
+      const textFiles = workbenchStore.getTextFiles();
+      postToParent({
+        type: 'PS_FILES_READY',
+        files: textFiles,
+        correlationId: msg.correlationId,
+      });
+    }).catch((err) => {
+      console.warn('[embed] PS_REQUEST_FILES responder failed:', err);
+    });
+  });
 
   // ── Item 46: hook window-level errors + unhandled rejections ──
   window.addEventListener('error', (event: ErrorEvent) => {
