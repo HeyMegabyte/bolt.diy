@@ -555,18 +555,24 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     // "Business" with generic copy (journey defect 2026-08-19: two builds
     // shipped wrong/generic names — "Hearth & Crumb", then "Business").
     // The name is NOT left to LLM compliance — it is materialized here.
+    // CRITICAL SHAPE: the template's resolver is W3C DTCG — every leaf MUST
+    // be `{ $value: ... }` (the resolver's isLeaf() checks for `$value`;
+    // a plain-object leaf resolves undefined → the "Business" fallback).
     const safeName = (params.businessName || 'Business').replace(/[^\w\s\-'.]/g, '').slice(0, 100);
+    const tok = (value: string, description = '') => ({ $value: value, $type: 'string', ...(description ? { $description: description } : {}) });
     contextFiles['brand.json'] = JSON.stringify(
       {
         business: {
-          name: safeName,
-          tagline: '',
-          description: params.additionalContext || '',
-          email: '',
-          phone: params.businessPhone || '',
-          address: params.businessAddress || '',
-          url: `https://${params.slug}.${DOMAINS.SITES_SUFFIX}`,
-          businessClass: 'organization',
+          name: tok(safeName, 'Display name.'),
+          shortName: tok(safeName.slice(0, 12), 'Used in PWA install + nav.'),
+          tagline: tok('', 'Eyebrow line above H1.'),
+          description: tok((params.additionalContext || '').slice(0, 156), 'Meta description.'),
+          url: tok(`https://${params.slug}.${DOMAINS.SITES_SUFFIX}`, 'Canonical https URL.'),
+          businessClass: tok('organization', 'storefront|restaurant|…|organization'),
+          email: tok(''),
+          phone: tok(params.businessPhone || ''),
+          address: tok(params.businessAddress || ''),
+          hours: tok(''),
         },
       },
       null,
