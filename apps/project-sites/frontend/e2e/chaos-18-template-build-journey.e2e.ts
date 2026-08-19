@@ -108,6 +108,20 @@ test.describe('CHAOS 18 — template build journey (keystone)', () => {
       timeout: BOOT_TIMEOUT,
     });
 
+    // Materialization guard (iter 214): the imported build files must land in
+    // the workbench — the Files tree renders the site's index.html. Before
+    // the sessionStorage stash + setVirtualFile restore, the tree was empty
+    // and Save & Deploy published zero files.
+    await expect
+      .poll(
+        async () => {
+          const text = await frame.locator('body').innerText();
+          return text.includes('index.html') || text.includes('assets/');
+        },
+        { timeout: 120_000, message: 'imported site files never materialized in the editor workbench' },
+      )
+      .toBe(true);
+
     await chatBox.fill(`Change the hero headline to include the exact phrase ${CHANGE_TOKEN}. Deploy it.`);
     await chatBox.press('Enter');
     // The answer streams; the deploy fires through the admin bridge when the
