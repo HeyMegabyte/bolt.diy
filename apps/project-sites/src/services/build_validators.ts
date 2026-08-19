@@ -701,6 +701,41 @@ export const validateBannedWords = (files: BuildFile[]): Violation[] => {
 /** Brand-placeholder leak — the template's shipped `{BUSINESS_NAME}` tokens
  * reached production twice (2026-08-19). LLM instructions cannot be trusted
  * for this; a hard BUILD-BREAKING gate is the only enforcement that works. */
+/** Brand-name mismatch — the LLM has invented names in EVERY journey build
+ * ("Hearth & Crumb", "Artisan Sourdough Bakery") despite the materialized
+ * _brand.json. The title must CONTAIN the real business name (verbatim or
+ * as a prefix). Only enforced when the caller passes `expectedBusinessName`. */
+export const validateBrandNameMatch = (
+  files: BuildFile[],
+  expectedBusinessName?: string,
+): Violation[] => {
+  if (!expectedBusinessName) return [];
+  const out: Violation[] = [];
+  const expected = expectedBusinessName.trim();
+  for (const file of files) {
+    if (!isHtml(file.path) || !file.text) continue;
+    const stripped = stripScripts(file.text);
+    const title = stripped.match(/<title>([^<]*)<\/title>/i);
+    if (!title) continue;
+    const t = title[1].trim();
+    if (!t) continue;
+    const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const tNorm = norm(t);
+    const eNorm = norm(expected);
+    // Accept verbatim containment OR the title STARTS with the expected name
+    // (page titles like "Cedar Ridge Bakeshop — Menu").
+    if (!tNorm.includes(eNorm) && !tNorm.startsWith(eNorm)) {
+      out.push({
+        code: 'brand.name_mismatch',
+        severity: 'error',
+        message: `Site title "${t}" does not contain the real business name "${expected}"`,
+        file: file.path,
+      });
+    }
+  }
+  return out;
+};
+
 export const validateNoBrandPlaceholders = (files: BuildFile[]): Violation[] => {
   const out: Violation[] = [];
   for (const file of files) {
@@ -887,7 +922,7 @@ export const validateNoClientSecrets = (files: BuildFile[]): Violation[] => {
 /** Run every gate and return a structured report. */
 export const validateBuild = (
   files: BuildFile[],
-  opts: { sourceRouteCount?: number } = {},
+  opts: { sourceRouteCount?: number; expectedBusinessName?: string } = {},
 ): ValidationReport => {
   const all: Violation[] = [
     ...validateRequiredFiles(files),
@@ -906,6 +941,7 @@ export const validateBuild = (
     ...validateSitemapRoutesExist(files),
     ...validateBannedWords(files),
     ...validateNoBrandPlaceholders(files),
+    ...validateBrandNameMatch(files, opts.expectedBusinessName),
     ...validateJsBundleSize(files),
     ...validateLightboxPresence(files),
     ...validateNoClientSecrets(files),

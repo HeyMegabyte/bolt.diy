@@ -1421,10 +1421,10 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           } catch {
             // malformed context JSON → skip the guard, never break the build on it
           }
-          const report = validateBuild(
-            files,
-            sourceRouteCount !== undefined ? { sourceRouteCount } : {},
-          );
+          const report = validateBuild(files, {
+            ...(sourceRouteCount !== undefined ? { sourceRouteCount } : {}),
+            expectedBusinessName: params.businessName,
+          });
           const readiness = scoreReadiness(report);
           await emitBuildEvent(env, params.siteId, {
             type: 'tests.completed',

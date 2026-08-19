@@ -20,6 +20,7 @@ import {
   validateImageWeightBudget,
   validateJsonLdStructure,
   validateNoBrandPlaceholders,
+  validateBrandNameMatch,
   validateBuild,
   type BuildFile,
 } from '../services/build_validators';
@@ -824,5 +825,37 @@ describe('validateNoBrandPlaceholders (2026-08-19 leak class)', () => {
       { path: 'index.html', size: 100, text: '<title>Cedar Ridge Bakeshop — Fresh Daily</title>' },
     ];
     expect(validateNoBrandPlaceholders(files)).toEqual([]);
+  });
+});
+
+describe('validateBrandNameMatch (invented-name class, 2026-08-19)', () => {
+  const files = [
+    { path: 'index.html', size: 100, text: '<title>Artisan Sourdough Bakery & Seasonal Pies | Business</title>' },
+  ];
+
+  it('flags a title that does NOT contain the expected business name', () => {
+    const v = validateBrandNameMatch(files, 'Cedar Ridge Bakeshop');
+    expect(v.some((x) => x.code === 'brand.name_mismatch')).toBe(true);
+    expect(v[0].severity).toBe('error');
+  });
+
+  it('accepts a title containing the name verbatim', () => {
+    const ok = validateBrandNameMatch(
+      [{ path: 'index.html', size: 100, text: '<title>Cedar Ridge Bakeshop — Fresh Daily</title>' }],
+      'Cedar Ridge Bakeshop',
+    );
+    expect(ok).toEqual([]);
+  });
+
+  it('accepts a title STARTING with the name (page-title pattern)', () => {
+    const ok = validateBrandNameMatch(
+      [{ path: 'menu.html', size: 100, text: '<title>Cedar Ridge Bakeshop — Menu</title>' }],
+      'Cedar Ridge Bakeshop',
+    );
+    expect(ok).toEqual([]);
+  });
+
+  it('is a no-op without an expected name (backward compatible)', () => {
+    expect(validateBrandNameMatch(files)).toEqual([]);
   });
 });
