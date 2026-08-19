@@ -976,7 +976,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           });
           const restartJobId = await step.do(
             'restart-build-after-eviction',
-            { retries: { limit: 1, delay: '10 seconds' }, timeout: '5 minutes' },
+            { retries: { limit: 3, delay: '30 seconds', backoff: 'exponential' }, timeout: '5 minutes' },
             async () => {
               // FRESH DO — re-posting to the evicted container guarantees a
               // second eviction (its memory is gone). A new name-derived DO
@@ -1102,7 +1102,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           });
           const restartJobId = await step.do(
             'restart-build-after-stale',
-            { retries: { limit: 1, delay: '10 seconds' }, timeout: '5 minutes' },
+            { retries: { limit: 3, delay: '30 seconds', backoff: 'exponential' }, timeout: '5 minutes' },
             async () => {
               // FRESH DO — see the eviction restart's rationale.
               const container = freshRestartContainer();
