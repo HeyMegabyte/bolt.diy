@@ -260,7 +260,29 @@ export const ChatImpl = memo(
                 exportDate: new Date().toISOString(),
               };
 
-              // Use publish-bolt API if we have a siteId
+              // Embedded mode: the ADMIN (parent frame) owns the deploy — its
+              // ApiService attaches the session bearer token, which the worker's
+              // ownership gate on :id/publish-bolt requires. The raw cross-origin
+              // fetch below sends NO auth header (editor → projectsites.dev has
+              // no session cookies), so every embedded publish 401/404'd after
+              // the IDOR gate landed — "Deploy failed" on a healthy build.
+              // Item 43 PS_DEPLOY_REQUEST → BoltEmbedService.uploadFiles.
+              if (isEmbedded) {
+                postToParent({
+                  type: 'PS_DEPLOY_REQUEST',
+                  files: Object.fromEntries(fileList.map((f) => [f.path, f.content])),
+                  chat: chatExport,
+                  correlationId:
+                    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+                      ? crypto.randomUUID()
+                      : `${Date.now()}`,
+                });
+                postTelemetryToParent('editor.first_deploy', { slug, files: fileList.length });
+                toast.info('Deploying through the admin bridge…');
+                return;
+              }
+
+              // Standalone bolt.diy (non-embedded): legacy direct publish.
               const publishUrl = siteId
                 ? `https://projectsites.dev/api/sites/${siteId}/publish-bolt`
                 : 'https://projectsites.dev/api/publish/bolt';
@@ -273,11 +295,6 @@ export const ChatImpl = memo(
 
               if (res.ok) {
                 toast.success(`Deployed ${fileList.length} files to ${slug}.projectsites.dev!`);
-
-                // Item 48: editor.first_deploy — terminal event in the funnel.
-                if (isEmbedded) {
-                  postTelemetryToParent('editor.first_deploy', { slug, files: fileList.length });
-                }
 
                 // Redirect to the live site after a moment
                 setTimeout(() => {
