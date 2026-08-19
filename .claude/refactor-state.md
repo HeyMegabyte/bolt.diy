@@ -515,3 +515,12 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ FOLDED the earlier agent slice (`417c2d2a`):** deleted `saveToProjectSites` + `#gatherPublishFiles` + `#writeProjectSiteMeta` from `app/lib/stores/workbench.ts` (−139 LOC) — zero callers by import-grep (kept `#readProjectSiteMeta`/`#getProjectSitesUrl`, live public wrappers). Fork tsc + build clean, Pages `0221cb50`. Worktree pruned.
 - **📋 Journey:** build `e2e-site-3-reset-1787117629539` still RUNNING (site: generating — past the pre-fix death point; container build is the 14-min template-first phase). Background poller active; visit → analytics → editor-change legs land on terminal.
 - **NEXT TARGET:** journey terminal legs + fold chaos-18 once published.
+
+## 🔧 iter 189 — THE JOURNEY COMPLETED END-TO-END (first time since the pipeline broke)
+
+- **✅ BUILD COMPLETED:** `e2e-site-3-reset-1787117629539` reached `complete` at t+15m — the eviction-restart + binding-restore cascade works. The first real template build since `655ccf2c` killed the pipeline ~5 weeks ago.
+- **✅ SITE LIVE:** `urban-fitness.projectsites.dev` 200, real generated content ("Hearth & Crumb Artisan Bakery", h1 present).
+- **✅ ANALYTICS RECONCILES:** D1 `visitor_events` 20 rows (latest = the journey visit) ↔ `/api/analytics/e2e-site-3` shows pageViews 19, today's views in chartData, source first_party_edge. Store ↔ display agree.
+- **✅ REGRESSION LOCK (`97973501`):** `chaos-18-template-build-journey.e2e.ts` — reset → poll correct instance → published → h1 → analytics reconcile → editor change via PS_DEPLOY_REQUEST → live-site marker. `--list` proves it loads.
+- **📋 REMAINING journey leg (deferred to a browser-capable fire):** the editor-chat change needs a REAL browser on /admin/editor (memory: headless can't render deep admin; Browserbase when available). chaos-18 covers it; run it when the browser tier is reachable.
+- **NEXT TARGET:** (a) run chaos-18's editor leg via Browserbase/CF-browser, (b) template-feedback harvest from this build (the "Hearth & Crumb" name drift: reset passed Cedar Ridge but the site says Hearth & Crumb — the container used prior research data; check the workflow's business_name propagation).
