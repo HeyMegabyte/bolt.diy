@@ -28,6 +28,7 @@
  */
 import {
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   effect,
   inject,
@@ -352,6 +353,7 @@ export class VoiceAgentSettingsComponent {
   readonly state = inject(AdminStateService);
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   settings: AgentSettings = { ...DEFAULTS, business_hours: { ...DEFAULT_HOURS } };
   saving = signal(false);
@@ -384,12 +386,17 @@ export class VoiceAgentSettingsComponent {
         // ONE seam (reading r.data left the form on DEFAULTS forever; reading the
         // row verbatim left voice_id/llm_model keys blank forever).
         this.settings = mapVoiceRowToSettings(r.settings);
+        // OnPush: the plain-object reassignment does NOT schedule change
+        // detection — without markForCheck the template keeps the PREVIOUS
+        // object's values (re-mount showed stale DEFAULTS while D1 held the
+        // saved row — the journey's re-mount assert caught it 2026-08-19).
+        this.cdr.markForCheck();
       },
       // 404 = un-provisioned org → graceful defaults (the author's intent). Any other
       // failure (500/network) → DON'T overwrite; flag loadError so Save is blocked and
       // the user can retry instead of clobbering saved settings with DEFAULTS.
       error: (err: { status?: number } | undefined) => {
-        if (err?.status === 404) { this.settings = mapVoiceRowToSettings(null); this.loadError.set(null); }
+        if (err?.status === 404) { this.settings = mapVoiceRowToSettings(null); this.loadError.set(null); this.cdr.markForCheck(); }
         else { this.loadError.set('Could not load your saved voice settings.'); }
       },
     });

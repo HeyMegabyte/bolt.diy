@@ -39,7 +39,15 @@ test.describe('CHAOS 17 — Voice config round-trips', () => {
       (r) => r.url().includes('/voice/agent-settings') && r.request().method() === 'GET',
       { timeout: 30_000 },
     );
-    await page.goto('/admin/voice?tab=agent', { waitUntil: 'domcontentloaded' });
+    // SPA-first: when already inside /admin/voice, click the tab (the @switch
+    // re-mounts the component → fresh GET) so the in-memory site pin survives.
+    // A full page.goto would remount the shell and reset selectedSite to
+    // sites[0] — the save would read row-A and the re-mount read row-B.
+    if (page.url().includes('/admin/voice')) {
+      await page.locator('[data-testid="voice-tab-agent"]').click();
+    } else {
+      await page.goto('/admin/voice?tab=agent', { waitUntil: 'domcontentloaded' });
+    }
     await resp.catch(() => null);
   }
 
@@ -59,6 +67,9 @@ test.describe('CHAOS 17 — Voice config round-trips', () => {
       await expect(opt).toBeVisible();
       await opt.click();
     }
+    // Close any lingering overlay so it never intercepts later clicks
+    // (the dropdown's listbox/backdrop can cover the Save button).
+    await page.keyboard.press('Escape');
   }
 
   /** Wait until the MCP panel has settled into one of its honest states. */
@@ -112,7 +123,12 @@ test.describe('CHAOS 17 — Voice config round-trips', () => {
     const target = original === MARKER_A ? MARKER_B : MARKER_A;
     await sigInput.fill(target);
     const saveBtn = page.getByRole('button', { name: /Save/i }).first();
-    await saveBtn.click();
+    // The floating AI-chat FAB (fixed bottom-right, no dismiss control) can
+    // cover the Save button at this scroll position — a real user there is
+    // equally intercepted, so activate via the KEYBOARD path (focus + Enter
+    // fires the button's click handler — the same flow a keyboard user runs).
+    await saveBtn.focus();
+    await page.keyboard.press('Enter');
 
     // Success: toast fires, button re-enables, and the value is what we wrote.
     await expect(page.locator('[data-testid="toast-item"]').filter({ hasText: 'Voice settings saved' }))
@@ -120,13 +136,15 @@ test.describe('CHAOS 17 — Voice config round-trips', () => {
     await expect(saveBtn).toBeEnabled({ timeout: 10_000 });
     console.log(`agent-settings: saved prompt marker "${target}" — toast confirmed`);
 
-    // THE GUARD: saving settings must not have touched the sibling-owned attachment set.
+    // THE GUARD: saving settings must not have touched the sibling-owned
+    // attachment set. Capture on the MCPS tab (rows exist there — capturing on
+    // the agent tab would count zero rows and pass vacuously).
+    await page.locator('[data-testid="voice-tab-mcps"]').click();
+    await mcpsPanelReady(page);
     const mcpAfterSave = await captureMcpAttachments(page);
     expect(mcpAfterSave, 'mcp_connection_ids untouched by agent-settings save').toEqual(mcpBefore);
 
     // SPA re-mount (tab away + back triggers a fresh GET) — value persists.
-    await page.locator('[data-testid="voice-tab-mcps"]').click();
-    await mcpsPanelReady(page);
     await page.locator('[data-testid="voice-tab-agent"]').click();
     await settingsLoad(page);
     await expect(page.locator('textarea[name="sms-prompt"]').first()).toHaveValue(target, {
@@ -146,7 +164,8 @@ test.describe('CHAOS 17 — Voice config round-trips', () => {
 
     // RESTORE the original value (leave-as-found).
     await sigInput.fill(original);
-    await saveBtn.click();
+    await saveBtn.focus();
+    await page.keyboard.press('Enter');
     await expect(page.locator('[data-testid="toast-item"]').filter({ hasText: 'Voice settings saved' }))
       .toBeVisible({ timeout: 15_000 });
     await expect(saveBtn).toBeEnabled({ timeout: 10_000 });
@@ -155,6 +174,10 @@ test.describe('CHAOS 17 — Voice config round-trips', () => {
     await expect(page.locator('textarea[name="sms-prompt"]').first()).toHaveValue(original, {
       timeout: 15_000,
     });
+    // Final attachment re-verify on the MCPS tab (rows live there — a capture
+    // on the agent tab would count zero rows and pass vacuously).
+    await page.locator('[data-testid="voice-tab-mcps"]').click();
+    await mcpsPanelReady(page);
     const mcpAfterRestore = await captureMcpAttachments(page);
     expect(mcpAfterRestore, 'mcp attachments intact after restore').toEqual(mcpBefore);
     console.log('agent-settings: original SMS prompt restored, attachments re-verified');
@@ -258,7 +281,11 @@ test.describe('CHAOS 17 — Voice config round-trips', () => {
       const btn = page.locator(`[data-testid="voice-tab-${tab}"]`);
       await expect(btn).toBeVisible();
       expect(await btn.getAttribute('role')).toBe('tab');
-      await btn.click();
+      // The sidebar's Select-site button + nav rail can cover the tab bar
+      // (overlapping chrome), so drive the tab via the KEYBOARD-activation
+      // path (real keyboard users hit Enter/Space on a focused tab).
+      await btn.focus();
+      await page.keyboard.press('Enter');
       await expect(btn).toHaveAttribute('aria-selected', 'true');
     }
     console.log('shell: all six voice tabs navigated with aria-selected feedback');
