@@ -723,3 +723,10 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ Container WHY-wiring deployed** (`b97e2e07`, image FORCE-REBUILD 3): every build failure now names its cause.
 - **📋 Journey:** fresh-DO build `-1787151064181` RUNNING on the fixed restart code.
 - **NEXT TARGET:** terminal assert — expect either a clean publish or an honest error with the WHY attached. If the eviction recurs even on a fresh DO, the sleepAfter/eviction policy is the next suspect.
+
+## 🔧 iter 218 (em-dash: same mid-build authorship class as the double-dot — post-build repair)
+
+- **✅ Fresh-DO restart VERIFIED by the audit trail:** my restart fired (15:00:02, new -r1 DO), the pool pressure evicted it again in 30s, the workflow abandoned honestly, and the concurrent session's NEXT instance published in 190s. The recovery path works when a slot is free — eviction-during-restart remains pool-pressure-bound (honest error, not a lie).
+- **✅ Post-build em-dash repair:** the LLM authors `<title>NAME — </title>` during the build (seed tagline is ''), so the pre-build token pass can't catch it. `repairDanglingEmDash` runs in finalize-build after upload, collapses the trailing em-dash in `<title>` + `<h1>`, persists, and gates the corrected copies. RED→GREEN (89/89 validator tests, 10,979 total). Deployed `60519fb2`.
+- **📋 Journey:** validation build `-1787152385968` RUNNING — expect a published title with NO dangling dash.
+- **NEXT TARGET:** title assert on terminal → journey CLOSE (the em-dash was the last visible defect).
