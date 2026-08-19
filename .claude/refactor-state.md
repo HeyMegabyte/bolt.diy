@@ -539,3 +539,9 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **📋 Journey:** verification build `e2e-site-3-reset-1787121192690` in flight (background poller will assert the title says "Cedar Ridge Bakeshop" on terminal).
 - **Also:** migration `0630` tracked for fresh-DB provisioning (prod column already applied directly; d1_migrations runner is drifted at 0014 — do NOT re-apply on prod).
 - **NEXT TARGET:** assert the verbatim title on terminal + editor-change leg (browser-capable fire).
+
+## 🔧 iter 192 (ladder completeness — last two Anthropic pins converted)
+
+- **✅ Social auto-pilot + retrospective now ladder-routed (`2fbeb113`).** Both pinned `provider: 'anthropic'` with cross-vendor model names (claude-sonnet-4-6 / claude-haiku-4-5) — volume work that bypassed Brian's ladder AND would 404 on any non-Anthropic rung. Converted to `tier: 'standard'` (DeepSeek via gateway). The only remaining explicit-Anthropic pins are vision calls + provider-specific integrations (legitimate). Suites 26/26 + 8/8 + 8/8; tsc clean; deployed `995c7d52`.
+- **📋 Journey:** the brand-seed verification build still RUNNING at t+12m (container phase). Poller active; terminal title assert pending.
+- **NEXT TARGET:** title assert on terminal + editor-change leg (browser fire).
