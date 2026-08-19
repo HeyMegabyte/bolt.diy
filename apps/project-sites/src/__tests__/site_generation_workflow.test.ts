@@ -139,3 +139,108 @@ describe('buildPrompt — template-first, ≤14-min', () => {
     expect(out).toMatch(/grep for leftover names/i);
   });
 });
+
+// ─── Heartbeat-loop coverage (sequence-driven replay mock) ───────────────────
+// The heartbeat loop is the REAL code under test here: step.do is replayed per
+// name (the container-fetch callback is never invoked), so each heartbeat's
+// wrap is canned by position — driving eviction → restart → boot-grace →
+// terminal exactly like a live build. Everything post-loop (finalize/validate/
+// notify) is canned, so the loop branches are the only real code exercised.
+const runningWrap = () =>
+  JSON.stringify({ _src: 'container', body: JSON.stringify({ status: 'running', step: 'build' }) });
+const completeWrap = () =>
+  JSON.stringify({
+    _src: 'container',
+    body: JSON.stringify({ status: 'complete', step: 'done', elapsed: 100, fileCount: 340 }),
+  });
+const unknownJobWrap = () =>
+  JSON.stringify({ _src: 'container', body: JSON.stringify({ error: 'unknown job' }) });
+const missingWrap = () => JSON.stringify({ _src: 'kv', _missing: true });
+
+function makeBeatStep(canned: Record<string, unknown>, beats: string[]) {
+  const doFn = jest.fn(async (name: string) => {
+    if (name.startsWith('heartbeat-')) {
+      const next = beats.shift();
+      if (next === undefined) {
+        throw new Error(`beat sequence exhausted at ${name} — the loop polled past the canned run`);
+      }
+      return next;
+    }
+    return canned[name];
+  });
+  return { do: doFn, beats };
+}
+
+function runBeats(beats: string[], cannedOver: Record<string, unknown> = {}) {
+  const canned = {
+    'mint-version': '2026-08-19T00-00-00-000Z',
+    'budget-killswitch': '{}',
+    'start-build': 'job-1',
+    'restart-build-after-eviction': 'job-2',
+    'restart-build-after-stale': 'job-3',
+    'finalize-build': JSON.stringify({ fileCount: 340, version: 'v1' }),
+    'validate-build': '{}',
+    'visual-inspection': '{"skipped":true}',
+    'benchmark-and-learn': '{"skipped":true}',
+    notify: '{}',
+    'notify-owner-published': 'sent',
+    ...cannedOver,
+  };
+  const step = makeBeatStep(canned, beats);
+  return run(
+    {
+      ...withBuilder(),
+      CACHE_KV: { get: async () => null, put: async () => undefined },
+    },
+    step as unknown as WorkflowStep,
+    params(),
+  );
+}
+
+describe('SiteGenerationWorkflow — heartbeat loop (eviction + boot grace)', () => {
+  it('happy path: running polls → terminal complete → published', async () => {
+    const out = (await runBeats([
+      runningWrap(),
+      runningWrap(),
+      runningWrap(),
+      completeWrap(),
+    ])) as { status: string };
+    expect(out.status).toBe('published');
+  });
+
+  it('an eviction at poll 118 still completes — the restart EXTENDS the poll budget', async () => {
+    // 118 running + eviction + 30 post-restart running + complete = 150 polls.
+    // The pre-fix loop caps at 120 → timeout at poll 120; the budget extension
+    // (+60 on restart) carries the build to completion.
+    const beats: string[] = [];
+    for (let i = 0; i < 118; i++) beats.push(runningWrap());
+    beats.push(unknownJobWrap());
+    for (let i = 0; i < 30; i++) beats.push(runningWrap());
+    beats.push(completeWrap());
+    const out = (await runBeats(beats)) as { status: string };
+    expect(out.status).toBe('published');
+  });
+
+  it('eviction sets the boot-grace window — missing status during fresh-DO boot keeps waiting', async () => {
+    // Eviction at poll 2 → restart → 6 polls with no container/KV record (the
+    // fresh DO is still booting) → then status resumes → complete. Pre-fix, the
+    // i>=4 missing guard errored the build at poll 4 (grace was never SET on
+    // the eviction path, and even where set it was never READ).
+    const beats = [
+      runningWrap(),
+      runningWrap(),
+      unknownJobWrap(),
+      missingWrap(),
+      missingWrap(),
+      missingWrap(),
+      missingWrap(),
+      missingWrap(),
+      missingWrap(),
+      runningWrap(),
+      runningWrap(),
+      completeWrap(),
+    ];
+    const out = (await runBeats(beats)) as { status: string };
+    expect(out.status).toBe('published');
+  });
+});

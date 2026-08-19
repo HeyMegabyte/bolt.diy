@@ -885,12 +885,21 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     // The container also runs its own 60s self-keepalive (/health). KV is the
     // durable fallback if the container fetch errors (DO replaced, etc).
     const MAX_POLLS = 120;
+    // Poll-budget extension: a restart re-boots the whole build (~14 min) — if
+    // it only CONSUMED the remaining budget, any restart past ~poll 90 was a
+    // guaranteed timeout (the fresh build never gets enough polls to reach
+    // terminal). Each restart ADDS 60 polls (+30 min); the one-shot restart
+    // guard caps the total at MAX_POLLS + 60 (90 min) — bounded by design.
+    const RESTART_POLL_BUDGET = 60;
     const POLL_INTERVAL_MS = 30_000;
     const STALE_THRESHOLD_MS = 8 * 60_000;
 
     let finalStatus: ContainerStatus | null = null;
     // Eviction recovery: restart the build ONCE when the container dies mid-build.
     let buildRestarted = false;
+    // The effective poll budget — extends by RESTART_POLL_BUDGET on restart so
+    // a restarted build gets a FULL window, not the leftover of the first.
+    let pollBudget = MAX_POLLS;
     // Boot-grace deadline — after a restart, the FRESH DO needs 1-3 min to
     // boot (image + git pull inside startAndWaitForPorts). Its first polls
     // legitimately return unknown-job / no KV record; abandoning then is a
@@ -901,7 +910,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     let lastSeenStatus: string | null = null;
     let lastSeenStep: string | null = null;
 
-    for (let i = 0; i < MAX_POLLS; i++) {
+    for (let i = 0; i < pollBudget; i++) {
       const result = await step.do(
         `heartbeat-${i}`,
         {
@@ -937,6 +946,13 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       const wrap = JSON.parse(result) as { _src: string; _missing?: boolean; body?: string };
 
       if (wrap._missing) {
+        // Boot-grace: right after a restart the fresh DO is still pulling its
+        // image — missing container/KV records are EXPECTED, not abandonment.
+        // Keep waiting while inside the grace window; only the ORIGINAL
+        // "container never reported status" guard errors on a COLD start.
+        if (Date.now() < restartGraceUntil) {
+          continue;
+        }
         if (i >= 4) {
           await wfLog('workflow.kv_no_status', {
             poll: i,
@@ -1037,6 +1053,15 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             },
           );
           jobId = restartJobId;
+          // Boot grace + budget extension — the eviction path previously set
+          // NEITHER (the grace was only set on the stale path and never read
+          // anywhere; the budget was never extended at all — a restart at
+          // poll 118 had exactly 2 polls to finish a 14-minute build).
+          restartGraceUntil = Date.now() + 3 * 60_000;
+          pollBudget += RESTART_POLL_BUDGET;
+          lastFreshAt = Date.now();
+          lastSeenStatus = null;
+          lastSeenStep = null;
           await wfLog('workflow.build_restarted', { poll: i, jobId: restartJobId });
           continue;
         }
@@ -1165,6 +1190,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           );
           jobId = restartJobId;
           restartGraceUntil = Date.now() + 3 * 60_000;
+          pollBudget += RESTART_POLL_BUDGET;
           lastFreshAt = Date.now();
           lastSeenStatus = null;
           lastSeenStep = null;
