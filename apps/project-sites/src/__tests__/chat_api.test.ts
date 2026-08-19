@@ -314,7 +314,9 @@ describe('GET /api/sites/by-slug/:slug/chat', () => {
     // the editor opened with zero files (journey 2026-08-19).
     const dbPrepare = jest.fn().mockReturnValue({
       bind: jest.fn().mockReturnValue({
-        first: jest.fn().mockResolvedValue({ business_name: 'Test Business', current_build_version: 'v9' }),
+        first: jest
+          .fn()
+          .mockResolvedValue({ business_name: 'Test Business', current_build_version: 'v9' }),
         all: jest.fn().mockResolvedValue({ results: [] }),
         run: jest.fn().mockResolvedValue({}),
       }),
@@ -323,7 +325,9 @@ describe('GET /api/sites/by-slug/:slug/chat', () => {
     const r2Get = jest.fn().mockImplementation((key: string) => {
       if (key === 'sites/test-site/_manifest.json') return Promise.resolve(null);
       if (key === 'sites/test-site/v9/_manifest.json') {
-        return Promise.resolve(createMockR2Object({ current_version: 'v9', files: ['index.html'] }));
+        return Promise.resolve(
+          createMockR2Object({ current_version: 'v9', files: ['index.html'] }),
+        );
       }
       if (key === 'sites/test-site/v9/index.html') {
         return Promise.resolve(createMockR2Object('<html><h1>Live</h1></html>'));
@@ -344,7 +348,9 @@ describe('GET /api/sites/by-slug/:slug/chat', () => {
   it('falls THROUGH to the version-pinned manifest when the root copy exists but lists zero files (the old upload path wrote files: [])', async () => {
     const dbPrepare = jest.fn().mockReturnValue({
       bind: jest.fn().mockReturnValue({
-        first: jest.fn().mockResolvedValue({ business_name: 'Test Business', current_build_version: 'v8' }),
+        first: jest
+          .fn()
+          .mockResolvedValue({ business_name: 'Test Business', current_build_version: 'v8' }),
         all: jest.fn().mockResolvedValue({ results: [] }),
         run: jest.fn().mockResolvedValue({}),
       }),
@@ -355,7 +361,9 @@ describe('GET /api/sites/by-slug/:slug/chat', () => {
         return Promise.resolve(createMockR2Object({ current_version: 'v7', files: [] }));
       }
       if (key === 'sites/test-site/v8/_manifest.json') {
-        return Promise.resolve(createMockR2Object({ current_version: 'v8', files: ['index.html'] }));
+        return Promise.resolve(
+          createMockR2Object({ current_version: 'v8', files: ['index.html'] }),
+        );
       }
       if (key === 'sites/test-site/v8/index.html') {
         return Promise.resolve(createMockR2Object('<html><h1>FallThrough</h1></html>'));

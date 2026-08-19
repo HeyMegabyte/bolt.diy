@@ -3526,9 +3526,7 @@ api.get('/api/sites/by-slug/:slug/chat', async (c) => {
   const normalizeManifestPaths = (
     entries?: Array<string | { name?: string; size?: number; type?: string }>,
   ): string[] =>
-    (entries ?? [])
-      .map((e) => (typeof e === 'string' ? e : (e.name ?? '')))
-      .filter(Boolean);
+    (entries ?? []).map((e) => (typeof e === 'string' ? e : (e.name ?? ''))).filter(Boolean);
 
   let filePaths: string[] = normalizeManifestPaths(
     isVite ? manifestData.source_files : manifestData.files,
@@ -3578,9 +3576,7 @@ api.get('/api/sites/by-slug/:slug/chat', async (c) => {
         return { path: filePath, content };
       }),
     );
-    files = compiledReads.filter(
-      (f): f is { path: string; content: string } => f !== null,
-    );
+    files = compiledReads.filter((f): f is { path: string; content: string } => f !== null);
   }
 
   if (files.length === 0) {
@@ -3621,12 +3617,13 @@ api.get('/api/sites/by-slug/:slug/chat', async (c) => {
   // journey 2026-08-19). A build with a real package.json (source-published
   // bolt sites) still gets the install + dev-server boot.
   const hasPackageJson = files.some((f) => f.path === 'package.json');
-  const postFileActions = isVite && hasPackageJson
-    ? [
-        '<boltAction type="shell">npm install --legacy-peer-deps</boltAction>',
-        '<boltAction type="start">npm run dev</boltAction>',
-      ]
-    : [];
+  const postFileActions =
+    isVite && hasPackageJson
+      ? [
+          '<boltAction type="shell">npm install --legacy-peer-deps</boltAction>',
+          '<boltAction type="start">npm run dev</boltAction>',
+        ]
+      : [];
 
   const assistantContent = [
     `I've built a professional website for ${businessName} with ${files.length} files. The project files are:\n${sortedFiles.map((f) => `- ${f.path}`).join('\n')}\n`,
