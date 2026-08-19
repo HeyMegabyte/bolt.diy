@@ -21,7 +21,7 @@ export class SiteBuilderContainer extends Container<Env> {
   override enableInternet = true;
   // Keep container warm across the full build window — workflows poll every
   // 30s for up to 60min. Hibernation between polls would lose child processes.
-  override sleepAfter = '90m';
+  override sleepAfter = '25m'; // was 90m — warm instances held pool slots too long (exhaustion 2026-08-19); the workflow now stop()s on terminal anyway, this is the backstop
 
   override entrypoint = ['node', '/home/cuser/container-server.mjs'];
 

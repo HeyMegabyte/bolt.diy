@@ -304,7 +304,11 @@ dataset = "projectsites_admin_v1"
 [[env.production.containers]]
 class_name = "SiteBuilderContainer"
 image = "./Dockerfile"
-max_instances = 10
+# 20 — the journey's repeated builds + a few concurrent customers must never
+# exhaust the pool (hit live 2026-08-19 at 10; the stop-on-terminal release +
+# 90m sleepAfter backstop the actual running count, but warm instances inside
+# their sleep window still hold slots).
+max_instances = 20
 instance_type = "standard-4"
 
 [[env.production.durable_objects.bindings]]
