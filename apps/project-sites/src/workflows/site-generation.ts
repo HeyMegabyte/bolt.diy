@@ -351,10 +351,19 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
      * is genuinely independent of the evicted instance.
      */
     let restartNonce = 0;
+    // The ACTIVE container handle — swapped to the fresh DO on every restart.
+    // The heartbeat loop must poll the SAME container the restart posted
+    // /build to; polling the original (dead) DO returns unknown-job forever,
+    // KV misses (the fresh container's record is under its own jobId), and
+    // the recovery abandons 30s after every restart (journey 2026-08-19 —
+    // the restart fired but the poll never followed it).
+    let activeContainer = () => getContainer();
     const freshRestartContainer = () => {
       const builder = env.SITE_BUILDER;
       if (!builder) throw new Error('SITE_BUILDER container not configured');
-      return builder.get(builder.idFromName(`${containerName}-r${++restartNonce}`));
+      const fresh = builder.get(builder.idFromName(`${containerName}-r${++restartNonce}`));
+      activeContainer = () => fresh;
+      return fresh;
     };
 
     // ── Minimal mode: short-circuit, prove container infra ──
@@ -897,9 +906,11 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         async () => {
           await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
 
-          // Primary: short-poll the container directly. Inbound HTTP keeps DO warm.
+          // Primary: short-poll the ACTIVE container (swaps to the fresh DO
+          // after a restart — polling the dead original returned
+          // unknown-job forever and the recovery abandoned, journey 2026-08-19).
           try {
-            const container = getContainer();
+            const container = activeContainer();
             const res = await container.fetch(`http://container/status?jobId=${jobId}`, {
               method: 'GET',
             });
