@@ -4,6 +4,7 @@ import { ActionRunner } from '~/lib/runtime/action-runner';
 import type { ActionCallbackData, ArtifactCallbackData } from '~/lib/runtime/message-parser';
 import { webcontainer, recordFileEdit } from '~/lib/webcontainer';
 import { isEmbedded, postTelemetryToParent } from '~/lib/embed/embedded-mode';
+import { WORK_DIR } from '~/utils/constants';
 import type { ITerminal } from '~/types/terminal';
 import { unreachable } from '~/utils/unreachable';
 import { EditorStore } from './editor';
@@ -618,8 +619,27 @@ export class WorkbenchStore {
     }
 
     if (data.action.type === 'file') {
-      const wc = await webcontainer;
-      const fullPath = path.join(wc.workdir, data.action.filePath);
+      /*
+       * EMBEDDED MODE: the WebContainer never boots (no SharedArrayBuffer in
+       * a cross-origin iframe), so `await webcontainer` here hung the ENTIRE
+       * artifact-action stream — the AI's file edit never reached the
+       * in-memory files map and Save & Deploy published the OLD files
+       * (journey 2026-08-19: chat replied "the file has been updated" while
+       * the live site never changed). The embedded files map is keyed by
+       * RELATIVE paths (the shape the import materialization writes), so
+       * normalize any `/home/project/` prefix off the action path without
+       * touching the container. The tool-call path already bypasses in
+       * ActionRunner.#runFileAction; this is the streamed-artifact path.
+       */
+      let fullPath: string;
+
+      if (isEmbedded) {
+        fullPath = data.action.filePath.startsWith(`${WORK_DIR}/`)
+          ? data.action.filePath.slice(WORK_DIR.length + 1)
+          : data.action.filePath;
+      } else {
+        fullPath = path.join((await webcontainer).workdir, data.action.filePath);
+      }
 
       /*
        * For scoped locks, we would need to implement diff checking here
