@@ -625,6 +625,13 @@ http.createServer((q, r) => {
                 for (const [tok, rep] of Object.entries(TOKENS)) {
                   if (content.includes(tok)) { content = content.split(tok).join(rep); changed = true; replaced++; }
                 }
+                // Double-dot canonical repair — the LLM writes
+                // https://<slug>..projectsites.dev (slug already dot-suffixed
+                // in its mental model). Mechanical repair, no LLM compliance.
+                if (content.includes('..projectsites.dev')) {
+                  content = content.split('..projectsites.dev').join('.projectsites.dev');
+                  changed = true; replaced++;
+                }
                 if (changed) fs.writeFileSync(fp, content);
               }
             };
