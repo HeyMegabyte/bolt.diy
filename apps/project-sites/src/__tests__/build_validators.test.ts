@@ -19,6 +19,7 @@ import {
   validateContactPath,
   validateImageWeightBudget,
   validateJsonLdStructure,
+  validateNoBrandPlaceholders,
   validateBuild,
   type BuildFile,
 } from '../services/build_validators';
@@ -792,5 +793,32 @@ describe('validateJsonLdStructure', () => {
 
   it('ignores HTML with no JSON-LD blocks at all', () => {
     expect(validateJsonLdStructure([page('')])).toEqual([]);
+  });
+});
+
+describe('validateNoBrandPlaceholders (2026-08-19 leak class)', () => {
+  it('flags the template placeholder tokens as ERROR', () => {
+    const files = [
+      { path: 'index.html', size: 100, text: '<title>{BUSINESS_NAME} — {BUSINESS_TAGLINE}</title>' },
+    ];
+    const v = validateNoBrandPlaceholders(files);
+    expect(v.length).toBeGreaterThanOrEqual(1);
+    expect(v.every((x) => x.severity === 'error')).toBe(true);
+    expect(v.some((x) => x.code === 'brand.placeholder_leak')).toBe(true);
+  });
+
+  it('flags the generic "Business" title fallback as ERROR', () => {
+    const files = [
+      { path: 'index.html', size: 100, text: '<title>Business — Small-Batch Bakery</title>' },
+    ];
+    const v = validateNoBrandPlaceholders(files);
+    expect(v.some((x) => x.code === 'brand.generic_name')).toBe(true);
+  });
+
+  it('passes a real brand title clean', () => {
+    const files = [
+      { path: 'index.html', size: 100, text: '<title>Cedar Ridge Bakeshop — Fresh Daily</title>' },
+    ];
+    expect(validateNoBrandPlaceholders(files)).toEqual([]);
   });
 });

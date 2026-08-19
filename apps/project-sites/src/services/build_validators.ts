@@ -698,6 +698,39 @@ export const validateBannedWords = (files: BuildFile[]): Violation[] => {
 };
 
 /** JS code-splitting — no single chunk > 250KB gzipped (we proxy via raw size). */
+/** Brand-placeholder leak — the template's shipped `{BUSINESS_NAME}` tokens
+ * reached production twice (2026-08-19). LLM instructions cannot be trusted
+ * for this; a hard BUILD-BREAKING gate is the only enforcement that works. */
+export const validateNoBrandPlaceholders = (files: BuildFile[]): Violation[] => {
+  const out: Violation[] = [];
+  for (const file of files) {
+    if (!isHtml(file.path) || !file.text) continue;
+    const stripped = stripScripts(file.text);
+    for (const token of ['{BUSINESS_NAME}', '{BUSINESS_TAGLINE}', '{BUSINESS_SHORT_NAME}', '{BUSINESS_DESCRIPTION}']) {
+      if (stripped.includes(token)) {
+        out.push({
+          code: 'brand.placeholder_leak',
+          severity: 'error',
+          message: `Brand placeholder "${token}" shipped to production — the container must use the materialized _brand.json`,
+          file: file.path,
+        });
+      }
+    }
+    // Also catch the generic fallback in the title: the template defaults to
+    // "Business" when _brand.json is missing/invalid.
+    const title = stripped.match(/<title>([^<]*)<\/title>/i);
+    if (title && /^Business\b/.test(title[1].trim())) {
+      out.push({
+        code: 'brand.generic_name',
+        severity: 'error',
+        message: 'Site title starts with the generic "Business" fallback — _brand.json did not materialize',
+        file: file.path,
+      });
+    }
+  }
+  return out;
+};
+
 export const validateJsBundleSize = (files: BuildFile[]): Violation[] => {
   const out: Violation[] = [];
   for (const file of files) {
@@ -866,6 +899,7 @@ export const validateBuild = (
     ...validateSitemapLastmod(files),
     ...validateSitemapRoutesExist(files),
     ...validateBannedWords(files),
+    ...validateNoBrandPlaceholders(files),
     ...validateJsBundleSize(files),
     ...validateLightboxPresence(files),
     ...validateNoClientSecrets(files),
