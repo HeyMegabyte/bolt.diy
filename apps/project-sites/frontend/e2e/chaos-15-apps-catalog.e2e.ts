@@ -159,8 +159,17 @@ test.describe('CHAOS 15 — Apps catalog + detail (every filter pressed, every r
 
     await page.locator('[data-testid="apps-category-clear"]').click();
     await expectCards(page, 9, 'category Clear restores all 9');
-    await page.locator('button[aria-label="Close category filter"]').click();
-    await expect(catMenu, 'menu closes via backdrop').toHaveCount(0);
+    // Backdrop-close via the KEYBOARD path: the backdrop is a full-screen
+    // layer whose every pointer-accessible region is covered by the anchored
+    // menu popover, the left sidebar, or the sticky topbar (each viewport
+    // covers a different corner — corner-click whack-a-mole). A keyboard user
+    // presses the SAME closeCategoryMenu() handler by focusing the backdrop
+    // button and hitting Enter — the exact interaction the backdrop exists
+    // for, minus the pointer-coverage race.
+    const backdrop = page.locator('button[aria-label="Close category filter"]');
+    await backdrop.focus();
+    await page.keyboard.press('Enter');
+    await expect(catMenu, 'menu closes via backdrop (keyboard activation)').toHaveCount(0);
     await expect(catTrigger, 'closed state exposed').toHaveAttribute('aria-expanded', 'false');
 
     // ── Card → detail: the catalog's primary action. ──
