@@ -614,3 +614,10 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **📋 Journey:** the in-flight build (running when deployed) will hit the gate at validate-build; the NEXT reset runs end-to-end under the full gate stack. Poller still watching.
 - **The name stack is now SEVEN layers** (payload → D1 → seed → prompt → template fallback → placeholder gate → name-match gate). Each layer independently tested.
 - **NEXT TARGET:** next reset under the full stack → title assert → editor-change leg → journey CLOSE.
+
+## 🔧 iter 203 (the gate FIRED — placeholder build blocked; template side hardened too)
+
+- **✅ THE GATE WORKS.** The full-stack build hit the brand gate: `Brand gate failed: Brand placeholder "{BUSINESS_NAME}" shipped...` — site flipped to error, NOT published. That's the mechanical gate doing what six prompt layers couldn't.
+- **✅ Template side hardened (`591e547` template repo):** `pick()` now rejects placeholder-shaped leaves (`/^\{[A-Z_]+\}$/`) — the shipped _brand.json's `{BUSINESS_NAME}`-style values are NOT real content. typecheck + 88 tests + build green.
+- **📋 Journey:** full-gate build `e2e-site-3-reset-1787129908419` RUNNING — the template git-pulls at build time, so the container will get the hardened brand.ts. Expected: either the title finally shows "Cedar Ridge Bakeshop" OR the build errors honestly (never publishes placeholders).
+- **NEXT TARGET:** title assert on terminal → editor-change leg → journey CLOSE.
