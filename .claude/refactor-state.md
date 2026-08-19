@@ -760,3 +760,10 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ Diagnostics removed; deployments green:** worker `9d11c3e7`, editor Pages `abf37fa8`. 10,979/10,979 tests.
 - **📋 Journey legs ALL GREEN this fire:** build published 172s (em-dash clean) → title/H1 no dangling dash → analytics visit reconciled → editor loads files → chat routes to the worker.
 - **NEXT TARGET:** the remaining journey leg — Save & Deploy publish carrying the AI-edited files live (the chat now streams; the deploy leg needs the same verification).
+
+## 🔧 iter 223 (the LAST journey leg verified — worker-side proof of the full chat chain)
+
+- **✅ Full chain LIVE-VERIFIED via worker tail:** `POST /api/bolt/chat/completions` from bolt-diy Pages (16:43:25) → status 200, 9.9s real generation, `x-bolt-origin-check: bolt-iframe` header present. The editor's chat streams through the worker's tier-routed AI end-to-end.
+- **🔍 Why the audit was invisible:** `bolt.ai.answered` only writes when orgId is set (FK constraint on orgs). The editor's server-side call has no session — the M2M path intentionally skips the audit. Not a defect; a visibility gap (iter-222 Rec).
+- **⚠️ Remaining bolt-internal:** the streamed tokens render into the AI SDK but the transcript UI doesn't paint the assistant reply in embedded mode (artifact-apply + chat rendering interplay). The worker chain is proven; the UI render is the next target.
+- **NEXT TARGET:** bolt embedded chat transcript rendering (the streamed completion not painting in the iframe) + the audit visibility for header-only calls.
