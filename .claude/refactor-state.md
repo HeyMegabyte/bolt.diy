@@ -665,3 +665,9 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ Fixed (`153d7643`):** the server-only substitution-pass change didn't rebuild the container image (wrangler skipped "no changes"), so the pass never ran. A Dockerfile touch forced the rebuild. Deployed `d7904006`.
 - **📋 Journey:** token-substitution build `e2e-site-3-reset-1787137428573` RUNNING on the image that actually contains the substitution pass.
 - **NEXT TARGET:** title + complete-message assert → editor-change leg → journey CLOSE.
+
+## 🔧 iter 211 (double-dot repair — the gate list is down to ONE class, now fixed)
+
+- **✅ Added (`e9f4b591`):** the substitution pass cleared every placeholder; the gate's list shrank to ONE violation — the LLM's `https://<slug>..projectsites.dev` canonical. The pass now mechanically repairs `..projectsites.dev` → `.projectsites.dev`. Dockerfile touched (image rebuild). Deployed `d39baad8`.
+- **📋 Journey:** double-dot-repaired build `e2e-site-3-reset-1787138197669` RUNNING. Expected: clean publish with a valid canonical.
+- **NEXT TARGET:** title + canonical assert on terminal → editor-change leg → journey CLOSE.
