@@ -502,3 +502,10 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **⚠️ Concurrent session continues the leads-scan (5 files in-flight) — untouched.**
 - **Template feedback rule applied:** the P0 lesson is being folded into the journey spec (chaos-18) so future fires reconcile builds. Worker-level lesson: container-plane sweeps must never touch the core builder blocks — documented in wrangler.toml comment.
 - **NEXT TARGET:** journey leg 2 — poll publish, visit live site, reconcile analytics, run editor-chat change through the deploy bridge; then fold any remaining gaps.
+
+## 🔧 iter 187 (journey leg 1 continued — eviction recovery landed)
+
+- **✅ Mid-build eviction now RECOVERS (`80f75480`).** Fresh build died at heartbeat-17 (~8.5min): 'Container DO evicted before build completed'. The workflow abandoned the site as errored — no recovery path. Now: on unknown-job with no terminal KV record, restart the build ONCE (new `restart-build-after-eviction` step re-POSTs /build, heartbeat loop continues on the new jobId); a second eviction still errors honestly. worker tsc clean, workflow suite 7/7, deployed `57e96c64`.
+- **📋 Journey state:** fresh build `e2e-site-3-reset-1787117629539` RUNNING (background poller live; terminal → visit → analytics → editor-change legs next).
+- **Template feedback:** lesson folded to memory `container-build-eviction-recovery` + wrangler.toml comment; container-plane sweeps must never touch core builder blocks.
+- **NEXT TARGET:** journey leg 2 on terminal (visit / analytics / editor change) + fold chaos-18.
