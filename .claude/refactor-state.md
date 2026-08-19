@@ -646,3 +646,10 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **📋 The prior build (1787132593580) completed BEFORE the ordering-fix image went live — the "gate caught it" run was a DIFFERENT instance.** The stale-status trap + cross-instance log confusion cost one cycle. The status endpoint now resolves the right instance, but the workflow-level lesson stands: a deploy mid-build invalidates the run's evidence.
 - **📋 Journey:** POST-ordering-fix build `e2e-site-3-reset-1787133430998` RUNNING with the image that writes contextFiles after the template copy. Title + canonical asserted on terminal.
 - **NEXT TARGET:** title/canonical assert on terminal → editor-change leg → journey CLOSE.
+
+## 🔧 iter 208 (THE retry-create carried an empty business name — the REAL final root cause)
+
+- **✅ FIXED (`010e212d`):** the reset handler has TWO workflow-create calls. The first (which my v1/v2 fix covered) ALWAYS fails on "instance exists"; the RETRY — the one that actually runs — still read `body.business?.name` only. Flat resets therefore flowed an EMPTY businessName into every build. Proof was in the workflow's own audit: "Published  with 341 files" (empty name). Both creates now use resolvedBusiness. 10/10. Deployed `06ed7769`.
+- **📋 Journey:** retry-fixed build `e2e-site-3-reset-1787135653136` RUNNING — the first build where the workflow receives "Cedar Ridge Bakeshop" end-to-end. Poller asserts title + the workflow.complete message (must show the name).
+- **The stack is now: payload (both creates) → D1 → seed (post-copy) → template fallback → gates (placeholder/name/canonical).**
+- **NEXT TARGET:** title + complete-message assert on terminal → editor-change leg → journey CLOSE.
