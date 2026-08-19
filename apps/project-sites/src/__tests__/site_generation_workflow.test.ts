@@ -199,12 +199,9 @@ function runBeats(beats: string[], cannedOver: Record<string, unknown> = {}) {
 
 describe('SiteGenerationWorkflow — heartbeat loop (eviction + boot grace)', () => {
   it('happy path: running polls → terminal complete → published', async () => {
-    const out = (await runBeats([
-      runningWrap(),
-      runningWrap(),
-      runningWrap(),
-      completeWrap(),
-    ])) as { status: string };
+    const out = (await runBeats([runningWrap(), runningWrap(), runningWrap(), completeWrap()])) as {
+      status: string;
+    };
     expect(out.status).toBe('published');
   });
 
