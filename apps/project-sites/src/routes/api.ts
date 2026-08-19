@@ -3584,12 +3584,7 @@ api.get('/api/sites/by-slug/:slug/chat', async (c) => {
   }
 
   if (files.length === 0) {
-    const dbg = emptyBoltChatResponse(slug);
-    dbg.headers.set(
-      'x-chat-debug',
-      `no-files:isVite=${isVite}:manifestFiles=${(manifestData.files ?? []).length}:srcFiles=${(manifestData.source_files ?? []).length}:filePaths=${filePaths.length}:ver=${manifestData.current_version}`,
-    );
-    return dbg;
+    return emptyBoltChatResponse(slug);
   }
 
   // Look up business name from D1
