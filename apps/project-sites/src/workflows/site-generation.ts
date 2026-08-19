@@ -262,6 +262,7 @@ export function buildPrompt(params: SiteGenerationParams): string {
     "The Cloudflare Workers Container is KILLED at ~15 minutes wall-clock, so this build MUST finish under 14. The template in ~/template/ is ALREADY a complete, gorgeous, WCAG-2.2-AA, multi-page site (Stripe/Linear/Vercel polish, animations, dark theme, SEO scaffolding baked in). Your job is MINOR CUSTOMIZATION of that template with this business's real data — NOT a from-scratch rebuild and NOT a multi-subagent audit swarm (there is no time for either). Do the work DIRECTLY.",
     '',
     '## Build steps (do these IN ORDER, directly — no fan-out)',
+    `0. MATERIALIZE _brand.json FIRST (the template's src/brand.ts imports it at BUILD TIME — without it the site ships as "Business" with generic copy). Write /home/cuser/build/_brand.json with at least: {"business":{"name":"${safeName}", "tagline":"","description":"","email":"","phone":"${phone}","address":"${address}","url":"https://${slug}.${DOMAINS.SITES_SUFFIX}"}}. The name MUST be exactly "${safeName}".`,
     '1. Read the essential context: _brand.json, _scraped_content.json, _research.json, _assets.json, _domain_features.json.',
     '2. Customize ~/template/ IN PLACE (`cd` into the build dir):',
     '   - Brand: apply colors / logo / fonts from _brand.json to the theme tokens.',
@@ -547,6 +548,30 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         2,
       );
     }
+
+    // DETERMINISTIC brand seed — the container writes contextFiles as
+    // `_{key}` in the build dir and the template's src/brand.ts imports
+    // ../_brand.json at BUILD TIME. Without this file the site ships as
+    // "Business" with generic copy (journey defect 2026-08-19: two builds
+    // shipped wrong/generic names — "Hearth & Crumb", then "Business").
+    // The name is NOT left to LLM compliance — it is materialized here.
+    const safeName = (params.businessName || 'Business').replace(/[^\w\s\-'.]/g, '').slice(0, 100);
+    contextFiles['brand.json'] = JSON.stringify(
+      {
+        business: {
+          name: safeName,
+          tagline: '',
+          description: params.additionalContext || '',
+          email: '',
+          phone: params.businessPhone || '',
+          address: params.businessAddress || '',
+          url: `https://${params.slug}.${DOMAINS.SITES_SUFFIX}`,
+          businessClass: 'organization',
+        },
+      },
+      null,
+      2,
+    );
 
     // ── Optional: Human-in-the-loop logo approval (Workflows v2 elicitation) ──
     //
