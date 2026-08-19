@@ -57,10 +57,10 @@ function makeEnv(cfg: DbConfig) {
   } as unknown as Env['DB'];
   const SITES_BUCKET = {
     get: async () => null,
-    put: async (key: string) => {
+    put: jest.fn(async (key: string, body?: unknown) => {
       r2Puts.push(key);
       return {} as R2Object;
-    },
+    }),
   } as unknown as Env['SITES_BUCKET'];
   const CACHE_KV = {
     delete: async (key: string) => {
@@ -145,6 +145,27 @@ describe('POST /api/publish/bolt — cross-org overwrite guard', () => {
     });
     expect(res.status).toBe(201);
     expect(r2Puts.some((k) => k.startsWith('sites/brand-new-slug/'))).toBe(true);
+  });
+});
+
+describe('POST /api/publish/bolt — the root manifest must never lie about its files', () => {
+  it('writes the file LIST into the root _manifest.json (no files: [] copy)', async () => {
+    const { env, r2Puts } = makeEnv({});
+    await makeApp(env, { orgId: null, userId: null })('/api/publish/bolt', {
+      files: [{ path: 'index.html', content: '<html><h1>x</h1></html>' }],
+      chat: { messages: [], description: 'X', exportDate: 'now' },
+      slug: null,
+    });
+    const manifestPut = r2Puts.find((k) => k.endsWith('/_manifest.json'));
+    expect(manifestPut).toBeDefined();
+    const putCall = (env.SITES_BUCKET.put as jest.Mock).mock.calls.find(
+      (c) => String(c[0]).endsWith('/_manifest.json'),
+    );
+    expect(putCall).toBeDefined();
+    const manifestJson = JSON.parse(String(putCall[1]));
+    expect(manifestJson.files).toBeInstanceOf(Array);
+    expect(manifestJson.files).toHaveLength(1);
+    expect(manifestJson.files[0]).toEqual({ name: 'index.html', size: '<html><h1>x</h1></html>'.length, type: 'text/html' });
   });
 });
 

@@ -3147,13 +3147,19 @@ api.post('/api/publish/bolt', async (c) => {
     ),
   );
 
-  // Write/update manifest with current version
+  // Write/update manifest with current version. Include the file LIST — the
+  // old shape had NO `files` key, so the chat endpoint found the root
+  // manifest and imported an EMPTY export (files: [] lie) for every
+  // bolt-published site (journey 2026-08-19; the endpoint now falls through
+  // to D1 → version-pinned manifest, but the WRITER should never create a
+  // lying copy in the first place).
   uploads.push(
     c.env.SITES_BUCKET.put(
       `sites/${slug}/_manifest.json`,
       JSON.stringify({
         current_version: version,
         slug,
+        files: files.map((f) => ({ name: f.path, size: f.content.length, type: mimeTypes[f.path.split('.').pop()?.toLowerCase() ?? ''] ?? 'application/octet-stream' })),
         updated_at: new Date().toISOString(),
         source: 'bolt',
       }),
