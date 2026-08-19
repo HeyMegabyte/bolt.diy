@@ -730,3 +730,11 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **✅ Post-build em-dash repair:** the LLM authors `<title>NAME — </title>` during the build (seed tagline is ''), so the pre-build token pass can't catch it. `repairDanglingEmDash` runs in finalize-build after upload, collapses the trailing em-dash in `<title>` + `<h1>`, persists, and gates the corrected copies. RED→GREEN (89/89 validator tests, 10,979 total). Deployed `60519fb2`.
 - **📋 Journey:** validation build `-1787152385968` RUNNING — expect a published title with NO dangling dash.
 - **NEXT TARGET:** title assert on terminal → journey CLOSE (the em-dash was the last visible defect).
+
+## 🔧 iter 219 (the deterministic eviction mystery SOLVED — the heartbeat polled the dead DO)
+
+- **🔍 The ~30-37s eviction pattern was NOT eviction:** the restart posted /build to a FRESH DO, but the heartbeat loop kept polling the ORIGINAL dead container — unknown-job forever, KV misses (the fresh container's record lives under its own jobId), and the recovery abandoned ~30s after every restart. `activeContainer()` now swaps to the fresh DO on restart and the heartbeat follows it.
+- **✅ Restart retries raised 3× exponential backoff** (both legs) so the recovery rides out pool-pressure waves while `buildRestarted` stays a one-shot bound.
+- **✅ Em-dash repair (iter 218) deployed + waiting validation.**
+- **📋 Journey:** heartbeat-fixed validation build `-1787153140206` RUNNING.
+- **NEXT TARGET:** terminal assert — a clean publish proves the restart+heartbeat pair; then the title assert (no dangling dash).
