@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { test, expect, type Page } from '@playwright/test';
 
 /**
@@ -7,24 +8,25 @@ import { test, expect, type Page } from '@playwright/test';
  * were uncovered: admin-functional only asserts the section "loads + renders
  * content". This locks the actual behaviours a reader depends on:
  *   1. Exactly ONE valid state renders (grid XOR empty XOR error) — never a
- *      silent blank, never a redundant ag-grid "No Rows" overlay under the card.
+ *      silent blank.
  *   2. "Export CSV" is always PRESENT in the header; it's ENABLED only when there
  *      are rows to export (`canExport = rows>0`), disabled (never a headers-only
  *      CSV) when empty — and clicking the enabled button never crashes the page.
- *   3. The faux master/detail contract: clicking a row's expand kebab opens the
- *      matching full-width detail panel (aria-expanded flips true); clicking
- *      again collapses it. This is the HARDEST thing the gated ag-grid →
- *      TanStack perf-wave migration must preserve
- *      (apps/project-sites/docs/perf-wave-ag-grid-to-tanstack.md) — having it as
- *      an automated RED→GREEN net means the migration can't silently regress the
- *      compliance viewer instead of relying on manual live-QA.
+ *   3. The master/detail contract: clicking a row's expand kebab opens the
+ *      matching detail panel (aria-expanded flips true); clicking again
+ *      collapses it.
+ *   4. (2026-08-20, perf-wave DONE) the TanStack table behaviours — header sort,
+ *      page-size + pager, the site filter — PLUS the axe assertion that was the
+ *      whole point: the critical `aria-required-children` violation ag-grid's
+ *      `.ag-root[role="grid"]` forced is GONE (scanned WITHOUT the .ag-root
+ *      exclusion the admin-a11y suite still carries for the traces grid).
  *
  * Verified GREEN against prod 2026-06-06. The test org now HAS audit rows (from
  * loop-verify site builds), so the POPULATED-grid branches are the live path; the
  * empty-state branches stay as a defensive net for a freshly-reset org.
  *
  * Regression note (2026-08-16): the grid rendered EMPTY despite 8 loaded events
- * because `onGridReady` applied the org NAME as a `site`-column equals-filter
+ * because the old onGridReady applied the org NAME as a `site`-column equals-filter
  * (matching zero rows). Fixed by starting the grid unfiltered — this master/detail
  * test is the guard (it needs real rendered rows to find the expand kebab).
  */
@@ -107,12 +109,22 @@ test.describe('admin — audit-log grid behavioural contract', () => {
     await expect(page.locator('.admin-sidebar, nav').first()).toBeVisible({ timeout: 30000 });
 
     const grid = page.locator('[data-testid="audit-grid"]');
+    // Wait for one of the three states FIRST — a single instantaneous
+    // `grid.count()` races the lazy section mount + the audit fetch (the grid
+    // @if-gates on rows>0), which took the "empty org" branch while rows were
+    // still loading and dead-ended waiting for an empty-state that never came.
+    await expect
+      .poll(async () => (await grid.count()) + (await page.locator('[data-testid="audit-empty"], [data-testid="audit-error"]').count()), {
+        timeout: 30000,
+        message: 'audit settles into grid OR empty OR error',
+      })
+      .toBeGreaterThan(0);
     // Defensive net: if a freshly-reset org has no rows, characterize the empty
     // contract instead. The live test org HAS rows, so this branch is rarely hit.
     if ((await grid.count()) === 0) {
       await expect(
         page.locator('[data-testid="audit-empty"], [data-testid="audit-error"]').first(),
-      ).toBeVisible({ timeout: 30000 });
+      ).toBeVisible({ timeout: 5000 });
       test.info().annotations.push({
         type: 'note',
         description: 'no audit rows — empty-state contract verified, master/detail skipped',
@@ -146,5 +158,78 @@ test.describe('admin — audit-log grid behavioural contract', () => {
     expect(pageErrors, `expand/collapse produced no page error:\n${pageErrors.join('\n')}`).toEqual(
       [],
     );
+  });
+
+  test('TanStack table: sort, pagination, site filter — and the axe critical is GONE', async ({
+    page,
+  }) => {
+    test.setTimeout(90000);
+    const pageErrors: string[] = [];
+    page.on('pageerror', (e) => pageErrors.push(String(e)));
+    await seed(page);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/admin/audit', { waitUntil: 'load' });
+    await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 45000 });
+
+    const grid = page.locator('[data-testid="audit-grid"]');
+    if ((await grid.count()) === 0) {
+      test.info().annotations.push({
+        type: 'note',
+        description: 'no audit rows — TanStack contract skipped (empty org)',
+      });
+      return;
+    }
+    await expect(grid).toBeVisible({ timeout: 30000 });
+
+    // ── Sort: click the When header → aria-sort flips; page stays alive. ──
+    const whenHeader = page.locator('th', { hasText: 'When' }).first();
+    await expect(whenHeader).toHaveAttribute('aria-sort', /ascending|descending|none/);
+    const before = await whenHeader.getAttribute('aria-sort');
+    await whenHeader.click();
+    await expect(whenHeader).not.toHaveAttribute('aria-sort', before ?? '', { timeout: 5000 });
+
+    // ── Pagination: page-size select + pager reflect the row model. ──
+    const sizeSelect = page.locator('#audit-page-size');
+    await expect(sizeSelect).toBeVisible();
+    const showing = page.locator('[data-testid="audit-page-count"]');
+    await expect(showing).toContainText('of');
+    await sizeSelect.selectOption('25');
+    await expect(sizeSelect).toHaveValue('25');
+    await expect(page.locator('.page-indicator')).toContainText('of');
+
+    // ── Site filter: pick the first real site option → count rescopes; clear → restores. ──
+    const siteSelect = page.locator('#audit-site-filter');
+    await expect(siteSelect).toBeVisible();
+    const options = await siteSelect.locator('option[value]:not([value=""])').allTextContents();
+    if (options.length > 0) {
+      const first = options[0].trim();
+      const beforeCount = await showing.textContent();
+      await siteSelect.selectOption(first);
+      await expect(siteSelect).toHaveValue(first);
+      await expect(showing).not.toHaveText(beforeCount ?? '', { timeout: 5000 });
+      await siteSelect.selectOption('');
+      await expect(siteSelect).toHaveValue('');
+    }
+
+    // ── The whole point of the wave: NO ag-grid → NO aria-required-children. ──
+    // Scanned WITHOUT the .ag-root exclusion the admin-a11y suite carries for the
+    // still-ag-grid traces grid — the audit page has no ag-root to exclude.
+    await page.waitForTimeout(500);
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+      .exclude('iframe')
+      .analyze();
+    const critical = results.violations.filter(
+      (v) => v.id === 'aria-required-children' || v.impact === 'critical',
+    );
+    expect(
+      critical.map((v) => `${v.id} · ${v.nodes.length}×`),
+      'the ag-grid critical axe violation is gone from /admin/audit',
+    ).toEqual([]);
+
+    expect(
+      pageErrors,
+      `TanStack audit table produced no page error:\n${pageErrors.join('\n')}`,
+    ).toEqual([]);
   });
 });

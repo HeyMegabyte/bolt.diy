@@ -1,38 +1,30 @@
 import { Component, computed, effect, inject, signal, type OnInit, type OnDestroy } from '@angular/core';
-import { AgGridAngular } from 'ag-grid-angular';
 import {
-  themeQuartz,
-  colorSchemeDarkBlue,
-  type ColDef,
-  type GridReadyEvent,
-  type GridApi,
-  type IRowNode,
-  type IsFullWidthRowParams,
-  type ICellRendererParams,
-  type RowHeightParams,
-} from 'ag-grid-community';
-import { registerAgGridModules } from './_ag-grid-setup';
+  createAngularTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  type ColumnDef,
+  type ColumnFiltersState,
+  type PaginationState,
+  type SortingState,
+} from '@tanstack/angular-table';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { ErrorCardComponent } from '../../../components/states';
 
-registerAgGridModules();
-
 /**
  * Shape of an audit row as returned by `GET /api/audit-logs`. The `site`
  * field is populated server-side via a LEFT JOIN against `sites` (or a
- * metadata-JSON fallback) so the ag-grid `site` column always has data.
+ * metadata-JSON fallback) so the `site` column always has data.
  *
  * Turn-6 added `message` — a human-readable English summary written at the
  * audit-write boundary (with `actionToFallbackMessage` synthesis when older
  * callers omit it). Always populated server-side; nullable here as a belt-
  * and-suspenders for any in-flight rows mid-migration.
- *
- * The `__detail` / `masterId` flags are LOCAL ONLY and drive the faux
- * master/detail row expansion described in the class JSDoc below — never
- * sent over the wire.
  */
 interface AuditRow {
   id: string;
@@ -45,17 +37,11 @@ interface AuditRow {
   request_id: string | null;
   created_at: string;
   site: string | null;
-  /** Local-only: marks a synthetic full-width detail row spliced into rowData. */
-  __detail?: boolean;
-  /** Local-only: the parent master row's id (only set on detail rows). */
-  masterId?: string;
-  /** Local-only: whether the master row currently has its detail panel open. */
-  __expanded?: boolean;
 }
 
 /**
  * Escape an arbitrary string into an HTML-safe fragment. Used for every
- * dynamic value rendered via the (string-returning) cellRenderer hooks
+ * dynamic value rendered via `[innerHTML]` (the JSON syntax highlighter)
  * below — never trust audit data even from our own backend.
  */
 function escapeHtml(s: string): string {
@@ -122,41 +108,33 @@ function actionToFallbackMessage(action: string): string {
 }
 
 /**
- * Admin audit-log surface. Renders the org's `audit_logs` as an AG Grid
- * view scoped to the currently-selected site (visual chip — the backend
- * call is always org-wide). Auto-polls every 15s, pauses on hidden tab.
+ * Admin audit-log surface. Renders the org's `audit_logs` as a native
+ * TanStack Table view (perf-wave ag-grid→TanStack migration, 2026-08-20 —
+ * removes the critical `aria-required-children` axe violation that was
+ * fundamental to ag-grid's `.ag-root[role="grid"]` structure). The
+ * backend call is always org-wide; a site `<select>` filters client-side.
+ * Auto-polls every 15s, pauses on hidden tab.
  *
- * ## Faux master/detail technique (Community-tier)
+ * ## Master/detail
  *
- * AG Grid's real `masterDetail: true` API is Enterprise-licensed. We mimic
- * it cleanly in Community using two Community features, exactly mirroring
- * the Traces page (ai-logs.component.ts) so both admin grids share one
- * pattern future maintainers can recognise instantly:
- *
- * 1. **Synthetic detail rows** — when the user clicks the expand kebab on
- *    a row we insert a sibling `AuditRow` with `__detail: true` right
- *    after it in `displayRows()`. The grid still treats it as a normal
- *    row internally.
- * 2. **`isFullWidthRow` + `fullWidthCellRenderer`** — these ARE Community.
- *    We tell the grid that any row with `__detail === true` renders
- *    full-width via our HTML detail renderer, with `getRowHeight()`
- *    expanding it to 360px so the expanded panel never clips.
- *
- * Net effect: click the kebab → row visually expands below itself
- * showing actor, target, request_id, and the metadata JSON. Zero
- * Enterprise license required.
+ * Clicking the row kebab flips that row id in `expandedIds`; a real Angular
+ * `<tr class="detail-row">` renders directly below the master row (colspan
+ * across all five columns) showing actor, target, request_id, and the
+ * syntax-highlighted metadata JSON. No synthetic row splicing, no
+ * imperative renderers — the detail panel is ordinary template DOM, so it
+ * participates in Angular change detection and is natively axe-clean.
  *
  * @example
  * ```html
  * <app-admin-audit />
- * <!-- Renders the auto-polling grid + scope chip + per-row detail
+ * <!-- Renders the auto-polling table + scope chip + per-row detail
  *      panel expansion via the kebab on the right of every row. -->
  * ```
  */
 @Component({
   selector: 'app-admin-audit',
   standalone: true,
-  imports: [RollingCounterComponent, AgGridAngular, ErrorCardComponent],
+  imports: [RollingCounterComponent, ErrorCardComponent],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-4">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -175,7 +153,7 @@ function actionToFallbackMessage(action: string): string {
               type="button"
               data-testid="audit-scope-chip"
               class="scope-chip"
-              [title]="'Audit events span every site in the ' + scopeName() + ' org — no per-site filter is applied. × hides this label.'"
+              [title]="'Audit events span every site in the ' + scopeName() + ' org — use the Site filter above the table to narrow. × hides this label.'"
               (click)="clearScope()">
               Org: {{ scopeName() }} <span class="x">×</span>
             </button>
@@ -185,7 +163,7 @@ function actionToFallbackMessage(action: string): string {
       </header>
 
       <div class="grid grid-cols-4 gap-3 text-[0.78rem]">
-        @if (loading() && displayRows().length === 0) {
+        @if (loading() && rows().length === 0) {
           <!-- Labels stay mounted; only the numbers shimmer so the cards don't
                reflow (header text + width) when the first fetch resolves —
                mirrors the site-dna stats skeleton (premature-stat-during-load). -->
@@ -195,7 +173,7 @@ function actionToFallbackMessage(action: string): string {
         } @else if (showStats()) {
           <!-- Hidden when the load errored with no data — definitive "0 events ·
                0 actions · …" over the error card is wrong (unknown, not 0). -->
-          <div class="card"><div class="muted-h">Events</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="displayRows().length" [duration]="1100" /></div></div>
+          <div class="card"><div class="muted-h">Events</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="rows().length" [duration]="1100" /></div></div>
           <div class="card"><div class="muted-h">Unique actions</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="uniqueActions()" [duration]="1100" /></div></div>
           <div class="card"><div class="muted-h">Last 24h</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="last24h()" [duration]="1100" /></div></div>
           <div class="card"><div class="muted-h">Actors</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="uniqueActors()" [duration]="1100" /></div></div>
@@ -204,7 +182,7 @@ function actionToFallbackMessage(action: string): string {
 
       @if (hasHiddenEvents()) {
         <p class="text-[0.7rem] text-amber-300/90 mt-1" role="status" data-testid="audit-cap-note"
-           title="The grid + stats above cover the {{ rows().length }} most recent events. Older ones are still stored.">
+           title="The table + stats above cover the {{ rows().length }} most recent events. Older ones are still stored.">
           Showing the latest {{ rows().length }} of {{ totalCount() }} events — older events are still stored.
         </p>
       }
@@ -215,7 +193,7 @@ function actionToFallbackMessage(action: string): string {
           [message]="err"
           [correlationId]="loadErrorRef()"
           (retry)="load()" />
-      } @else if (!loading() && displayRows().length === 0) {
+      } @else if (!loading() && rows().length === 0) {
         <div class="empty-state card" role="status" data-testid="audit-empty">
           <svg class="empty-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M3 6h18M3 12h18M3 18h12"/>
@@ -226,31 +204,174 @@ function actionToFallbackMessage(action: string): string {
         </div>
       }
 
-      <!-- Grid renders ONLY with rows — when empty (or errored) the card above is
-           the sole empty state, never a redundant ag-grid "No Rows To Show"
-           overlay beneath it. gridPreDestroyed nulls the api so the guarded
-           filter/export handlers stay safe while the grid is unmounted. -->
-      @if (displayRows().length > 0) {
+      <!-- Table renders ONLY with rows — when empty (or errored) the card above is
+           the sole empty state, never a redundant "no rows" area beneath it. -->
+      @if (rows().length > 0) {
       <div class="grid-frame">
-        <ag-grid-angular
-          data-testid="audit-grid"
-          class="ag-grid-host"
-          [theme]="theme"
-          [rowData]="displayRows()"
-          [columnDefs]="columnDefs"
-          [defaultColDef]="defaultColDef"
-          [pagination]="true"
-          [paginationPageSize]="50"
-          [paginationPageSizeSelector]="[25, 50, 100, 250]"
-          [getRowId]="getRowId"
-          [getRowHeight]="getRowHeight"
-          [isFullWidthRow]="isFullWidthRow"
-          [fullWidthCellRenderer]="fullWidthCellRenderer"
-          [animateRows]="true"
-          [enableCellTextSelection]="true"
-          (gridReady)="onGridReady($event)"
-          (gridPreDestroyed)="onGridDestroyed()">
-        </ag-grid-angular>
+        <div class="grid-toolbar">
+          <label class="site-filter" for="audit-site-filter">
+            <span class="muted-h">Site</span>
+            <select id="audit-site-filter" class="site-select" aria-label="Filter audit events by site"
+                    [value]="activeSiteFilter()" (change)="onSiteFilter($event)">
+              <option value="">All sites</option>
+              @for (s of filteredSites(); track s) {
+                <option [value]="s">{{ s }}</option>
+              }
+            </select>
+          </label>
+          <span class="page-count" role="status" data-testid="audit-page-count">
+            Showing {{ pageStart() }}–{{ pageEnd() }} of {{ filteredCount() }}
+          </span>
+        </div>
+
+        <table class="ps-audit-grid" data-testid="audit-grid">
+          <colgroup>
+            <col class="col-action" />
+            <col class="col-message" />
+            <col class="col-when" />
+            <col class="col-site" />
+            <col class="col-expand" />
+          </colgroup>
+          <thead>
+            <tr>
+              @for (header of table.getHeaderGroups()[0].headers; track header.id) {
+                @if (header.column.getCanSort()) {
+                  <th
+                    scope="col"
+                    class="th-sortable"
+                    tabindex="0"
+                    [attr.aria-sort]="ariaSort(header.column.getIsSorted())"
+                    (click)="header.column.toggleSorting()"
+                    (keydown.enter)="header.column.toggleSorting()"
+                    (keydown.space)="header.column.toggleSorting(); $event.preventDefault()">
+                    {{ headerLabel[header.id] }}
+                    <span class="sort-glyph" aria-hidden="true">{{ sortGlyph(header.column.getIsSorted()) }}</span>
+                  </th>
+                } @else {
+                  <th scope="col" class="th-expand">{{ headerLabel[header.id] }}</th>
+                }
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of table.getRowModel().rows; track row.original.id) {
+              <tr class="master-row" [class.is-expanded]="expandedIds().has(row.original.id)">
+                <td class="cell-action">
+                  <span class="cell-action-pill" [title]="row.original.action">{{ row.original.action }}</span>
+                </td>
+                <td class="cell-message-td">
+                  <span
+                    class="cell-message"
+                    [class.is-fallback]="row.original.message == null"
+                    [title]="row.original.message ?? fallbackMsg(row.original.action)">
+                    {{ row.original.message ?? fallbackMsg(row.original.action) }}
+                  </span>
+                </td>
+                <td class="cell-when" [title]="isoOf(row.original.created_at)">{{ relTime(row.original.created_at) }}</td>
+                <td class="cell-site">{{ row.original.site ?? '—' }}</td>
+                <td class="cell-expand">
+                  <button
+                    type="button"
+                    class="kebab-btn"
+                    [class.is-open]="expandedIds().has(row.original.id)"
+                    [attr.aria-expanded]="expandedIds().has(row.original.id)"
+                    [attr.aria-label]="expandedIds().has(row.original.id) ? 'Collapse audit detail' : 'Expand audit detail'"
+                    [attr.data-testid]="'audit-row-expand-' + row.original.id"
+                    (click)="toggleExpand(row.original)">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                      <circle cx="8" cy="3" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="8" cy="13" r="1.2"/>
+                    </svg>
+                  </button>
+                </td>
+              </tr>
+              @if (expandedIds().has(row.original.id)) {
+                <tr class="detail-row" [attr.data-testid]="'audit-detail-' + row.original.id">
+                  <td [attr.colspan]="columnCount">
+                    <div class="detail-card">
+                      <div class="detail-head">
+                        <h4>Event detail</h4>
+                        <button
+                          type="button"
+                          class="det-action"
+                          [attr.data-testid]="'audit-copy-row-' + row.original.id"
+                          (click)="copyRowAsJson(row.original)">
+                          Copy row JSON
+                        </button>
+                      </div>
+                      <div class="detail-grid-3">
+                        <div class="det-block">
+                          <div class="det-label">When</div>
+                          <div class="det-value">{{ whenLocale(row.original) }}</div>
+                          <div class="det-value mono dim-iso">{{ isoOf(row.original.created_at) }}</div>
+                        </div>
+                        <div class="det-block">
+                          <div class="det-label">Actor</div>
+                          <div class="det-value mono" [title]="actorTitleOf(row.original)">{{ actorLabel(row.original) }}</div>
+                        </div>
+                        <div class="det-block">
+                          <div class="det-label">Site</div>
+                          <div class="det-value mono">{{ row.original.site ?? '—' }}</div>
+                        </div>
+                      </div>
+                      <div class="detail-grid-2">
+                        <div class="det-block">
+                          <div class="det-label">Action</div>
+                          <div class="det-value mono">{{ row.original.action ?? '—' }}</div>
+                        </div>
+                        <div class="det-block">
+                          <div class="det-label">Target</div>
+                          <div class="det-value mono" [title]="targetLabel(row.original)">{{ targetLabel(row.original) }}</div>
+                        </div>
+                      </div>
+                      <div class="req-row">
+                        <span class="req-label">Request ID</span>
+                        <code>{{ row.original.request_id || '—' }}</code>
+                        @if (row.original.request_id) {
+                          <button
+                            type="button"
+                            class="det-action"
+                            [attr.data-testid]="'audit-copy-correlation-' + row.original.id"
+                            (click)="copyCorrelationId(row.original.request_id)">
+                            Copy
+                          </button>
+                        }
+                      </div>
+                      <div class="det-block">
+                        <div class="det-label">Metadata</div>
+                        @if (metaOf(row.original); as meta) {
+                          <pre [innerHTML]="highlightJson(meta)"></pre>
+                        } @else {
+                          <div class="det-value dim-italic">No metadata recorded for this event.</div>
+                        }
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              }
+            } @empty {
+              <tr class="filtered-empty-row">
+                <td [attr.colspan]="columnCount">
+                  <div class="filtered-empty" role="status">No events match this site filter.</div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+
+        <div class="grid-footer">
+          <label for="audit-page-size" class="page-size-label">
+            <select id="audit-page-size" class="site-select" aria-label="Rows per page" [value]="pagination().pageSize" (change)="onPageSize($event)">
+              @for (n of pageSizeOptions; track n) {
+                <option [value]="n">{{ n }}</option>
+              }
+            </select>
+          </label>
+          <span class="page-indicator">Page {{ table.getState().pagination.pageIndex + 1 }} of {{ table.getPageCount() }}</span>
+          <div class="pager-btns">
+            <button type="button" class="btn-mini" [disabled]="!table.getCanPreviousPage()" (click)="table.previousPage()" aria-label="Previous page">‹ Prev</button>
+            <button type="button" class="btn-mini" [disabled]="!table.getCanNextPage()" (click)="table.nextPage()" aria-label="Next page">Next ›</button>
+          </div>
+        </div>
       </div>
       }
     </div>
@@ -261,7 +382,8 @@ function actionToFallbackMessage(action: string): string {
     .section-h { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; }
     .btn-ghost { padding: 0.5rem 1rem; border-radius: 8px; background: transparent; color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 0.74rem; }
     .btn-mini { padding: 0.2rem 0.55rem; border-radius: 6px; background: rgba(0,229,255,0.12); border: 1px solid rgba(0,229,255,0.30); color: #00E5FF; font-size: 0.62rem; font-weight: 700; cursor: pointer; letter-spacing: 0.04em; text-transform: uppercase; transition: background 140ms ease; }
-    .btn-mini:hover { background: rgba(0,229,255,0.22); }
+    .btn-mini:hover:not(:disabled) { background: rgba(0,229,255,0.22); }
+    .btn-mini:disabled { opacity: 0.45; cursor: not-allowed; }
     .btn-gradient { padding: 0.5rem 1rem; border-radius: 10px; background: var(--ps-grad-primary); color: #060610; font-size: 0.74rem; font-weight: 700; border: 0; cursor: pointer; box-shadow: 0 6px 18px -8px rgba(0, 212, 255, 0.55); transition: transform 140ms ease, box-shadow 140ms ease; }
     .btn-gradient:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 24px -8px rgba(0, 212, 255, 0.7); }
     .scope-chip { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.85rem; border-radius: 999px; background: rgba(0,229,255,0.10); color: #00E5FF; border: 1px solid rgba(0,229,255,0.35); cursor: pointer; font-size: 0.74rem; font-weight: 600; }
@@ -269,7 +391,6 @@ function actionToFallbackMessage(action: string): string {
     .scope-chip .x { font-size: 0.95rem; line-height: 1; opacity: 0.85; }
     .scope-chip-all { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.75); border-color: rgba(255,255,255,0.10); cursor: default; }
     .muted-h { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; margin-bottom: 0.3rem; }
-    .ag-grid-host { width: 100%; height: calc(100vh - 280px); min-height: 520px; }
     .grid-frame {
       width: 100%;
       border: 1px solid color-mix(in oklch, currentColor 12%, transparent);
@@ -288,8 +409,50 @@ function actionToFallbackMessage(action: string): string {
     .error-icon { color: rgba(255, 92, 122, 0.8); }
     .empty-title { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; font-size: 1rem; color: #fff; margin: 0.2rem 0 0; }
     .empty-body { font-size: 0.78rem; color: rgba(255,255,255,0.6); margin: 0 0 0.5rem; max-width: 360px; }
-    /* ─── Cell renderer: action code pill (JetBrains Mono) ──────────── */
-    :host ::ng-deep .cell-action-pill {
+
+    /* ─── Toolbar (site filter + page count) ─────────────────────────── */
+    .grid-toolbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .site-filter { display: inline-flex; align-items: center; gap: 8px; }
+    .site-filter .muted-h { margin-bottom: 0; }
+    .site-select {
+      background: #0d0d1f; color: #e5e7eb;
+      border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;
+      padding: 6px 10px; font-size: 0.72rem; font-family: inherit; cursor: pointer;
+    }
+    .site-select:focus-visible { outline: 2px solid #00E5FF; outline-offset: 2px; }
+    .page-count { font-size: 0.7rem; color: rgba(255,255,255,0.55); font-variant-numeric: tabular-nums; }
+
+    /* ─── Native table (TanStack headless) ───────────────────────────── */
+    table.ps-audit-grid { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 0.76rem; }
+    .ps-audit-grid col.col-action { width: 220px; }
+    .ps-audit-grid col.col-when { width: 140px; }
+    .ps-audit-grid col.col-site { width: 140px; }
+    .ps-audit-grid col.col-expand { width: 50px; }
+    .ps-audit-grid thead th {
+      position: sticky; top: 0; z-index: 1;
+      background: #0e0e22; text-align: left; padding: 10px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.06em;
+      color: rgba(255,255,255,0.6); font-weight: 700;
+    }
+    .ps-audit-grid th.th-sortable { cursor: pointer; user-select: none; transition: color 140ms ease; }
+    .ps-audit-grid th.th-sortable:hover { color: #00E5FF; }
+    .ps-audit-grid th.th-sortable:focus-visible { outline: 2px solid #00E5FF; outline-offset: -2px; }
+    .ps-audit-grid th.th-expand { width: 50px; }
+    .sort-glyph { color: #00E5FF; }
+    .ps-audit-grid td {
+      padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.04);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle;
+    }
+    .master-row { transition: background 140ms ease; }
+    .master-row:hover { background: rgba(0,229,255,0.06); box-shadow: inset 3px 0 0 rgba(0,229,255,0.35); }
+    .master-row.is-expanded { background: rgba(0,229,255,0.03); }
+
+    /* ─── Cell: action code pill (JetBrains Mono) ────────────────────── */
+    .cell-action-pill {
       display: inline-block; max-width: 100%; vertical-align: middle;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       padding: 2px 9px; border-radius: 999px;
@@ -299,69 +462,72 @@ function actionToFallbackMessage(action: string): string {
       border: 1px solid rgba(0,229,255,0.22);
     }
 
-    /* ─── Cell renderer: log statement (primary content) ────────────── */
-    :host ::ng-deep .cell-message {
+    /* ─── Cell: log statement (primary content) ──────────────────────── */
+    .cell-message {
       font-family: 'Sora', system-ui, sans-serif;
       font-weight: 500; font-size: 0.78rem;
       letter-spacing: -0.005em;
       color: rgba(245,245,247,0.96);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    :host ::ng-deep .cell-message.is-fallback { color: rgba(255,255,255,0.55); font-style: italic; }
+    .cell-message.is-fallback { color: rgba(255,255,255,0.55); font-style: italic; }
+    .cell-when { color: rgba(255,255,255,0.72); font-variant-numeric: tabular-nums; }
+    .cell-site { color: rgba(255,255,255,0.65); }
 
-    /* ─── Cell renderer: expand-kebab (rotates on open) ─────────────── */
-    :host ::ng-deep .kebab-btn {
+    /* ─── Cell: expand-kebab (rotates on open) ───────────────────────── */
+    .kebab-btn {
       width: 26px; height: 26px; border-radius: 6px; border: 1px solid transparent;
       background: transparent; color: rgba(255,255,255,0.55); cursor: pointer;
       display: inline-flex; align-items: center; justify-content: center;
       transition: background 140ms ease, color 140ms ease, border-color 140ms ease, transform 200ms ease;
     }
-    :host ::ng-deep .kebab-btn:hover { background: rgba(0,229,255,0.12); color: #00E5FF; border-color: rgba(0,229,255,0.30); }
-    :host ::ng-deep .kebab-btn.is-open { background: rgba(0,229,255,0.18); color: #00E5FF; border-color: rgba(0,229,255,0.45); transform: rotate(90deg); }
-    @media (prefers-reduced-motion: reduce) { :host ::ng-deep .kebab-btn { transition: none; } }
+    .kebab-btn:hover { background: rgba(0,229,255,0.12); color: #00E5FF; border-color: rgba(0,229,255,0.30); }
+    .kebab-btn.is-open { background: rgba(0,229,255,0.18); color: #00E5FF; border-color: rgba(0,229,255,0.45); transform: rotate(90deg); }
+    .kebab-btn:focus-visible { outline: 2px solid #00E5FF; outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) { .kebab-btn { transition: none; } }
 
-    /* ─── Detail panel: master/detail expansion ─────────────────────── */
-    :host ::ng-deep .detail-card {
+    /* ─── Detail panel: master/detail expansion ──────────────────────── */
+    .detail-row td { padding: 0; border-bottom: 1px solid rgba(0,229,255,0.10); white-space: normal; overflow: visible; }
+    .detail-card {
       padding: 1rem 1.2rem 1.2rem; margin: 0;
       background: linear-gradient(180deg, rgba(0,229,255,0.04), rgba(124,58,237,0.02));
-      border-top: 1px solid rgba(0,229,255,0.20);
-      border-bottom: 1px solid rgba(0,229,255,0.10);
       border-radius: var(--ps-radius-lg, 14px);
       animation: detail-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
     }
     @keyframes detail-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-    @media (prefers-reduced-motion: reduce) { :host ::ng-deep .detail-card { animation: none; } }
-
-    :host ::ng-deep .detail-card .detail-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin-bottom: 0.7rem; }
-    :host ::ng-deep .detail-card .detail-head h4 {
+    @media (prefers-reduced-motion: reduce) { .detail-card { animation: none; } }
+    .detail-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin-bottom: 0.7rem; }
+    .detail-head h4 {
       font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em;
       font-size: 0.92rem; color: #fff; margin: 0;
     }
-    :host ::ng-deep .detail-card .detail-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; margin-bottom: 0.7rem; }
-    :host ::ng-deep .detail-card .detail-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; margin-bottom: 0.7rem; }
-    :host ::ng-deep .detail-card .det-block { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
-    :host ::ng-deep .detail-card .det-label { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.55); font-weight: 700; }
-    :host ::ng-deep .detail-card .det-value {
+    .detail-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; margin-bottom: 0.7rem; }
+    .detail-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; margin-bottom: 0.7rem; }
+    .det-block { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+    .det-label { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.55); font-weight: 700; }
+    .det-value {
       font-size: 0.74rem; color: rgba(245,245,247,0.92);
       word-break: break-word; line-height: 1.45;
     }
-    :host ::ng-deep .detail-card .det-value.mono {
+    .det-value.mono {
       font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 0.7rem;
     }
-    :host ::ng-deep .detail-card .req-row {
+    .det-value.dim-iso { opacity: 0.7; font-size: 0.62rem; }
+    .det-value.dim-italic { opacity: 0.6; font-style: italic; }
+    .req-row {
       display: flex; align-items: center; gap: 0.55rem;
       padding: 0.45rem 0.6rem; border-radius: 8px;
       background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06);
       margin-bottom: 0.7rem;
     }
-    :host ::ng-deep .detail-card .req-row code {
+    .req-row code {
       font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 0.7rem; color: rgba(245,245,247,0.92); flex: 1; min-width: 0;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    :host ::ng-deep .detail-card .req-row .req-label { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.55); font-weight: 700; }
-    :host ::ng-deep .detail-card pre {
+    .req-label { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.55); font-weight: 700; }
+    .detail-card pre {
       background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.06);
       border-radius: 8px; padding: 0.7rem 0.9rem;
       font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -370,29 +536,39 @@ function actionToFallbackMessage(action: string): string {
       max-height: 200px; overflow: auto; margin: 0;
       color: rgba(245,245,247,0.92);
     }
-    :host ::ng-deep .detail-card .tk-key  { color: #fbbf24; }
-    :host ::ng-deep .detail-card .tk-str  { color: #86efac; }
-    :host ::ng-deep .detail-card .tk-num  { color: #67e8f9; }
-    :host ::ng-deep .detail-card .tk-bool { color: #c4b5fd; }
-    :host ::ng-deep .detail-card .tk-null { color: rgba(255,255,255,0.45); }
-    :host ::ng-deep .detail-card .tk-pun  { color: rgba(255,255,255,0.55); }
-    :host ::ng-deep .detail-card .det-action {
+    .tk-key  { color: #fbbf24; }
+    .tk-str  { color: #86efac; }
+    .tk-num  { color: #67e8f9; }
+    .tk-bool { color: #c4b5fd; }
+    .tk-null { color: rgba(255,255,255,0.45); }
+    .tk-pun  { color: rgba(255,255,255,0.55); }
+    .det-action {
       padding: 0.35rem 0.75rem; border-radius: 8px; font-size: 0.64rem; font-weight: 700;
       letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer;
       border: 1px solid rgba(0,229,255,0.30); background: rgba(0,229,255,0.10); color: #00E5FF;
       transition: background 140ms ease, transform 140ms ease;
     }
-    :host ::ng-deep .detail-card .det-action:hover { background: rgba(0,229,255,0.22); transform: translateY(-1px); }
-    @media (prefers-reduced-motion: reduce) { :host ::ng-deep .detail-card .det-action { transition: none; transform: none !important; } }
+    .det-action:hover { background: rgba(0,229,255,0.22); transform: translateY(-1px); }
+    .det-action:focus-visible { outline: 2px solid #00E5FF; outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) { .det-action { transition: none; transform: none !important; } }
 
-    /* ─── AG Grid theme tweaks (dark cyan hover glow) ───────────────── */
-    :host ::ng-deep .ag-row-hover { box-shadow: inset 3px 0 0 rgba(0,229,255,0.35); }
+    /* ─── Footer (pagination) ────────────────────────────────────────── */
+    .grid-footer {
+      display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+      padding: 10px 14px; border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .page-size-label { display: inline-flex; }
+    .page-indicator { font-size: 0.72rem; color: rgba(255,255,255,0.6); font-variant-numeric: tabular-nums; }
+    .pager-btns { display: flex; gap: 6px; }
+    .filtered-empty-row td { padding: 0; white-space: normal; }
+    .filtered-empty { padding: 28px 14px; text-align: center; font-size: 0.76rem; color: rgba(255,255,255,0.55); }
   `],
 })
 export class AdminAuditComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
   private toast = inject(ToastService);
   state = inject(AdminStateService);
+
   /** The four KPI stat-card headers — shared by the loading skeleton and the
    *  loaded cards so the muted-h labels never swap from a generic "Loading"
    *  (which reflowed text + card width on resolve). Keep in sync with the
@@ -406,7 +582,7 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
    *  never reports fewer than what's on screen. */
   readonly totalCount = computed(() => Math.max(this.metaTotal(), this.rows().length));
   /** True when the store holds more events than the loaded page — drives the honest
-   *  "showing latest N of M" note so the operator knows the grid/stats are a capped window. */
+   *  "showing latest N of M" note so the operator knows the table/stats are a capped window. */
   readonly hasHiddenEvents = computed(() => this.totalCount() > this.rows().length);
   loading = signal(false);
   /** Set when /audit-logs fails so we show a distinct error card instead of the
@@ -424,43 +600,16 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
   readonly loadErrorRef = signal('');
 
   /** Set of master-row ids currently expanded with their detail panel open. */
-  private expandedIds = signal<Set<string>>(new Set<string>());
+  readonly expandedIds = signal<Set<string>>(new Set<string>());
 
-  /**
-   * Rows + synthetic detail-row injection. Splices a `__detail: true` row
-   * right after every expanded master so AG Grid renders it via
-   * `fullWidthCellRenderer`. Drives the grid + every KPI tile so the
-   * numbers always reflect what's actually visible.
-   *
-   * Turn-8 removed the heartbeat-noise filter — `workflow.heartbeat` is
-   * no longer written server-side (workflows/site-generation.ts) and the
-   * existing rows were deleted from production D1.
-   */
-  displayRows = computed<AuditRow[]>(() => {
-    const all = this.rows();
-    const expanded = this.expandedIds();
-    const out: AuditRow[] = [];
-    for (const r of all) {
-      out.push({ ...r, __expanded: expanded.has(r.id) });
-      if (expanded.has(r.id)) {
-        out.push({
-          ...r,
-          id: `${r.id}::detail`,
-          __detail: true,
-          masterId: r.id,
-        });
-      }
-    }
-    return out;
-  });
-  /** Export CSV is meaningful only when real audit events exist (synthetic
-   *  master/detail splice rows don't count). Disables the button when empty,
-   *  matching analytics (`!envelope()`) + forms (`exportRows().length === 0`)
-   *  so it never downloads a headers-only CSV / acts as a dead button. */
+  /** Export CSV is meaningful only when real audit events exist. Disables the
+   *  button when empty, matching analytics (`!envelope()`) + forms
+   *  (`exportRows().length === 0`) so it never downloads a headers-only CSV /
+   *  acts as a dead button. */
   readonly canExport = computed(() => this.rows().length > 0);
   /** Stat cards hidden when the load errored with no data — a definitive
    *  "0 events · 0 actions · …" over the error card is wrong (unknown, not 0). */
-  showStats = computed<boolean>(() => !this.loadError() || this.displayRows().length > 0);
+  showStats = computed<boolean>(() => !this.loadError() || this.rows().length > 0);
   /**
    * Default chip slug — `megabytespace` is the canonical org slug surfaced as
    * the initial filter chip. The chip is purely a visual label here; the
@@ -471,194 +620,216 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
   scopeName = signal<string>('megabytespace');
 
   /**
-   * Snapshot of the scope slug at component-mount time. The "Filtered to:"
-   * chip is gated on `scopeSlug() === initialScopeSlug` — the moment the
-   * user clears or changes the filter (which can happen via the chip's ×,
-   * a site-selector switch, or any future programmatic mutation of
-   * `scopeSlug`), the computed `showScopeChip` flips false and Angular's
-   * `@if` removes the chip from the DOM. Signal reactivity is the event —
-   * no manual listener wiring needed.
+   * Snapshot of the scope slug at component-mount time. The "Org:" chip is
+   * gated on `scopeSlug() === initialScopeSlug` — the moment the user clears
+   * or changes the filter, the computed `showScopeChip` flips false and
+   * Angular's `@if` removes the chip from the DOM. Signal reactivity is the
+   * event — no manual listener wiring needed.
    */
   private readonly initialScopeSlug: string | null = this.scopeSlug();
 
-  /**
-   * Drives the `@if` around the scope chip. Computed so it re-evaluates
-   * on EVERY mutation of `scopeSlug()` — chip auto-removes on clear AND
-   * on any divergence from the initial value (different site selected,
-   * etc).
-   */
+  /** Drives the `@if` around the scope chip. Computed so it re-evaluates on
+   *  EVERY mutation of `scopeSlug()` — chip auto-removes on clear AND on any
+   *  divergence from the initial value. */
   readonly showScopeChip = computed(() => {
     const s = this.scopeSlug();
     return s !== null && s === this.initialScopeSlug;
   });
   lastSyncAt = signal<number>(0);
-  private gridApi?: GridApi<AuditRow>;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private visibilityHandler?: () => void;
 
   /** Polling cadence in ms — matched to operator expectations for "live". */
   private static readonly POLL_MS = 15_000;
 
-  theme = themeQuartz.withPart(colorSchemeDarkBlue).withParams({
-    backgroundColor: '#0a0a1a',
-    foregroundColor: '#e5e7eb',
-    headerBackgroundColor: '#0e0e22',
-    headerTextColor: '#f5f5f7',
-    rowHoverColor: 'rgba(0, 229, 255, 0.06)',
-    selectedRowBackgroundColor: 'rgba(0, 229, 255, 0.14)',
-    accentColor: '#00E5FF',
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    rowBorder: { color: 'rgba(255, 255, 255, 0.04)' },
-    headerColumnBorder: false,
-    spacing: 6,
-    fontSize: 12,
-  });
+  // ── TanStack headless table (sort + filter + pagination) ──────────────
 
-  defaultColDef: ColDef = {
-    sortable: true, filter: true, resizable: true, minWidth: 80,
+  /** Human header labels keyed by column id (template reads these). */
+  readonly headerLabel: Record<string, string> = {
+    action: 'Action',
+    message: 'Log statement',
+    created_at: 'When',
+    site: 'Site',
+    expand: '',
   };
+  /** Column count for the detail row's colspan + the filtered-empty row. */
+  readonly columnCount = 5;
+  /** Page-size options — mirrors the old ag-grid selector. */
+  readonly pageSizeOptions = [25, 50, 100, 250] as const;
+  /** Sortable column ids — the col-state restore validates against this set. */
+  private static readonly SORT_IDS = ['action', 'message', 'created_at', 'site'] as const;
+  /** localStorage key for the persisted table state (sort) — key reused from
+   *  the ag-grid era; the old column-state shape fails validation and is
+   *  silently ignored. */
+  private static readonly COL_STATE_KEY = 'ps_audit_grid_v2';
 
-  /**
-   * Column set (Turn 6 rewrite):
-   *
-   * | Column        | Field         | Notes                                            |
-   * |---------------|---------------|--------------------------------------------------|
-   * | Action        | `action`      | JetBrains Mono pill, 200px, text-filterable      |
-   * | Log statement | `message`     | Primary content, flex:1, fallback synthesised    |
-   * | When          | `created_at`  | Relative time + ISO tooltip, default sort desc   |
-   * | Site          | `site`        | Slug or org.name, 140px                          |
-   * | Expand        | (synthetic)   | 50px kebab, rotates on open, opens detail panel  |
-   *
-   * Dropped columns (now surfaced in the detail panel instead):
-   * actor, target, target_type, request_id, metadata.
-   */
-  columnDefs: ColDef<AuditRow>[] = [
+  /** Restore a valid sorting state from localStorage; `[]` when absent/corrupt. */
+  private static restoreSort(): SortingState {
+    try {
+      const raw = localStorage.getItem(AdminAuditComponent.COL_STATE_KEY);
+      if (!raw) return [];
+      const parsed: unknown = JSON.parse(raw);
+      const arr = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray((parsed as { sorting?: unknown })?.sorting)
+          ? ((parsed as { sorting: unknown[] }).sorting as unknown[])
+          : null;
+      if (!arr) return [];
+      const out: SortingState = [];
+      for (const item of arr) {
+        const s = item as { id?: unknown; desc?: unknown };
+        if (
+          typeof s?.id === 'string' &&
+          (AdminAuditComponent.SORT_IDS as readonly string[]).includes(s.id) &&
+          typeof s.desc === 'boolean'
+        ) {
+          out.push({ id: s.id, desc: s.desc });
+        }
+      }
+      return out;
+    } catch {
+      return [];
+    }
+  }
+
+  /** Initial sort: restored state when valid, else the canonical `When` desc. */
+  private static defaultSort(): SortingState {
+    const restored = AdminAuditComponent.restoreSort();
+    return restored.length > 0 ? restored : [{ id: 'created_at', desc: true }];
+  }
+
+  readonly sorting = signal<SortingState>(AdminAuditComponent.defaultSort());
+  /** Client-side column filters — only `site` is ever set (the toolbar select). */
+  readonly columnFilters = signal<ColumnFiltersState>([]);
+  /** Pagination state — pageSize 50 default (old ag-grid parity). */
+  readonly pagination = signal<PaginationState>({ pageIndex: 0, pageSize: 50 });
+
+  private readonly columns: ColumnDef<AuditRow>[] = [
+    { id: 'action', accessorKey: 'action' },
+    { id: 'message', accessorKey: 'message' },
     {
-      headerName: 'Action',
-      field: 'action',
-      width: 220,
-      minWidth: 170,
-      filter: 'agTextColumnFilter',
-      // Long action codes (e.g. `billing.subscription_updated`) overflowed the
-      // fixed-width pill/column — the pill now ellipsis-truncates within the cell
-      // and the full code shows on hover via the title tooltip.
-      tooltipValueGetter: (p) => String(p.value ?? ''),
-      cellRenderer: (p: ICellRendererParams<AuditRow>): string => {
-        const v = String(p.value ?? '');
-        return `<span class="cell-action-pill" title="${escapeHtml(v)}">${escapeHtml(v)}</span>`;
-      },
+      id: 'created_at',
+      accessorKey: 'created_at',
+      // ISO-8601 strings sort lexicographically = chronologically, but older
+      // rows may carry other formats — Date.parse comparator keeps parity
+      // with the old ag-grid date comparator.
+      sortingFn: (rowA, rowB) =>
+        Date.parse(String(rowA.original.created_at ?? 0)) - Date.parse(String(rowB.original.created_at ?? 0)),
     },
     {
-      headerName: 'Log statement',
-      field: 'message',
-      flex: 1,
-      minWidth: 280,
-      filter: 'agTextColumnFilter',
-      // Falls back to the synthesised English summary when an in-flight row
-      // still lacks a `message` (older writers, replay backfill, etc).
-      valueGetter: (p) => {
-        const data = p.data;
-        if (!data) return '';
-        return data.message ?? actionToFallbackMessage(data.action);
-      },
-      cellRenderer: (p: ICellRendererParams<AuditRow>): string => {
-        const data = p.data;
-        if (!data) return '';
-        const isFallback = data.message == null;
-        const text = data.message ?? actionToFallbackMessage(data.action);
-        const klass = `cell-message${isFallback ? ' is-fallback' : ''}`;
-        return `<span class="${klass}" title="${escapeHtml(text)}">${escapeHtml(text)}</span>`;
-      },
-      tooltipValueGetter: (p) => {
-        const data = p.data;
-        if (!data) return '';
-        return data.message ?? actionToFallbackMessage(data.action);
-      },
+      id: 'site',
+      accessorKey: 'site',
+      // Exact-match filter (the toolbar select picks ONE slug) — the old
+      // ag-grid model used type:'equals' here too. Null sites match '—'.
+      filterFn: (row, _columnId, filterValue) => (row.original.site ?? '—') === filterValue,
     },
-    {
-      headerName: 'When',
-      field: 'created_at',
-      width: 140,
-      minWidth: 110,
-      filter: 'agDateColumnFilter',
-      sort: 'desc',
-      valueFormatter: (p) => relativeTime(p.value as string | null | undefined),
-      tooltipValueGetter: (p) => {
-        const v = p.value as string | null | undefined;
-        if (!v) return '';
-        return new Date(v).toISOString();
-      },
-      comparator: (a, b) => Date.parse(String(a ?? 0)) - Date.parse(String(b ?? 0)),
-    },
-    {
-      headerName: 'Site',
-      field: 'site',
-      width: 140,
-      minWidth: 110,
-      filter: 'agTextColumnFilter',
-      valueFormatter: (p) => (p.value as string | null) ?? '—',
-    },
-    {
-      headerName: '',
-      colId: 'expand',
-      width: 50,
-      minWidth: 50,
-      maxWidth: 50,
-      sortable: false,
-      filter: false,
-      resizable: false,
-      cellRenderer: (p: ICellRendererParams<AuditRow>): HTMLElement => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        const id = p.data?.id ?? '';
-        btn.className = 'kebab-btn' + (p.data?.__expanded ? ' is-open' : '');
-        btn.setAttribute('aria-label', p.data?.__expanded ? 'Collapse audit detail' : 'Expand audit detail');
-        btn.setAttribute('aria-expanded', String(!!p.data?.__expanded));
-        btn.setAttribute('data-testid', `audit-row-expand-${id}`);
-        btn.innerHTML = `
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-            <circle cx="8" cy="3" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="8" cy="13" r="1.2"/>
-          </svg>
-        `;
-        btn.addEventListener('click', (ev) => {
-          ev.stopPropagation();
-          if (p.data) this.toggleExpand(p.data);
-        });
-        return btn;
-      },
-    },
+    { id: 'expand', enableSorting: false },
   ];
 
+  readonly table = createAngularTable<AuditRow>(() => ({
+    data: this.rows(),
+    columns: this.columns,
+    state: {
+      sorting: this.sorting(),
+      columnFilters: this.columnFilters(),
+      pagination: this.pagination(),
+    },
+    onSortingChange: (updater) => {
+      const next = typeof updater === 'function' ? updater(this.sorting()) : updater;
+      this.sorting.set(next);
+      this.persistColState();
+    },
+    onColumnFiltersChange: (updater) =>
+      this.columnFilters.set(typeof updater === 'function' ? updater(this.columnFilters()) : updater),
+    onPaginationChange: (updater) =>
+      this.pagination.set(typeof updater === 'function' ? updater(this.pagination()) : updater),
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+  }));
+
+  /** Distinct non-null site slugs in the loaded page — the filter options. */
+  readonly filteredSites = computed<string[]>(() =>
+    [...new Set(this.rows().map((r) => r.site).filter((s): s is string => !!s))].sort(),
+  );
+  /** The currently-selected site slug ('' = all sites). */
+  readonly activeSiteFilter = computed<string>(() => {
+    const f = this.columnFilters().find((c) => c.id === 'site');
+    return typeof f?.value === 'string' ? f.value : '';
+  });
+  /** Rows surviving the client-side filters (independent of pagination). */
+  readonly filteredCount = computed(() => this.table.getFilteredRowModel().rows.length);
+
   constructor() {
-    // Audit log is intentionally org-wide — the chip is a visual label only,
-    // and the API call always loads every row in the org regardless of the
-    // currently-selected project. This mirrors how operators triage privileged
-    // actions (they want everything, not a single-site slice).
-    //
-    // Track the expanded-ids signal so freshly-opened detail rows redraw via
-    // ag-grid's full-width renderer without a second user click. Cheap: the
-    // grid only re-runs renderers for currently-mounted detail rows.
+    // Clamp a stale pageIndex after a poll/filter shrinks the row set —
+    // TanStack leaves an empty page where ag-grid silently re-rewound.
+    // Reads the filtered row model so data + filter changes re-check; the
+    // guard converges (setPageIndex only fires while out of range).
     effect(() => {
-      this.expandedIds();
-      if (this.gridApi) {
-        this.gridApi.refreshCells({ force: true });
-        const detailNodes: IRowNode<AuditRow>[] = [];
-        this.gridApi.forEachNode((n) => { if (n.data?.__detail) detailNodes.push(n); });
-        if (detailNodes.length) this.gridApi.redrawRows({ rowNodes: detailNodes });
+      if (this.table.getFilteredRowModel().rows.length === 0) return;
+      const pageCount = this.table.getPageCount();
+      const pageIndex = this.table.getState().pagination.pageIndex;
+      if (pageIndex >= pageCount) {
+        this.table.setPageIndex(pageCount - 1);
       }
     });
   }
 
-  uniqueActions(): number { return new Set(this.displayRows().filter((r) => !r.__detail).map((r) => r.action)).size; }
-  uniqueActors(): number { return new Set(this.displayRows().filter((r) => !r.__detail).map((r) => r.actor_id).filter(Boolean)).size; }
-  last24h(): number {
-    const cutoff = Date.now() - 24 * 3600 * 1000;
-    return this.displayRows().filter((r) => !r.__detail && Date.parse(r.created_at) >= cutoff).length;
+  /** Persist the sort state under `ps_audit_grid_v2` (`{sorting:[…]}` shape). */
+  private persistColState(): void {
+    try {
+      localStorage.setItem(
+        AdminAuditComponent.COL_STATE_KEY,
+        JSON.stringify({ sorting: this.sorting() }),
+      );
+    } catch {
+      /* ignore — private mode / quota errors must never break the table */
+    }
   }
 
-  /**
-   * Human-readable "last sync 2s ago" label. Recomputes on every Angular
-   * change-detection tick (cheap — just two Date.now() ops).
+  /** Map TanStack's `false | 'asc' | 'desc'` to an aria-sort token. */
+  ariaSort(dir: false | 'asc' | 'desc'): 'ascending' | 'descending' | 'none' {
+    return dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : 'none';
+  }
+  /** Sort indicator glyph for the header. */
+  sortGlyph(dir: false | 'asc' | 'desc'): string {
+    return dir === 'asc' ? '↑' : dir === 'desc' ? '↓' : '↕';
+  }
+
+  /** Toolbar site-select handler — set/clear the `site` column filter and rewind to page 1. */
+  onSiteFilter(ev: Event): void {
+    const v = (ev.target as HTMLSelectElement).value;
+    this.columnFilters.set(v ? [{ id: 'site', value: v }] : []);
+    this.pagination.update((p) => ({ ...p, pageIndex: 0 }));
+  }
+
+  /** Page-size selector handler — resets to page 1 on size change. */
+  onPageSize(ev: Event): void {
+    const n = Number((ev.target as HTMLSelectElement).value);
+    if (!(this.pageSizeOptions as readonly number[]).includes(n)) return;
+    this.pagination.set({ pageIndex: 0, pageSize: n });
+  }
+
+  /** 1-based first visible row number (0 when the filter empties the set). */
+  pageStart(): number {
+    if (this.filteredCount() === 0) return 0;
+    return this.pagination().pageIndex * this.pagination().pageSize + 1;
+  }
+  /** 1-based last visible row number, clamped to the filtered total. */
+  pageEnd(): number {
+    return Math.min((this.pagination().pageIndex + 1) * this.pagination().pageSize, this.filteredCount());
+  }
+
+  uniqueActions(): number { return new Set(this.rows().map((r) => r.action)).size; }
+  uniqueActors(): number { return new Set(this.rows().map((r) => r.actor_id).filter(Boolean)).size; }
+  last24h(): number {
+    const cutoff = Date.now() - 24 * 3600 * 1000;
+    return this.rows().filter((r) => Date.parse(r.created_at) >= cutoff).length;
+  }
+
+  /** Human-readable "last sync 2s ago" label. Recomputes on every Angular
+   *  change-detection tick (cheap — just two Date.now() ops).
    *
    * @example "2s ago" → after a fresh poll | "—" before first sync
    */
@@ -700,7 +871,7 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
   /**
    * Fetch audit rows across ALL sites in the org. The chip in the toolbar is
    * a visual label only — the backend call never pre-filters by site. The
-   * backend caps at 500 rows; the grid client-side filters from there.
+   * backend caps at 500 rows; the table client-side filters from there.
    */
   load(): void {
     this.loading.set(true);
@@ -739,208 +910,106 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Apply ag-grid `site` filter to scope visible rows to a single slug.
-   * `null` clears the filter — used by the chip's × button as the operator
-   * escape hatch to view every row in the org.
-   */
-  private applyScopeFilter(slug: string | null): void {
-    if (!this.gridApi) return;
-    if (slug) {
-      this.gridApi.setFilterModel({
-        site: { filterType: 'text', type: 'equals', filter: slug },
-      });
-    } else {
-      this.gridApi.setFilterModel(null);
-    }
-  }
-
-  /**
    * Clear the chip label. The API call is already org-wide, so this only
-   * affects the visual chip + the ag-grid `site` filter (lets every row show
-   * even if one matched the default chip's text).
+   * affects the visual chip (the table's site filter is an independent,
+   * explicit control in the toolbar).
    */
   clearScope(): void {
     this.scopeSlug.set(null);
     this.scopeName.set('');
-    this.applyScopeFilter(null);
   }
 
-  /** The grid is @if-gated on rows>0, so it unmounts when empty. Null the api on
-   *  teardown — exportCsv (?.) + the filter/refresh handlers all guard on it, so
-   *  none call a destroyed grid while it's unmounted. */
-  onGridDestroyed(): void {
-    this.gridApi = undefined;
-  }
-
-  onGridReady(ev: GridReadyEvent<AuditRow>): void {
-    this.gridApi = ev.api;
-    // Audit is intentionally ORG-WIDE (the "Org: <name>" chip is a label only,
-    // per this component's design). `scopeSlug` holds the ORG name (e.g.
-    // 'megabytespace') — NOT a site slug — so applying it as a `site`-column
-    // filter matched ZERO rows (every audit row's `site` is a site slug, never
-    // the org name), leaving the grid empty despite loaded events (stat cards
-    // showed N, grid showed "0 to 0 of 0"). Start unfiltered → show every org row.
-    this.applyScopeFilter(null);
-    // Restore + persist column state across sessions (visibility, order, width, sort).
-    try {
-      const raw = localStorage.getItem('ps_audit_grid_v2');
-      if (raw) ev.api.applyColumnState({ state: JSON.parse(raw), applyOrder: true });
-    } catch { /* ignore */ }
-    ev.api.addEventListener('columnMoved', () => this.saveColState());
-    ev.api.addEventListener('columnResized', () => this.saveColState());
-    ev.api.addEventListener('columnVisible', () => this.saveColState());
-    ev.api.addEventListener('sortChanged', () => this.saveColState());
-  }
-  private saveColState(): void {
-    try { localStorage.setItem('ps_audit_grid_v2', JSON.stringify(this.gridApi?.getColumnState() ?? [])); } catch { /* */ }
-  }
-
-  /**
-   * Stable row id callback — keeps AG Grid's incremental reconciliation in
-   * sync across the 15s polls so expanded detail rows don't flicker.
-   * Detail rows already carry a `::detail` suffix from `displayRows()`.
-   */
-  getRowId = (params: { data: AuditRow }): string => params.data.id;
-
-  /**
-   * Dynamic row height: detail rows expand to 360px so the full detail
-   * panel renders without internal scroll. Master rows stay at 40px.
-   */
-  getRowHeight = (params: RowHeightParams<AuditRow>): number | undefined | null => {
-    if (params.data?.__detail) return 360;
-    return 40;
-  };
-
-  /** Tell AG Grid which rows render via `fullWidthCellRenderer`. */
-  isFullWidthRow = (params: IsFullWidthRowParams<AuditRow>): boolean => {
-    return !!params.rowNode.data?.__detail;
-  };
-
-  /**
-   * Full-width detail panel renderer — produces the expanded card holding
-   * actor + target + when + site + request_id + metadata. Mirrors the
-   * Traces page renderer; both pages share `.detail-card` styling.
-   *
-   * Uses `innerHTML` for the static layout and imperative DOM construction
-   * for the action buttons so we keep proper closure references to
-   * `this.copyRowAsJson` / `this.copyCorrelationId` without leaking globals.
-   */
-  fullWidthCellRenderer = (params: ICellRendererParams<AuditRow>): HTMLElement => {
-    const data = params.data!;
-    const parentId = data.masterId ?? '';
-    const root = document.createElement('div');
-    root.className = 'detail-card';
-    root.setAttribute('data-testid', `audit-detail-${parentId}`);
-
-    const whenIso = data.created_at;
-    const whenLocale = whenIso ? new Date(whenIso).toLocaleString() : '—';
-    const actor = data.actor_id ? `${data.actor_id.slice(0, 8)}…` : 'system';
-    const actorTitle = data.actor_id ?? 'system';
-    const site = data.site ?? '—';
-    const action = data.action ?? '—';
-    const targetType = data.target_type ?? '—';
-    const targetId = data.target_id ?? '—';
-    const target = (data.target_type || data.target_id) ? `${targetType}:${targetId}` : '—';
-    const requestId = data.request_id ?? '';
-    const metadataPretty = data.metadata ? JSON.stringify(data.metadata, null, 2) : '';
-
-    root.innerHTML = `
-      <div class="detail-head">
-        <h4>Event detail</h4>
-        <div class="detail-head-actions"></div>
-      </div>
-      <div class="detail-grid-3">
-        <div class="det-block">
-          <div class="det-label">When</div>
-          <div class="det-value">${escapeHtml(whenLocale)}</div>
-          <div class="det-value mono" style="opacity:0.7;font-size:0.62rem;">${escapeHtml(whenIso ?? '')}</div>
-        </div>
-        <div class="det-block">
-          <div class="det-label">Actor</div>
-          <div class="det-value mono" title="${escapeHtml(actorTitle)}">${escapeHtml(actor)}</div>
-        </div>
-        <div class="det-block">
-          <div class="det-label">Site</div>
-          <div class="det-value mono">${escapeHtml(site)}</div>
-        </div>
-      </div>
-      <div class="detail-grid-2">
-        <div class="det-block">
-          <div class="det-label">Action</div>
-          <div class="det-value mono">${escapeHtml(action)}</div>
-        </div>
-        <div class="det-block">
-          <div class="det-label">Target</div>
-          <div class="det-value mono" title="${escapeHtml(target)}">${escapeHtml(target)}</div>
-        </div>
-      </div>
-      <div class="req-row">
-        <span class="req-label">Request ID</span>
-        <code>${escapeHtml(requestId || '—')}</code>
-        <div class="req-row-actions"></div>
-      </div>
-      <div class="det-block">
-        <div class="det-label">Metadata</div>
-        ${
-          metadataPretty
-            ? `<pre>${highlightJson(metadataPretty)}</pre>`
-            : `<div class="det-value" style="opacity:0.6;font-style:italic;">No metadata recorded for this event.</div>`
-        }
-      </div>
-    `;
-
-    // ─ Copy row as JSON (top-right of the panel — incident hand-off) ─
-    const headActions = root.querySelector('.detail-head-actions') as HTMLDivElement;
-    const copyRowBtn = document.createElement('button');
-    copyRowBtn.type = 'button';
-    copyRowBtn.className = 'det-action';
-    copyRowBtn.textContent = 'Copy row JSON';
-    copyRowBtn.setAttribute('data-testid', `audit-copy-row-${parentId}`);
-    copyRowBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.copyRowAsJson(data); });
-    headActions.appendChild(copyRowBtn);
-
-    // ─ Copy request_id (inline next to the value — for grep/Sentry) ─
-    if (requestId) {
-      const reqActions = root.querySelector('.req-row-actions') as HTMLDivElement;
-      const copyReqBtn = document.createElement('button');
-      copyReqBtn.type = 'button';
-      copyReqBtn.className = 'det-action';
-      copyReqBtn.textContent = 'Copy';
-      copyReqBtn.setAttribute('data-testid', `audit-copy-correlation-${parentId}`);
-      copyReqBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.copyCorrelationId(requestId); });
-      reqActions.appendChild(copyReqBtn);
-    }
-
-    return root;
-  };
-
-  /**
-   * Toggle the expanded state for an audit row. Splicing a synthetic
-   * `__detail` row in/out of `displayRows()` happens automatically via
-   * the computed signal — we only flip `expandedIds` here.
-   */
+  /** Toggle the expanded state for an audit row — the detail `<tr>` renders
+   *  directly below the master via `expandedIds` + `@if`. */
   toggleExpand(row: AuditRow): void {
-    // Don't try to toggle a detail row itself (defensive — the kebab only
-    // renders on master rows because detail rows hit the full-width path).
-    if (row.__detail) return;
     const next = new Set(this.expandedIds());
     if (next.has(row.id)) next.delete(row.id);
     else next.add(row.id);
     this.expandedIds.set(next);
   }
 
-  exportCsv(): void {
-    if (!this.canExport()) return; // nothing to export — never emit a headers-only CSV
-    this.gridApi?.exportDataAsCsv({
-      fileName: `audit-log-${new Date().toISOString().slice(0, 10)}.csv`,
-      // Guard CSV formula injection (CWE-1236): audit rows carry user/system
-      // strings (actor email, action, target, before/after JSON) that may begin
-      // with = + - @ — those execute as formulas when the file is opened in
-      // Excel/Sheets. Prefix a literal apostrophe so they're treated as text.
-      // (ag-grid handles its own RFC-4180 quoting, so only the formula guard
-      // is needed here — mirrors analytics.csvCell's layer 1.)
-      processCellCallback: (p) => this.csvFormulaGuard(p.value),
-    });
+  // ── Template display helpers (module fns are not template-visible) ────
+
+  relTime(iso: string | null | undefined): string {
+    return relativeTime(iso);
+  }
+
+  isoOf(v: string | null | undefined): string {
+    if (!v) return '';
+    const t = Date.parse(v);
+    return Number.isFinite(t) ? new Date(t).toISOString() : '';
+  }
+
+  fallbackMsg(action: string): string {
+    return actionToFallbackMessage(action);
+  }
+
+  metaOf(r: AuditRow): string | null {
+    return r.metadata ? JSON.stringify(r.metadata, null, 2) : null;
+  }
+
+  highlightJson(src: string): string {
+    return highlightJson(src);
+  }
+
+  whenLocale(r: AuditRow): string {
+    if (!r.created_at) return '—';
+    const t = Date.parse(r.created_at);
+    return Number.isFinite(t) ? new Date(t).toLocaleString() : '—';
+  }
+
+  actorLabel(r: AuditRow): string {
+    return r.actor_id ? `${r.actor_id.slice(0, 8)}…` : 'system';
+  }
+
+  actorTitleOf(r: AuditRow): string {
+    return r.actor_id ?? 'system';
+  }
+
+  targetLabel(r: AuditRow): string {
+    return r.target_type || r.target_id ? `${r.target_type ?? ''}:${r.target_id ?? ''}` : '—';
+  }
+
+  // ── CSV export (RFC-4180 + formula-injection guard, CWE-1236) ─────────
+
+  private static readonly CSV_HEADERS = [
+    'action', 'message', 'created_at', 'site', 'actor_id', 'target', 'request_id', 'metadata',
+  ] as const;
+
+  /**
+   * Build the full CSV body from the FILTERED row model (all rows surviving
+   * the site filter, not just the current page — ag-grid export parity).
+   * Pure string builder so the formula guard + quoting are unit-testable
+   * without touching the DOM.
+   */
+  buildCsv(): string {
+    const rows = this.table.getFilteredRowModel().rows.map((r) => r.original);
+    const lines: string[] = [AdminAuditComponent.CSV_HEADERS.join(',')];
+    for (const r of rows) {
+      lines.push(AdminAuditComponent.CSV_HEADERS.map((h) => this.csvCell(this.cellFor(r, h))).join(','));
+    }
+    return lines.join('\r\n');
+  }
+
+  /** The raw value for one CSV column of a row. */
+  private cellFor(r: AuditRow, header: (typeof AdminAuditComponent.CSV_HEADERS)[number]): string {
+    switch (header) {
+      case 'action': return r.action ?? '';
+      case 'message': return r.message ?? actionToFallbackMessage(r.action);
+      case 'created_at': return r.created_at ?? '';
+      case 'site': return r.site ?? '';
+      case 'actor_id': return r.actor_id ?? '';
+      case 'target': return r.target_type || r.target_id ? `${r.target_type ?? ''}:${r.target_id ?? ''}` : '';
+      case 'request_id': return r.request_id ?? '';
+      case 'metadata': return r.metadata ? JSON.stringify(r.metadata) : '';
+      default: return '';
+    }
+  }
+
+  /** RFC-4180 quoting composed with the formula-injection guard. */
+  csvCell(raw: string): string {
+    const guarded = this.csvFormulaGuard(raw);
+    return /[",\r\n]/.test(guarded) ? `"${guarded.replace(/"/g, '""')}"` : guarded;
   }
 
   /** Apostrophe-prefix a cell whose value begins with a spreadsheet formula
@@ -948,6 +1017,19 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
   csvFormulaGuard(value: unknown): string {
     const s = value == null ? '' : String(value);
     return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+  }
+
+  exportCsv(): void {
+    if (!this.canExport()) return; // nothing to export — never emit a headers-only CSV
+    const blob = new Blob([this.buildCsv()], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   /**
@@ -965,17 +1047,13 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Copy the entire audit row (sans synthetic flags) as a pretty-printed
-   * JSON payload — the "give-me-the-row" button at the top-right of the
-   * detail panel for incident hand-off.
+   * Copy the entire audit row as a pretty-printed JSON payload — the
+   * "give-me-the-row" button at the top-right of the detail panel for
+   * incident hand-off.
    */
   async copyRowAsJson(row: AuditRow): Promise<void> {
     try {
-      // Strip local-only flags before serialising — they're not part of the
-      // wire shape and operators pasting into Sentry don't want them.
-      const { __detail: _detail, masterId: _master, __expanded: _expanded, ...wire } = row;
-      void _detail; void _master; void _expanded;
-      await navigator.clipboard.writeText(JSON.stringify(wire, null, 2));
+      await navigator.clipboard.writeText(JSON.stringify(row, null, 2));
       this.toast.success('Row JSON copied');
     } catch {
       this.toast.error('Could not copy — please select the JSON manually');

@@ -8,12 +8,14 @@ import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
 
 /**
- * Convergence r52 — cohesion + a11y contract lock for the Audit section.
+ * Convergence r52 + perf-wave (ag-grid→TanStack) — cohesion + a11y contract
+ * lock for the Audit section.
  *
  * 1. Logic contract — the KPI computeds (uniqueActions / uniqueActors /
- *    last24h), the synthetic master/detail row splicing in displayRows(),
- *    the scope-chip showScopeChip() reactivity, and the load() success/error
- *    paths.
+ *    last24h), the `expandedIds`-driven master/detail model, the
+ *    scope-chip showScopeChip() reactivity, the TanStack table state
+ *    (sort/filter/pagination + localStorage persistence), and the load()
+ *    success/error paths.
  * 2. Cohesion/a11y source contract — best-effort assertions against the
  *    component's `@Component` decorator metadata (template + styles): every
  *    numeric KPI binds through <app-rolling-counter>, the empty state
@@ -24,9 +26,9 @@ import { AdminStateService } from '../admin-state.service';
  *    false failure in an AOT/JIT-stripped runner — the same contract is also
  *    enforced by the AOT prod build + the prod a11y E2E suite.
  *
- * The grid-heavy template is stripped via overrideComponent for the logic
- * suite (mirrors ai-logs.component.spec.ts) so no ag-grid module registration
- * is required to exercise the signals.
+ * The table template is stripped via overrideComponent for the logic suite
+ * (mirrors ai-logs.component.spec.ts) so no DOM mounting is required to
+ * exercise the signals.
  */
 
 const ROW = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
@@ -59,8 +61,8 @@ function make(get: jasmine.Spy): AdminAuditComponent {
       },
     ],
   });
-  // Strip the ag-grid template so the signals can be exercised without
-  // registering grid modules / mounting the full-width renderer.
+  // Strip the TanStack table template so the signals can be exercised without
+  // mounting the table DOM (the headless table model still runs in-class).
   TestBed.overrideComponent(AdminAuditComponent, { set: { template: '<div></div>', imports: [] } });
   return TestBed.createComponent(AdminAuditComponent).componentInstance;
 }
@@ -76,11 +78,22 @@ describe('AdminAuditComponent (load + KPI logic)', () => {
     expect(c.lastSyncAt()).toBeGreaterThan(0);
   });
 
-  it('onGridDestroyed nulls the grid api — unmount-safety (the grid is @if-gated out when empty, so the filter/export handlers must not call a destroyed grid)', () => {
+  it('expandedIds starts empty; toggleExpand adds + removes the row id (drives the detail <tr>)', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
-    (c as unknown as { gridApi?: unknown }).gridApi = { exportDataAsCsv: () => undefined };
-    c.onGridDestroyed();
-    expect((c as unknown as { gridApi?: unknown }).gridApi).withContext('stale destroyed-grid api cleared').toBeUndefined();
+    c.rows.set([ROW({ id: 'm1' })] as never);
+    expect(c.expandedIds().size).toBe(0);
+    c.toggleExpand(c.rows()[0]);
+    expect(c.expandedIds().has('m1')).withContext('expand adds the id').toBeTrue();
+    c.toggleExpand(c.rows()[0]);
+    expect(c.expandedIds().has('m1')).withContext('second toggle collapses').toBeFalse();
+  });
+
+  it('two rows expand independently — the id set holds both masters', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.rows.set([ROW({ id: 'm1' }), ROW({ id: 'm2' })] as never);
+    c.toggleExpand(c.rows()[0]);
+    c.toggleExpand(c.rows()[1]);
+    expect([...c.expandedIds()].sort()).toEqual(['m1', 'm2']);
   });
 
   it('canExport gates Export CSV: false with no events (never a headers-only / dead-button CSV), and exportCsv no-ops when empty', () => {
@@ -88,11 +101,8 @@ describe('AdminAuditComponent (load + KPI logic)', () => {
     c.load();
     expect(c.rows().length).toBe(0);
     expect(c.canExport()).withContext('no events → export disabled (matches analytics + forms)').toBeFalse();
-    // Even if a stale grid api lingers, exportCsv must not emit an empty CSV.
-    const spy = jasmine.createSpy('exportDataAsCsv');
-    (c as unknown as { gridApi?: { exportDataAsCsv: jasmine.Spy } }).gridApi = { exportDataAsCsv: spy };
-    c.exportCsv();
-    expect(spy).withContext('no export attempted when empty').not.toHaveBeenCalled();
+    // exportCsv must not touch the DOM / emit an empty CSV when gated off.
+    expect(() => c.exportCsv()).not.toThrow();
   });
 
   it('canExport is true once events load', () => {
@@ -107,142 +117,161 @@ describe('AdminAuditComponent (load + KPI logic)', () => {
   // (compliance/security) events exist.
   it('totalCount reflects the server meta.total (not the loaded page); hasHiddenEvents fires when events are hidden', () => {
     const c = make(
-      jasmine.createSpy('get').and.returnValue(
-        of({ data: [ROW(), ROW({ id: 'r2' })], meta: { total: 4200, has_more: true } }),
-      ),
+      jasmine.createSpy('get').and.returnValue(of({ data: [ROW()], meta: { total: 520, has_more: true } })),
     );
     c.load();
-    expect(c.rows().length).toBe(2); // the loaded page
-    expect(c.totalCount()).toBe(4200); // TRUE org-wide count from meta
+    expect(c.totalCount()).toBe(520);
     expect(c.hasHiddenEvents()).toBeTrue();
   });
 
   it('no hidden-events note when the whole store is loaded (meta absent → total === loaded)', () => {
-    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [ROW()] })));
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [ROW(), ROW()] })));
     c.load();
-    expect(c.totalCount()).toBe(1);
+    expect(c.totalCount()).toBe(2);
     expect(c.hasHiddenEvents()).toBeFalse();
   });
 
-  // The stats skeleton must persist the real KPI labels (not a generic
-  // "Loading" header ×4) so the muted-h text — and the card widths — don't
-  // reflow when the first fetch resolves. Mirrors the site-dna stats skeleton
-  // (labels stay mounted, numbers shimmer).
   it('statLabels matches the four loaded stat-card headers (skeleton persists labels → no reflow)', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
-    expect((c as unknown as { statLabels: readonly string[] }).statLabels)
-      .toEqual(['Events', 'Unique actions', 'Last 24h', 'Actors']);
+    expect([...c.statLabels]).toEqual(['Events', 'Unique actions', 'Last 24h', 'Actors']);
   });
 
   it('load() error clears loading + sets loadError (security log must not masquerade as empty)', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
     c.load();
-    expect(c.loading()).toBe(false);
-    expect(c.loadError()).toBeTruthy(); // distinct error state, NOT the "No audit events yet" empty
+    expect(c.loading()).toBeFalse();
+    expect(c.loadError()).toBeTruthy();
+    expect(c.showStats()).withContext('stat cards hidden over the error card').toBeFalse();
   });
 
   it('load() reads {silent:true} — the loadError banner is the UX, so the generic ApiService toast must not double-fire', () => {
+    const get = jasmine.createSpy('get').and.returnValue(of({ data: [] }));
+    const c = make(get);
+    c.load();
+    expect(get).toHaveBeenCalledWith('/audit-logs', { limit: '500' }, { silent: true });
+  });
+
+  it('load() success clears a prior loadError (retry recovers)', () => {
     const get = jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 })));
     const c = make(get);
     c.load();
     expect(c.loadError()).toBeTruthy();
-    expect(get).toHaveBeenCalledWith('/audit-logs', jasmine.any(Object), { silent: true });
-  });
-
-  it('load() success clears a prior loadError (retry recovers)', () => {
-    const get = jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 503 })));
-    const c = make(get);
-    c.load();
-    expect(c.loadError()).toBeTruthy();
-    get.and.returnValue(of({ data: [ROW()] })); // backend recovers
+    get.and.returnValue(of({ data: [ROW()] }));
     c.load();
     expect(c.loadError()).toBeNull();
-    expect(c.rows().length).toBe(1);
   });
 
   it('uniqueActions counts distinct action codes', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
-    c.rows.set([ROW({ id: 'a', action: 'site.deploy' }), ROW({ id: 'b', action: 'site.deploy' }), ROW({ id: 'c', action: 'hostname.add' })] as never);
+    c.rows.set([
+      ROW({ id: 'a1', action: 'site.deploy' }),
+      ROW({ id: 'a2', action: 'site.deploy' }),
+      ROW({ id: 'a3', action: 'billing.update' }),
+    ] as never);
     expect(c.uniqueActions()).toBe(2);
   });
 
   it('uniqueActors counts distinct non-null actor_ids', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
-    c.rows.set([ROW({ id: 'a', actor_id: 'x' }), ROW({ id: 'b', actor_id: 'x' }), ROW({ id: 'c', actor_id: null }), ROW({ id: 'd', actor_id: 'y' })] as never);
-    expect(c.uniqueActors()).toBe(2);
+    c.rows.set([
+      ROW({ id: 'a1', actor_id: 'actor-aaaaaaaa' }),
+      ROW({ id: 'a2', actor_id: 'actor-aaaaaaaa' }),
+      ROW({ id: 'a3', actor_id: null }),
+    ] as never);
+    expect(c.uniqueActors()).toBe(1);
   });
 
   it('last24h counts only rows newer than the 24h cutoff', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
-    const old = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
-    c.rows.set([ROW({ id: 'a' }), ROW({ id: 'b', created_at: old })] as never);
+    const nowIso = new Date().toISOString();
+    const oldIso = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+    c.rows.set([ROW({ id: 'a1', created_at: nowIso }), ROW({ id: 'a2', created_at: oldIso })] as never);
     expect(c.last24h()).toBe(1);
   });
 
-  // Stat cards must NOT assert "0 events · 0 actions · …" over the error card —
-  // the count is unknown on error, not 0.
   it('hides the stat cards on a load error with no rows; shows them with data', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(throwError(() => ({ status: 500 }))));
+    c.load();
+    expect(c.showStats()).toBeFalse();
+    c.rows.set([ROW()] as never);
+    expect(c.showStats()).toBeTrue();
+  });
+
+  it('KPI computeds count every loaded row (no synthetic detail rows in the TanStack model)', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
-    c.loadError.set('Server error');
-    c.rows.set([]);
-    expect(c.showStats()).withContext('no "0 events" over the error').toBe(false);
-
-    c.rows.set([ROW({ id: 'a' })] as never);
-    expect(c.showStats()).withContext('stale data still shows stats').toBe(true);
-
-    c.loadError.set(null);
-    c.rows.set([]);
-    expect(c.showStats()).withContext('error-free empty still renders (animates 0)').toBe(true);
+    c.rows.set([
+      ROW({ id: 'm1', action: 'site.deploy', actor_id: 'actor-aaaaaaaa' }),
+      ROW({ id: 'm2', action: 'billing.update', actor_id: 'actor-bbbbbbbb' }),
+    ] as never);
+    c.toggleExpand(c.rows()[0]);
+    c.toggleExpand(c.rows()[1]);
+    expect(c.uniqueActions()).toBe(2);
+    expect(c.uniqueActors()).toBe(2);
+    expect(c.last24h()).toBe(2);
+    expect(c.expandedIds().size).toBe(2);
   });
 });
 
-describe('AdminAuditComponent (master/detail splicing)', () => {
-  afterEach(() => TestBed.resetTestingModule());
-
-  it('displayRows splices a synthetic __detail row after an expanded master', () => {
-    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
-    c.rows.set([ROW({ id: 'm1' })] as never);
-    expect(c.displayRows().length).toBe(1);
-    expect(c.displayRows()[0].__detail).toBeFalsy();
-    c.toggleExpand(c.rows()[0]);
-    const rows = c.displayRows();
-    expect(rows.length).toBe(2);
-    expect(rows[0].__expanded).toBe(true);
-    expect(rows[1].__detail).toBe(true);
-    expect(rows[1].id).toBe('m1::detail');
-    expect(rows[1].masterId).toBe('m1');
+describe('AdminAuditComponent (TanStack table state)', () => {
+  afterEach(() => {
+    TestBed.resetTestingModule();
+    localStorage.clear();
   });
 
-  it('KPI computeds exclude the synthetic detail row from counts', () => {
+  it('onSiteFilter sets the site column filter and rewinds to page 1', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
-    c.rows.set([ROW({ id: 'm1', action: 'site.deploy' })] as never);
-    c.toggleExpand(c.rows()[0]);
-    expect(c.displayRows().length).toBe(2);
-    expect(c.uniqueActions()).toBe(1);
+    c.pagination.set({ pageIndex: 3, pageSize: 50 });
+    c.onSiteFilter({ target: { value: 'megabytespace' } } as unknown as Event);
+    expect(c.columnFilters()).toEqual([{ id: 'site', value: 'megabytespace' }]);
+    expect(c.pagination().pageIndex).toBe(0);
+    c.onSiteFilter({ target: { value: '' } } as unknown as Event);
+    expect(c.columnFilters()).toEqual([]);
   });
 
-  it('toggleExpand is a no-op on a detail row (defensive)', () => {
+  it('onPageSize resets to page 1 and ignores unknown sizes', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
-    c.rows.set([ROW({ id: 'm1' })] as never);
-    c.toggleExpand({ ...ROW({ id: 'm1::detail' }), __detail: true } as never);
-    expect(c.displayRows().length).toBe(1);
+    c.pagination.set({ pageIndex: 4, pageSize: 25 });
+    c.onPageSize({ target: { value: '100' } } as unknown as Event);
+    expect(c.pagination()).toEqual({ pageIndex: 0, pageSize: 100 });
+    c.pagination.set({ pageIndex: 2, pageSize: 100 });
+    c.onPageSize({ target: { value: '9999' } } as unknown as Event);
+    expect(c.pagination()).toEqual({ pageIndex: 2, pageSize: 100 });
   });
 
-  it('collapsing removes the synthetic detail row again (toggle off)', () => {
+  it('pageStart/pageEnd reflect the filtered total + pagination state', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
-    c.rows.set([ROW({ id: 'm1' })] as never);
-    c.toggleExpand(c.rows()[0]);
-    expect(c.displayRows().length).toBe(2);
-    c.toggleExpand(c.rows()[0]);
-    expect(c.displayRows().map((r) => r.id)).toEqual(['m1']);
+    c.rows.set([ROW({ id: 'r1' }), ROW({ id: 'r2' }), ROW({ id: 'r3' })] as never);
+    c.pagination.set({ pageIndex: 0, pageSize: 2 });
+    expect(c.pageStart()).toBe(1);
+    expect(c.pageEnd()).toBe(2);
+    c.pagination.set({ pageIndex: 1, pageSize: 2 });
+    expect(c.pageStart()).toBe(3);
+    expect(c.pageEnd()).toBe(3);
   });
 
-  it('two expanded rows interleave correctly — each detail directly after its own master', () => {
+  it('defaults to created_at desc and ignores corrupt/legacy ag-grid localStorage state', () => {
+    localStorage.setItem('ps_audit_grid_v2', JSON.stringify([{ colId: 'site', sort: 'asc' }]));
     const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
-    c.rows.set([ROW({ id: 'm1' }), ROW({ id: 'm2' })] as never);
-    c.toggleExpand(c.rows()[0]);
-    c.toggleExpand(c.rows()[1]);
-    expect(c.displayRows().map((r) => r.id)).toEqual(['m1', 'm1::detail', 'm2', 'm2::detail']);
+    expect(c.sorting()).toEqual([{ id: 'created_at', desc: true }]);
+  });
+
+  it('restores a valid persisted sort', () => {
+    localStorage.setItem('ps_audit_grid_v2', JSON.stringify({ sorting: [{ id: 'action', desc: true }] }));
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    expect(c.sorting()).toEqual([{ id: 'action', desc: true }]);
+  });
+
+  it('persists the sort state on a header toggle (desc → removed → asc cycle)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.rows.set([ROW()] as never);
+    const whenHeader = c.table.getHeaderGroups()[0].headers.find((h) => h.id === 'created_at');
+    expect(whenHeader).toBeDefined();
+    whenHeader?.column.toggleSorting(); // desc → removed (natural order)
+    let stored = JSON.parse(localStorage.getItem('ps_audit_grid_v2') ?? '{}') as { sorting?: unknown };
+    expect(stored.sorting).toEqual([]);
+    whenHeader?.column.toggleSorting(); // removed → asc
+    stored = JSON.parse(localStorage.getItem('ps_audit_grid_v2') ?? '{}') as { sorting?: unknown };
+    expect(stored.sorting).toEqual([{ id: 'created_at', desc: false }]);
   });
 });
 
@@ -263,7 +292,7 @@ describe('AdminAuditComponent (scope chip reactivity)', () => {
     expect(typeof c.uniqueActions()).toBe('number');
     expect(typeof c.uniqueActors()).toBe('number');
     expect(typeof c.last24h()).toBe('number');
-    expect(typeof c.displayRows().length).toBe('number');
+    expect(typeof c.rows().length).toBe('number');
   });
 });
 
@@ -302,7 +331,7 @@ describe('AdminAuditComponent (cohesion + a11y source contract)', () => {
     const t = template();
     expect((t.match(/<app-rolling-counter/g) ?? []).length).toBeGreaterThanOrEqual(4);
     // KPI numbers must not be raw interpolation stat nodes.
-    expect(t).not.toMatch(/text-2xl[^>]*>\s*\{\{\s*(displayRows|uniqueActions|uniqueActors|last24h)/);
+    expect(t).not.toMatch(/text-2xl[^>]*>\s*\{\{\s*(rows|uniqueActions|uniqueActors|last24h)/);
   });
 
   it('empty state announces via role="status"', () => {
@@ -323,15 +352,12 @@ describe('AdminAuditComponent (cohesion + a11y source contract)', () => {
     expect(t).withContext('no generic "Loading" stat-card header (would reflow → real label)').not.toContain('>Loading</div>');
   });
 
-  it('empty-state CTA + scope chip are real <button>s (keyboard-reachable)', () => {
+  it('empty-state CTA + scope chip are real <button>s (keyboard-reachable); kebab + detail carry a11y wiring', () => {
     if (!reachable()) {
       pending('decorator metadata not reachable');
       return;
     }
     const t = template();
-    // The kebab's aria-expanded/aria-label are set imperatively in the
-    // cellRenderer (not template literals), so we assert the template-level
-    // interactive surfaces instead: every action is a focusable <button>.
     expect(t).toContain('data-testid="audit-scope-chip"');
     expect(t).toContain('data-testid="audit-empty"');
     expect((t.match(/<button/g) ?? []).length).toBeGreaterThanOrEqual(2);
@@ -339,6 +365,12 @@ describe('AdminAuditComponent (cohesion + a11y source contract)', () => {
     // API loads all org sites) — it must not claim "Filtered to:".
     expect(t).not.toContain('Filtered to:');
     expect(t).toContain('Org: {{ scopeName() }}');
+    // The kebab is a real Angular button now (was an imperative cellRenderer) —
+    // assert its aria contract in-template.
+    expect(t).toContain('[attr.aria-expanded]');
+    expect(t).toContain("'Expand audit detail'");
+    // Detail panel actions carry copy testids.
+    expect(t).toContain('audit-copy-row-');
   });
 
   it('brand colour is the cyan token family — never orange', () => {
@@ -370,10 +402,15 @@ describe('AdminAuditComponent (cohesion + a11y source contract)', () => {
 /**
  * CSV export — formula-injection guard (CWE-1236). The audit log holds
  * user/system strings (actor email, action, target, before/after JSON) that may
- * begin with = + - @; those execute as formulas in Excel/Sheets. exportCsv()
- * passes ag-grid a processCellCallback that apostrophe-prefixes such cells.
+ * begin with = + - @; those execute as formulas in Excel/Sheets. csvCell()
+ * apostrophe-prefixes such cells, then applies RFC-4180 quoting.
  */
 describe('AdminAuditComponent (CSV export is formula-injection-safe)', () => {
+  afterEach(() => {
+    TestBed.resetTestingModule();
+    localStorage.clear();
+  });
+
   it('csvFormulaGuard prefixes formula-trigger cells, leaves normal values', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
     expect(c.csvFormulaGuard('=cmd|calc')).toBe(`'=cmd|calc`);
@@ -386,15 +423,29 @@ describe('AdminAuditComponent (CSV export is formula-injection-safe)', () => {
     expect(c.csvFormulaGuard(null)).toBe('');
   });
 
-  it('exportCsv wires the formula guard into ag-grid processCellCallback', () => {
-    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [ROW()] })));
-    c.load(); // seed an event so canExport() is true — export is gated on real data
-    let opts: { processCellCallback?: (p: { value: unknown }) => string } = {};
-    (c as unknown as { gridApi?: unknown }).gridApi = { exportDataAsCsv: (o: typeof opts) => { opts = o; } };
-    c.exportCsv();
-    expect(typeof opts.processCellCallback).toBe('function');
-    expect(opts.processCellCallback!({ value: '=HYPERLINK("x")' })).toBe(`'=HYPERLINK("x")`);
-    expect(opts.processCellCallback!({ value: 'normal' })).toBe('normal');
+  it('csvCell applies RFC-4180 quoting (commas, quotes, newlines)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    expect(c.csvCell('a,b')).toBe('"a,b"');
+    expect(c.csvCell('say "hi"')).toBe('"say ""hi"""');
+    expect(c.csvCell('line1\nline2')).toBe('"line1\nline2"');
+    expect(c.csvCell('plain')).toBe('plain');
+  });
+
+  it('buildCsv emits the header row + guarded, quoted cells from the filtered rows', () => {
+    const c = make(
+      jasmine.createSpy('get').and.returnValue(
+        of({ data: [ROW({ id: 'm1', action: '=weird', message: 'has,comma', metadata: { a: 1 } })] }),
+      ),
+    );
+    c.load(); // seed an event so the table data is populated
+    const csv = c.buildCsv();
+    const lines = csv.split('\r\n');
+    expect(lines[0]).toBe('action,message,created_at,site,actor_id,target,request_id,metadata');
+    expect(lines[1]).toContain(`'=weird`);
+    expect(lines[1]).toContain('"has,comma"');
+    expect(lines[1]).toContain('site:site-1');
+    expect(lines[1]).toContain('"{""a"":1}"'); // metadata JSON quoted, inner quotes RFC-4180-doubled
+    expect(lines.length).toBe(2);
   });
 });
 

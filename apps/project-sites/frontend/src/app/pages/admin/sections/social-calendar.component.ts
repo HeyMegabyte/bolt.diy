@@ -123,8 +123,8 @@ export class SocialCalendarComponent {
 
   /** The posts to plot (parent-owned list; the child only READS it). */
   readonly posts = input.required<CalendarPost[]>();
-  /** Platform defs for the event-chip brand colors. */
-  readonly platforms = input.required<PlatformDefView[]>();
+  /** Platform defs for the event-chip brand colors (parent's `PLATFORMS` is readonly). */
+  readonly platforms = input.required<readonly PlatformDefView[]>();
 
   /** Parent opens its composer/edit dialog for the clicked event. */
   readonly edit = output<CalendarPost>();

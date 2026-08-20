@@ -265,7 +265,7 @@ export class SocialAutoPilotDialogComponent implements OnInit {
   readonly cadenceHours = input.required<number>();
   readonly targetNetworks = input.required<string[]>();
   readonly defaultPrompt = input.required<string>();
-  readonly platforms = input.required<PlatformDefView[]>();
+  readonly platforms = input.required<readonly PlatformDefView[]>();
 
   /** Parent applies the server-returned config to its live signals. */
   readonly saved = output<AutoPilotSavedPayload>();

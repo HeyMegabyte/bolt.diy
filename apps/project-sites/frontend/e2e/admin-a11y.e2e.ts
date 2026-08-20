@@ -100,9 +100,12 @@ test.describe('legacy /admin — WCAG 2.2 AA (axe-core)', () => {
         .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
         // The embedded bolt editor iframe is a separate origin/app — not ours to fix here.
         .exclude('iframe')
-        // AG Grid Community virtualizes rows, so `.ag-root` (role=grid) doesn't
-        // always hold its required row children in the live DOM — a known
-        // third-party limitation we don't author. Excluded like the iframe.
+        // AG Grid Community virtualizes rows, so `.ag-root` (role=grid) carries a
+        // known third-party aria-required-children violation we don't author.
+        // Excluded like the iframe. NOTE (2026-08-20 perf-wave): /admin/audit is
+        // now TanStack and needs NO exclusion — admin-audit-grid.e2e.ts asserts
+        // its critical axe is 0 WITHOUT this filter. Keep this only for the
+        // still-ag-grid traces grid (/admin/logs?tab=traces) until Step 2 lands.
         .exclude('.ag-root')
         .analyze();
       const advisory = results.violations

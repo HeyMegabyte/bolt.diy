@@ -812,7 +812,7 @@ const PLATFORMS: readonly PlatformDef[] = [
         <app-social-calendar
           [posts]="posts()"
           [platforms]="platforms"
-          (edit)="editPost($event)"
+          (edit)="editCalendarPost($event.id)"
           (rescheduled)="loadPosts()" />
       }
     </section>
@@ -2437,6 +2437,17 @@ export class AdminSocialComponent implements OnInit {
       error: () => { release(); this.toast.error('Publish failed'); },
     });
   }
+  /**
+   * Calendar-edit entry point — the calendar child emits its structural
+   * subset (id-only hand-off); we resolve the FULL post from the live list
+   * before opening the composer (the child never owns the list).
+   */
+  editCalendarPost(id: string): void {
+    const post = this.posts().find((p) => p.id === id);
+    if (!post) return;
+    this.editPost(post);
+  }
+
   editPost(post: SocialPost): void {
     this.editingId.set(post.id);
     this.content.set(post.content);
