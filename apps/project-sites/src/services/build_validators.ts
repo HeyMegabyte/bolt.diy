@@ -726,13 +726,23 @@ export const validateBrandNameMatch = (
         .trim();
     const tNorm = norm(t);
     const eNorm = norm(expected);
-    // Accept verbatim containment OR the title STARTS with the expected name
+    // The FULL name is required on the homepage (the invented-name guard's
+    // hard surface). Sub-pages must stay inside the 50-60 char SEO title cap,
+    // so they legitimately use the brand SHORT name (the first word of the
+    // expected name) — "Cedar Ridge FAQ | …" is CORRECT for a sub-page of
+    // "Cedar Ridge Bakeshop"; the journey's brand gate false-positived it
+    // (2026-08-19: three valid sub-page titles flipped the site to error).
+    const firstWord = eNorm.split(' ')[0] ?? '';
+    const pageKind = file.path.toLowerCase();
+    const isHome = pageKind === 'index.html' || pageKind.endsWith('/index.html');
+    const expectedForPage = isHome ? eNorm : firstWord;
+    // Accept verbatim containment OR the title STARTS with the expected form
     // (page titles like "Cedar Ridge Bakeshop — Menu").
-    if (!tNorm.includes(eNorm) && !tNorm.startsWith(eNorm)) {
+    if (!tNorm.includes(expectedForPage) && !tNorm.startsWith(expectedForPage)) {
       out.push({
         code: 'brand.name_mismatch',
         severity: 'error',
-        message: `Site title "${t}" does not contain the real business name "${expected}"`,
+        message: `Site title "${t}" does not contain the real business name "${expectedForPage}"`,
         file: file.path,
       });
     }

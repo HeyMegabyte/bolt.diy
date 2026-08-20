@@ -942,3 +942,54 @@ describe('repairDanglingEmDash', () => {
     expect(input[0]?.text).toBe('<title>X — </title>');
   });
 });
+
+describe('validateBrandNameMatch (short-brand sub-page titles — the SEO cap)', () => {
+  const shortBrandOk = [
+    {
+      path: 'faq.html',
+      size: 100,
+      text: '<title>Cedar Ridge FAQ | Sourdough, Pies & Baking Answers</title>',
+    },
+    {
+      path: 'pricing.html',
+      size: 100,
+      text: '<title>Cedar Ridge Pricing | Bakery Boxes & Subscriptions</title>',
+    },
+  ];
+
+  it('accepts a sub-page title using the brand SHORT name (first word) — the SEO title cap forbids the full name everywhere', () => {
+    const v = validateBrandNameMatch(shortBrandOk, 'Cedar Ridge Bakeshop');
+    expect(v.filter((x) => x.code === 'brand.name_mismatch')).toEqual([]);
+  });
+
+  it('STILL flags a sub-page title with a DIFFERENT first word (invented short brand)', () => {
+    const bad = [
+      { path: 'faq.html', size: 100, text: '<title>Huckleberry FAQ | Baking Answers</title>' },
+    ];
+    const v = validateBrandNameMatch(bad, 'Cedar Ridge Bakeshop');
+    expect(v.some((x) => x.code === 'brand.name_mismatch')).toBe(true);
+  });
+
+  it('STILL requires the FULL name on the homepage (index.html) — the invented-name guard stays hard there', () => {
+    const bad = [
+      {
+        path: 'index.html',
+        size: 100,
+        text: '<title>Huckleberry Season at Cedar Ridge | Bakery in Bozeman</title>',
+      },
+    ];
+    const v = validateBrandNameMatch(bad, 'Cedar Ridge Bakeshop');
+    expect(v.some((x) => x.code === 'brand.name_mismatch')).toBe(true);
+  });
+
+  it('accepts the homepage title carrying the FULL name (verbatim or prefix)', () => {
+    const ok = [
+      {
+        path: 'index.html',
+        size: 100,
+        text: '<title>Cedar Ridge Bakeshop | Artisan Sourdough & Pies</title>',
+      },
+    ];
+    expect(validateBrandNameMatch(ok, 'Cedar Ridge Bakeshop')).toEqual([]);
+  });
+});
