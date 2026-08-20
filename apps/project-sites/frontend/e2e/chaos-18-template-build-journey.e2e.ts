@@ -149,6 +149,22 @@ test.describe('CHAOS 18 — template build journey (keystone)', () => {
     await expect(frame.locator('text=Response Generated').first()).toBeVisible({
       timeout: 120_000,
     });
+    // The artifact file-action can land a beat AFTER the final text — a
+    // human SEES the edit in the workbench before deploying, so the spec
+    // must too. Poll for the edit's materialization (the marker rendered
+    // anywhere in the editor surface) BEFORE the Save & Deploy click;
+    // otherwise PS_FILES_READY replies with the PRE-edit files and the
+    // publish legitimately lacks the change (journey 2026-08-20 — the
+    // publish never landed while the chat itself had worked).
+    await expect
+      .poll(
+        async () => {
+          const text = await frame.locator('body').innerText();
+          return text.includes(CHANGE_TOKEN);
+        },
+        { timeout: 120_000, message: 'the editor change never materialized in the workbench' },
+      )
+      .toBe(true);
     await page.evaluate(() => {
       const els = [...document.querySelectorAll('button, span')];
       const t = els.find((x) => x.textContent?.trim() === 'Actions' && x.tagName === 'SPAN');
