@@ -142,8 +142,29 @@ test.describe('CHAOS 18 — template build journey (keystone)', () => {
 
     await chatBox.fill(`Change the hero headline to include the exact phrase ${CHANGE_TOKEN}. Deploy it.`);
     await chatBox.press('Enter');
-    // The answer streams; the deploy fires through the admin bridge when the
-    // generation completes. Poll the LIVE site for the change marker.
+    // The answer streams (~40-70s). The deploy does NOT fire from the chat
+    // alone — the real user path is Actions → Save & Deploy, which emits
+    // PS_REQUEST_FILES → the editor replies PS_FILES_READY → the admin POSTs
+    // publish-bolt (the bridge). Click it AFTER the answer lands.
+    await expect(frame.locator('text=Response Generated').first()).toBeVisible({
+      timeout: 120_000,
+    });
+    await page.evaluate(() => {
+      const els = [...document.querySelectorAll('button, span')];
+      const t = els.find((x) => x.textContent?.trim() === 'Actions' && x.tagName === 'SPAN');
+      (t?.closest('button') || t?.parentElement)?.click();
+    });
+    await page.waitForTimeout(800);
+    const deployClicked = await page.evaluate(() => {
+      const els = [...document.querySelectorAll('[role="menuitem"], button, div, span')];
+      const t = els.find((x) => x.textContent?.trim() === 'Save & Deploy');
+      if (!t) return 'missing';
+      (t.closest('button') || t.closest('[role="menuitem"]') || t).click();
+      return 'clicked';
+    });
+    expect(deployClicked, 'Save & Deploy menu item present').toBe('clicked');
+    // The publish flows through the admin bridge (PS_REQUEST_FILES →
+    // PS_FILES_READY → POST publish-bolt). Poll the LIVE site for the marker.
     await expect
       .poll(
         async () => {
