@@ -820,72 +820,72 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     // user can retry immediately.
     let jobId: string;
     try {
-    jobId = await step.do(
-      'start-build',
-      {
-        retries: { limit: 2, delay: '10 seconds', backoff: 'exponential' },
-        timeout: '5 minutes',
-      },
-      async () => {
-        const container = getContainer();
+      jobId = await step.do(
+        'start-build',
+        {
+          retries: { limit: 2, delay: '10 seconds', backoff: 'exponential' },
+          timeout: '5 minutes',
+        },
+        async () => {
+          const container = getContainer();
 
-        const _deepseekKey = (env as unknown as { DEEPSEEK_API_KEY?: string }).DEEPSEEK_API_KEY;
-        const _buildLlmProvider = (env as unknown as { BUILD_LLM_PROVIDER?: string })
-          .BUILD_LLM_PROVIDER;
-        const useDeepSeek = !!_deepseekKey && _buildLlmProvider !== 'anthropic';
+          const _deepseekKey = (env as unknown as { DEEPSEEK_API_KEY?: string }).DEEPSEEK_API_KEY;
+          const _buildLlmProvider = (env as unknown as { BUILD_LLM_PROVIDER?: string })
+            .BUILD_LLM_PROVIDER;
+          const useDeepSeek = !!_deepseekKey && _buildLlmProvider !== 'anthropic';
 
-        const payload = {
-          slug: params.slug,
-          _anthropicKey: env.ANTHROPIC_API_KEY || '',
-          ...(useDeepSeek && {
-            _deepseekKey,
-            _anthropicBaseUrl: 'https://api.deepseek.com/anthropic',
-            _anthropicModel: 'deepseek-chat',
-          }),
-          prompt,
-          contextFiles,
-          envVars,
-          // Cloudflare Workers Containers cap wall-clock at ~15 min — a 45-min
-          // budget can never complete (the container is killed first). The build
-          // is TEMPLATE-FIRST (the Dockerfile pre-bakes template.projectsites.dev
-          // + deps), so the orchestrator does minor customization, not from-scratch
-          // generation, and must finish under the cap. (Brian directive 2026-08-15.)
-          timeoutMin: 14,
-          callbackUrl,
-          callbackSecret,
-        };
+          const payload = {
+            slug: params.slug,
+            _anthropicKey: env.ANTHROPIC_API_KEY || '',
+            ...(useDeepSeek && {
+              _deepseekKey,
+              _anthropicBaseUrl: 'https://api.deepseek.com/anthropic',
+              _anthropicModel: 'deepseek-chat',
+            }),
+            prompt,
+            contextFiles,
+            envVars,
+            // Cloudflare Workers Containers cap wall-clock at ~15 min — a 45-min
+            // budget can never complete (the container is killed first). The build
+            // is TEMPLATE-FIRST (the Dockerfile pre-bakes template.projectsites.dev
+            // + deps), so the orchestrator does minor customization, not from-scratch
+            // generation, and must finish under the cap. (Brian directive 2026-08-15.)
+            timeoutMin: 14,
+            callbackUrl,
+            callbackSecret,
+          };
 
-        const res = await container.fetch('http://container/build', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+          const res = await container.fetch('http://container/build', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
 
-        if (!res.ok) {
-          const errText = await res.text().catch(() => 'Unknown');
-          throw new Error(`Container start failed: ${res.status} ${errText}`);
-        }
+          if (!res.ok) {
+            const errText = await res.text().catch(() => 'Unknown');
+            throw new Error(`Container start failed: ${res.status} ${errText}`);
+          }
 
-        const result = (await res.json()) as { jobId?: string; error?: string };
-        if (result.error) throw new Error(`Container start error: ${result.error}`);
-        if (!result.jobId) throw new Error('Container did not return jobId');
+          const result = (await res.json()) as { jobId?: string; error?: string };
+          if (result.error) throw new Error(`Container start error: ${result.error}`);
+          if (!result.jobId) throw new Error('Container did not return jobId');
 
-        await wfLog('workflow.build_started', {
-          jobId: result.jobId,
-          prompt_length: prompt.length,
-          env_vars_count: Object.keys(envVars).length,
-          message: `Claude Code build started (${Math.round(prompt.length / 1024)}KB prompt, ${Object.keys(envVars).length} API keys)`,
-        });
+          await wfLog('workflow.build_started', {
+            jobId: result.jobId,
+            prompt_length: prompt.length,
+            env_vars_count: Object.keys(envVars).length,
+            message: `Claude Code build started (${Math.round(prompt.length / 1024)}KB prompt, ${Object.keys(envVars).length} API keys)`,
+          });
 
-        await emitBuildEvent(env, params.siteId, {
-          type: 'agent.started',
-          agent: 'orchestrator',
-          step: 'container-build',
-        });
+          await emitBuildEvent(env, params.siteId, {
+            type: 'agent.started',
+            agent: 'orchestrator',
+            step: 'container-build',
+          });
 
-        return result.jobId;
-      },
-    );
+          return result.jobId;
+        },
+      );
     } catch (err) {
       await updateSiteStatus(env.DB, params.siteId, 'error');
       await wfLog('workflow.start_build_failed', {
