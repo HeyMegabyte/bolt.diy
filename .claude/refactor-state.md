@@ -820,6 +820,12 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **15-min wall-clock hardening** (`6ad9024a`): container-server.mjs now SIGKILLs the whole process GROUP 45s before the timeout budget so Claude's subagent children can't outlive the CF Containers ~15-min eviction boundary; FORCE-REBUILD 5 bumped; worker redeployed (image rebuilt).
 - **Pool-exhaustion + stranded-status fixes** (`abe721d5` + `f4d65c01`): terminal stop() now releases BOTH the original AND the restarted container (the -r1 leak filled the 20-slot pool — 'no container instance can be provided' on the NEXT build); fresh-DO mints moved OUTSIDE step callbacks (replay-safe); start-build failures flip the site to error instead of stranding it 'generating' (which 409-blocked every retry). Full worker 10,988/10,988.
 - **Journey:** v7 running on the fully-hardened pipeline (build published 04:17 on the prior instance; the live run in flight). Double-eviction still errors honestly (one-shot restart = cost-bounded design; the pool fix removes the pressure that CAUSED the second eviction).
-- **NEXT TARGET:** journey v7 verdict (free window) → then the deferred social.component split / ag-grid→TanStack waves. Editor: the visual polish pass on the chat-started split layout once a journey run reaches it.
+## 🔧 iter 231 (editor split geometry proven + bridge journey root-caused + polish)
+
+- **50/50 split PROVEN (Brian's overlap directive):** chat = flex `calc(50%-1px)`; workbench = fixed `left: calc(50%+1px), width: calc(50%-1px)` — computed overlap is ZERO at 375/768/1024/1280/1440/1920 (verified by construction + served-CSS grep). The old vars derived the workbench from `chat-min-width: 533px`, which only agreed at ~1066px and overlapped everywhere else.
+- **Padding alignment:** the workbench's outer px-1.5/px-3 frame dropped (the card border IS the frame); tab strip px-2 py-1.5 matches the chat reel gutter; chat reel 33→44rem.
+- **Gorgeous tab strip:** cyan sliding underline (::after scaleX, cubic-bezier) + accent hairline on the active tab; reduced-motion safe.
+- **Journey root cause (the last failing leg):** the marker WAS live seconds after publish — the spec's 15-min poll fetched the bare SITE_URL and re-read the CDN cache for the whole window (its own poll failed, not the bridge; PROBE-2 verified live via curl?cb=N). Cache-buster added (`bd5d5b6d`); v8 running.
+- **NEXT TARGET:** journey v8 verdict → then the deferred social.component split / ag-grid→TanStack waves.
 
 
