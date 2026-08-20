@@ -827,6 +827,9 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **Gorgeous tab strip:** cyan sliding underline (::after scaleX, cubic-bezier) + accent hairline on the active tab; reduced-motion safe.
 - **Journey root cause (the last failing leg):** the marker WAS live seconds after publish — the spec's 15-min poll fetched the bare SITE_URL and re-read the CDN cache for the whole window (its own poll failed, not the bridge; PROBE-2 verified live via curl?cb=N). Cache-buster added (`bd5d5b6d`); v8 running.
 - **✅ JOURNEY v8 GREEN — 2/2 passed (8.9m).** The whole acceptance chain verified end-to-end on the hardened pipeline: real template build → published → analytics reconciled → editor change → Save & Deploy bridge → `urban-fitness.projectsites.dev` serves FRESH-FROM-THE-OVEN live. The cache-buster was the final defect — the bridge worked all along; the spec's bare-URL poll re-read the CDN cache. The 8.9m runtime (was 15-25m) is the template-first + time-box hardening paying off.
-- **NEXT TARGET:** the deferred social.component split / ag-grid→TanStack waves (the two tracked build-warnings).
+## 🔧 iter 232 (social split slice 1 — the SCSS-budget warning CLOSED)
+
+- **Social calendar extracted** (`e1538ea5`): the 3.2k-line social.component (32.86KB SCSS, 4.86KB over its 28KB budget — the surviving tracked build-warning) shed its calendar tab into `social-calendar.component.ts` (posts/platforms inputs, edit/rescheduled outputs, drag-to-reschedule PATCH, cal CSS colocated). Parent −105 lines; **the SCSS-budget build warning is GONE**. TDD: 6 new child tests + parent social spec 74/74. Deployed + verify:production PASS; chaos-15/16/17 = 16/16 green (no regression).
+- **NEXT TARGET:** social split slice 2 — the auto-pilot dialog (`.ap-dlg-*` selectors, ~40 lines) or the composer; then the remaining ag-grid→TanStack wave (audit + ai-logs, the known-tracked axe).
 
 
