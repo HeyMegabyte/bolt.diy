@@ -1193,3 +1193,31 @@ button:not(:disabled):not([class*='ResizeHandle']):not([data-panel-resize-handle
     animation-iteration-count: 1 !important;
   }
 }
+
+/* ── Editor tab strip polish (Brian 2026-08-20) ─────────────────────────────
+   The Code/Preview/Functions/Data (+ mobile Chat) tabs are a segmented
+   control: the active tab carries a cyan underline that SLIDES via the
+   ::after pseudo (width transition), and the strip sits on a subtle
+   hairline so the panel header reads as one composed surface. */
+.ps-tab::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--ps-accent, #00e5ff);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ps-tab-active::after {
+  transform: scaleX(1);
+}
+.ps-tab-active {
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--ps-accent, #00e5ff) 14%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-tab::after { transition: none; }
+}

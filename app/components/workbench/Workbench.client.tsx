@@ -262,9 +262,9 @@ export const Workbench = memo(
                             onClick={() => setSelectedView(tab.value)}
                             aria-pressed={active}
                             className={classNames(
-                              'flex items-center gap-1.5 text-sm cursor-pointer px-2.5 py-1 h-7 whitespace-nowrap rounded-md transition-colors',
+                              'ps-tab relative flex items-center gap-1.5 text-sm cursor-pointer px-2.5 py-1 h-7 whitespace-nowrap rounded-md transition-colors',
                               active
-                                ? 'bg-bolt-elements-terminals-buttonBackground text-bolt-elements-textPrimary'
+                                ? 'ps-tab-active bg-bolt-elements-terminals-buttonBackground text-bolt-elements-textPrimary'
                                 : 'bg-transparent text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3',
                             )}
                           >
@@ -284,9 +284,9 @@ export const Workbench = memo(
                           aria-pressed={chatStore.get().mobileChatOpen}
                           data-testid="workbench-chat-tab"
                           className={classNames(
-                            'flex items-center gap-1.5 text-sm cursor-pointer px-2.5 py-1 h-7 whitespace-nowrap rounded-md transition-colors',
+                            'ps-tab relative flex items-center gap-1.5 text-sm cursor-pointer px-2.5 py-1 h-7 whitespace-nowrap rounded-md transition-colors',
                             chatStore.get().mobileChatOpen
-                              ? 'bg-bolt-elements-terminals-buttonBackground text-bolt-elements-textPrimary'
+                              ? 'ps-tab-active bg-bolt-elements-terminals-buttonBackground text-bolt-elements-textPrimary'
                               : 'bg-transparent text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3',
                           )}
                         >
