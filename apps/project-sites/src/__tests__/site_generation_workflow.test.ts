@@ -303,3 +303,49 @@ describe('SiteGenerationWorkflow — container slot-leak discipline', () => {
     expect(builder.stops[restartedName!]).toHaveBeenCalled();
   });
 });
+
+describe('SiteGenerationWorkflow — start-build terminal flip', () => {
+  it('flips the site to error when start-build throws (pool exhaustion) instead of stranding it generating', async () => {
+    const statuses: string[] = [];
+    const env = {
+      ...withBuilder(),
+      CACHE_KV: { get: async () => null, put: async () => undefined },
+      DB: {
+        prepare: () => ({
+          bind: () => ({
+            run: async () => {},
+            first: async () => null,
+            all: async () => ({ results: [] }),
+          }),
+        }),
+      },
+    } as unknown as Env;
+    // Track every updateSiteStatus call via the DB mock: the UPDATE ... SET
+    // status query's bound param is the 1st bind arg.
+    const prepareSpy = jest.spyOn(env.DB as never, 'prepare');
+    prepareSpy.mockImplementation((sql: string) => ({
+      bind: (...args: unknown[]) => {
+        if (typeof sql === 'string' && sql.includes('SET status')) {
+          statuses.push(String(args[0]));
+        }
+        return {
+          run: async () => {},
+          first: async () => null,
+          all: async () => ({ results: [] }),
+        };
+      },
+    }));
+    const step = {
+      do: jest.fn(async (name: string) => {
+        if (name === 'start-build') throw new Error('no container instance can be provided');
+        if (name === 'mint-version') return 'v';
+        if (name === 'budget-killswitch') return '{}';
+        return '{}';
+      }),
+    };
+    await expect(run(env, step as unknown as WorkflowStep, params())).rejects.toThrow(
+      /no container instance can be provided/,
+    );
+    expect(statuses).toContain('error');
+  });
+});

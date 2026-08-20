@@ -811,7 +811,16 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     const callbackUrl =
       env.INTERNAL_CALLBACK_URL || `https://${DOMAINS.SITES_BASE}/api/internal/build-status`;
 
-    let jobId = await step.do(
+    // A start-build throw (pool exhaustion — 'no container instance can be
+    // provided', container 500s, etc.) previously propagated straight out of
+    // run() with NO status flip: the site stranded at 'generating' forever,
+    // and /reset's in-flight guard 409'd every future retry (journey
+    // 2026-08-20 — the exact stranded-state class that blocked rebuilds).
+    // Flip to error BEFORE rethrowing so the site reaches terminal and the
+    // user can retry immediately.
+    let jobId: string;
+    try {
+    jobId = await step.do(
       'start-build',
       {
         retries: { limit: 2, delay: '10 seconds', backoff: 'exponential' },
@@ -877,6 +886,14 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         return result.jobId;
       },
     );
+    } catch (err) {
+      await updateSiteStatus(env.DB, params.siteId, 'error');
+      await wfLog('workflow.start_build_failed', {
+        error: err instanceof Error ? err.message : String(err),
+        message: 'Container build failed to start — site flipped to error so the user can retry',
+      });
+      throw err;
+    }
 
     // ── Step 2: Heartbeat loop polls container directly with KV fallback ──
     // Each heartbeat sleeps 30s, then hits the container's /status. The inbound
