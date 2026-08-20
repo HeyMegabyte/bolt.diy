@@ -837,6 +837,7 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 ## 🔧 iter 234 (journey v10: the edit-materialization race — the last bridge gap)
 
 - **Root cause of the v9 editor-leg failure:** the artifact file-action can land AFTER 'Response Generated' paints; the spec clicked Save & Deploy in that window, PS_FILES_READY replied with the PRE-edit files, and the publish legitimately lacked the change (the chat itself had worked — the snapshot showed the streamed answer + a materialized React file). A human sees the edit first; the spec now POLLS for the marker in the workbench BEFORE the deploy click (`aba19f3c`). v10 running.
-- **NEXT TARGET:** journey v10 verdict → social split slice 3 (paste-key connect dialog) → the ag-grid→TanStack wave.
+- **✅ JOURNEY v10 GREEN (retry leg, 54.6m):** the edit-materialization poll was the final bridge gap — the live site serves `<h1>FRESH-FROM-THE-OVEN at Cedar Ridge Bakeshop</h1>`. Full chain: real build → publish → analytics → editor edit (polled-materialized) → Save & Deploy → bridge → live. (The chromium first attempt hit a build failure; the retry completed — the one-shot eviction honesty, not a bridge defect.)
+- **NEXT TARGET:** social split slice 3 (paste-key connect dialog) → the ag-grid→TanStack wave.
 
 
