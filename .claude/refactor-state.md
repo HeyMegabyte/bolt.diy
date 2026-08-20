@@ -882,3 +882,10 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - tsc: touched files clean (the `dkim_signer.ts` TS2339 belongs to the concurrent session's `1af32033` — left alone per the shared-tree rule). Worker deployed `ccbc7d66`; prod E2E 28/28 (auth-and-signin + health).
 - **⚠️ Journey v13: BUILD_LIMIT_RETRY again on the retry legs** (still another journey holds the slot) — v11 green 2/2 stands; keep re-kicking each fire until it completes.
 - **NEXT TARGET:** a fresh browser chaos pass over the newly-TanStack admin grids (audit + traces — sort/filter/pagination/expand at multiple breakpoints, since the migration changed the entire render path) OR the `inngest_container.ts` untracked-file cleanup the concurrent session left in the tree.
+
+## 🔧 iter 240 (TanStack-grid browser chaos pass — reflow 65/65, drawer contract reconciled)
+
+- **Ran the 320/390px reflow suite (WCAG 1.4.10) against prod as the TanStack-grid chaos pass**: all 64 route-viewport cells GREEN — the migrated audit + ai-logs tables (the new render path) reflow with zero page-level horizontal scroll at both mobile widths. Prod E2E, not local.
+- **Reconciled the drawer test with the concurrent session's shell refactor** (`514eadf6`): the persistent slide-in panel + `.admin-drawer-backdrop` class + hamburger aria-label flip broke the round-47 unmount assertions three ways (bare role+name double-match, always-mounted close button, moved backdrop). Test now asserts the shell-owned state signals (hamburger `aria-expanded` flip + backdrop mount/unmount). 65/65 green.
+- **⚠️ Journey v13: BUILD_LIMIT_RETRY on both attempts today** (another journey holds the slot); v11's 2/2 green stands. Keep re-kicking.
+- **NEXT TARGET:** the worker `mcp_site_tools.ts` lying-success candidate (iter 139's deferred item: `revokeSiteMcpToken` — dark-but-latent, harden on flag promotion) OR continue the admin-shell-adjacent E2E sweep (admin-a11y 21-section suite now runs WITHOUT the .ag-root exclusion — worth a full run to prove the exclusion removal is clean across every section).
