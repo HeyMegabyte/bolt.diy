@@ -5,6 +5,7 @@ import {
   type EmailHeader,
   dkimHeader,
   generateDkimKey,
+  isCryptoKeyPair,
   signEmail,
 } from '../dkim_signer.js';
 
@@ -100,6 +101,11 @@ describe('generateDkimKey', () => {
   it('generates distinct keys on successive calls', async () => {
     const second = await generateDkimKey();
     expect(second.publicKeyB64).not.toBe(keyPair.publicKeyB64);
+  });
+
+  it('isCryptoKeyPair narrows a pair and rejects a bare CryptoKey', () => {
+    expect(isCryptoKeyPair({ publicKey: {}, privateKey: {} } as unknown as CryptoKeyPair)).toBe(true);
+    expect(isCryptoKeyPair({ type: 'private' } as unknown as CryptoKey)).toBe(false);
   });
 });
 

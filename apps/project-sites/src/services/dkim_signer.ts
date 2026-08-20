@@ -84,6 +84,25 @@ export const DKIM_ALGORITHM = 'rsa-sha256';
 // ---------------------------------------------------------------------------
 
 /**
+ * Narrow Web Crypto's `generateKey` return — lib.dom types it as the
+ * `CryptoKey | CryptoKeyPair` union even when distinct `usages` guarantee a
+ * pair. A {@link CryptoKeyPair} has `publicKey`/`privateKey` properties; a
+ * bare {@link CryptoKey} does not.
+ *
+ * @param key - The `generateKey` result to inspect.
+ * @returns `true` when the value carries a public/private key pair.
+ *
+ * @example
+ * ```ts
+ * const result = await crypto.subtle.generateKey(alg, true, ['sign', 'verify']);
+ * if (!isCryptoKeyPair(result)) throw new Error('expected a key pair');
+ * ```
+ */
+export function isCryptoKeyPair(key: CryptoKey | CryptoKeyPair): key is CryptoKeyPair {
+  return 'publicKey' in key;
+}
+
+/**
  * Generate an RSA key pair suitable for DKIM signing. Produces a 2048-bit
  * RSASSA-PKCS1-v1_5 key with SHA-256 — the standard DKIM key type.
  *
@@ -101,7 +120,9 @@ export const DKIM_ALGORITHM = 'rsa-sha256';
  * ```
  *
  * @throws {Error} When the environment does not support `crypto.subtle` (e.g.
- *   insecure context).
+ *   insecure context), or when `generateKey` unexpectedly returns a single
+ *   {@link CryptoKey} instead of a {@link CryptoKeyPair} (defensive narrow —
+ *   the distinct usages guarantee a pair on every spec-compliant runtime).
  */
 export async function generateDkimKey(): Promise<DkimKeyPair> {
   const keyPair = await crypto.subtle.generateKey(
@@ -115,7 +136,16 @@ export async function generateDkimKey(): Promise<DkimKeyPair> {
     ['sign', 'verify'],
   );
 
-  const spkiDer = await crypto.subtle.exportKey('spki', keyPair.publicKey);
+  if (!isCryptoKeyPair(keyPair)) {
+    throw new Error(
+      'Web Crypto returned a single CryptoKey for RSASSA-PKCS1-v1_5 with dual usages — expected a CryptoKeyPair',
+    );
+  }
+
+  // lib.dom's exportKey overload returns `ArrayBuffer | JsonWebKey`; the
+  // 'spki' format always yields an ArrayBuffer. Narrow the union explicitly
+  // (same class of Web-Crypto union typing as the pair guard above).
+  const spkiDer = (await crypto.subtle.exportKey('spki', keyPair.publicKey)) as ArrayBuffer;
   return {
     privateKey: keyPair.privateKey,
     publicKey: keyPair.publicKey,

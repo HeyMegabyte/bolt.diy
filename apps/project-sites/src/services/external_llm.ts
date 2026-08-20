@@ -1256,9 +1256,12 @@ export async function uploadDocToOpenAI(
     throw new Error('uploadDocToOpenAI: OPENAI_API_KEY is not configured');
   }
 
-  // TS 5.9 lib: Uint8Array<ArrayBufferLike> isn't a BlobPart; file.bytes is a
-  // concrete ArrayBuffer/Uint8Array here — cast is safe + version-robust.
-  const blob = new Blob([file.bytes as BlobPart], { type: file.mime });
+  // @cloudflare/workers-types declares Blob's ctor param as
+  // `((ArrayBuffer | ArrayBufferView) | string | Blob)[]` — there is NO
+  // BlobPart name in this lib. TS 5.9's Uint8Array<ArrayBufferLike> isn't
+  // assignable to ArrayBufferView<ArrayBuffer>, so cast to the param union
+  // (file.bytes is a concrete ArrayBuffer/Uint8Array here — safe + version-robust).
+  const blob = new Blob([file.bytes as ArrayBuffer | ArrayBufferView], { type: file.mime });
   const formData = new FormData();
   formData.append('purpose', 'assistants');
   formData.append('file', blob, file.name);
