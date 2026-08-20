@@ -830,6 +830,10 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 ## 🔧 iter 232 (social split slice 1 — the SCSS-budget warning CLOSED)
 
 - **Social calendar extracted** (`e1538ea5`): the 3.2k-line social.component (32.86KB SCSS, 4.86KB over its 28KB budget — the surviving tracked build-warning) shed its calendar tab into `social-calendar.component.ts` (posts/platforms inputs, edit/rescheduled outputs, drag-to-reschedule PATCH, cal CSS colocated). Parent −105 lines; **the SCSS-budget build warning is GONE**. TDD: 6 new child tests + parent social spec 74/74. Deployed + verify:production PASS; chaos-15/16/17 = 16/16 green (no regression).
-- **NEXT TARGET:** social split slice 2 — the auto-pilot dialog (`.ap-dlg-*` selectors, ~40 lines) or the composer; then the remaining ag-grid→TanStack wave (audit + ai-logs, the known-tracked axe).
+## 🔧 iter 233 (social split slice 2 — the Auto-Pilot dialog extracted)
+
+- **Auto-Pilot dialog extracted** (`6bd5499a`): the dialog (draft signals, toggle/preview/save methods, the whole `.ap-dlg-*` CSS family) moved into `social-auto-pilot-dialog.component.ts` — inputs seed the drafts, `save` emits the server config for the PARENT to apply (`applyAutoPilotSaved`), `preview` POSTs `/social/auto-pilot/preview`. Parent keeps the enable toggle + open/close surface; −420 lines. TDD: 6 new dialog tests + parent social spec 74/74. Deployed + verify:production PASS; chaos-15/16/17 = 16/16 green.
+- **Journey:** v9 running in the background (the pipeline has been green since iter-231's 2/2; this fire's frontend-only slice doesn't touch it).
+- **NEXT TARGET:** social split slice 3 — the paste-key connect dialog (`.paste-*` selectors) or the composer; then the ag-grid→TanStack wave (audit + ai-logs, the known-tracked axe).
 
 
