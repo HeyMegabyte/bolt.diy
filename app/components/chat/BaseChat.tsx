@@ -41,6 +41,7 @@ import { PromptSuggestions } from './PromptSuggestions';
 import { CostEstimateBadge } from './CostEstimateBadge';
 import { startChatStateMirror } from '~/lib/chat/chat-state-mirror';
 import { chatId } from '~/lib/persistence/useChatHistory';
+import { chatStore } from '~/lib/stores/chat';
 import { describeImage } from '~/lib/chat/voice-vision';
 import { isEmbedded } from '~/lib/embed/embedded-mode';
 
@@ -161,6 +162,9 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     const [qrModalOpen, setQrModalOpen] = useState(false);
     const [mentionQuery, setMentionQuery] = useState<string | null>(null);
     const currentChatId = useStore(chatId);
+    // Mobile slide-over state — the Workbench's "Chat" tab flips this; the
+    // panel slides in/out via the max-lg transform classes below.
+    const mobileChatOpen = useStore(chatStore).mobileChatOpen;
 
     // Start IDB→D1 mirror (item 12)
     useEffect(() => {
@@ -527,7 +531,12 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
           <div
             className={classNames(
               styles.Chat,
-              'flex flex-col h-full w-full order-first shrink-0 lg:w-[420px] lg:min-w-[360px] border-r border-bolt-elements-borderColor overflow-hidden',
+              'flex flex-col h-full w-full order-first shrink-0 lg:w-[calc(50%-1px)] lg:min-w-[min(50%,520px)] border-r border-bolt-elements-borderColor overflow-hidden',
+              // Mobile (<1024px): the chat becomes a full-screen slide-over
+              // panel toggled by the Workbench's "Chat" tab (same tab strip as
+              // Code/Preview/Functions/Data) — never both squeezed side-by-side.
+              'max-lg:absolute max-lg:inset-0 max-lg:z-50 max-lg:border-r-0 max-lg:transition-transform max-lg:duration-300 max-lg:bolt-ease-cubic-bezier',
+              mobileChatOpen ? 'max-lg:translate-x-0' : 'max-lg:translate-x-full',
             )}
           >
             {/* ── Persistent chat panel, docked left of the workbench/preview ── */}

@@ -1,5 +1,5 @@
 import { useStore } from '@nanostores/react';
-import { motion, type HTMLMotionProps, type Variants } from 'framer-motion';
+import { AnimatePresence, motion, type HTMLMotionProps, type Variants } from 'framer-motion';
 import { computed } from 'nanostores';
 import { memo, useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
@@ -64,6 +64,19 @@ interface WorkspaceProps {
 }
 
 const viewTransition = { ease: cubicEasingFn };
+
+/*
+ * Tab-panel transition — a CROSSFADE with a subtle directional drift, NOT the
+ * bare instant x-jump the old View used (which flashed the box in/out — the
+ * "no flash" directive, Brian 2026-08-20). Each panel fades + settles 6px on
+ * the travel axis while the outgoing one fades away — continuous motion, no
+ * blank frame, `prefers-reduced-motion` handled by framer's global config.
+ */
+const viewVariants = {
+  enter: (dir: number) => ({ x: dir * 14, opacity: 0, scale: 0.995 }),
+  center: { x: 0, opacity: 1, scale: 1 },
+  exit: (dir: number) => ({ x: dir * -14, opacity: 0, scale: 0.995 }),
+};
 
 /** Top editor tabs — order drives the tab strip left-to-right. */
 const TOP_TABS: { value: WorkbenchViewType; text: string; icon: string }[] = [
@@ -238,7 +251,7 @@ export const Workbench = memo(
                         }
                       }}
                     />
-                    {/* Top tab strip — Code | Preview | Functions | Data */}
+                    {/* Top tab strip — Code | Preview | Functions | Data (+ Chat on mobile) */}
                     <div className="flex items-center gap-0.5 flex-1 overflow-x-auto">
                       {TOP_TABS.map((tab) => {
                         const active = selectedView === tab.value;
@@ -260,6 +273,27 @@ export const Workbench = memo(
                           </button>
                         );
                       })}
+                      {/* Chat tab — the mobile surface for the chat panel. Only
+                          rendered below 1024px where the panel becomes a
+                          slide-over; clicking opens it (Escape / the tab again
+                          closes). */}
+                      {isSmallViewport && (
+                        <button
+                          type="button"
+                          onClick={() => chatStore.setKey('mobileChatOpen', !chatStore.get().mobileChatOpen)}
+                          aria-pressed={chatStore.get().mobileChatOpen}
+                          data-testid="workbench-chat-tab"
+                          className={classNames(
+                            'flex items-center gap-1.5 text-sm cursor-pointer px-2.5 py-1 h-7 whitespace-nowrap rounded-md transition-colors',
+                            chatStore.get().mobileChatOpen
+                              ? 'bg-bolt-elements-terminals-buttonBackground text-bolt-elements-textPrimary'
+                              : 'bg-transparent text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3',
+                          )}
+                        >
+                          <div className="i-ph:chat-circle-dots text-base" />
+                          Chat
+                        </button>
+                      )}
                     </div>
                     <div className="ml-auto flex items-center gap-1">
                       {selectedView === 'code' && (
@@ -373,34 +407,43 @@ export const Workbench = memo(
                     />
                   </div>
                   <div className="relative flex-1 overflow-hidden">
-                    {/* Code view — full editor panel */}
-                    <View initial={{ x: '0%' }} animate={{ x: getViewX('code', selectedView) }}>
-                      <EditorPanel
-                        editorDocument={currentDocument}
-                        isStreaming={isStreaming}
-                        selectedFile={selectedFile}
-                        files={files}
-                        unsavedFiles={unsavedFiles}
-                        fileHistory={fileHistory}
-                        onFileSelect={onFileSelect}
-                        onEditorScroll={onEditorScroll}
-                        onEditorChange={onEditorChange}
-                        onFileSave={onFileSave}
-                        onFileReset={onFileReset}
-                      />
-                    </View>
-                    {/* Preview — read-only rendered output */}
-                    <View initial={{ x: '100%' }} animate={{ x: getViewX('preview', selectedView) }}>
-                      <Preview setSelectedElement={setSelectedElement} />
-                    </View>
-                    {/* Functions — Workers/functions manager */}
-                    <View initial={{ x: '100%' }} animate={{ x: getViewX('functions', selectedView) }}>
-                      <FunctionsPanel />
-                    </View>
-                    {/* Data — resource health overview */}
-                    <View initial={{ x: '100%' }} animate={{ x: getViewX('data', selectedView) }}>
-                      <DataPanel />
-                    </View>
+                    {/* Panels mount ONE-AT-A-TIME under AnimatePresence: the
+                        crossfade + drift transition runs between them — no
+                        x-slide flash, no blank frame (Brian 2026-08-20). */}
+                    <AnimatePresence initial={false} mode="popLayout">
+                      {selectedView === 'code' && (
+                        <View key="code" data-dir={-1}>
+                          <EditorPanel
+                            editorDocument={currentDocument}
+                            isStreaming={isStreaming}
+                            selectedFile={selectedFile}
+                            files={files}
+                            unsavedFiles={unsavedFiles}
+                            fileHistory={fileHistory}
+                            onFileSelect={onFileSelect}
+                            onEditorScroll={onEditorScroll}
+                            onEditorChange={onEditorChange}
+                            onFileSave={onFileSave}
+                            onFileReset={onFileReset}
+                          />
+                        </View>
+                      )}
+                      {selectedView === 'preview' && (
+                        <View key="preview" data-dir={1}>
+                          <Preview setSelectedElement={setSelectedElement} />
+                        </View>
+                      )}
+                      {selectedView === 'functions' && (
+                        <View key="functions" data-dir={1}>
+                          <FunctionsPanel />
+                        </View>
+                      )}
+                      {selectedView === 'data' && (
+                        <View key="data" data-dir={1}>
+                          <DataPanel />
+                        </View>
+                      )}
+                    </AnimatePresence>
                   </div>
                   {/* Item 36 — StatusBar pinned to the bottom of the workbench */}
                   <StatusBar />
@@ -420,8 +463,19 @@ interface ViewProps extends HTMLMotionProps<'div'> {
 }
 
 const View = memo(({ children, ...props }: ViewProps) => {
+  const dir = (props as { 'data-dir'?: number })['data-dir'] ?? 0;
+
   return (
-    <motion.div className="absolute inset-0" transition={viewTransition} {...props}>
+    <motion.div
+      className="absolute inset-0 will-change-transform will-change-opacity"
+      custom={dir}
+      variants={viewVariants}
+      initial="enter"
+      animate="center"
+      exit="exit"
+      transition={{ duration: 0.28, ease: cubicEasingFn }}
+      {...props}
+    >
       {children}
     </motion.div>
   );
