@@ -541,11 +541,11 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
           >
             {/* ── Persistent chat panel, docked left of the workbench/preview ── */}
             <StickToBottom
-              className="pt-2 px-2 sm:px-4 relative flex-1 min-h-0 flex flex-col modern-scrollbar overflow-y-auto"
+              className="pt-2 px-2 sm:px-3 relative flex-1 min-h-0 flex flex-col modern-scrollbar overflow-y-auto"
               resize="smooth"
               initial="smooth"
             >
-              <StickToBottom.Content className="flex flex-col gap-4 relative">
+              <StickToBottom.Content className="flex flex-col gap-3 relative">
               <Messages
                 className="flex flex-col w-full max-w-chat mx-auto"
                 messages={messages}
@@ -560,7 +560,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                 <ScrollToBottom />
               </StickToBottom.Content>
             </StickToBottom>
-            <div className="flex flex-col gap-2 w-full px-2 sm:px-4 pb-4 z-prompt">
+            <div className="flex flex-col gap-2 w-full px-2 sm:px-3 pb-3 z-prompt">
               <div className="flex flex-col gap-2 w-full max-w-chat mx-auto">
                 <div className="flex flex-col gap-2">
                   {deployAlert && (
