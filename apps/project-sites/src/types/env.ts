@@ -164,23 +164,10 @@ export interface Env {
   ACTIVITY_HUB?: DurableObjectNamespace;
   /** Per-site Durable Object — Unified Analytics ingestion dispatcher (Plane H). */
   EVENT_DISPATCHER?: DurableObjectNamespace;
-  /**
-   * Self-hosted Inngest durable-jobs server (CF Container DO) for the
-   * jobs./events.projectsites.dev plane (convergence §13). Inert until the
-   * watched deploy binds it; `src/inngest/serve.ts` degrades to 503 without it.
-   */
-  INNGEST_CONTAINER?: DurableObjectNamespace;
-  /** Inngest event key (self-gen hex32) — send-events auth. wrangler secret. */
-  INNGEST_EVENT_KEY?: string;
-  /** Inngest signing key (self-gen hex32) — serve-handler auth. wrangler secret. */
-  INNGEST_SIGNING_KEY?: string;
-  /** Inngest Postgres URI — Neon project `Inngest`. wrangler secret. */
-  INNGEST_POSTGRES_URI?: string;
-  /** Inngest Redis URI — Upstash `inngest`. wrangler secret. */
-  INNGEST_REDIS_URI?: string;
-  /** Self-hosted Inngest base URL (e.g. https://jobs.projectsites.dev). var. */
-  INNGEST_BASE_URL?: string;
-
+  // Inngest REMOVED (2026-08-20) — §13 self-hosted plane replaced by CF-native
+  // outbox → Hatchet Cloud (ADR-0004). Container, DO class, src/inngest adapter,
+  // and all INNGEST_* env deleted. jobs./events.projectsites.dev now serve the
+  // branded status page only.
   // Formbricks REMOVED (2026-06-27) — exceeds the 4-service max. Container, DO
   // class, namespace, binding, host route, and all FORMBRICKS_* env deleted.
 

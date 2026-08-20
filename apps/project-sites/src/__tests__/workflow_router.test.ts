@@ -1,10 +1,11 @@
 /**
  * Convergence §20 — WorkflowRouter selection logic + job-definition integrity.
  *
- * Locks the routing brain: CF-native+light → Workflows, event-driven+light →
- * Inngest, heavy/browser/stateful → Hatchet — and asserts every declared job's
- * `defaultBackend` equals what the live policy (`chooseWorkflowBackend`) derives,
- * so the declaration and the policy can never silently diverge.
+ * Locks the routing brain: CF-native+light → Workflows,
+ * heavy/browser/stateful → Hatchet (the Inngest plane was removed 2026-08-20
+ * and folded into Workflows) — and asserts every declared job's `defaultBackend`
+ * equals what the live policy (`chooseWorkflowBackend`) derives, so the
+ * declaration and the policy can never silently diverge.
  */
 import {
   chooseWorkflowBackend,
@@ -25,8 +26,10 @@ describe('chooseWorkflowBackend (§20 selection logic)', () => {
     ).toBe('cloudflare-workflows');
   });
 
-  it('routes event-driven + light work to Inngest', () => {
-    expect(chooseWorkflowBackend({ kind: 'x', isProductEventDriven: true })).toBe('inngest');
+  it('routes event-driven + light work to Workflows (the folded former Inngest plane)', () => {
+    expect(
+      chooseWorkflowBackend({ kind: 'x', isCloudflareNative: true, isProductEventDriven: true }),
+    ).toBe('cloudflare-workflows');
   });
 
   it('routes heavy / browser / filesystem / stateful work to Hatchet', () => {
@@ -45,7 +48,7 @@ describe('chooseWorkflowBackend (§20 selection logic)', () => {
     );
   });
 
-  it('event-driven but browser/heavy escalates OFF Inngest to Hatchet', () => {
+  it('event-driven but browser/heavy escalates to Hatchet', () => {
     expect(
       chooseWorkflowBackend({ kind: 'x', isProductEventDriven: true, needsBrowser: true }),
     ).toBe('hatchet');
@@ -61,7 +64,7 @@ describe('JOB_DEFINITIONS integrity', () => {
 
   it('declares at least one job per backend', () => {
     const backends = new Set<WorkflowBackend>(entries.map(([, d]) => d.defaultBackend));
-    expect(backends).toEqual(new Set(['cloudflare-workflows', 'inngest', 'hatchet']));
+    expect(backends).toEqual(new Set(['cloudflare-workflows', 'hatchet']));
   });
 
   it('every defaultBackend equals the policy-derived backend (no drift)', () => {
@@ -94,7 +97,7 @@ describe('routeJob / isJobKind', () => {
   it('routes the canonical revenue-path jobs to the right plane', () => {
     expect(routeJob('site-generation').backend).toBe('hatchet');
     expect(routeJob('claim-flow').backend).toBe('cloudflare-workflows');
-    expect(routeJob('notification-workflow').backend).toBe('inngest');
+    expect(routeJob('notification-workflow').backend).toBe('cloudflare-workflows');
   });
 
   it('returns the full definition alongside the backend', () => {

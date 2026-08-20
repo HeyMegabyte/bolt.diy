@@ -35,6 +35,7 @@ export type ServiceRuntime =
   | 'managed-saas'
   | 'self-hosted-container'
   | 'library'
+  | 'removed'
   | 'not-applicable';
 
 /** Coarse domain bucket. */
@@ -125,28 +126,25 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
   },
   {
     id: 'workflow-router',
-    name: 'WorkflowRouter — CF-Workflows/Inngest/Hatchet routing brain (§20)',
+    name: 'WorkflowRouter — CF-Workflows/Hatchet routing brain (§20)',
     category: 'jobs',
     runtime: 'library',
     ownerPackage: 'apps/project-sites/src/platform/workflow-router.ts',
     status: 'integrated',
     access: 'service-only',
     notes:
-      'Routing policy + JOB_DEFINITIONS + port + all 3 backend adapters (CF/Inngest/Hatchet) + getJobRouter(env) factory + POST /api/jobs dispatch route (mounted, tested). Remaining: migrate the claim/billing/domain flows to dispatch through it (their dedicated Workflow classes). ADR-0003.',
+      'Routing policy + JOB_DEFINITIONS + port + backend adapters (CF Workflows/Hatchet; Inngest removed 2026-08-20) + getJobRouter(env) factory + POST /api/jobs dispatch route (mounted, tested). Remaining: migrate the claim/billing/domain flows to dispatch through it (their dedicated Workflow classes). ADR-0003.',
   },
   {
     id: 'jobs-inngest',
-    name: 'Self-hosted Inngest durable-jobs server (§13 automation plane)',
+    name: 'Inngest durable-jobs server — REMOVED (2026-08-20)',
     domain: 'jobs.projectsites.dev',
     category: 'jobs',
-    runtime: 'cloudflare-container',
-    ownerPackage: 'apps/project-sites/src/durable_objects/inngest_container.ts',
-    adapterPackage: 'apps/project-sites/src/inngest',
-    datastore: ['Neon:Inngest', 'Upstash:inngest'],
-    secretsNamespace: '/inngest',
-    status: 'scaffolded',
+    runtime: 'removed',
+    status: 'removed',
     access: 'internal-access',
-    notes: 'Ships live-but-inert (503) until the watched DO-migration go-live.',
+    notes:
+      'Replaced by CF-native outbox → Hatchet Cloud (ADR-0004). Container, DO class, src/inngest adapter, and all INNGEST_* env deleted; jobs./events.* now serve the branded status page only.',
   },
   {
     id: 'event-dispatcher',

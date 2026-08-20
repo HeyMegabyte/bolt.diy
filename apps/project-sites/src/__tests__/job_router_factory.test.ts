@@ -2,13 +2,13 @@
  * Convergence §20 — getJobRouter wiring.
  *
  * Asserts the factory routes each kind to the correct plane's injected dep:
- * event-driven→inngestSend, heavy→hatchetPush, CF-native→cfBindings — proving the
- * three adapters are assembled correctly behind one ProjectSitesJobProvider.
+ * light/CF-native→cfBindings, heavy→hatchetPush — proving the two adapters are
+ * assembled correctly behind one ProjectSitesJobProvider. (The Inngest adapter
+ * was removed 2026-08-20 with the §13 plane.)
  */
 import { getJobRouter } from '../platform/job-router-factory.js';
 import type { Env } from '../types/env.js';
 import type { ProjectSitesJobContext } from '../platform/job-provider.js';
-import type { InngestSender } from '../inngest/job-provider.js';
 import type { HatchetPusher } from '../services/hatchet_job_provider.js';
 import type { CfWorkflowBinding, CfWorkflowInstanceLike } from '../workflows/job-provider.js';
 
@@ -24,16 +24,9 @@ const ctx = (over: Partial<ProjectSitesJobContext> = {}): ProjectSitesJobContext
 });
 
 function deps() {
-  const inngestSent: { name: string }[] = [];
   const hatchetPushed: { key: string }[] = [];
   const cfCreated: { id: string }[] = [];
 
-  const inngestSend: InngestSender = {
-    async send(e) {
-      inngestSent.push({ name: e.name });
-      return { ids: [e.id ?? 'x'] };
-    },
-  };
   const hatchetPush: HatchetPusher = async (key) => {
     hatchetPushed.push({ key });
     return { ok: true };
@@ -59,8 +52,7 @@ function deps() {
     },
   };
   return {
-    seams: { inngestSend, hatchetPush, cfBindings: { 'claim-flow': claimBinding } as const },
-    inngestSent,
+    seams: { hatchetPush, cfBindings: { 'claim-flow': claimBinding } as const },
     hatchetPushed,
     cfCreated,
   };
@@ -74,17 +66,22 @@ describe('getJobRouter', () => {
     expect(typeof r.cancelJob).toBe('function');
   });
 
-  it('routes site-generation → Hatchet, notification → Inngest, claim-flow → CF', async () => {
+  it('routes site-generation → Hatchet, notification → CF, claim-flow → CF', async () => {
     const d = deps();
-    const router = getJobRouter(env, d.seams);
+    const router = getJobRouter(env, {
+      ...d.seams,
+      cfBindings: {
+        'claim-flow': d.seams.cfBindings?.['claim-flow']!,
+        'notification-workflow': d.seams.cfBindings?.['claim-flow']!,
+      },
+    });
 
     await router.start('site-generation', ctx({ idempotencyKey: 'sg' }), { slug: 'a' });
     await router.start('notification-workflow', ctx({ idempotencyKey: 'nw' }));
     await router.start('claim-flow', ctx({ idempotencyKey: 'cf' }), { leadId: 'l1' });
 
     expect(d.hatchetPushed.map((x) => x.key)).toEqual(['job/site-generation.requested']);
-    expect(d.inngestSent.map((x) => x.name)).toEqual(['job/notification.requested']);
-    expect(d.cfCreated.map((x) => x.id)).toEqual(['cf']);
+    expect(d.cfCreated.map((x) => x.id)).toEqual(['nw', 'cf']);
   });
 
   it('a CF-native kind with no bound Workflow fails loudly (not silent)', async () => {

@@ -29,7 +29,6 @@ export const EVENT_PRODUCERS = [
   'container',
   'admin',
   'cloudflare-workflows',
-  'inngest',
   'hatchet',
   'stripe',
   'hookdeck',

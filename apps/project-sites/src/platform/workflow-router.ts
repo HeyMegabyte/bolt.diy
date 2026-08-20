@@ -9,20 +9,22 @@
  *
  *   1. cloudflare-workflows — CF-native durable orchestration (claim flow,
  *      billing lifecycle, domain verification, single audits). First choice.
- *   2. inngest — event-driven product lifecycle automation (the §13 self-hosted
- *      plane: site.published, subscription.*, lead.discovered, notifications).
- *   3. hatchet — heavy/stateful/long/browser/AI execution (site generation,
+ *   2. hatchet — heavy/stateful/long/browser/AI execution (site generation,
  *      bulk scans, screenshots, crawls). Hatchet Cloud, never Fly (ADR-0004).
  *
+ * (Inngest REMOVED 2026-08-20 — the §13 self-hosted plane was replaced by the
+ * CF-native outbox → Hatchet Cloud; its event-driven jobs were retargeted to
+ * cloudflare-workflows.)
+ *
  * Pure + deterministic → fully unit-testable, no I/O. Backend adapters
- * (CloudflareWorkflowProvider / InngestProvider / HatchetProvider) are a
- * follow-on slice; this module is the routing brain they plug into.
+ * (CloudflareWorkflowProvider / HatchetProvider) are a follow-on slice; this
+ * module is the routing brain they plug into.
  *
  * @see docs/adr/0003-cloudflare-workflows-inngest-hatchet-routing.md
  */
 
-/** The three execution planes, in preference order. */
-export type WorkflowBackend = 'cloudflare-workflows' | 'inngest' | 'hatchet';
+/** The execution planes, in preference order. */
+export type WorkflowBackend = 'cloudflare-workflows' | 'hatchet';
 
 /** Cost bucket for entitlement/quota accounting (§21/§31). */
 export type CostCategory =
@@ -55,8 +57,8 @@ export interface JobRoutingFlags {
 
 /**
  * Choose the execution backend for a job (convergence §20 selection logic).
- * CF-native + light → Workflows; event-driven + light → Inngest; everything
- * heavy/stateful/browser/filesystem → Hatchet.
+ * CF-native + light → Workflows; everything heavy/stateful/browser/filesystem
+ * → Hatchet. (The former Inngest plane folded into Workflows.)
  *
  * @example chooseWorkflowBackend({ kind: 'claim-flow', isCloudflareNative: true }) // 'cloudflare-workflows'
  * @example chooseWorkflowBackend({ kind: 'site-generation', needsHeavyRuntime: true }) // 'hatchet'
@@ -70,15 +72,6 @@ export function chooseWorkflowBackend(job: JobRoutingFlags): WorkflowBackend {
     !job.needsStatefulSession
   ) {
     return 'cloudflare-workflows';
-  }
-
-  if (
-    job.isProductEventDriven &&
-    !job.needsHeavyRuntime &&
-    !job.needsBrowser &&
-    !job.needsStatefulSession
-  ) {
-    return 'inngest';
   }
 
   return 'hatchet';
@@ -167,11 +160,11 @@ export const JOB_DEFINITIONS = {
     costCategory: 'google-api',
   },
 
-  // ── Inngest — event-driven product lifecycle (the §13 plane) ──
+  // ── Former Inngest plane — retargeted to cloudflare-workflows (2026-08-20) ──
   'notification-workflow': {
     kind: 'notification-workflow',
-    isProductEventDriven: true,
-    defaultBackend: 'inngest',
+    isCloudflareNative: true,
+    defaultBackend: 'cloudflare-workflows',
     maxHotPathMs: 250,
     expectedDurationSeconds: 15,
     maxRetries: 5,
@@ -184,8 +177,8 @@ export const JOB_DEFINITIONS = {
   },
   'lifecycle-email': {
     kind: 'lifecycle-email',
-    isProductEventDriven: true,
-    defaultBackend: 'inngest',
+    isCloudflareNative: true,
+    defaultBackend: 'cloudflare-workflows',
     maxHotPathMs: 250,
     expectedDurationSeconds: 15,
     maxRetries: 5,

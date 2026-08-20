@@ -137,14 +137,8 @@ describe('config_template', () => {
   // ── APP_TEMPLATES ────────────────────────────────────────────────────────
 
   describe('APP_TEMPLATES', () => {
-    it('contains all five service templates', () => {
-      expect(Object.keys(APP_TEMPLATES).sort()).toEqual([
-        'inngest',
-        'listmonk',
-        'plane',
-        'twenty',
-        'unkey',
-      ]);
+    it('contains all four service templates (inngest removed 2026-08-20)', () => {
+      expect(Object.keys(APP_TEMPLATES).sort()).toEqual(['listmonk', 'plane', 'twenty', 'unkey']);
     });
 
     it('every template has a non-empty name', () => {
@@ -217,9 +211,9 @@ describe('config_template', () => {
       expect(u.fields.some((f) => f.key === 'UNKEY_DB_URL')).toBe(true);
     });
 
-    it('inngest template has signing key', () => {
-      const i = APP_TEMPLATES.inngest;
-      expect(i.fields.some((f) => f.key === 'INNGEST_SIGNING_KEY')).toBe(true);
+    it('listmonk template carries the Postgres URL key', () => {
+      const i = APP_TEMPLATES.listmonk;
+      expect(i.fields.some((f) => f.key === 'LISTMONK_DB_URL')).toBe(true);
     });
   });
 });

@@ -54,7 +54,7 @@ describe('architecture fitness — forbidden vendors (convergence LAW §2)', () 
     expect(violations(/@polar-sh|polar\.sh|from ['"]@polar/i)).toEqual([]);
   });
 
-  it('has no Trigger.dev references (Cloudflare Workflows / Inngest / Hatchet only)', () => {
+  it('has no Trigger.dev references (Cloudflare Workflows / Hatchet only)', () => {
     expect(violations(/@trigger\.dev|trigger\.dev\/sdk|from ['"]@trigger/i)).toEqual([]);
   });
 

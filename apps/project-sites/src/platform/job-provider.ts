@@ -12,7 +12,7 @@
  * Every start carries a typed `ProjectSitesJobContext` (tenant/trace/idempotency,
  * §21) and is idempotent by `idempotencyKey` (§23): re-starting with the same key
  * returns the SAME `JobRef`, never a duplicate. Real backend adapters
- * (CloudflareWorkflowProvider / InngestProvider / HatchetProvider) implement the
+ * (CloudflareWorkflowProvider / HatchetProvider) implement the
  * same port — a follow-on slice; this lands the contract + the testable fake.
  *
  * @see docs/adr/0003-cloudflare-workflows-inngest-hatchet-routing.md
@@ -153,7 +153,7 @@ export class FakeJobProvider implements ProjectSitesJobProvider {
  *
  * @throws {Error} if no provider is registered for the resolved backend.
  * @example
- * const router = createJobRouter({ 'hatchet': fake, 'inngest': fake, 'cloudflare-workflows': fake });
+ * const router = createJobRouter({ 'hatchet': fake, 'cloudflare-workflows': fake });
  * await router.start('site-generation', ctx); // → dispatched to the hatchet provider
  */
 export function createJobRouter(

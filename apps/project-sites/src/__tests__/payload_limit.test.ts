@@ -41,12 +41,10 @@ describe('payloadLimitMiddleware', () => {
     expect(res.status).toBe(200);
   });
 
-  it('exempts the other container hosts (schedule/jobs/events) too', async () => {
-    for (const host of [
-      'schedule.projectsites.dev',
-      'jobs.projectsites.dev',
-      'events.projectsites.dev',
-    ]) {
+  it('exempts the other container hosts (schedule) too', async () => {
+    // jobs./events. dropped with Inngest removal 2026-08-20 — they no longer
+    // proxy to a container, so they use the standard API cap like any host.
+    for (const host of ['schedule.projectsites.dev']) {
       const res = await post(`https://${host}/api/x`, TWO_MB);
       expect(res.status).toBe(200);
     }

@@ -5,7 +5,6 @@ export const EVENT_PRODUCERS = [
   'twenty',
   'listmonk',
   'social_native',
-  'inngest',
   'unkey',
   'billing',
 ] as const;

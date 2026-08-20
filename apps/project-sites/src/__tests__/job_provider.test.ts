@@ -89,11 +89,9 @@ describe('createJobRouter dispatch', () => {
   it('routes each kind to the provider for its backend', async () => {
     const hatchet = new FakeJobProvider();
     const cf = new FakeJobProvider();
-    const inngest = new FakeJobProvider();
     const router = createJobRouter({
       hatchet,
       'cloudflare-workflows': cf,
-      inngest,
     });
 
     await router.start('site-generation', ctx({ idempotencyKey: 'sg' }));
@@ -101,15 +99,12 @@ describe('createJobRouter dispatch', () => {
     await router.start('notification-workflow', ctx({ idempotencyKey: 'nw' }));
 
     expect(hatchet.size).toBe(1); // site-generation
-    expect(cf.size).toBe(1); // claim-flow
-    expect(inngest.size).toBe(1); // notification-workflow
+    expect(cf.size).toBe(2); // claim-flow + notification-workflow (folded Inngest plane)
   });
 
   it('throws when no provider is registered for the resolved backend', async () => {
-    const router = createJobRouter({ inngest: new FakeJobProvider() });
-    await expect(router.start('site-generation', ctx())).rejects.toThrow(
-      /No job provider registered/,
-    );
+    const router = createJobRouter({ hatchet: new FakeJobProvider() });
+    await expect(router.start('claim-flow', ctx())).rejects.toThrow(/No job provider registered/);
   });
 
   it('getJobStatus finds the job across providers', async () => {

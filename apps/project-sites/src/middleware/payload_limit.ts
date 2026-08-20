@@ -23,17 +23,16 @@ const UPLOAD_PATHS = ['/api/publish/bolt', '/api/sites/'];
 
 /**
  * Self-hosted-app subdomains proxied wholesale to CF Workers Containers
- * (Documenso/cal.diy/Inngest). These apps enforce their own request-body
- * limits and routinely accept multi-MB payloads (avatar images, signed PDFs,
- * documents), so the worker grants them the 100 MB ceiling instead of the
- * default 256 KB API cap — otherwise an avatar upload 413s before reaching the
- * container (`profile.setProfileImage` on sign.* was rejected at 1.3 MB).
+ * (Documenso/cal.diy). These apps enforce their own request-body limits and
+ * routinely accept multi-MB payloads (avatar images, signed PDFs, documents),
+ * so the worker grants them the 100 MB ceiling instead of the default 256 KB
+ * API cap — otherwise an avatar upload 413s before reaching the container
+ * (`profile.setProfileImage` on sign.* was rejected at 1.3 MB).
  */
 const CONTAINER_APP_HOSTS = new Set([
   'sign.projectsites.dev', // Documenso — e-signatures, avatar + PDF uploads
   'schedule.projectsites.dev', // cal.diy — scheduling
-  'jobs.projectsites.dev', // Inngest — durable jobs
-  'events.projectsites.dev', // Inngest — event ingest
+  // Inngest REMOVED (2026-08-20) — jobs./events.* no longer proxy to a container.
 ]);
 
 /**

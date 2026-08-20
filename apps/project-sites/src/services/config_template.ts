@@ -141,37 +141,6 @@ export function extractSecrets(fields: readonly ConfigField[]): string[] {
  * {@link ConfigField} with required/sensitive flags.
  */
 export const APP_TEMPLATES: Record<string, ConfigTemplate> = {
-  inngest: buildTemplate('Inngest', 'env', [
-    {
-      description: 'Event signing key for webhook verification',
-      key: 'INNGEST_SIGNING_KEY',
-      required: true,
-      sensitive: true,
-      value: 'signkey-prod-12345678',
-    },
-    {
-      description: 'Event API key for sending events',
-      key: 'INNGEST_EVENT_KEY',
-      required: true,
-      sensitive: true,
-      value: 'eventkey-prod-12345678',
-    },
-    {
-      description: 'Postgres connection string (Neon)',
-      key: 'INNGEST_DB_URL',
-      required: false,
-      sensitive: true,
-      value: 'postgresql://inngest:pass@neon:5432/inngest',
-    },
-    {
-      description: 'Redis connection string (Upstash)',
-      key: 'INNGEST_REDIS_URL',
-      required: false,
-      sensitive: true,
-      value: 'rediss://default:pass@eu1-keen-puff-12345.upstash.io:6379',
-    },
-  ]),
-
   listmonk: buildTemplate('Listmonk', 'env', [
     {
       description: 'Postgres connection string (Neon)',

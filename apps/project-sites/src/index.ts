@@ -55,7 +55,6 @@ import { search } from './routes/search.js';
 import { featureE2e } from './routes/feature_e2e.js';
 import { visionQa } from './routes/vision_qa.js';
 import { browserService } from './routes/browser_service.js'; // browser.projectsites.dev /v1/browser/* (CF-first browser abstraction)
-import { inngestApp } from './inngest/serve.js'; // jobs./events.projectsites.dev + /api/inngest serve (§13 automation plane; inert until watched deploy)
 import { createJobsRoutes } from './routes/jobs.js'; // POST /api/jobs dispatch seam (§20 WorkflowRouter)
 import { adminLeads } from './routes/admin_leads.js';
 import { adminOutbox } from './routes/admin_outbox.js';
@@ -179,8 +178,9 @@ export { ConversationHub } from './durable_objects/conversation_hub.js';
 // (watched one-way-door DO migration). Feature: collab_editing.
 export { CollabRoomDO } from './durable_objects/collab_room.js';
 export { EventDispatcher } from './durable_objects/event_dispatcher.js';
-// jobs./events.projectsites.dev — self-hosted Inngest server container (§13).
-export { InngestContainer } from './durable_objects/inngest_container.js';
+// Inngest REMOVED (2026-08-20) — class, container, adapter, env, routes, and
+// the DO namespace (CF API, Formbricks precedent) all deleted. jobs./events.
+// hosts now serve the branded status page / 404.
 // Formbricks REMOVED (2026-06-27): class, container, binding, route, env, and the
 // orphaned DO namespace all deleted (exceeds the 4-service max). Nothing remains.
 // sign.projectsites.dev — self-hosted Documenso e-signature container (dedicated DO).
@@ -754,10 +754,10 @@ app.route('/api/onboarding', onboardingCopilot); // /api/onboarding/{checklist,d
 app.route('/api/audit/export', auditTrailExport); // GET /api/audit/export (flag: audit_trail_export)
 app.route('/', modelRegistry); // GET /v1/models — OpenAI-compatible alias catalog (flag: model_registry) — must precede the site-serving catch-all
 app.route('/', browserService); // POST /v1/browser/* — product browser-automation abstraction (browser.projectsites.dev); routes CF→Stagehand→Browserbase-fallback, never Skyvern in product paths — must precede the catch-all
-// System-service status page at the bare root `/` — registered BEFORE inngestApp
-// so `jobs.projectsites.dev/` returns the branded 200 status page instead of the
-// Inngest inert 503. Only matches exact path `/`, so `/api/inngest` (and every
-// other `/api/*`, `/v1/*` path on these hosts) still routes to its real handler.
+// System-service status page at the bare root `/` — registered BEFORE the
+// root-landing handler so platform subdomains return the branded 200 status
+// page. Only matches exact path `/`, so `/api/*`, `/v1/*` still route to their
+// real handlers.
 // Root landing for platform subdomains — consolidated (iter 47) from TWO
 // separate `app.get('/')` handlers into one. The 2nd handler was NOT moot: it
 // uniquely served the llm/logs/webhooks/links roots (deleting it 404s them —
@@ -779,7 +779,10 @@ app.get('/', async (c, next) => {
   }
   return next();
 });
-app.route('/', inngestApp); // jobs./events.projectsites.dev → InngestContainer DO + /api/inngest serve handler (§13); degrades to 503 until the watched deploy binds INNGEST_CONTAINER — must precede the catch-all
+// jobs./events.projectsites.dev — Inngest REMOVED (2026-08-20): §13 self-hosted
+// plane replaced by CF-native outbox → Hatchet Cloud (ADR-0004). The
+// createJobsRoutes mount above is the single dispatch seam.
+app.route('/', createJobsRoutes()); // POST /api/jobs + GET /api/jobs/:id/status — authed WorkflowRouter dispatch seam (§20); routes to CF Workflows/Hatchet via getJobRouter(env)
 // Formbricks REMOVED (2026-06-27): survey.* host route, FormbricksContainer DO
 // class, container block, binding, all FORMBRICKS_* env, AND the orphaned DO
 // namespace all deleted (exceeds the 4-service max — needs Cube + extra custom
@@ -821,7 +824,6 @@ app.all('*', async (c, next) => {
   }
   return binding.get(binding.idFromName('gotenberg-singleton')).fetch(c.req.raw);
 });
-app.route('/', createJobsRoutes()); // POST /api/jobs + GET /api/jobs/:id/status — authed WorkflowRouter dispatch seam (§20); routes to CF Workflows/Inngest/Hatchet via getJobRouter(env)
 
 // ── 40-list build wave (Brian-selected, 2026-06-17) — all flag-gated → 404 when off ──
 app.route('/', paymentsRail); // /api/payments/* (flag: payments_rail)

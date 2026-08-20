@@ -55,15 +55,6 @@ export const APP_LISTINGS: readonly AppListing[] = [
     status: 'live',
   },
   {
-    slug: 'inngest',
-    name: 'Inngest',
-    description: 'Durable workflows & event-driven jobs',
-    url: 'https://events.projectsites.dev',
-    category: 'infra',
-    tags: ['workflows', 'queues', 'jobs'],
-    status: 'live',
-  },
-  {
     slug: 'payload',
     name: 'Payload CMS',
     description: 'Headless CMS for content teams',
