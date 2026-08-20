@@ -179,7 +179,11 @@ test.describe('CHAOS 18 — template build journey (keystone)', () => {
     await expect
       .poll(
         async () => {
-          const res = await request.get(SITE_URL);
+          // Cache-buster: the site serves with edge cache headers — a plain
+          // GET re-reads a STALE cached response for the whole poll window
+          // even after the publish lands (journey 2026-08-20: the marker was
+          // live in seconds via curl?cb=N while the poll timed out).
+          const res = await request.get(`${SITE_URL}?cb=${Date.now()}`);
           return (await res.text()).includes(CHANGE_TOKEN);
         },
         { timeout: 15 * 60_000, message: 'editor change never reached the live site via the bridge' },
