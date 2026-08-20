@@ -1006,6 +1006,13 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             poll: i,
             message: 'Container DO lost the job — restarting the build once',
           });
+          // FRESH DO — re-posting to the evicted container guarantees a
+          // second eviction (its memory is gone). A new name-derived DO boots
+          // a fresh image and the build genuinely restarts. Minted OUTSIDE
+          // the step callback: on a Workflow REPLAY the cached step result is
+          // returned WITHOUT re-invoking the callback, so a swap inside would
+          // be lost and the heartbeat would keep polling the dead original.
+          const container = freshRestartContainer();
           const restartJobId = await step.do(
             'restart-build-after-eviction',
             {
@@ -1013,10 +1020,6 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
               timeout: '5 minutes',
             },
             async () => {
-              // FRESH DO — re-posting to the evicted container guarantees a
-              // second eviction (its memory is gone). A new name-derived DO
-              // boots a fresh image and the build genuinely restarts.
-              const container = freshRestartContainer();
               const _deepseekKey = (env as unknown as { DEEPSEEK_API_KEY?: string })
                 .DEEPSEEK_API_KEY;
               const _buildLlmProvider = (env as unknown as { BUILD_LLM_PROVIDER?: string })
@@ -1144,6 +1147,9 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             age_ms: ageMs,
             message: `Status stale ${(ageMs / 1000) | 0}s — restarting the build once`,
           });
+          // FRESH DO — see the eviction restart's rationale + the
+          // replay-safety note (mint OUTSIDE the callback).
+          const container = freshRestartContainer();
           const restartJobId = await step.do(
             'restart-build-after-stale',
             {
@@ -1151,8 +1157,6 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
               timeout: '5 minutes',
             },
             async () => {
-              // FRESH DO — see the eviction restart's rationale.
-              const container = freshRestartContainer();
               const _deepseekKey = (env as unknown as { DEEPSEEK_API_KEY?: string })
                 .DEEPSEEK_API_KEY;
               const _buildLlmProvider = (env as unknown as { BUILD_LLM_PROVIDER?: string })
@@ -1837,8 +1841,22 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     // builds). stop() is a SIGTERM: the job already terminal, nothing lost.
     if (env.SITE_BUILDER) {
       try {
-        const stub = getContainer() as unknown as { stop: () => Promise<void> };
-        await stub.stop().catch(() => {});
+        // Release the ACTIVE container's slot — after an eviction restart the
+        // live slot-holder is the `-r1` fresh DO, NOT the original name this
+        // closure captured at build start. Stopping the original leaked the
+        // restarted container into the pool for its full sleepAfter — with
+        // restarts + concurrent sessions + the journey's rebuilds that
+        // exhausted max_instances (live 2026-08-20: 'no container instance
+        // can be provided'). Stop BOTH (cheap, idempotent) so no path leaks.
+        const stopAll = [getContainer(), activeContainer()];
+        for (const container of stopAll) {
+          try {
+            const stub = container as unknown as { stop: () => Promise<void> };
+            await stub.stop().catch(() => {});
+          } catch {
+            /* best-effort — the sleepAfter expiry is the backstop */
+          }
+        }
       } catch {
         /* best-effort — the sleepAfter expiry is the backstop */
       }

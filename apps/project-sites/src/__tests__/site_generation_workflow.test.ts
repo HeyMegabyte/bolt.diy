@@ -44,6 +44,31 @@ function baseEnv(extra: Record<string, unknown> = {}): Env {
 }
 const withBuilder = () => baseEnv({ SITE_BUILDER: { idFromName: () => 'cid', get: () => ({}) } });
 
+/**
+ * Builder whose per-name `get` returns distinct stub objects with `stop`
+ * spies — so a test can assert WHICH container the workflow stopped (the
+ * slot-leak class: the terminal stop() targeted the ORIGINAL name while the
+ * restarted `-r1` held the pool slot for its full sleepAfter).
+ */
+function spyBuilder() {
+  const stops: Record<string, ReturnType<typeof jest.fn>> = {};
+  const stubOf = (name: string) => {
+    stops[name] = jest.fn(async () => {});
+    return {
+      stop: stops[name],
+      fetch: async () => new Response('{}', { status: 200 }),
+    };
+  };
+  const instances: Record<string, ReturnType<typeof stubOf>> = {};
+  const get = (id: unknown) => {
+    const name = String(id);
+    if (!instances[name]) instances[name] = stubOf(name);
+    return instances[name];
+  };
+  const idFromName = (name: string) => name;
+  return { get, idFromName, stops, instances };
+}
+
 function makeStep(canned: Record<string, unknown>) {
   const step = {
     do: jest.fn(async (name: string, _opts: unknown, _fn?: unknown) => canned[name]),
@@ -239,5 +264,42 @@ describe('SiteGenerationWorkflow — heartbeat loop (eviction + boot grace)', ()
     ];
     const out = (await runBeats(beats)) as { status: string };
     expect(out.status).toBe('published');
+  });
+});
+
+describe('SiteGenerationWorkflow — container slot-leak discipline', () => {
+  it('stops the ACTIVE (restarted) container on terminal, not just the original', async () => {
+    const builder = spyBuilder();
+    const beats = [runningWrap(), unknownJobWrap(), runningWrap(), completeWrap()];
+    const step = makeBeatStep(
+      {
+        'mint-version': 'v',
+        'budget-killswitch': '{}',
+        'start-build': 'job-1',
+        'restart-build-after-eviction': 'job-2',
+        'finalize-build': JSON.stringify({ fileCount: 340, version: 'v' }),
+        'validate-build': '{}',
+        'visual-inspection': '{"skipped":true}',
+        'benchmark-and-learn': '{"skipped":true}',
+        notify: '{}',
+        'notify-owner-published': 'sent',
+      },
+      beats,
+    );
+    await run(
+      {
+        ...baseEnv({ SITE_BUILDER: builder as unknown as Env['SITE_BUILDER'] }),
+        CACHE_KV: { get: async () => null, put: async () => undefined },
+      },
+      step as unknown as WorkflowStep,
+      params(),
+    );
+    // The terminal stop() must release the RESTARTED container's slot — the
+    // one actually holding the pool entry after the eviction.
+    // eslint-disable-next-line no-console
+    console.log('SLOTLEAK-NAMES', JSON.stringify(Object.keys(builder.stops)));
+    const restartedName = Object.keys(builder.stops).find((n) => n.includes('-r1'));
+    expect(restartedName).toBeDefined();
+    expect(builder.stops[restartedName!]).toHaveBeenCalled();
   });
 });
