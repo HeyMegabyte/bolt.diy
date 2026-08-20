@@ -846,3 +846,13 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **NEXT TARGET:** the ag-grid→TanStack wave (audit + ai-logs — the known-tracked axe + the last big lazy-chunk win).
 
 
+
+## 🔧 iter 236 (ag-grid→TanStack wave — Step 1 DONE: audit migrated, the critical axe is gone live)
+
+- **audit.component.ts fully migrated to inline TanStack** (`98e686f4`): `createAngularTable` with core/sorted/filtered/pagination row models; native `<table>` with manual header/body rendering; real Angular detail `<tr>` driven by `expandedIds` (NO synthetic splice rows, NO imperative fullWidthCellRenderer); CSV rebuilt from `getFilteredRowModel().rows` keeping the CWE-1236 formula guard + RFC-4180 quoting; site filter `<select>` (column filter) + pagination 25/50/100/250 + page-count status; dark-cyan SCSS on `_polish` tokens; `ps_audit_grid_v2` now persists `{sorting:[…]}` (legacy ag-grid col-state fails validation → ignored).
+- **Stale-page clamp:** an `effect()` rewinds a stale pageIndex after a poll/filter shrinks the set (ag-grid silently re-rewound; TanStack leaves an empty page).
+- **Template-visible helpers** (`relTime`/`metaOf`/`highlightJson`/`targetLabel`…) replace the old string-returning cellRenderers; all testids preserved (`audit-grid`, `audit-row-expand-*`, `audit-detail-*`, `audit-copy-row/correlation-*`, `audit-page-count`).
+- **Spillover fixed en route:** the social split's `editPost(CalendarPost)` AOT drift (calendar child emits a structural subset — new `editCalendarPost(id)` resolves the full post) + the two dialog children's inputs → `readonly` (parent `PLATFORMS` is readonly).
+- TDD: audit spec rewritten to the new model (34/34); social+calendar 47/47 + dialogs 22/22; prod build **1.11MB / 243.32kB, budget warning GONE**; main.js has ZERO ag-grid (133K); ag-grid confined to the 880K lazy chunk (ai-logs).
+- **Prod E2E 3/3 green** incl. the NEW TanStack contract test: sort/pagination/site-filter + **axe critical `aria-required-children` = 0 WITHOUT the `.ag-root` exclusion** — the whole point of the wave, proven live. Also fixed the expand test's empty-branch race (poll one-of-three before branching).
+- **NEXT TARGET:** Step 2 — migrate ai-logs.component.ts (extract the proven seam into `pages/admin/data-table/` only now), then Step 3 — delete ag-grid from main.ts?/specs + `npm rm`, remove the `.ag-root` exclusion + `isKnownAgGrid` tracking, add both routes to the critical a11y spec.
