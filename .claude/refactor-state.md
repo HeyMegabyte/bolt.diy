@@ -838,6 +838,11 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 
 - **Root cause of the v9 editor-leg failure:** the artifact file-action can land AFTER 'Response Generated' paints; the spec clicked Save & Deploy in that window, PS_FILES_READY replied with the PRE-edit files, and the publish legitimately lacked the change (the chat itself had worked — the snapshot showed the streamed answer + a materialized React file). A human sees the edit first; the spec now POLLS for the marker in the workbench BEFORE the deploy click (`aba19f3c`). v10 running.
 - **✅ JOURNEY v10 GREEN (retry leg, 54.6m):** the edit-materialization poll was the final bridge gap — the live site serves `<h1>FRESH-FROM-THE-OVEN at Cedar Ridge Bakeshop</h1>`. Full chain: real build → publish → analytics → editor edit (polled-materialized) → Save & Deploy → bridge → live. (The chromium first attempt hit a build failure; the retry completed — the one-shot eviction honesty, not a bridge defect.)
-- **NEXT TARGET:** social split slice 3 (paste-key connect dialog) → the ag-grid→TanStack wave.
+## 🔧 iter 235 (social split slice 3 — paste-key dialog extracted, a styling regression caught + restored)
+
+- **Paste-key connect dialog extracted** (`7a47212a`): Bluesky/Mastodon/Telegram/Discord paste forms moved into `social-paste-connect-dialog.component.ts` (platform input, connected/closed outputs, FE↔BE PasteSchema parity via the shared `isValidPublicHttpsUrl` export). Parent −330 lines.
+- **Slice-2 styling regression caught + restored:** moving the `.ap-dlg-*` CSS into the Auto-Pilot child orphaned THIS dialog's styles (emulated encapsulation) — the paste dialog now owns its copy of the shared family.
+- TDD: 7 new child tests + parent social spec 41/41 (migrated paste tests moved to the child's spec). Deployed + verify:production PASS; chaos-15/16/17 = 16/16 green.
+- **NEXT TARGET:** the ag-grid→TanStack wave (audit + ai-logs — the known-tracked axe + the last big lazy-chunk win).
 
 
