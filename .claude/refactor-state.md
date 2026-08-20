@@ -889,3 +889,12 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **Reconciled the drawer test with the concurrent session's shell refactor** (`514eadf6`): the persistent slide-in panel + `.admin-drawer-backdrop` class + hamburger aria-label flip broke the round-47 unmount assertions three ways (bare role+name double-match, always-mounted close button, moved backdrop). Test now asserts the shell-owned state signals (hamburger `aria-expanded` flip + backdrop mount/unmount). 65/65 green.
 - **⚠️ Journey v13: BUILD_LIMIT_RETRY on both attempts today** (another journey holds the slot); v11's 2/2 green stands. Keep re-kicking.
 - **NEXT TARGET:** the worker `mcp_site_tools.ts` lying-success candidate (iter 139's deferred item: `revokeSiteMcpToken` — dark-but-latent, harden on flag promotion) OR continue the admin-shell-adjacent E2E sweep (admin-a11y 21-section suite now runs WITHOUT the .ag-root exclusion — worth a full run to prove the exclusion removal is clean across every section).
+
+## 🔧 iter 241 (partially-coded sweep — tree-wide tsc REPAIRED to 0 errors)
+
+- **The tree's `npx tsc --noEmit` was RED** (3 error sites) from the concurrent session's `1af32033` service cores — blocking every worker verification loop. Repaired (`1c27e733`), all type-level:
+  - `dkim_signer.ts`: lib.dom types `generateKey` as `CryptoKey | CryptoKeyPair` — added an exported `isCryptoKeyPair` type guard (defensive runtime throw) + unit test; `exportKey('spki')`'s `ArrayBuffer | JsonWebKey` union narrowed with an explicit cast.
+  - `external_llm.ts`: referenced `BlobPart` which doesn't exist in `@cloudflare/workers-types` (its Blob ctor takes `((ArrayBuffer | ArrayBufferView) | string | Blob)[]`) — cast to the real param union.
+- Verification: **tree-wide tsc = 0 errors**; dkim 18/18 + notifications 24/24 + external_llm trio 69/69; worker deployed `c67801e6`; prod E2E 28/28 (health + auth-and-signin).
+- Also learned (jest config): `toBeTrue`/`toBeFalse` are absent here too — `toBe(true/false)` only (extends the iter-239 two-arg-expect note).
+- **NEXT TARGET:** the worker `mcp_site_tools.ts` lying-success candidate (iter 139 deferred) OR the untracked `inngest_container.ts` cleanup + journey re-kick.
