@@ -12,7 +12,6 @@ import {
   type MultiUrlAnalyticsEnvelope,
   type SiteAnalyticsSummary,
   type SiteTrafficSummary,
-  type NetworkAnalyticsEnvelope,
   type SiteUrlRow,
 } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -152,44 +151,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
         </div>
       </header>
 
-      <!-- ─────────────── NETWORK OVERVIEW (platform-wide, always visible) ─────────────── -->
-      <!-- Zone-level traffic for the WHOLE projectsites.dev platform. Not
-           site-scoped, so it renders real numbers regardless of which (or
-           whether a) site is selected — the operator always sees analytics
-           working, even with only zero-traffic demo sites. -->
-      <section class="card net-card" appReveal data-testid="network-overview" aria-label="Network overview — platform-wide traffic">
-        <div class="net-head">
-          <div class="net-title">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-            <span>Network Overview</span>
-            <span class="net-sub">All projectsites.dev traffic · last {{ network()?.range_days ?? range() }}d</span>
-          </div>
-          @if (networkSpark(); as d) {
-            <svg viewBox="0 0 80 24" preserveAspectRatio="none" class="net-spark" aria-hidden="true"><path [attr.d]="d" fill="none" stroke="currentColor" stroke-width="1.5" /></svg>
-          }
-        </div>
-        <div class="net-grid">
-          <div class="net-stat" data-testid="net-requests">
-            <span class="net-num">{{ formatCount(network()?.total_requests ?? 0) }}</span>
-            <span class="net-lbl">Requests</span>
-          </div>
-          <div class="net-stat" data-testid="net-pageviews">
-            <span class="net-num">{{ formatCount(network()?.page_views ?? 0) }}</span>
-            <span class="net-lbl">Page views</span>
-          </div>
-          <div class="net-stat" data-testid="net-visitors">
-            <span class="net-num">{{ formatCount(network()?.unique_visitors ?? 0) }}</span>
-            <span class="net-lbl">Unique visitors</span>
-          </div>
-          <div class="net-stat" data-testid="net-country">
-            <span class="net-num net-num--sm">{{ networkTopCountry() }}</span>
-            <span class="net-lbl">Top country</span>
-          </div>
-        </div>
-        @if (network() && !network()!.any_real_data && !networkLoading()) {
-          <p class="net-empty" role="status">No platform traffic captured in this window yet.</p>
-        }
-      </section>
+      
 
       <!-- ─────────────────── URLs PILLS ─────────────────── -->
       @if (urls().length > 0) {
@@ -233,13 +195,11 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
       } @else if (notAvailable()) {
         <!-- The per-site breakdown 404s when the site_analytics feature is off
              for the org OR the site has no per-site traffic yet. That's an
-             honest empty state, NOT an error — and the real platform-wide
-             traffic is already shown in the Network Overview card above. So
-             this reads as a calm "no per-site traffic yet" notice that points
-             up to the Network Overview, never the old alarming "unavailable". -->
+             honest empty state, NOT an error — a calm "no per-site traffic
+             yet" notice, never the old alarming "unavailable". -->
         <div class="rounded-xl border border-[#00E5FF]/15 bg-[#00E5FF]/[0.04] p-4 text-sm text-text-secondary" role="status" data-testid="analytics-unavailable">
           <strong class="text-white">No per-site traffic recorded for this site yet.</strong>
-          <span class="block text-[0.74rem] mt-1">Platform-wide traffic is shown in <strong class="text-white">Network Overview</strong> above. Per-site trends appear here once this site gets visitors — use <strong class="text-white">Refresh</strong> to check again.</span>
+          <span class="block text-[0.74rem] mt-1">Per-site trends appear here once this site gets visitors — use <strong class="text-white">Refresh</strong> to check again.</span>
         </div>
       } @else if (error()) {
         <app-error-card class="block"
@@ -475,37 +435,6 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
   `,
   styles: [`
     :host { display: block; }
-
-    /* ── Network Overview card (platform-wide, always visible) ── */
-    .net-card {
-      background:
-        radial-gradient(120% 140% at 100% 0%, color-mix(in oklch, var(--ps-accent, #00E5FF) 9%, transparent) 0%, transparent 55%),
-        var(--ps-surface, rgba(255,255,255,0.02));
-      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 20%, transparent);
-    }
-    .net-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
-    .net-title { display: flex; align-items: center; gap: 8px; color: var(--ps-accent, #00E5FF); font-family: 'Sora', system-ui, sans-serif; font-weight: 600; font-size: 0.9rem; }
-    .net-title span:first-of-type { color: #fff; }
-    .net-sub {
-      font-family: var(--ps-font-code, 'Fira Code', ui-monospace, monospace);
-      font-size: 0.62rem; letter-spacing: 0.03em; font-weight: 500;
-      color: var(--ps-text-muted, rgba(255,255,255,0.45)); margin-left: 2px;
-    }
-    .net-spark { width: 96px; height: 24px; flex-shrink: 0; color: var(--ps-accent, #00E5FF); opacity: 0.75; }
-    .net-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-    @media (max-width: 640px) { .net-grid { grid-template-columns: repeat(2, 1fr); } }
-    .net-stat { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-    .net-num {
-      font-family: 'Sora', system-ui, sans-serif; font-weight: 700;
-      font-size: 1.5rem; line-height: 1; color: #fff; font-variant-numeric: tabular-nums;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .net-num--sm { font-size: 0.95rem; font-weight: 600; }
-    .net-lbl {
-      font-size: 0.64rem; letter-spacing: 0.08em; text-transform: uppercase;
-      color: var(--ps-text-muted, rgba(255,255,255,0.5)); font-weight: 600;
-    }
-    .net-empty { margin: 12px 0 0; font-size: 0.74rem; color: var(--ps-text-muted, rgba(255,255,255,0.5)); }
 
     .kicker {
       font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -816,31 +745,6 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   excluded = signal<Set<string>>(new Set());
   credStatus = signal<CloudflareCredentialStatus | null>(null);
 
-  /**
-   * Zone-level ("Network Overview") analytics — real platform-wide traffic from
-   * `GET /api/analytics/network`. NOT site-scoped: it renders above the per-site
-   * panel and is always visible, so an operator sees analytics working even when
-   * every one of their sites is a zero-traffic demo subdomain.
-   */
-  network = signal<NetworkAnalyticsEnvelope | null>(null);
-  networkLoading = signal(false);
-  /** Top-country row for the overview card ('—' until data arrives). */
-  readonly networkTopCountry = computed<string>(() => {
-    const top = this.network()?.top_countries?.[0];
-    return top ? `${top.country} · ${formatCount(top.requests)}` : '—';
-  });
-  /** Sparkline path for the network requests series (80×24 viewBox). */
-  readonly networkSpark = computed<string>(() => {
-    const s = this.network()?.series ?? [];
-    const vals = s.map((p) => p.requests);
-    if (vals.length < 2) return '';
-    const max = Math.max(...vals, 1);
-    const stepX = 80 / (vals.length - 1);
-    return vals
-      .map((v, i) => `${i === 0 ? 'M' : 'L'}${(i * stepX).toFixed(1)},${(24 - (v / max) * 22).toFixed(1)}`)
-      .join(' ');
-  });
-
   error = signal<string | null>(null);
   /** Worker request_id from a failed load → the copyable support reference on the error card. */
   readonly loadErrorRef = signal('');
@@ -939,7 +843,6 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
       replaceUrl: true,
     });
     this.reload();
-    this.loadNetwork();
   }
 
   /** Hostname displayed in the header — primary URL hostname when known. */
@@ -982,7 +885,7 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   });
   dataTooltip = computed<string>(() => {
     const env = this.envelope();
-    if (this.notAvailable()) return 'No per-site traffic yet — platform-wide traffic is in Network Overview above.';
+    if (this.notAvailable()) return 'No per-site traffic recorded for this site yet.';
     if (!env && this.error()) return this.error()!;
     if (env?.any_real_data) {
       return `Cloudflare GraphQL — aggregated across ${env.urls_included.length} URL${env.urls_included.length === 1 ? '' : 's'}. No session-duration / bounce-rate at the edge.`;
@@ -1185,12 +1088,8 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
     // The site-dependent loads (loadUrls + reload) are owned by the constructor
     // effect so a deep-link populates instantly when selectedSite() resolves.
     this.loadCredStatus();
-    // Network Overview is platform-scoped (not per-site) — load it on mount so
-    // the operator sees real traffic immediately, independent of site selection.
-    this.loadNetwork();
     this.refreshTimer = setInterval(() => {
       if (!this.autoRefreshPaused()) this.reload();
-      this.loadNetwork();
     }, REFRESH_INTERVAL_SEC * 1000);
     this.countdownTimer = setInterval(() => {
       this.secondsUntilRefresh.update((s) => (s <= 1 ? REFRESH_INTERVAL_SEC : s - 1));
@@ -1199,23 +1098,6 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.refreshTimer) clearInterval(this.refreshTimer);
     if (this.countdownTimer) clearInterval(this.countdownTimer);
-  }
-
-  /**
-   * Fetch zone-level network analytics (fire-and-forget). Not site-scoped —
-   * called on mount, on range change, and on the 60s refresh tick. Fail-soft:
-   * a failed load just leaves the last envelope (the card shows its calm empty
-   * state), never a red error — the per-site panel owns error UX.
-   */
-  loadNetwork(): void {
-    this.networkLoading.set(true);
-    this.api.getNetworkAnalytics(this.range()).pipe(
-      timeout(AdminAnalyticsComponent.FETCH_TIMEOUT_MS),
-      catchError(() => of({ data: null as NetworkAnalyticsEnvelope | null })),
-    ).subscribe((r) => {
-      if (r.data) this.network.set(r.data);
-      this.networkLoading.set(false);
-    });
   }
 
   /** Fetch the org's CF credential status (fire-and-forget). */

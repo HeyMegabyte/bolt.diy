@@ -95,15 +95,13 @@ test.describe('Full-flow · analytics', () => {
     await expect(overviewTab).toBeVisible();
     await expect(overviewTab).toHaveAttribute('aria-selected', 'true');
 
-    // Network overview card is always visible (platform-wide, never site-gated).
-    await expect(page.locator('[data-testid="network-overview"]')).toBeVisible();
-
     await snap(page, '02-overview-default');
     expectClean(errors);
   });
 
-  // ── 03 Network overview reconciles with /api/analytics/network ───────────────
-  test.fixme('03 network overview numbers reconcile with API (verify-against-source-of-truth)', async ({ page }) => {
+  // ── 03 Network overview REMOVED (Brian 2026-08-20) — the zone-level card + its
+  //     /network-analytics fetch were deleted from the analytics component. ─────
+  test.fixme('03 [REMOVED] network overview — the zone-level card was deleted (Brian 2026-08-20)', async ({ page }) => {
     const errors = attachConsole(page);
     await seedSession(page);
     await gotoAnalytics(page, 'overview');
@@ -158,13 +156,12 @@ test.describe('Full-flow · analytics', () => {
   });
 
   // ── 05 Deep-link ?tab=overview ───────────────────────────────────────────────
-  test('05 deep-link ?tab=overview sets aria-selected and shows network-overview', async ({ page }) => {
+  test('05 deep-link ?tab=overview sets aria-selected', async ({ page }) => {
     const errors = attachConsole(page);
     await seedSession(page);
     await gotoAnalytics(page, 'overview');
 
     await expect(page.locator('[data-testid="analytics-tab-overview"]')).toHaveAttribute('aria-selected', 'true');
-    await expect(page.locator('[data-testid="network-overview"]')).toBeVisible();
 
     await snap(page, '05-deeplink-overview');
     expectClean(errors);
@@ -460,9 +457,6 @@ test.describe('Full-flow · analytics', () => {
         'analytics-error must not show alongside analytics-unavailable',
       ).toBe(0);
     }
-
-    // Network overview is always visible regardless of per-site state.
-    await expect(page.locator('[data-testid="network-overview"]')).toBeVisible();
 
     await snap(page, '19-unavailable-calm');
     expectClean(errors);

@@ -163,11 +163,6 @@ import {
   type MultiUrlAnalytics,
 } from '../services/multi_url_analytics.js';
 import { loadCfCredentials, resolveCfCredentials } from '../services/cf_credentials.js';
-import {
-  loadNetworkAnalytics,
-  parseNetworkRange,
-  type NetworkAnalytics,
-} from '../services/network_analytics.js';
 import { z } from 'zod';
 import { crawlSiteForImport, estimateRebuildMinutes } from '../services/import_crawler.js';
 import { checkBuildLimit, resolveActiveOrgPlan } from '../services/build_limits.js';
@@ -11127,59 +11122,6 @@ api.get('/api/sites/:id/multi-url-analytics', async (c) => {
           code: 'AI_GENERATION_ERROR',
           message: 'Failed to aggregate Cloudflare analytics',
           request_id: ctx.requestId,
-        },
-      },
-      502,
-    );
-  }
-  return c.json({ data: envelope });
-});
-
-/**
- * GET /api/network-analytics — Zone-level ("Network Overview") analytics for
- * the whole projectsites.dev platform.
- *
- * Lives at a top-level path (NOT `/api/analytics/network`) so it can't be
- * shadowed by the `/api/analytics/:siteId` param route registered earlier —
- * that route would treat "network" as a site id and 404 ("Site not found").
- * Queries the zone-level `httpRequests1dGroups` dataset for the entire zone,
- * so the admin Analytics page can always show real platform totals (requests /
- * page-views / uniques / top countries) regardless of which site is selected.
- * Fail-soft: returns the empty envelope (`any_real_data: false`) when CF creds
- * are missing.
- *
- * @queryParam range - One of `24h | 7d | 30d | 90d`. Defaults to `7d`.
- * @auth Required (any authenticated operator).
- */
-api.get('/api/network-analytics', async (c) => {
-  const requestId = c.get('requestId') ?? crypto.randomUUID();
-  const userId = c.get('userId');
-  if (!userId) {
-    return c.json(
-      { error: { code: 'UNAUTHORIZED', message: 'Sign in required', request_id: requestId } },
-      401,
-    );
-  }
-  const range = parseNetworkRange(c.req.query('range'));
-  let envelope: NetworkAnalytics;
-  try {
-    envelope = await loadNetworkAnalytics(c.env, range);
-  } catch (err) {
-    console.warn(
-      JSON.stringify({
-        error: err instanceof Error ? err.message : String(err),
-        level: 'warn',
-        request_id: requestId,
-        route: 'GET /api/network-analytics',
-        service: 'api',
-      }),
-    );
-    return c.json(
-      {
-        error: {
-          code: 'AI_GENERATION_ERROR',
-          message: 'Failed to load network analytics',
-          request_id: requestId,
         },
       },
       502,
