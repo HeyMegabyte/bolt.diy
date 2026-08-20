@@ -813,5 +813,6 @@ Brian: *"delete all other things that are dead weight and address the fact that 
   3. The stale-restart path also gets the budget extension (it re-boots identically).
 - **TDD:** 3 new sequence-driven heartbeat-loop tests — the replay mock drives the loop positionally (eviction at poll 118 + 30 post-restart polls completes; eviction → 6 missing boot polls resumes; happy path). RED→GREEN. Full worker suite **10,982/10,982**. Worker deployed `4e3613c0`, health green.
 - **Journey:** 409'd on reset — the in-flight build guard WORKING (a concurrent session's build holds e2e-site-3; the live instance `…-1787183294140` is running ON the new workflow code, healthy heartbeats at step 29/34). The next free-window journey run is the regression proof (evictions now survive + extend).
-- **NEXT TARGET:** the deferred social.component split / ag-grid→TanStack waves (the two tracked build-warnings) — or re-run chaos-18 in a free build window.
+- **NEXT TARGET:** re-run chaos-18 in a free build window (the pipeline is now hardened: budget extension + grace + slot-leak stop + stranded-status flip + short-brand validator — the journey should close end-to-end on the next run). Then the deferred social.component split / ag-grid→TanStack waves.
+
 
