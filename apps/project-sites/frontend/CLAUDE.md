@@ -228,9 +228,53 @@ homepage at `/`. Asset paths are CDN-busted via Angular's hashed filenames.
   Browserbase-as-brian verified both grids still render with 0 console errors (no
   #200). **⚠️ The round-41/42/49 "dead ends" below were CONFOUNDED — they failed
   ONLY because `main.ts` STILL eagerly imported ag-grid the whole time; removing
-  THAT was the missing piece.** The TanStack migration
-  (`docs/perf-wave-ag-grid-to-tanstack.md`) is now needed ONLY for the known-tracked
-  critical axe, NOT the budget. Historical detail (now known-confounded):
+  THAT was the missing piece.**
+- **✅ FINAL RESOLUTION 2026-08-20 (iters 236-237, commits `98e686f4`+): ag-grid
+  is REMOVED ENTIRELY.** The perf-wave ag-grid→TanStack migration
+  (`docs/perf-wave-ag-grid-to-tanstack.md`, status COMPLETE) migrated `/admin/audit`
+  + the traces grid (`/admin/logs?tab=traces`) to inline TanStack Table — the
+  864 KB lazy ag-grid chunk is GONE from the build, `npm rm ag-grid-community
+  ag-grid-angular`, `_ag-grid-setup.ts` deleted, and the critical
+  `aria-required-children` axe violation is fixed at the root (prod E2E asserts
+  axe-clean WITHOUT the former `.ag-root` exclusion). The historical
+  budget-bug detail below is kept for the record only:
+- **Initial bundle 1.81 MB raw / 436 KB transfer — 205 KB over the 1.6 MB
+  `initial` budget** (`angular.json` `budgets`). **ROOT CAUSE PINPOINTED (round 41
+  via `--stats-json`):** the 800 KB initial `chunk-GGAROBNS.js` is **782 KB of
+  `ag-grid-community`, EAGER** — `main` imports it via a static `import-statement`.
+  (The earlier "ag-grid is ALREADY lazy" note was wrong.) ag-grid is imported at
+  the **module top level** of TWO lazy admin sections — `audit.component.ts`
+  (lines 2-22 + `ModuleRegistry.registerModules` side-effect at :28) and
+  `ai-logs.component.ts` (:14-41) — and esbuild hoists the dep into the initial
+  bundle. That one dep is ~181 KB transfer — fixing it closes the budget.
+  **DIAGNOSTIC (round 49):** it is NOT the 2-route sharing — temporarily orphaning
+  the ai-logs route (ag-grid → single importer = audit only) left the bundle still
+  205.08 KB over (vs 205.13 baseline, unchanged). esbuild promotes the large lazy
+  dep to a `main`-imported chunk even from ONE lazy route. So `@defer` AND the
+  shared-single-component approach are BOTH dead ends — the only fixes are
+  removing ag-grid (TanStack) or ejecting from Angular's builder to configure
+  esbuild chunking (huge). Don't re-attempt lazy-load tricks.
+  **`@defer` approach FAILED (round 42 — tried + reverted):** converting both
+  components to `import type` + async `import('ag-grid-community')` in `ngOnInit`
+  + `@defer (when agReady())` on `<ag-grid-angular>` made the bundle WORSE
+  (1.81 MB → 2.01 MB; the ag-grid initial chunk grew 800 KB → 1.01 MB). Root
+  cause: ag-grid-angular is shared by TWO lazy routes (audit + ai-logs), so
+  esbuild's chunk-splitter hoists it into the initial bundle REGARDLESS of
+  `@defer`, and the added `await import('ag-grid-community')` just duplicated it
+  (ag-grid via the still-eager ag-grid-angular + a new dynamic chunk). `@defer`
+  on a component shared across multiple lazy routes does NOT de-hoist it.
+  **Fixed 2026-08-20 by the TanStack migration above** (no speculative shared
+  abstraction: audit migrated inline first, ai-logs second, and no
+  `pages/admin/data-table/` seam was extracted — the two components deliberately
+  own their small duplicated table plumbing per the inverted-abstraction pyramid;
+  the inline-TanStack `api-tokens.component.ts` pattern remains the copy-source).
+  TanStack is headless (~15 KB vs 782 KB) — removal aligned with doctrine
+  (package-registry: "ag-grid Community ONLY for 100k+ row enterprise grids" —
+  these are admin log tables).
+  Secondary (smaller): (a) command-palette/shortcuts-overlay are `@if`-conditional
+  but eager in `app.component` — `@defer (when …){ @if(…){…} }` trims ~30 KB but
+  risks the SUPREME Cmd+K-focus gate (`e2e/cmdk-focus`, dev-suite, can't gate
+  locally); easter-eggs already deferred (round 40, ~1 KB).
 - **Initial bundle 1.81 MB raw / 436 KB transfer — 205 KB over the 1.6 MB
   `initial` budget** (`angular.json` `budgets`). **ROOT CAUSE PINPOINTED (round 41
   via `--stats-json`):** the 800 KB initial `chunk-GGAROBNS.js` is **782 KB of

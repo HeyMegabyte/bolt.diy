@@ -11,34 +11,24 @@ import {
   type OnInit,
 } from '@angular/core';
 import { Router } from '@angular/router';
-import { AgGridAngular } from 'ag-grid-angular';
 import { HlmInputDirective, HlmTablistDirective } from '../../../ui';
 import {
-  colorSchemeDarkBlue,
-  themeQuartz,
-  type ColDef,
-  type GridApi,
-  type GridReadyEvent,
-  type IRowNode,
-  type IsFullWidthRowParams,
-  type ICellRendererParams,
-  type RowHeightParams,
-} from 'ag-grid-community';
-import { registerAgGridModules } from './_ag-grid-setup';
+  createAngularTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  getPaginationRowModel,
+  type ColumnDef,
+  type PaginationState,
+  type SortingState,
+} from '@tanstack/angular-table';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 
-registerAgGridModules();
-
 /**
  * One AI invocation as returned by `GET /api/sites/:id/ai-logs`.
- *
- * The `_expanded` and `_isDetail` flags are local-only — they drive the
- * faux master/detail row expansion described in the class JSDoc below
- * and are never sent to the API.
  */
 interface TraceRow {
   id: string;
@@ -58,12 +48,6 @@ interface TraceRow {
   created_at: string;
   actor_email?: string | null;
   user_id?: string | null;
-  /** Local-only: whether the detail panel is rendered below this row. */
-  _expanded?: boolean;
-  /** Local-only: marks a synthetic full-width detail row in row data. */
-  _isDetail?: boolean;
-  /** Local-only: the parent trace id (only set on detail rows). */
-  _parentId?: string;
 }
 
 /** Lazy-fetched full trace detail — system prompt + IO + tool. */
@@ -81,8 +65,8 @@ type ChartPeriod = '1h' | '24h' | '7d' | '30d';
 
 /**
  * Escape an arbitrary string into an HTML-safe fragment. Used for every
- * dynamic value rendered via the (string-returning) cellRenderer hooks
- * below — never trust trace data, even from our own backend.
+ * dynamic value rendered via `[innerHTML]` (the JSON + system-prompt
+ * highlighters) below — never trust trace data, even from our own backend.
  */
 function escapeHtml(s: string): string {
   return s
@@ -95,8 +79,8 @@ function escapeHtml(s: string): string {
 
 /**
  * Minimal JSON syntax highlighter — strings green, numbers cyan, keys amber,
- * booleans violet, null grey. Mirrors the docs.component.ts pattern but
- * inlined here so the Traces page stays self-contained.
+ * booleans violet, null grey. Mirrors the audit component's pattern so the
+ * two log surfaces share one colour vocabulary.
  */
 function highlightJson(src: string): string {
   return escapeHtml(src).replace(
@@ -187,38 +171,32 @@ function fallbackActor(row: TraceRow): string {
 const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
 
 /**
- * Admin AI-trace surface (`/admin/ai-logs`). Replaces the bespoke trace table
- * with an AG Grid Community implementation that fakes master/detail expansion
- * without the Enterprise plugin.
+ * Admin AI-trace surface (`/admin/ai-logs`). Renders the site's AI traces as
+ * a native TanStack Table view (perf-wave ag-grid→TanStack migration,
+ * 2026-08-20 — removes the critical `aria-required-children` axe violation
+ * that was fundamental to ag-grid's `.ag-root[role="grid"]` structure).
  *
- * ## Faux master/detail technique
+ * ## Master/detail
  *
- * AG Grid's real `masterDetail: true` + `detailCellRenderer` API is Enterprise.
- * We mimic it cleanly in Community using two Community features:
- *
- * 1. **Synthetic detail rows** — when the user clicks a trace row, we insert
- *    a sibling `TraceRow` with `_isDetail: true` right
- *    after it in `displayRows()`. The grid still treats it as a normal row.
- * 2. **`isFullWidthRow` + `fullWidthCellRenderer`** — these ARE Community.
- *    We tell the grid that any row with `_isDetail === true` should render
- *    full-width via our HTML detail renderer. Row height grows dynamically
- *    via `getRowHeight()` so the expanded panel never clips.
- *
- * Net effect: the user clicks → row visually expands below itself showing
- * the system prompt, IO, tool result, action buttons. No Enterprise license.
- * The technique is documented inline so future maintainers don't go hunting
- * for `masterDetail: true` and find this looks like it.
+ * Clicking a master row flips its id in `expandedIds`; a real Angular
+ * `<tr class="detail-row">` renders directly below (colspan across all
+ * eight columns) with the cinematic metric-pill header, system prompt /
+ * input / output-or-error / tool code blocks (each with a copy chip), the
+ * AI-explanation block, and the Re-run / Explain / Copy JSON / Open endpoint
+ * action row. The full trace detail is lazy-fetched on first expand and
+ * cached per id; the panel is ordinary template DOM, so it participates in
+ * Angular change detection and is natively axe-clean.
  *
  * @example
  * ```html
  * <app-admin-ai-logs />
- * <!-- Renders the AG Grid + latency-percentile chart + filter row. -->
+ * <!-- Renders the TanStack trace table + latency-percentile chart + filter row. -->
  * ```
  */
 @Component({
   selector: 'app-admin-ai-logs',
   standalone: true,
-  imports: [RollingCounterComponent, RevealDirective, AgGridAngular, HlmInputDirective, HlmTablistDirective],
+  imports: [RollingCounterComponent, RevealDirective, HlmInputDirective, HlmTablistDirective],
   template: `
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-4">
       <header class="flex items-start justify-between gap-3 flex-wrap">
@@ -252,7 +230,7 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
 
       @if (hasHiddenCalls()) {
         <p class="text-[0.7rem] text-amber-300/90 mt-1" role="status" data-testid="ai-logs-cap-note"
-           title="The stats + grid cover the {{ rows().length }} most recent AI calls. Older ones are still stored.">
+           title="The stats + table cover the {{ rows().length }} most recent AI calls. Older ones are still stored.">
           Showing the latest {{ rows().length }} of {{ totalCount() }} AI calls — the stats above cover this window.
         </p>
       }
@@ -359,27 +337,222 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
         <kbd class="filter-kbd" aria-hidden="true">/</kbd>
       </label>
 
-      <!-- Full-bleed AG Grid ─────────────────────────────────────────── -->
+      <!-- Full-bleed TanStack trace table ─────────────────────────────── -->
       <div class="grid-frame">
-        <ag-grid-angular
-          data-testid="traces-grid"
-          class="ag-grid-host"
-          [theme]="theme"
-          [rowData]="displayRows()"
-          [columnDefs]="columnDefs"
-          [defaultColDef]="defaultColDef"
-          [pagination]="true"
-          [paginationPageSize]="50"
-          [paginationPageSizeSelector]="[25, 50, 100, 250]"
-          [getRowId]="getRowId"
-          [getRowHeight]="getRowHeight"
-          [isFullWidthRow]="isFullWidthRow"
-          [fullWidthCellRenderer]="fullWidthCellRenderer"
-          [animateRows]="true"
-          [enableCellTextSelection]="true"
-          (gridReady)="onGridReady($event)"
-          (rowClicked)="onRowClicked($event)">
-        </ag-grid-angular>
+        <div class="grid-toolbar">
+          <span class="page-count" role="status" data-testid="traces-page-count">
+            Showing {{ pageStart() }}–{{ pageEnd() }} of {{ filteredCount() }}
+          </span>
+        </div>
+
+        <table class="ps-traces-grid" data-testid="traces-grid">
+          <colgroup>
+            <col class="col-status" />
+            <col class="col-when" />
+            <col class="col-endpoint" />
+            <col class="col-tool" />
+            <col class="col-model" />
+            <col class="col-latency" />
+            <col class="col-credits" />
+            <col class="col-actor" />
+          </colgroup>
+          <thead>
+            <tr>
+              @for (header of table.getHeaderGroups()[0].headers; track header.id) {
+                @if (header.column.getCanSort()) {
+                  <th
+                    scope="col"
+                    class="th-sortable"
+                    tabindex="0"
+                    [attr.aria-sort]="ariaSort(header.column.getIsSorted())"
+                    (click)="header.column.toggleSorting()"
+                    (keydown.enter)="header.column.toggleSorting()"
+                    (keydown.space)="header.column.toggleSorting(); $event.preventDefault()">
+                    {{ headerLabel[header.id] }}
+                    <span class="sort-glyph" aria-hidden="true">{{ sortGlyph(header.column.getIsSorted()) }}</span>
+                  </th>
+                } @else {
+                  <th scope="col" [class.th-num]="header.id === 'credits' || header.id === 'latency_ms'">{{ headerLabel[header.id] }}</th>
+                }
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of table.getRowModel().rows; track row.original.id) {
+              <tr
+                class="master-row"
+                [class.is-expanded]="expandedIds().has(row.original.id)"
+                (click)="onRowClick($event, row.original)">
+                <td class="cell-status">
+                  <span class="cell-status-pill" [class.ok]="statusPillClass(row.original) === 'ok'" [class.error]="statusPillClass(row.original) === 'error'" [class.rate]="statusPillClass(row.original) === 'rate'" [class.timeout]="statusPillClass(row.original) === 'timeout'"><span class="dot" aria-hidden="true"></span>{{ statusLabel(row.original) }}</span>
+                </td>
+                <td class="cell-when" [title]="isoOf(row.original.created_at)">{{ relTime(row.original.created_at) }}</td>
+                <td class="cell-mono">{{ endpointLabel(row.original) }}</td>
+                <td class="cell-mono">{{ row.original.tool_name ?? '—' }}</td>
+                <td>{{ prettyModel(row.original.model) }}</td>
+                <td class="cell-latency">
+                  <div class="latency-cell">
+                    <span class="lat-fill" [class.good]="latBandOf(row.original) === 'good'" [class.mid]="latBandOf(row.original) === 'mid'" [class.bad]="latBandOf(row.original) === 'bad'" [style.width]="latFillWidth(row.original)"></span>
+                    <span class="lat-val">{{ fmtLatency(row.original.latency_ms) }}</span>
+                  </div>
+                </td>
+                <td class="cell-num">{{ creditsLabel(row.original) }}</td>
+                <td class="cell-mono" [title]="actorTitleOf(row.original)">{{ actorLabel(row.original) }}</td>
+              </tr>
+              @if (expandedIds().has(row.original.id)) {
+                <tr class="detail-row" [attr.data-testid]="'traces-detail-' + row.original.id">
+                  <td [attr.colspan]="columnCount">
+                    <div class="detail-card">
+                      @if (detailFor(row.original.id); as d) {
+                        <div class="det-meta">
+                          @if (d.latency_ms != null) {
+                            <span class="met-pill is-lat" title="End-to-end latency">latency<span class="met-val">{{ fmtLatency(d.latency_ms) }}</span></span>
+                          }
+                          @if (d.credits_debited != null && d.credits_debited > 0) {
+                            <span class="met-pill is-cost" title="Credits debited">cost<span class="met-val">{{ formatNumber(d.credits_debited) }}</span></span>
+                          }
+                          @if (tokensOf(d) > 0) {
+                            <span class="met-pill is-tok" [title]="(d.tokens_input ?? 0) + ' in · ' + (d.tokens_output ?? 0) + ' out'">tokens<span class="met-val">{{ formatNumber(tokensOf(d)) }}</span></span>
+                          }
+                          @if (d.model) {
+                            <span class="met-pill is-model" [title]="d.model">model<span class="met-val">{{ prettyModel(d.model) }}</span></span>
+                          }
+                          @if (d.tool_name) {
+                            <span class="met-pill is-tool" title="Tool dispatch">tool<span class="met-val">{{ d.tool_name }}</span></span>
+                          }
+                        </div>
+                        <div class="detail-grid">
+                          @if (d.prompt_template) {
+                            <div class="det-block kind-prompt">
+                              <div class="det-head">
+                                <span class="det-label"><span aria-hidden="true">●</span> System prompt</span>
+                                <button type="button" class="det-copy" [attr.data-testid]="'traces-copy-prompt-' + row.original.id" aria-label="Copy System prompt" (click)="copyChip($event, d.prompt_template)">Copy</button>
+                              </div>
+                              <pre [innerHTML]="promptHtml(d.prompt_template)"></pre>
+                            </div>
+                          } @else {
+                            <div class="det-block kind-prompt">
+                              <div class="det-head"><span class="det-label"><span aria-hidden="true">●</span> System prompt</span></div>
+                              <div class="det-value dim-italic">No system prompt captured.</div>
+                            </div>
+                          }
+                          <div class="det-block kind-input">
+                            <div class="det-head">
+                              <span class="det-label"><span aria-hidden="true">●</span> Input payload</span>
+                              <button type="button" class="det-copy" [attr.data-testid]="'traces-copy-input-' + row.original.id" aria-label="Copy Input payload" (click)="copyChip($event, prettyJson(d.input_json))">Copy</button>
+                            </div>
+                            <pre [innerHTML]="highlightJson(prettyJson(d.input_json))"></pre>
+                          </div>
+                          @if (d.error_message) {
+                            <div class="det-block kind-error">
+                              <div class="det-head">
+                                <span class="det-label"><span aria-hidden="true">▲</span> Error</span>
+                                <button type="button" class="det-copy" [attr.data-testid]="'traces-copy-error-' + row.original.id" aria-label="Copy error" (click)="copyChip($event, d.error_message)">Copy</button>
+                              </div>
+                              <pre class="error-pre">{{ d.error_message }}</pre>
+                            </div>
+                          } @else {
+                            <div class="det-block kind-output">
+                              <div class="det-head">
+                                <span class="det-label"><span aria-hidden="true">●</span> Output text</span>
+                                <button type="button" class="det-copy" [attr.data-testid]="'traces-copy-output-' + row.original.id" aria-label="Copy Output text" (click)="copyChip($event, outputText(d))">Copy</button>
+                              </div>
+                              <pre>{{ outputText(d) || '—' }}</pre>
+                            </div>
+                          }
+                          @if (d.tool_name) {
+                            <div class="det-block kind-tool">
+                              <div class="det-head">
+                                <span class="det-label"><span aria-hidden="true">⚙</span> Tool · {{ d.tool_name }} · {{ d.tool_status ?? '' }}</span>
+                                <button type="button" class="det-copy" [attr.data-testid]="'traces-copy-tool-' + row.original.id" aria-label="Copy tool result" (click)="copyChip($event, prettyJson(d.tool_result_json) || prettyJson(d.tool_args_json) || '{}')">Copy</button>
+                              </div>
+                              <pre [innerHTML]="highlightJson(prettyJson(d.tool_args_json) || '{}')"></pre>
+                              <pre [innerHTML]="highlightJson(prettyJson(d.tool_result_json) || '{}')"></pre>
+                            </div>
+                          }
+                          @if (explainFor(row.original.id); as explanation) {
+                            <div class="det-block kind-explain">
+                              <div class="det-head">
+                                <span class="det-label"><span aria-hidden="true">✦</span> AI explanation</span>
+                              </div>
+                              <div class="det-explain" [attr.data-testid]="'traces-explain-result-' + row.original.id">{{ explanation }}</div>
+                            </div>
+                          }
+                          <div class="det-actions">
+                            <button
+                              type="button"
+                              class="det-action"
+                              [disabled]="!canRerunOf(d)"
+                              [title]="canRerunOf(d) ? 'Re-invoke this endpoint with the same input' : 'Cannot re-run: input or endpoint not captured'"
+                              [attr.data-testid]="'traces-rerun-' + row.original.id"
+                              (click)="rerunTrace(d)">
+                              <span aria-hidden="true">↻</span> Re-run
+                            </button>
+                            <button
+                              type="button"
+                              class="det-action violet"
+                              [disabled]="explainingFor(row.original.id)"
+                              [attr.data-testid]="'traces-explain-' + row.original.id"
+                              (click)="explainTrace(row.original.id)">
+                              @if (explainingFor(row.original.id)) {
+                                <span aria-hidden="true">◐</span> Asking AI…
+                              } @else {
+                                <span aria-hidden="true">✦</span> Explain with AI
+                              }
+                            </button>
+                            <button
+                              type="button"
+                              class="det-action ghost"
+                              [attr.data-testid]="'traces-copy-json-' + row.original.id"
+                              (click)="copyTrace(d)">
+                              <span aria-hidden="true">⧉</span> Copy JSON
+                            </button>
+                            <button
+                              type="button"
+                              class="det-action ghost"
+                              [disabled]="!d.endpoint_slug"
+                              [attr.data-testid]="'traces-open-endpoint-' + row.original.id"
+                              (click)="openEndpoint(d)">
+                              <span aria-hidden="true">↗</span> Open endpoint
+                            </button>
+                          </div>
+                        </div>
+                      } @else {
+                        <div class="detail-grid">
+                          <div class="det-block kind-prompt">
+                            <div class="det-head"><span class="det-label"><span aria-hidden="true">◐</span> Loading trace…</span></div>
+                            <pre style="opacity:0.55">Fetching system prompt, input payload, output text, tool dispatch…</pre>
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            } @empty {
+              <tr class="filtered-empty-row">
+                <td [attr.colspan]="columnCount">
+                  <div class="filtered-empty" role="status">No traces match this filter.</div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+
+        <div class="grid-footer">
+          <label for="traces-page-size" class="page-size-label">
+            <select id="traces-page-size" class="site-select" aria-label="Rows per page" [value]="pagination().pageSize" (change)="onPageSize($event)">
+              @for (n of pageSizeOptions; track n) {
+                <option [value]="n">{{ n }}</option>
+              }
+            </select>
+          </label>
+          <span class="page-indicator">Page {{ table.getState().pagination.pageIndex + 1 }} of {{ table.getPageCount() }}</span>
+          <div class="pager-btns">
+            <button type="button" class="btn-mini" [disabled]="!table.getCanPreviousPage()" (click)="table.previousPage()" aria-label="Previous page">‹ Prev</button>
+            <button type="button" class="btn-mini" [disabled]="!table.getCanNextPage()" (click)="table.nextPage()" aria-label="Next page">Next ›</button>
+          </div>
+        </div>
       </div>
       }
     </div>
@@ -389,6 +562,10 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
     .card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 1.2rem; }
     .section-h { font-family: 'Sora', system-ui, sans-serif; font-weight: 600; letter-spacing: -0.02em; }
     .muted-h { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.5); font-weight: 700; margin-bottom: 0.3rem; }
+    .btn-ghost { padding: 0.5rem 1rem; border-radius: 8px; background: transparent; color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-size: 0.74rem; }
+    .btn-mini { padding: 0.2rem 0.55rem; border-radius: 6px; background: rgba(0,229,255,0.12); border: 1px solid rgba(0,229,255,0.30); color: #00E5FF; font-size: 0.62rem; font-weight: 700; cursor: pointer; letter-spacing: 0.04em; text-transform: uppercase; transition: background 140ms ease; }
+    .btn-mini:hover:not(:disabled) { background: rgba(0,229,255,0.22); }
+    .btn-mini:disabled { opacity: 0.45; cursor: not-allowed; }
 
     /* ─── Loading skeleton + empty state ─────────────────────────────── */
     .sk-line { height: 14px; border-radius: 6px; margin: 10px 0; background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(0,229,255,0.10) 50%, rgba(255,255,255,0.04) 75%); background-size: 200% 100%; animation: skShimmer 1.4s ease-in-out infinite; }
@@ -417,7 +594,6 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
       background: rgba(0,0,0,0.18);
       box-shadow: var(--ps-shadow-md, 0 4px 12px rgba(0,0,0,0.18));
     }
-    .ag-grid-host { width: 100%; height: calc(100vh - 360px); min-height: 540px; }
 
     /* ─── Period selector (chart) ────────────────────────────────────── */
     .period-pills { display: inline-flex; gap: 4px; padding: 3px; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
@@ -447,32 +623,68 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
     /* .filter-input removed — now Spartan hlmInput [seamless] (wrapper owns the pill). */
     .filter-kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.65rem; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.65); }
 
-    /* ─── Cell renderer: status pill ─────────────────────────────────── */
-    :host ::ng-deep .cell-status-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1.5; }
-    :host ::ng-deep .cell-status-pill.ok { background: rgba(16,185,129,0.14); color: #34d399; border: 1px solid rgba(16,185,129,0.32); }
-    :host ::ng-deep .cell-status-pill.error { background: rgba(239,68,68,0.14); color: #fca5a5; border: 1px solid rgba(239,68,68,0.34); }
-    :host ::ng-deep .cell-status-pill.rate { background: rgba(251,191,36,0.14); color: #fcd34d; border: 1px solid rgba(251,191,36,0.32); }
-    :host ::ng-deep .cell-status-pill.timeout { background: rgba(168,85,247,0.14); color: #d8b4fe; border: 1px solid rgba(168,85,247,0.32); }
-    :host ::ng-deep .cell-status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    /* ─── Toolbar + native table (TanStack headless) ─────────────────── */
+    .grid-toolbar {
+      display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+      padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .page-count { font-size: 0.7rem; color: rgba(255,255,255,0.55); font-variant-numeric: tabular-nums; }
+    table.ps-traces-grid { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 0.76rem; }
+    .ps-traces-grid col.col-status { width: 90px; }
+    .ps-traces-grid col.col-when { width: 140px; }
+    .ps-traces-grid col.col-endpoint { width: 150px; }
+    .ps-traces-grid col.col-tool { width: 140px; }
+    .ps-traces-grid col.col-model { width: 120px; }
+    .ps-traces-grid col.col-latency { width: 110px; }
+    .ps-traces-grid col.col-credits { width: 90px; }
+    .ps-traces-grid thead th {
+      position: sticky; top: 0; z-index: 1;
+      background: #0e0e22; text-align: left; padding: 10px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.06em;
+      color: rgba(255,255,255,0.6); font-weight: 700;
+    }
+    .ps-traces-grid th.th-sortable { cursor: pointer; user-select: none; transition: color 140ms ease; }
+    .ps-traces-grid th.th-sortable:hover { color: #00E5FF; }
+    .ps-traces-grid th.th-sortable:focus-visible { outline: 2px solid #00E5FF; outline-offset: -2px; }
+    .ps-traces-grid th.th-num { text-align: right; }
+    .sort-glyph { color: #00E5FF; }
+    .ps-traces-grid td {
+      padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.04);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle;
+    }
+    .master-row { cursor: pointer; transition: background 140ms ease; }
+    .master-row:hover { background: rgba(0,229,255,0.06); box-shadow: inset 3px 0 0 rgba(0,229,255,0.35); }
+    .master-row.is-expanded { background: rgba(0,229,255,0.03); }
+    .cell-mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.72rem; }
+    .cell-when { color: rgba(255,255,255,0.72); font-variant-numeric: tabular-nums; }
+    .cell-num { text-align: right; font-variant-numeric: tabular-nums; }
 
-    /* ─── Cell renderer: latency w/ proportional fill ────────────────── */
-    :host ::ng-deep .latency-cell { position: relative; display: flex; align-items: center; justify-content: flex-end; height: 100%; padding-right: 8px; }
-    :host ::ng-deep .latency-cell .lat-fill { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); height: 18px; border-radius: 4px; opacity: 0.20; pointer-events: none; }
-    :host ::ng-deep .latency-cell .lat-fill.good { background: linear-gradient(90deg, rgba(16,185,129,0.4), rgba(16,185,129,0.08)); }
-    :host ::ng-deep .latency-cell .lat-fill.mid  { background: linear-gradient(90deg, rgba(251,191,36,0.55), rgba(251,191,36,0.08)); }
-    :host ::ng-deep .latency-cell .lat-fill.bad  { background: linear-gradient(90deg, rgba(239,68,68,0.65), rgba(239,68,68,0.08)); }
-    :host ::ng-deep .latency-cell .lat-val { position: relative; z-index: 1; font-variant-numeric: tabular-nums; font-weight: 600; color: rgba(255,255,255,0.92); }
+    /* ─── Cell: status pill ──────────────────────────────────────────── */
+    .cell-status-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1.5; }
+    .cell-status-pill.ok { background: rgba(16,185,129,0.14); color: #34d399; border: 1px solid rgba(16,185,129,0.32); }
+    .cell-status-pill.error { background: rgba(239,68,68,0.14); color: #fca5a5; border: 1px solid rgba(239,68,68,0.34); }
+    .cell-status-pill.rate { background: rgba(251,191,36,0.14); color: #fcd34d; border: 1px solid rgba(251,191,36,0.32); }
+    .cell-status-pill.timeout { background: rgba(168,85,247,0.14); color: #d8b4fe; border: 1px solid rgba(168,85,247,0.32); }
+    .cell-status-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
+    /* ─── Cell: latency w/ proportional fill ─────────────────────────── */
+    .latency-cell { position: relative; display: flex; align-items: center; justify-content: flex-end; height: 100%; padding-right: 8px; }
+    .latency-cell .lat-fill { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); height: 18px; border-radius: 4px; opacity: 0.20; pointer-events: none; }
+    .latency-cell .lat-fill.good { background: linear-gradient(90deg, rgba(16,185,129,0.4), rgba(16,185,129,0.08)); }
+    .latency-cell .lat-fill.mid  { background: linear-gradient(90deg, rgba(251,191,36,0.55), rgba(251,191,36,0.08)); }
+    .latency-cell .lat-fill.bad  { background: linear-gradient(90deg, rgba(239,68,68,0.65), rgba(239,68,68,0.08)); }
+    .latency-cell .lat-val { position: relative; z-index: 1; font-variant-numeric: tabular-nums; font-weight: 600; color: rgba(255,255,255,0.92); }
 
     /* ─── Detail panel: master/detail expansion (cinematic) ──────────── */
-    :host ::ng-deep .detail-card {
+    .detail-row td { padding: 0; border-bottom: 1px solid rgba(0,229,255,0.10); white-space: normal; overflow: visible; }
+    .detail-card {
       position: relative; padding: 1.1rem 1.3rem 1.35rem; margin: 0;
       background:
         radial-gradient(120% 80% at 50% -20%, rgba(0,229,255,0.10), transparent 60%),
         linear-gradient(180deg, rgba(0,229,255,0.05) 0%, rgba(124,58,237,0.03) 55%, rgba(6,6,16,0.0) 100%),
         rgba(6,6,16,0.55);
-      border-top: 1px solid color-mix(in oklch, #00E5FF 28%, transparent);
-      border-bottom: 1px solid color-mix(in oklch, #00E5FF 12%, transparent);
+      border-radius: var(--ps-radius-lg, 14px);
       box-shadow:
         inset 0 1px 0 rgba(255,255,255,0.06),
         inset 0 -1px 0 rgba(0,0,0,0.35),
@@ -480,7 +692,7 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
       animation: detail-in 320ms var(--ps-ease-emphasized, cubic-bezier(0.16, 1, 0.3, 1));
       transform-origin: top center; overflow: hidden;
     }
-    :host ::ng-deep .detail-card::before {
+    .detail-card::before {
       content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;
       background: linear-gradient(90deg, transparent, rgba(0,229,255,0.55) 22%, rgba(124,58,237,0.45) 64%, transparent);
       pointer-events: none;
@@ -491,15 +703,15 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
       100% { opacity: 1; transform: translateY(0) scaleY(1); }
     }
     @media (prefers-reduced-motion: reduce) {
-      :host ::ng-deep .detail-card { animation: none; }
+      .detail-card { animation: none; }
     }
 
     /* Metric pill header — latency / cost / tokens / model along the top. */
-    :host ::ng-deep .detail-card .det-meta {
+    .detail-card .det-meta {
       display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
       margin: 0 0 0.85rem;
     }
-    :host ::ng-deep .detail-card .met-pill {
+    .detail-card .met-pill {
       display: inline-flex; align-items: baseline; gap: 6px;
       padding: 4px 11px 4px 9px; border-radius: 999px;
       font: 700 0.6rem/1 'JetBrains Mono', ui-monospace, monospace;
@@ -510,18 +722,18 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
       white-space: nowrap;
     }
-    :host ::ng-deep .detail-card .met-pill .met-val {
+    .detail-card .met-pill .met-val {
       font-size: 0.78rem; font-weight: 800; letter-spacing: -0.01em;
       color: #fff; font-variant-numeric: tabular-nums; text-transform: none;
     }
-    :host ::ng-deep .detail-card .met-pill.is-lat   { --mpill: #00E5FF; }
-    :host ::ng-deep .detail-card .met-pill.is-cost  { --mpill: #fbbf24; }
-    :host ::ng-deep .detail-card .met-pill.is-tok   { --mpill: #c4b5fd; }
-    :host ::ng-deep .detail-card .met-pill.is-model { --mpill: #34d399; }
-    :host ::ng-deep .detail-card .met-pill.is-tool  { --mpill: #fdba74; }
+    .detail-card .met-pill.is-lat   { --mpill: #00E5FF; }
+    .detail-card .met-pill.is-cost  { --mpill: #fbbf24; }
+    .detail-card .met-pill.is-tok   { --mpill: #c4b5fd; }
+    .detail-card .met-pill.is-model { --mpill: #34d399; }
+    .detail-card .met-pill.is-tool  { --mpill: #fdba74; }
 
-    :host ::ng-deep .detail-card .detail-grid { display: grid; gap: 0.85rem; }
-    :host ::ng-deep .detail-card .det-block {
+    .detail-card .detail-grid { display: grid; gap: 0.85rem; }
+    .detail-card .det-block {
       display: flex; flex-direction: column; gap: 0.45rem;
       position: relative;
       padding: 0.7rem 0.85rem 0.85rem 1rem;
@@ -531,38 +743,38 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
       transition: border-color 220ms var(--ps-ease-emphasized, cubic-bezier(0.16,1,0.3,1));
     }
-    :host ::ng-deep .detail-card .det-block::before {
+    .detail-card .det-block::before {
       content: ""; position: absolute; left: 0; top: 14px; bottom: 14px;
       width: 2px; border-radius: 0 2px 2px 0;
       background: var(--det-rail, linear-gradient(180deg, #00E5FF, transparent));
       opacity: 0.7;
     }
-    :host ::ng-deep .detail-card .det-block.kind-prompt  { --det-rail: linear-gradient(180deg, #00E5FF, rgba(0,229,255,0)); }
-    :host ::ng-deep .detail-card .det-block.kind-input   { --det-rail: linear-gradient(180deg, #7C3AED, rgba(124,58,237,0)); }
-    :host ::ng-deep .detail-card .det-block.kind-output  { --det-rail: linear-gradient(180deg, #34d399, rgba(52,211,153,0)); }
-    :host ::ng-deep .detail-card .det-block.kind-tool    { --det-rail: linear-gradient(180deg, #f97316, rgba(249,115,22,0)); }
-    :host ::ng-deep .detail-card .det-block.kind-error   { --det-rail: linear-gradient(180deg, #ef4444, rgba(239,68,68,0)); }
-    :host ::ng-deep .detail-card .det-block.kind-explain { --det-rail: linear-gradient(180deg, #c4b5fd, rgba(196,181,253,0)); }
-    :host ::ng-deep .detail-card .det-block:hover { border-color: rgba(0,229,255,0.18); }
+    .detail-card .det-block.kind-prompt  { --det-rail: linear-gradient(180deg, #00E5FF, rgba(0,229,255,0)); }
+    .detail-card .det-block.kind-input   { --det-rail: linear-gradient(180deg, #7C3AED, rgba(124,58,237,0)); }
+    .detail-card .det-block.kind-output  { --det-rail: linear-gradient(180deg, #34d399, rgba(52,211,153,0)); }
+    .detail-card .det-block.kind-tool    { --det-rail: linear-gradient(180deg, #f97316, rgba(249,115,22,0)); }
+    .detail-card .det-block.kind-error   { --det-rail: linear-gradient(180deg, #ef4444, rgba(239,68,68,0)); }
+    .detail-card .det-block.kind-explain { --det-rail: linear-gradient(180deg, #c4b5fd, rgba(196,181,253,0)); }
+    .detail-card .det-block:hover { border-color: rgba(0,229,255,0.18); }
 
-    :host ::ng-deep .detail-card .det-head {
+    .detail-card .det-head {
       display: flex; align-items: center; justify-content: space-between; gap: 8px;
     }
-    :host ::ng-deep .detail-card .det-label {
+    .detail-card .det-label {
       font: 700 0.6rem/1 'JetBrains Mono', ui-monospace, monospace;
       text-transform: uppercase; letter-spacing: 0.1em;
       color: rgba(255,255,255,0.65);
       display: inline-flex; align-items: center; gap: 6px;
     }
-    :host ::ng-deep .detail-card .det-block.kind-prompt  .det-label { color: #7feef9; }
-    :host ::ng-deep .detail-card .det-block.kind-input   .det-label { color: #c4b5fd; }
-    :host ::ng-deep .detail-card .det-block.kind-output  .det-label { color: #6ee7b7; }
-    :host ::ng-deep .detail-card .det-block.kind-tool    .det-label { color: #fdba74; }
-    :host ::ng-deep .detail-card .det-block.kind-error   .det-label { color: #fca5a5; }
-    :host ::ng-deep .detail-card .det-block.kind-explain .det-label { color: #c4b5fd; }
+    .detail-card .det-block.kind-prompt  .det-label { color: #7feef9; }
+    .detail-card .det-block.kind-input   .det-label { color: #c4b5fd; }
+    .detail-card .det-block.kind-output  .det-label { color: #6ee7b7; }
+    .detail-card .det-block.kind-tool    .det-label { color: #fdba74; }
+    .detail-card .det-block.kind-error   .det-label { color: #fca5a5; }
+    .detail-card .det-block.kind-explain .det-label { color: #c4b5fd; }
 
     /* Copy chip per code block */
-    :host ::ng-deep .detail-card .det-copy {
+    .detail-card .det-copy {
       display: inline-flex; align-items: center; gap: 4px;
       padding: 3px 8px; border-radius: 6px;
       font: 700 0.56rem/1 'JetBrains Mono', monospace; letter-spacing: 0.08em;
@@ -573,17 +785,17 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
       cursor: pointer; opacity: 0;
       transition: opacity 180ms ease, background 140ms ease, color 140ms ease, transform 140ms ease, border-color 140ms ease;
     }
-    :host ::ng-deep .detail-card .det-block:hover .det-copy { opacity: 1; }
-    :host ::ng-deep .detail-card .det-copy:focus-visible { opacity: 1; outline: 2px solid #00E5FF; outline-offset: 2px; }
-    :host ::ng-deep .detail-card .det-copy:hover {
+    .detail-card .det-block:hover .det-copy, .detail-card .det-copy:focus-visible { opacity: 1; }
+    .detail-card .det-copy:focus-visible { outline: 2px solid #00E5FF; outline-offset: 2px; }
+    .detail-card .det-copy:hover {
       background: rgba(0,229,255,0.10); color: #00E5FF; border-color: rgba(0,229,255,0.30);
       transform: translateY(-1px);
     }
-    :host ::ng-deep .detail-card .det-copy.is-copied {
+    .detail-card .det-copy.is-copied {
       color: #34d399; border-color: rgba(52,211,153,0.40); background: rgba(52,211,153,0.10); opacity: 1;
     }
 
-    :host ::ng-deep .detail-card pre {
+    .detail-card pre {
       background: linear-gradient(180deg, rgba(0,0,0,0.42), rgba(0,0,0,0.55));
       border: 1px solid rgba(255,255,255,0.06);
       border-radius: var(--ps-radius-sm, 8px);
@@ -595,24 +807,26 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
       color: rgba(245,245,247,0.94);
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
     }
-    :host ::ng-deep .detail-card pre.error-pre {
+    .detail-card pre.error-pre {
       border-left: 3px solid #ef4444; color: #fcd34d;
       background: linear-gradient(180deg, rgba(239,68,68,0.10), rgba(239,68,68,0.04));
       border-color: rgba(239,68,68,0.32);
     }
-    :host ::ng-deep .detail-card .tk-key  { color: #fbbf24; }
-    :host ::ng-deep .detail-card .tk-str  { color: #86efac; }
-    :host ::ng-deep .detail-card .tk-num  { color: #67e8f9; }
-    :host ::ng-deep .detail-card .tk-bool { color: #c4b5fd; }
-    :host ::ng-deep .detail-card .tk-null { color: rgba(255,255,255,0.45); }
-    :host ::ng-deep .detail-card .tk-pun  { color: rgba(255,255,255,0.55); }
-    :host ::ng-deep .detail-card .kw {
+    .detail-card .det-value { font-size: 0.74rem; color: rgba(245,245,247,0.92); word-break: break-word; line-height: 1.45; }
+    .detail-card .det-value.dim-italic { opacity: 0.6; font-style: italic; }
+    .detail-card .tk-key  { color: #fbbf24; }
+    .detail-card .tk-str  { color: #86efac; }
+    .detail-card .tk-num  { color: #67e8f9; }
+    .detail-card .tk-bool { color: #c4b5fd; }
+    .detail-card .tk-null { color: rgba(255,255,255,0.45); }
+    .detail-card .tk-pun  { color: rgba(255,255,255,0.55); }
+    .detail-card .kw {
       color: #00E5FF; font-weight: 700;
       text-shadow: 0 0 12px rgba(0,229,255,0.35);
     }
 
-    :host ::ng-deep .detail-card .det-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 0.4rem; }
-    :host ::ng-deep .detail-card .det-action {
+    .detail-card .det-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 0.4rem; }
+    .detail-card .det-action {
       position: relative; isolation: isolate;
       padding: 0.55rem 1rem; border-radius: var(--ps-radius-sm, 8px);
       font: 700 0.68rem/1 'Sora', system-ui, sans-serif; letter-spacing: 0.02em;
@@ -626,47 +840,47 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
         transform 140ms var(--ps-ease-emphasized, cubic-bezier(0.16,1,0.3,1)),
         box-shadow 220ms ease, background 200ms ease, color 140ms ease;
     }
-    :host ::ng-deep .detail-card .det-action:hover:not([disabled]) {
+    .detail-card .det-action:hover:not([disabled]) {
       transform: translateY(-2px); color: #ccfafd;
       box-shadow:
         0 8px 22px -8px rgba(0, 229, 255, 0.55),
         inset 0 1px 0 rgba(255,255,255,0.08);
     }
-    :host ::ng-deep .detail-card .det-action:active:not([disabled]) {
+    .detail-card .det-action:active:not([disabled]) {
       transform: translateY(0) scale(0.97); transition-duration: 80ms;
       box-shadow: 0 0 0 4px rgba(0,229,255,0.22);
     }
-    :host ::ng-deep .detail-card .det-action[disabled] { opacity: 0.40; cursor: not-allowed; }
-    :host ::ng-deep .detail-card .det-action.violet {
+    .detail-card .det-action[disabled] { opacity: 0.40; cursor: not-allowed; }
+    .detail-card .det-action.violet {
       background:
         linear-gradient(rgba(6,6,16,0.78), rgba(6,6,16,0.78)) padding-box,
         linear-gradient(135deg, rgba(124,58,237,0.65), rgba(0,229,255,0.42)) border-box;
       color: #c4b5fd;
     }
-    :host ::ng-deep .detail-card .det-action.violet:hover:not([disabled]) {
+    .detail-card .det-action.violet:hover:not([disabled]) {
       color: #ddd6fe;
       box-shadow:
         0 8px 22px -8px rgba(124, 58, 237, 0.55),
         inset 0 1px 0 rgba(255,255,255,0.08);
     }
-    :host ::ng-deep .detail-card .det-action.ghost {
+    .detail-card .det-action.ghost {
       background: rgba(255,255,255,0.02);
       border: 1px solid rgba(255,255,255,0.10);
       color: rgba(255,255,255,0.74);
     }
-    :host ::ng-deep .detail-card .det-action.ghost:hover:not([disabled]) {
+    .detail-card .det-action.ghost:hover:not([disabled]) {
       background: rgba(255,255,255,0.05); color: #fff;
       border-color: rgba(255,255,255,0.22);
     }
-    :host ::ng-deep .detail-card .det-action:focus-visible {
+    .detail-card .det-action:focus-visible {
       outline: 2px solid #00E5FF; outline-offset: 2px;
     }
     @media (prefers-reduced-motion: reduce) {
-      :host ::ng-deep .detail-card .det-action { transition: none; }
-      :host ::ng-deep .detail-card .det-action:hover:not([disabled]) { transform: none; }
+      .detail-card .det-action { transition: none; }
+      .detail-card .det-action:hover:not([disabled]) { transform: none; }
     }
 
-    :host ::ng-deep .detail-card .det-explain {
+    .detail-card .det-explain {
       margin-top: 0; padding: 0.85rem 1rem; border-radius: var(--ps-radius-sm, 8px);
       background: linear-gradient(135deg, rgba(124,58,237,0.14), rgba(124,58,237,0.06));
       border: 1px solid rgba(124,58,237,0.35);
@@ -675,8 +889,22 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
       box-shadow: inset 0 1px 0 rgba(196,181,253,0.10);
     }
 
-    /* ─── AG Grid theme tweaks (dark cyan hover glow) ────────────────── */
-    :host ::ng-deep .ag-row-hover { box-shadow: inset 3px 0 0 rgba(0,229,255,0.35); }
+    /* ─── Footer (pagination) ────────────────────────────────────────── */
+    .grid-footer {
+      display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+      padding: 10px 14px; border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .page-size-label { display: inline-flex; }
+    .page-indicator { font-size: 0.72rem; color: rgba(255,255,255,0.6); font-variant-numeric: tabular-nums; }
+    .pager-btns { display: flex; gap: 6px; }
+    .site-select {
+      background: #0d0d1f; color: #e5e7eb;
+      border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;
+      padding: 6px 10px; font-size: 0.72rem; font-family: inherit; cursor: pointer;
+    }
+    .site-select:focus-visible { outline: 2px solid #00E5FF; outline-offset: 2px; }
+    .filtered-empty-row td { padding: 0; white-space: normal; }
+    .filtered-empty { padding: 28px 14px; text-align: center; font-size: 0.76rem; color: rgba(255,255,255,0.55); }
   `],
 })
 export class AdminAiLogsComponent implements OnInit, OnDestroy {
@@ -712,8 +940,8 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
   searchFocused = signal(false);
   polling = signal(true);
 
-  /** Set of trace ids currently expanded in the grid. */
-  private expandedIds = signal<Set<string>>(new Set<string>());
+  /** Set of trace ids currently expanded in the table. */
+  readonly expandedIds = signal<Set<string>>(new Set<string>());
   /** Cache of fetched details keyed by trace id (lazy-loaded on expand). */
   private detailCache = signal<Map<string, TraceDetail>>(new Map());
   /** Cache of AI explanations keyed by trace id. */
@@ -741,50 +969,181 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
   });
   errors = computed<number>(() => this.rows().filter((r) => r.status === 'error').length);
   totalCredits = computed<number>(() => this.rows().reduce((a, r) => a + (r.credits_debited ?? 0), 0));
-  /** Initial fetch with nothing yet on screen → show a skeleton, not the bare ag-grid "No Rows" overlay. */
+  /** Initial fetch with nothing yet on screen → show a skeleton, not a bare empty table. */
   gridLoadingSkeleton = computed<boolean>(() => this.loading() && this.rows().length === 0);
-  /** Genuine "no traces yet" (not loading, no error) → a friendly empty state, not ag-grid's generic overlay. */
+  /** Genuine "no traces yet" (not loading, no error) → a friendly empty state. */
   gridEmpty = computed<boolean>(() => !this.loading() && !this.loadError() && this.rows().length === 0);
   /** KPI tiles hidden when the load errored with no data — a definitive "0 calls
    *  · 0ms · 0 errors · 0 credits" over the error card is wrong (unknown, not 0). */
-  // Show the KPI tiles only once the load has SETTLED (or stale data is present):
-  // never flash a definitive "0 calls · 0ms · 0 errors · 0 credits" over the
-  // loading skeleton (counts are unknown mid-fetch, not zero) NOR over the error
-  // card (unknown, not zero). A background refresh with rows keeps them visible.
   showKpis = computed<boolean>(
     () => !this.gridLoadingSkeleton() && (!this.loadError() || this.rows().length > 0),
   );
 
-  // ─── Filtered rows + synthetic detail injection ────────────────────
-  /**
-   * Rows after the free-text filter + the synthetic detail-row injection.
-   * Whenever a row's id is in `expandedIds`, we splice a `_isDetail: true`
-   * row right after it so the grid renders the full-width detail panel
-   * below the master row (Community-tier master/detail emulation).
-   */
-  displayRows = computed<TraceRow[]>(() => {
-    const q = this.filter().trim().toLowerCase();
-    const expanded = this.expandedIds();
-    const base = q
-      ? this.rows().filter((r) => {
-          const hay = `${r.endpoint_slug ?? ''} ${r.tool_name ?? ''} ${r.model ?? ''} ${r.actor_email ?? ''} ${r.output_preview ?? ''} ${r.error_message ?? ''} ${r.trace_kind}`.toLowerCase();
-          return hay.includes(q);
-        })
-      : this.rows();
-    const out: TraceRow[] = [];
-    for (const r of base) {
-      out.push({ ...r, _expanded: expanded.has(r.id) });
-      if (expanded.has(r.id)) {
-        out.push({
-          ...r,
-          id: `${r.id}::detail`,
-          _isDetail: true,
-          _parentId: r.id,
-        });
+  // ── TanStack headless table (quick-filter pre-filter + sort + pagination) ──
+
+  /** Human header labels keyed by column id (template reads these). */
+  readonly headerLabel: Record<string, string> = {
+    status: 'Status',
+    created_at: 'When',
+    endpoint_slug: 'Endpoint',
+    tool_name: 'Tool',
+    model: 'Model',
+    latency_ms: 'Latency',
+    credits_debited: 'Credits',
+    actor_email: 'Actor',
+  };
+  /** Column count for the detail row's colspan + the filtered-empty row. */
+  readonly columnCount = 8;
+  /** Page-size options — mirrors the old ag-grid selector. */
+  readonly pageSizeOptions = [25, 50, 100, 250] as const;
+  /** Sortable column ids — the col-state restore validates against this set. */
+  private static readonly SORT_IDS = ['status', 'created_at', 'endpoint_slug', 'tool_name', 'model', 'latency_ms', 'credits_debited', 'actor_email'] as const;
+  /** localStorage key for the persisted table state (sort) — key reused from
+   *  the ag-grid era; the old column-state shape fails validation and is
+   *  silently ignored. */
+  private static readonly COL_STATE_KEY = 'ps_traces_grid_v1';
+
+  /** Restore a valid sorting state from localStorage; `[]` when absent/corrupt. */
+  private static restoreSort(): SortingState {
+    try {
+      const raw = localStorage.getItem(AdminAiLogsComponent.COL_STATE_KEY);
+      if (!raw) return [];
+      const parsed: unknown = JSON.parse(raw);
+      const arr = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray((parsed as { sorting?: unknown })?.sorting)
+          ? ((parsed as { sorting: unknown[] }).sorting as unknown[])
+          : null;
+      if (!arr) return [];
+      const out: SortingState = [];
+      for (const item of arr) {
+        const s = item as { id?: unknown; desc?: unknown };
+        if (
+          typeof s?.id === 'string' &&
+          (AdminAiLogsComponent.SORT_IDS as readonly string[]).includes(s.id) &&
+          typeof s.desc === 'boolean'
+        ) {
+          out.push({ id: s.id, desc: s.desc });
+        }
       }
+      return out;
+    } catch {
+      return [];
     }
-    return out;
+  }
+
+  /** Initial sort: restored state when valid, else the canonical `When` desc. */
+  private static defaultSort(): SortingState {
+    const restored = AdminAiLogsComponent.restoreSort();
+    return restored.length > 0 ? restored : [{ id: 'created_at', desc: true }];
+  }
+
+  readonly sorting = signal<SortingState>(AdminAiLogsComponent.defaultSort());
+  /** Pagination state — pageSize 50 default (old ag-grid parity). */
+  readonly pagination = signal<PaginationState>({ pageIndex: 0, pageSize: 50 });
+
+  private readonly columns: ColumnDef<TraceRow>[] = [
+    { id: 'status', accessorKey: 'status' },
+    {
+      id: 'created_at',
+      accessorKey: 'created_at',
+      // ISO-8601 strings sort lexicographically = chronologically, but older
+      // rows may carry other formats — Date.parse comparator keeps parity
+      // with the old ag-grid date comparator.
+      sortingFn: (rowA, rowB) =>
+        Date.parse(String(rowA.original.created_at ?? 0)) - Date.parse(String(rowB.original.created_at ?? 0)),
+    },
+    { id: 'endpoint_slug', accessorKey: 'endpoint_slug' },
+    { id: 'tool_name', accessorKey: 'tool_name' },
+    { id: 'model', accessorKey: 'model' },
+    { id: 'latency_ms', accessorKey: 'latency_ms' },
+    { id: 'credits_debited', accessorKey: 'credits_debited' },
+    { id: 'actor_email', accessorKey: 'actor_email' },
+  ];
+
+  /** Rows surviving the free-text quick-filter (endpoint/tool/model/actor/
+   *  preview/error/trace-kind haystack). Feeds the table directly. */
+  readonly filteredRows = computed<TraceRow[]>(() => {
+    const q = this.filter().trim().toLowerCase();
+    if (!q) return this.rows();
+    return this.rows().filter((r) => {
+      const hay = `${r.endpoint_slug ?? ''} ${r.tool_name ?? ''} ${r.model ?? ''} ${r.actor_email ?? ''} ${r.output_preview ?? ''} ${r.error_message ?? ''} ${r.trace_kind}`.toLowerCase();
+      return hay.includes(q);
+    });
   });
+
+  readonly table = createAngularTable<TraceRow>(() => ({
+    data: this.filteredRows(),
+    columns: this.columns,
+    state: {
+      sorting: this.sorting(),
+      pagination: this.pagination(),
+    },
+    onSortingChange: (updater) => {
+      const next = typeof updater === 'function' ? updater(this.sorting()) : updater;
+      this.sorting.set(next);
+      this.persistColState();
+    },
+    onPaginationChange: (updater) =>
+      this.pagination.set(typeof updater === 'function' ? updater(this.pagination()) : updater),
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+  }));
+
+  /** Rows surviving the quick-filter (independent of pagination). */
+  readonly filteredCount = computed(() => this.table.getFilteredRowModel().rows.length);
+
+  constructor() {
+    // Clamp a stale pageIndex after a poll/filter shrinks the row set —
+    // TanStack leaves an empty page where ag-grid silently re-rewound.
+    effect(() => {
+      if (this.table.getFilteredRowModel().rows.length === 0) return;
+      const pageCount = this.table.getPageCount();
+      const pageIndex = this.table.getState().pagination.pageIndex;
+      if (pageIndex >= pageCount) {
+        this.table.setPageIndex(pageCount - 1);
+      }
+    });
+  }
+
+  /** Persist the sort state under `ps_traces_grid_v1` (`{sorting:[…]}` shape). */
+  private persistColState(): void {
+    try {
+      localStorage.setItem(
+        AdminAiLogsComponent.COL_STATE_KEY,
+        JSON.stringify({ sorting: this.sorting() }),
+      );
+    } catch {
+      /* ignore — private mode / quota errors must never break the table */
+    }
+  }
+
+  /** Map TanStack's `false | 'asc' | 'desc'` to an aria-sort token. */
+  ariaSort(dir: false | 'asc' | 'desc'): 'ascending' | 'descending' | 'none' {
+    return dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : 'none';
+  }
+  /** Sort indicator glyph for the header. */
+  sortGlyph(dir: false | 'asc' | 'desc'): string {
+    return dir === 'asc' ? '↑' : dir === 'desc' ? '↓' : '↕';
+  }
+
+  /** Page-size selector handler — resets to page 1 on size change. */
+  onPageSize(ev: Event): void {
+    const n = Number((ev.target as HTMLSelectElement).value);
+    if (!(this.pageSizeOptions as readonly number[]).includes(n)) return;
+    this.pagination.set({ pageIndex: 0, pageSize: n });
+  }
+
+  /** 1-based first visible row number (0 when the filter empties the set). */
+  pageStart(): number {
+    if (this.filteredCount() === 0) return 0;
+    return this.pagination().pageIndex * this.pagination().pageSize + 1;
+  }
+  /** 1-based last visible row number, clamped to the filtered total. */
+  pageEnd(): number {
+    return Math.min((this.pagination().pageIndex + 1) * this.pagination().pageSize, this.filteredCount());
+  }
 
   // ─── Chart: derive p50/p95/p99 from currently-loaded rows ──────────
   /**
@@ -879,359 +1238,10 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
     }
   });
 
-  // ─── AG Grid setup ──────────────────────────────────────────────────
-  theme = themeQuartz.withPart(colorSchemeDarkBlue).withParams({
-    backgroundColor: '#0a0a1a',
-    foregroundColor: '#e5e7eb',
-    headerBackgroundColor: '#0e0e22',
-    headerTextColor: '#f5f5f7',
-    rowHoverColor: 'rgba(0, 229, 255, 0.06)',
-    selectedRowBackgroundColor: 'rgba(0, 229, 255, 0.14)',
-    accentColor: '#00E5FF',
-    borderColor: 'rgba(255, 255, 255, 0.06)',
-    rowBorder: { color: 'rgba(255, 255, 255, 0.04)' },
-    headerColumnBorder: false,
-    spacing: 6,
-    fontSize: 12,
-  });
-
-  defaultColDef: ColDef = {
-    sortable: true,
-    filter: false,
-    resizable: true,
-    minWidth: 60,
-  };
-
-  columnDefs: ColDef<TraceRow>[] = [
-    {
-      headerName: 'Status',
-      field: 'status',
-      width: 90,
-      minWidth: 80,
-      cellRenderer: (p: ICellRendererParams<TraceRow>): string => {
-        const v = String(p.value ?? '').toLowerCase();
-        let klass = 'ok';
-        if (v === 'error') klass = 'error';
-        else if (v === 'rate_limited' || v === 'rate-limited') klass = 'rate';
-        else if (v === 'timeout') klass = 'timeout';
-        const label = v ? v.replace(/_/g, ' ') : '—';
-        return `<span class="cell-status-pill ${klass}"><span class="dot"></span>${escapeHtml(label)}</span>`;
-      },
-    },
-    {
-      headerName: 'When',
-      field: 'created_at',
-      width: 140,
-      minWidth: 110,
-      sort: 'desc',
-      valueFormatter: (p) => relativeTime(p.value as string | null | undefined),
-      tooltipValueGetter: (p) => {
-        const v = p.value as string | null | undefined;
-        if (!v) return '';
-        return new Date(v).toISOString();
-      },
-      comparator: (a, b) => Date.parse(String(a ?? 0)) - Date.parse(String(b ?? 0)),
-    },
-    {
-      headerName: 'Endpoint',
-      field: 'endpoint_slug',
-      width: 150,
-      minWidth: 120,
-      filter: 'agTextColumnFilter',
-      valueGetter: (p) => p.data?.endpoint_slug ?? p.data?.trace_kind ?? '—',
-      cellClass: 'mono',
-    },
-    {
-      headerName: 'Tool',
-      field: 'tool_name',
-      width: 140,
-      minWidth: 110,
-      valueFormatter: (p) => (p.value as string | null) ?? '—',
-      cellClass: 'mono',
-    },
-    {
-      headerName: 'Model',
-      field: 'model',
-      width: 120,
-      minWidth: 100,
-      valueFormatter: (p) => prettifyModel(p.value as string),
-    },
-    {
-      headerName: 'Latency',
-      field: 'latency_ms',
-      width: 110,
-      minWidth: 90,
-      type: 'numericColumn',
-      cellRenderer: (p: ICellRendererParams<TraceRow>): string => {
-        const ms = p.value as number | null;
-        const pct = Math.max(0, Math.min(100, ((ms ?? 0) / 2000) * 100));
-        const band = latencyBand(ms);
-        return `
-          <div class="latency-cell">
-            <span class="lat-fill ${band}" style="width: calc(${pct.toFixed(1)}% - 8px); max-width: calc(100% - 8px);"></span>
-            <span class="lat-val">${escapeHtml(formatLatency(ms))}</span>
-          </div>
-        `;
-      },
-    },
-    {
-      headerName: 'Credits',
-      field: 'credits_debited',
-      width: 90,
-      minWidth: 70,
-      type: 'numericColumn',
-      cellStyle: { textAlign: 'right' },
-      valueFormatter: (p) => NUMBER_FORMATTER.format((p.value as number | null) ?? 0),
-    },
-    {
-      headerName: 'Actor',
-      field: 'actor_email',
-      width: 180,
-      minWidth: 130,
-      filter: 'agTextColumnFilter',
-      valueGetter: (p) => fallbackActor(p.data ?? ({} as TraceRow)),
-      cellClass: 'mono',
-    },
-  ];
-
-  /**
-   * Stable row id callback — uses `id` for master rows and the parent-id
-   * suffixed detail key for synthetic rows. Stable ids enable AG Grid's
-   * incremental row reconciliation across `rowData` updates so expanded
-   * rows don't flicker on each 15s poll.
-   */
-  getRowId = (params: { data: TraceRow }): string => params.data.id;
-
-  /**
-   * Dynamic row height: detail rows are taller to fit the expanded panel.
-   * AG Grid calls this on every row when `rowData` changes.
-   */
-  getRowHeight = (params: RowHeightParams<TraceRow>): number | undefined | null => {
-    if (params.data?._isDetail) return 480;
-    return 40;
-  };
-
-  /** Tell AG Grid which rows render via `fullWidthCellRenderer`. */
-  isFullWidthRow = (params: IsFullWidthRowParams<TraceRow>): boolean => {
-    return !!params.rowNode.data?._isDetail;
-  };
-
-  /**
-   * Full-width detail panel renderer — produces the expanded master/detail
-   * card with system prompt + IO + tool result + action button row.
-   * Imperative DOM construction (not innerHTML for the buttons) so we keep
-   * proper closure references to `this.toggleExpand` / `this.copyTrace` /
-   * `this.explainTrace` / `this.rerunTrace` / `this.openEndpoint` without
-   * leaking globals.
-   */
-  fullWidthCellRenderer = (params: ICellRendererParams<TraceRow>): HTMLElement => {
-    const data = params.data!;
-    const parentId = data._parentId ?? '';
-    const detail = this.detailCache().get(parentId);
-    const root = document.createElement('div');
-    root.className = 'detail-card';
-    root.setAttribute('data-testid', `traces-detail-${parentId}`);
-
-    if (!detail) {
-      // Trigger a lazy fetch — re-render happens via signal effect below.
-      this.fetchDetail(parentId);
-      root.innerHTML = `
-        <div class="detail-grid">
-          <div class="det-block kind-prompt">
-            <div class="det-head"><span class="det-label"><span aria-hidden="true">◐</span> Loading trace…</span></div>
-            <pre style="opacity:0.55">Fetching system prompt, input payload, output text, tool dispatch…</pre>
-          </div>
-        </div>`;
-      return root;
-    }
-
-    const promptHtml = detail.prompt_template ? highlightSystemPrompt(detail.prompt_template) : '<em>No system prompt captured.</em>';
-    const inputPretty = (() => {
-      try { return JSON.stringify(JSON.parse(detail.input_json), null, 2); }
-      catch { return detail.input_json ?? ''; }
-    })();
-    const outputText = detail.output_text ?? detail.output_json ?? '';
-    const toolArgs = (() => {
-      if (!detail.tool_args_json) return '';
-      try { return JSON.stringify(JSON.parse(detail.tool_args_json), null, 2); }
-      catch { return detail.tool_args_json; }
-    })();
-    const toolResult = (() => {
-      if (!detail.tool_result_json) return '';
-      try { return JSON.stringify(JSON.parse(detail.tool_result_json), null, 2); }
-      catch { return detail.tool_result_json; }
-    })();
-
-    const canRerun = !!(detail.endpoint_slug && detail.input_json);
-    const explanation = this.explainCache().get(parentId);
-    const explaining = this.explainLoading().has(parentId);
-
-    // Build cinematic metric pill row — latency / cost / tokens / model / tool.
-    const totalTokens = (detail.tokens_input ?? 0) + (detail.tokens_output ?? 0);
-    const metaPills: string[] = [];
-    if (detail.latency_ms != null) {
-      metaPills.push(`<span class="met-pill is-lat" title="End-to-end latency">latency<span class="met-val">${escapeHtml(formatLatency(detail.latency_ms))}</span></span>`);
-    }
-    if (detail.credits_debited != null && detail.credits_debited > 0) {
-      metaPills.push(`<span class="met-pill is-cost" title="Credits debited">cost<span class="met-val">${escapeHtml(NUMBER_FORMATTER.format(detail.credits_debited))}</span></span>`);
-    }
-    if (totalTokens > 0) {
-      const inTok = detail.tokens_input ?? 0;
-      const outTok = detail.tokens_output ?? 0;
-      metaPills.push(`<span class="met-pill is-tok" title="${inTok} in · ${outTok} out">tokens<span class="met-val">${escapeHtml(NUMBER_FORMATTER.format(totalTokens))}</span></span>`);
-    }
-    if (detail.model) {
-      metaPills.push(`<span class="met-pill is-model" title="${escapeHtml(detail.model)}">model<span class="met-val">${escapeHtml(prettifyModel(detail.model))}</span></span>`);
-    }
-    if (detail.tool_name) {
-      metaPills.push(`<span class="met-pill is-tool" title="Tool dispatch">tool<span class="met-val">${escapeHtml(detail.tool_name)}</span></span>`);
-    }
-
-    // Helper to build a code block with a copy chip in its header.
-    const codeBlock = (kind: string, label: string, body: string, copySource: string, blockTestId: string): string => `
-      <div class="det-block kind-${kind}">
-        <div class="det-head">
-          <span class="det-label"><span aria-hidden="true">●</span> ${label}</span>
-          <button type="button" class="det-copy" data-copy="${escapeHtml(copySource)}" data-no-row-toggle
-                  data-testid="traces-copy-${blockTestId}-${parentId}" aria-label="Copy ${label}">Copy</button>
-        </div>
-        <pre>${body}</pre>
-      </div>
-    `;
-
-    root.innerHTML = `
-      ${metaPills.length ? `<div class="det-meta">${metaPills.join('')}</div>` : ''}
-      <div class="detail-grid">
-        ${codeBlock('prompt', 'System prompt', promptHtml, detail.prompt_template ?? '', 'prompt')}
-        ${codeBlock('input', 'Input payload', highlightJson(inputPretty), inputPretty, 'input')}
-        ${detail.error_message ? `
-          <div class="det-block kind-error">
-            <div class="det-head">
-              <span class="det-label"><span aria-hidden="true">▲</span> Error</span>
-              <button type="button" class="det-copy" data-copy="${escapeHtml(detail.error_message)}" data-no-row-toggle
-                      data-testid="traces-copy-error-${parentId}" aria-label="Copy error">Copy</button>
-            </div>
-            <pre class="error-pre">${escapeHtml(detail.error_message)}</pre>
-          </div>
-        ` : codeBlock('output', 'Output text', escapeHtml(outputText || '—'), outputText || '', 'output')}
-        ${detail.tool_name ? `
-          <div class="det-block kind-tool">
-            <div class="det-head">
-              <span class="det-label"><span aria-hidden="true">⚙</span> Tool · ${escapeHtml(detail.tool_name)} · ${escapeHtml(detail.tool_status ?? '')}</span>
-              <button type="button" class="det-copy" data-copy="${escapeHtml(toolResult || toolArgs || '{}')}" data-no-row-toggle
-                      data-testid="traces-copy-tool-${parentId}" aria-label="Copy tool result">Copy</button>
-            </div>
-            <pre>${highlightJson(toolArgs || '{}')}</pre>
-            <pre>${highlightJson(toolResult || '{}')}</pre>
-          </div>
-        ` : ''}
-        ${explanation ? `
-          <div class="det-block kind-explain">
-            <div class="det-head">
-              <span class="det-label"><span aria-hidden="true">✦</span> AI explanation</span>
-            </div>
-            <div class="det-explain" data-testid="traces-explain-result-${parentId}">${escapeHtml(explanation)}</div>
-          </div>
-        ` : ''}
-        <div class="det-actions"></div>
-      </div>
-    `;
-
-    // Wire per-code-block copy chips. Each chip carries its own `data-copy`
-    // payload + flips to a "copied!" visual for 1.2s. Click bubbling is
-    // suppressed so the parent row doesn't toggle collapse.
-    root.querySelectorAll<HTMLButtonElement>('.det-copy').forEach((btn) => {
-      btn.addEventListener('click', (ev: MouseEvent) => {
-        ev.stopPropagation();
-        const payload = btn.dataset['copy'] ?? '';
-        if (!payload) return;
-        navigator.clipboard.writeText(payload).then(
-          () => {
-            const original = btn.textContent ?? 'Copy';
-            btn.classList.add('is-copied');
-            btn.textContent = 'Copied';
-            setTimeout(() => {
-              btn.classList.remove('is-copied');
-              btn.textContent = original;
-            }, 1200);
-          },
-          () => this.toast.error('Clipboard unavailable'),
-        );
-      });
-    });
-
-    const actions = root.querySelector('.det-actions') as HTMLDivElement;
-
-    const rerunBtn = document.createElement('button');
-    rerunBtn.type = 'button';
-    rerunBtn.className = 'det-action';
-    rerunBtn.innerHTML = `<span aria-hidden="true">↻</span> Re-run`;
-    rerunBtn.disabled = !canRerun;
-    rerunBtn.title = canRerun ? 'Re-invoke this endpoint with the same input' : 'Cannot re-run: input or endpoint not captured';
-    rerunBtn.setAttribute('data-testid', `traces-rerun-${parentId}`);
-    rerunBtn.setAttribute('data-no-row-toggle', '');
-    rerunBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.rerunTrace(detail); });
-    actions.appendChild(rerunBtn);
-
-    const explainBtn = document.createElement('button');
-    explainBtn.type = 'button';
-    explainBtn.className = 'det-action violet';
-    explainBtn.innerHTML = explaining
-      ? `<span aria-hidden="true">◐</span> Asking AI…`
-      : `<span aria-hidden="true">✦</span> Explain with AI`;
-    explainBtn.disabled = explaining;
-    explainBtn.setAttribute('data-testid', `traces-explain-${parentId}`);
-    explainBtn.setAttribute('data-no-row-toggle', '');
-    explainBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.explainTrace(parentId); });
-    actions.appendChild(explainBtn);
-
-    const copyBtn = document.createElement('button');
-    copyBtn.type = 'button';
-    copyBtn.className = 'det-action ghost';
-    copyBtn.innerHTML = `<span aria-hidden="true">⧉</span> Copy JSON`;
-    copyBtn.setAttribute('data-testid', `traces-copy-json-${parentId}`);
-    copyBtn.setAttribute('data-no-row-toggle', '');
-    copyBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.copyTrace(detail); });
-    actions.appendChild(copyBtn);
-
-    const openBtn = document.createElement('button');
-    openBtn.type = 'button';
-    openBtn.className = 'det-action ghost';
-    openBtn.innerHTML = `<span aria-hidden="true">↗</span> Open endpoint`;
-    openBtn.disabled = !detail.endpoint_slug;
-    openBtn.setAttribute('data-testid', `traces-open-endpoint-${parentId}`);
-    openBtn.setAttribute('data-no-row-toggle', '');
-    openBtn.addEventListener('click', (ev) => { ev.stopPropagation(); this.openEndpoint(detail); });
-    actions.appendChild(openBtn);
-
-    return root;
-  };
-
-  private gridApi?: GridApi<TraceRow>;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private visibilityHandler?: () => void;
   /** Polling cadence — 15s matches the audit grid and the spec. */
   private static readonly POLL_MS = 15_000;
-
-  constructor() {
-    // Re-render the grid whenever the detail or explain cache flips so
-    // freshly-fetched system prompts / AI explanations populate without a
-    // second user click. Cheap: ag-grid only re-runs the cell renderers
-    // for currently-mounted detail rows.
-    effect(() => {
-      // Touch the signals so the effect tracks them.
-      this.detailCache();
-      this.explainCache();
-      this.explainLoading();
-      if (this.gridApi) {
-        this.gridApi.refreshCells({ force: true });
-        // Full-width rows aren't covered by refreshCells — redraw them.
-        const detailNodes: IRowNode<TraceRow>[] = [];
-        this.gridApi.forEachNode((n) => { if (n.data?._isDetail) detailNodes.push(n); });
-        if (detailNodes.length) this.gridApi.redrawRows({ rowNodes: detailNodes });
-      }
-    });
-  }
 
   ngOnInit(): void {
     this.reload();
@@ -1268,31 +1278,16 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     this.api.get<{ data: TraceRow[]; meta?: { total?: number; has_more?: boolean } }>(`/sites/${s.id}/ai-logs`, undefined, { silent: true }).subscribe({
       next: (r) => { this.rows.set(r.data ?? []); this.metaTotal.set(r.meta?.total ?? 0); this.loadError.set(null); this.loading.set(false); this.consecutiveErrors.set(0); },
-      // Silent error → empty grid masquerades as "no traces". Record it; the
+      // Silent error → empty table masquerades as "no traces". Record it; the
       // banner shows only when there are no rows (stale data stays visible on a poll blip).
       error: () => { this.loadError.set('Could not load AI traces — retry.'); this.loading.set(false); this.consecutiveErrors.update((n) => n + 1); },
     });
   }
 
-  onGridReady(ev: GridReadyEvent<TraceRow>): void {
-    this.gridApi = ev.api;
-    try {
-      const raw = localStorage.getItem('ps_traces_grid_v1');
-      if (raw) ev.api.applyColumnState({ state: JSON.parse(raw), applyOrder: true });
-    } catch { /* ignore */ }
-    ev.api.addEventListener('columnMoved', () => this.saveColState());
-    ev.api.addEventListener('columnResized', () => this.saveColState());
-    ev.api.addEventListener('columnVisible', () => this.saveColState());
-    ev.api.addEventListener('sortChanged', () => this.saveColState());
-  }
-  private saveColState(): void {
-    try { localStorage.setItem('ps_traces_grid_v1', JSON.stringify(this.gridApi?.getColumnState() ?? [])); } catch { /* */ }
-  }
-
   /**
-   * Toggle the expanded state for a trace row. Splicing a synthetic
-   * `_isDetail` row in/out of `displayRows()` happens automatically via
-   * the computed signal — we only flip `expandedIds` here.
+   * Toggle the expanded state for a trace row — the detail `<tr>` renders
+   * directly below the master via `expandedIds` + `@if`. First expand
+   * lazy-fetches the full trace detail.
    */
   toggleExpand(row: TraceRow): void {
     const next = new Set(this.expandedIds());
@@ -1303,21 +1298,18 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Click anywhere on a master row to toggle its accordion. Detail rows
-   * (`_isDetail: true`) are click-through so the trace text inside stays
-   * selectable; same goes for cells the user is actively text-selecting.
+   * Click anywhere on a master row to toggle its accordion. Cells mid
+   * text-selection and actionable children (links, buttons) keep the click.
    */
-  onRowClicked = (ev: { data?: TraceRow | null; event?: Event | null }): void => {
-    const row = ev.data;
-    if (!row || row._isDetail) return;
+  onRowClick(ev: Event, row: TraceRow): void {
     // If the user is mid-selection (range-drag on cell text), don't toggle.
     const sel = window.getSelection();
     if (sel && sel.toString().length > 0) return;
     // If the click landed on an actionable child (link, button), let it own the click.
-    const target = ev.event?.target as HTMLElement | undefined;
-    if (target?.closest('a, button, [data-no-row-toggle]')) return;
+    const target = ev.target as HTMLElement | undefined;
+    if (target?.closest('a, button')) return;
     this.toggleExpand(row);
-  };
+  }
 
   /** Lazy-fetch the full trace detail on first expand. */
   private fetchDetail(id: string): void {
@@ -1342,6 +1334,27 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
     } catch {
       this.toast.error('Clipboard unavailable');
     }
+  }
+
+  /**
+   * Code-block copy chip — writes `src` and flips the button to a "Copied"
+   * visual for 1.2s (same UX as the imperative ag-grid renderer).
+   */
+  copyChip(ev: Event, src: string): void {
+    const btn = ev.currentTarget as HTMLButtonElement | null;
+    if (!btn || !src) return;
+    void navigator.clipboard.writeText(src).then(
+      () => {
+        const original = btn.textContent ?? 'Copy';
+        btn.classList.add('is-copied');
+        btn.textContent = 'Copied';
+        setTimeout(() => {
+          btn.classList.remove('is-copied');
+          btn.textContent = original;
+        }, 1200);
+      },
+      () => this.toast.error('Clipboard unavailable'),
+    );
   }
 
   /**
@@ -1429,4 +1442,108 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
   }
   formatNumber(n: number): string { return NUMBER_FORMATTER.format(n); }
   formatLatencyMs(ms: number): string { return formatLatency(ms); }
+
+  relTime(iso: string | null | undefined): string {
+    return relativeTime(iso);
+  }
+
+  isoOf(v: string | null | undefined): string {
+    if (!v) return '';
+    const t = Date.parse(v);
+    return Number.isFinite(t) ? new Date(t).toISOString() : '';
+  }
+
+  statusPillClass(r: TraceRow): string {
+    const v = (r.status ?? '').toLowerCase();
+    if (v === 'error') return 'error';
+    if (v === 'rate_limited' || v === 'rate-limited') return 'rate';
+    if (v === 'timeout') return 'timeout';
+    return 'ok';
+  }
+
+  statusLabel(r: TraceRow): string {
+    const v = r.status ?? '';
+    return v ? v.replace(/_/g, ' ') : '—';
+  }
+
+  endpointLabel(r: TraceRow): string {
+    return r.endpoint_slug ?? r.trace_kind ?? '—';
+  }
+
+  prettyModel(slug: string | null | undefined): string {
+    return prettifyModel(slug);
+  }
+
+  fmtLatency(ms: number | null | undefined): string {
+    return formatLatency(ms);
+  }
+
+  latBandOf(r: TraceRow): string {
+    return latencyBand(r.latency_ms);
+  }
+
+  /** Proportional fill width for the latency cell (clamped 0-100% of a 2s axis). */
+  latFillWidth(r: TraceRow): string {
+    const pct = Math.max(0, Math.min(100, ((r.latency_ms ?? 0) / 2000) * 100));
+    return `calc(${pct.toFixed(1)}% - 8px)`;
+  }
+
+  creditsLabel(r: TraceRow): string {
+    return NUMBER_FORMATTER.format(r.credits_debited ?? 0);
+  }
+
+  actorLabel(r: TraceRow): string {
+    return fallbackActor(r);
+  }
+
+  actorTitleOf(r: TraceRow): string {
+    return r.actor_email ?? r.user_id ?? '—';
+  }
+
+  /** Total in+out tokens for a detail row (meta pill). */
+  tokensOf(d: TraceDetail): number {
+    return (d.tokens_input ?? 0) + (d.tokens_output ?? 0);
+  }
+
+  /** Cached full detail for a trace id; undefined while loading/failed. */
+  detailFor(id: string): TraceDetail | undefined {
+    return this.detailCache().get(id);
+  }
+
+  /** Cached AI explanation for a trace id. */
+  explainFor(id: string): string | undefined {
+    return this.explainCache().get(id);
+  }
+
+  /** Whether an explain request is in flight for this trace id. */
+  explainingFor(id: string): boolean {
+    return this.explainLoading().has(id);
+  }
+
+  /** Re-run is possible only when both the endpoint slug and input were captured. */
+  canRerunOf(d: TraceDetail): boolean {
+    return !!(d.endpoint_slug && d.input_json);
+  }
+
+  /** The output body: text first, then JSON; '' when neither was captured. */
+  outputText(d: TraceDetail): string {
+    return d.output_text ?? d.output_json ?? '';
+  }
+
+  /** Pretty-print a captured JSON string (identity fallback on non-JSON). */
+  prettyJson(raw: string | null | undefined): string {
+    if (!raw) return '';
+    try { return JSON.stringify(JSON.parse(raw), null, 2); }
+    catch { return raw; }
+  }
+
+  /** HTML-highlighted system prompt (template binds via [innerHTML]). */
+  promptHtml(src: string | null | undefined): string {
+    return src ? highlightSystemPrompt(src) : '';
+  }
+
+  /** HTML-highlighted JSON (template binds via [innerHTML]). */
+  highlightJson(src: string): string {
+    return highlightJson(src);
+  }
 }

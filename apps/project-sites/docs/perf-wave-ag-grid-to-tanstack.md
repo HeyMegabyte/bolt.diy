@@ -1,8 +1,11 @@
 # Perf + a11y Wave — ag-grid → TanStack Table migration
 
-> **Status:** BLUEPRINT (not started). Read this whole doc before touching code.
-> **Authored 2026-08-07** from a full feature inventory of both grids (the doc
-> `frontend/CLAUDE.md` referenced but which did not exist — this fills that gap).
+> **Status:** ✅ COMPLETE (2026-08-20, iters 236-237). Step 1 (audit, `98e686f4`),
+> Step 2 (ai-logs traces), Step 3 (dep removal) all shipped + prod-verified:
+> `admin-audit-grid.e2e.ts` 3/3 + the new `admin-traces-grid.e2e.ts` + chaos-14
+> green against prod with the axe critical = 0 WITHOUT any `.ag-root` exclusion;
+> karma 70/70; the 880K lazy ag-grid chunk is gone from the build.
+> Read this doc only for the historical inventory + the dead-end record.
 
 ## Why (two hard gates, one migration)
 
@@ -177,7 +180,14 @@ descendants does NOT clear it; only removing ag-grid does).
 
 ## When done
 
-- Remove the `isKnownAgGrid` known-tracked filter from `e2e/helpers/a11y.ts` (the
-  reason it exists is gone) + this doc's tracking note + the board line.
-- Add `/admin/audit` + `/admin/ai-logs` to `e2e/admin-verify/admin-a11y-critical.spec.ts`
-  (guard, now that they're genuinely clean).
+- ~~Remove the `isKnownAgGrid` known-tracked filter from `e2e/helpers/a11y.ts`~~ ✅
+  (was already removed in a prior round — the checkA11y sweep runs without it).
+- ~~Add `/admin/audit` + `/admin/ai-logs` to `e2e/admin-verify/admin-a11y-critical.spec.ts`~~ ✅
+  **superseded by better coverage**: `admin-audit-grid.e2e.ts` (TanStack contract
+  test) + the new `admin-traces-grid.e2e.ts` both assert axe-clean WITHOUT the
+  `.ag-root` exclusion — stronger than a bare critical-spec row (they also lock
+  sort/pagination/filter/expand behaviour).
+- ✅ `_ag-grid-setup.ts` deleted; `npm rm ag-grid-community ag-grid-angular`;
+  `main.ts` comment updated; the `.ag-root` exclusion removed from
+  `admin-a11y.e2e.ts` (2026-08-20).
+- ✅ Memory `ag-grid-critical-axe-known-tracked` flipped to CLOSED.

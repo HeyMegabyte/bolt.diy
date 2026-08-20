@@ -12,7 +12,7 @@ import { AdminStateService } from '../admin-state.service';
  * SILENT (error: () => loading.set(false)) → an empty grid masqueraded as "no
  * traces". Now reload() sets a persistent loadError (the banner renders only
  * when there are no rows, so stale data stays visible on a poll blip).
- * overrideComponent strips the ag-grid-heavy template; reload() is driven directly.
+ * overrideComponent strips the table template; reload() is driven directly.
  */
 function make(get: jasmine.Spy): AdminAiLogsComponent {
   TestBed.configureTestingModule({
@@ -156,11 +156,11 @@ describe('AdminAiLogsComponent (grid state — skeleton vs empty vs data)', () =
 });
 
 /**
- * Master/detail contract for the traces grid — the faux-expansion behaviour
- * (synthetic full-width detail rows spliced into displayRows()) + the text
- * filter. This is the EXACT behaviour the ag-grid→TanStack perf wave must
- * preserve, so locking it here is the migration's regression safety net.
- * Pure signal logic — no ag-grid, no prod data.
+ * Master/detail contract for the traces grid — the expansion behaviour
+ * (expandedIds-driven detail <tr>, NO synthetic splice rows post-migration)
+ * + the text filter + the row-click guards. This is the EXACT behaviour the
+ * ag-grid→TanStack perf wave must preserve, so locking it here is the
+ * migration's regression safety net. Pure signal logic — no DOM, no prod data.
  */
 describe('AdminAiLogsComponent (master/detail + filter contract)', () => {
   afterEach(() => TestBed.resetTestingModule());
@@ -172,48 +172,120 @@ describe('AdminAiLogsComponent (master/detail + filter contract)', () => {
   // fetchDetail (called on expand) hits api.get — keep it harmless.
   const mkComp = () => make(jasmine.createSpy('get').and.returnValue(of({ data: {} })));
 
-  it('displayRows is just the master rows when nothing is expanded', () => {
+  it('filteredRows is just the master rows when nothing is expanded and no filter is set', () => {
     const c = mkComp();
     c.rows.set([mk('a'), mk('b')] as never);
-    expect(c.displayRows().map((r) => r.id)).toEqual(['a', 'b']);
-    expect(c.displayRows().some((r) => r._isDetail)).toBeFalse();
+    expect(c.filteredRows().map((r) => r.id)).toEqual(['a', 'b']);
   });
 
-  it('expanding a row splices a synthetic _isDetail row directly after its master', () => {
+  it('expanding a row flips its id in expandedIds (the detail <tr> is template-driven — no synthetic rows)', () => {
     const c = mkComp();
     c.rows.set([mk('a'), mk('b')] as never);
     c.toggleExpand({ id: 'a' } as never);
-    expect(c.displayRows().map((r) => r.id)).toEqual(['a', 'a::detail', 'b']);
-    const master = c.displayRows().find((r) => r.id === 'a');
-    expect(master?._expanded).toBeTrue();
-    const detail = c.displayRows().find((r) => r.id === 'a::detail');
-    expect(detail?._isDetail).toBeTrue();
-    expect(detail?._parentId).toBe('a');
+    expect(c.expandedIds().has('a')).withContext('expand adds the id').toBeTrue();
+    expect(c.filteredRows().map((r) => r.id)).withContext('no ::detail rows spliced').toEqual(['a', 'b']);
   });
 
-  it('collapsing removes the detail row again (toggle off)', () => {
+  it('collapsing removes the id again (toggle off)', () => {
     const c = mkComp();
     c.rows.set([mk('a'), mk('b')] as never);
     c.toggleExpand({ id: 'a' } as never);
     c.toggleExpand({ id: 'a' } as never);
-    expect(c.displayRows().map((r) => r.id)).toEqual(['a', 'b']);
+    expect(c.expandedIds().has('a')).toBeFalse();
   });
 
-  it('two expanded rows each get their own detail row after their master', () => {
+  it('two expanded rows are independent — the id set holds both masters', () => {
     const c = mkComp();
     c.rows.set([mk('a'), mk('b')] as never);
     c.toggleExpand({ id: 'a' } as never);
     c.toggleExpand({ id: 'b' } as never);
-    expect(c.displayRows().map((r) => r.id)).toEqual(['a', 'a::detail', 'b', 'b::detail']);
+    expect([...c.expandedIds()].sort()).toEqual(['a', 'b']);
   });
 
-  it('the text filter narrows the base rows (and the detail follows its master)', () => {
+  it('the text filter narrows filteredRows (endpoint/tool/model/actor haystack)', () => {
     const c = mkComp();
     c.rows.set([mk('a', 'claude'), mk('b', 'gpt')] as never);
     c.filter.set('claude');
-    expect(c.displayRows().map((r) => r.id)).toEqual(['a']);
-    c.toggleExpand({ id: 'a' } as never);
-    expect(c.displayRows().map((r) => r.id)).toEqual(['a', 'a::detail']);
+    expect(c.filteredRows().map((r) => r.id)).toEqual(['a']);
+  });
+
+  it('onRowClick toggles on a plain master-row click', () => {
+    const c = mkComp();
+    c.onRowClick({ target: document.body } as unknown as Event, { id: 'a' } as never);
+    expect(c.expandedIds().has('a')).toBeTrue();
+  });
+
+  it('onRowClick ignores mid-text-selection clicks', () => {
+    const c = mkComp();
+    const selSpy = spyOn(window, 'getSelection').and.returnValue({ toString: () => 'selected text' } as Selection);
+    c.onRowClick({ target: document.body } as unknown as Event, { id: 'a' } as never);
+    expect(c.expandedIds().has('a')).withContext('no toggle mid-selection').toBeFalse();
+    expect(selSpy).toHaveBeenCalled();
+  });
+
+  it('onRowClick lets actionable children (buttons/links) own their click', () => {
+    const c = mkComp();
+    const btn = document.createElement('button');
+    c.onRowClick({ target: btn } as unknown as Event, { id: 'a' } as never);
+    expect(c.expandedIds().has('a')).withContext('button click must not toggle the row').toBeFalse();
+  });
+});
+
+/**
+ * TanStack table state — sort restore/persist + pagination. The col-state key
+ * is reused from the ag-grid era (`ps_traces_grid_v1`); the legacy column-state
+ * shape fails validation and is silently ignored.
+ */
+describe('AdminAiLogsComponent (TanStack table state)', () => {
+  afterEach(() => {
+    TestBed.resetTestingModule();
+    localStorage.clear();
+  });
+
+  it('defaults to created_at desc and ignores corrupt/legacy ag-grid state', () => {
+    localStorage.setItem('ps_traces_grid_v1', JSON.stringify([{ colId: 'model', sort: 'asc' }]));
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    expect(c.sorting()).toEqual([{ id: 'created_at', desc: true }]);
+  });
+
+  it('restores a valid persisted sort', () => {
+    localStorage.setItem('ps_traces_grid_v1', JSON.stringify({ sorting: [{ id: 'model', desc: true }] }));
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    expect(c.sorting()).toEqual([{ id: 'model', desc: true }]);
+  });
+
+  it('persists the sort state on a header toggle (desc → removed → asc cycle)', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.rows.set([{ id: 't1', created_at: 'now' } as never]);
+    const whenHeader = c.table.getHeaderGroups()[0].headers.find((h) => h.id === 'created_at');
+    expect(whenHeader).toBeDefined();
+    whenHeader?.column.toggleSorting(); // desc → removed
+    let stored = JSON.parse(localStorage.getItem('ps_traces_grid_v1') ?? '{}') as { sorting?: unknown };
+    expect(stored.sorting).toEqual([]);
+    whenHeader?.column.toggleSorting(); // removed → asc
+    stored = JSON.parse(localStorage.getItem('ps_traces_grid_v1') ?? '{}') as { sorting?: unknown };
+    expect(stored.sorting).toEqual([{ id: 'created_at', desc: false }]);
+  });
+
+  it('onPageSize resets to page 1 and ignores unknown sizes', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.pagination.set({ pageIndex: 4, pageSize: 25 });
+    c.onPageSize({ target: { value: '100' } } as unknown as Event);
+    expect(c.pagination()).toEqual({ pageIndex: 0, pageSize: 100 });
+    c.pagination.set({ pageIndex: 2, pageSize: 100 });
+    c.onPageSize({ target: { value: '9999' } } as unknown as Event);
+    expect(c.pagination()).toEqual({ pageIndex: 2, pageSize: 100 });
+  });
+
+  it('pageStart/pageEnd reflect the filtered total + pagination state', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    c.rows.set([{ id: 'r1' }, { id: 'r2' }, { id: 'r3' }] as never);
+    c.pagination.set({ pageIndex: 0, pageSize: 2 });
+    expect(c.pageStart()).toBe(1);
+    expect(c.pageEnd()).toBe(2);
+    c.pagination.set({ pageIndex: 1, pageSize: 2 });
+    expect(c.pageStart()).toBe(3);
+    expect(c.pageEnd()).toBe(3);
   });
 });
 
@@ -288,8 +360,8 @@ describe('AdminAiLogsComponent (all four KPI tiles roll — cinematic-ui)', () =
     });
     const fx = TestBed.createComponent(AdminAiLogsComponent);
     fx.componentInstance.rows.set([
-      { latency_ms: 240, status: 'ok', credits_debited: 2 },
-      { latency_ms: 260, status: 'error', credits_debited: 3 },
+      { id: 'k1', latency_ms: 240, status: 'ok', credits_debited: 2, created_at: 'now' },
+      { id: 'k2', latency_ms: 260, status: 'error', credits_debited: 3, created_at: 'now' },
     ] as never);
     fx.detectChanges();
     // the KPI row has 4 tiles — Avg latency was the lone static one beside 3 rolling siblings.
