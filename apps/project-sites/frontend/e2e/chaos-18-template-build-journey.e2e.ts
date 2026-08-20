@@ -102,6 +102,24 @@ test.describe('CHAOS 18 — template build journey (keystone)', () => {
     const e = trackErrors(page);
     await seedAuth(page, KEY);
     await page.goto('/admin/editor', { waitUntil: 'domcontentloaded' });
+    // PIN the site — selectedSite is in-memory and floats across the org's
+    // sites; without the pin the editor iframe loads a DIFFERENT site
+    // (lakeside-dental with a stale export) while the bridge publishes
+    // e2e-site-3 (journey 2026-08-20 — the materialization guard failed on
+    // the wrong site's files, not on the import).
+    const siteSel = page.locator('[aria-label="Select site"]');
+    await expect(siteSel).toBeVisible({ timeout: 15_000 });
+    const currentSel = (await siteSel.textContent())?.trim() ?? '';
+    if (!currentSel.includes('Cedar Ridge')) {
+      await siteSel.click();
+      const opt = page
+        .locator('[role="option"]')
+        .filter({ hasText: 'Cedar Ridge Bakeshop' })
+        .first();
+      await expect(opt).toBeVisible();
+      await opt.click();
+      await page.keyboard.press('Escape');
+    }
     const frame = page.frameLocator('iframe[src*="editor.projectsites.dev"]').first();
     const chatBox = frame.locator(`textarea[placeholder="${BOLT_PROMPT_PLACEHOLDER}"]`);
     await expect(chatBox, `bolt chat input never appeared (WebContainer boot ${BOOT_TIMEOUT / 1000}s)`).toBeVisible({
