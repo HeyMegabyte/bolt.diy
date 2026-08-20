@@ -202,6 +202,36 @@ describe('notifications — Resend failure resilience', () => {
     (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('network down'));
     await expect(sendInviteEmail(resendEnv(), INVITE_OPTS)).resolves.toBeUndefined();
   });
+
+  it('the terminal failure warn carries category + to (grep-the-tail attribution)', async () => {
+    mockFetchOnce({ ok: false, status: 422, body: 'nope', headers: {} });
+    await notifyDomainVerified(resendEnv(), DOMAIN_OPTS);
+
+    const warns = (console.warn as jest.Mock).mock.calls
+      .map((c) => c[0])
+      .filter((a): a is string => typeof a === 'string');
+    const terminal = warns
+      .map((w) => JSON.parse(w) as Record<string, unknown>)
+      .find((w) => w.message === 'Failed to send domain verified email');
+    expect(terminal).toBeDefined();
+    expect(terminal?.category).toBe('domain_verified');
+    expect(terminal?.to).toBe('owner@example.com');
+  });
+
+  it('notifySiteBuilt terminal warn also carries category + to', async () => {
+    mockFetchOnce({ ok: false, status: 422, body: 'nope', headers: {} });
+    await notifySiteBuilt(resendEnv(), SITE_OPTS);
+
+    const warns = (console.warn as jest.Mock).mock.calls
+      .map((c) => c[0])
+      .filter((a): a is string => typeof a === 'string');
+    const terminal = warns
+      .map((w) => JSON.parse(w) as Record<string, unknown>)
+      .find((w) => w.message === 'Failed to send site built email');
+    expect(terminal).toBeDefined();
+    expect(terminal?.category).toBe('site_built');
+    expect(terminal?.to).toBe('owner@example.com');
+  });
 });
 
 describe('notifications — SendGrid fallback', () => {

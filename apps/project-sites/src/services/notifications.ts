@@ -449,8 +449,10 @@ export async function notifyDomainVerified(
       JSON.stringify({
         level: 'warn',
         service: 'notifications',
+        category: 'domain_verified',
         message: 'Failed to send domain verified email',
-        error: String(err),
+        to: opts.email,
+        error: err instanceof Error ? err.message : String(err),
       }),
     );
   });
@@ -503,8 +505,10 @@ export async function notifySiteBuilt(
       JSON.stringify({
         level: 'warn',
         service: 'notifications',
+        category: 'site_built',
         message: 'Failed to send site built email',
-        error: String(err),
+        to: opts.email,
+        error: err instanceof Error ? err.message : String(err),
       }),
     );
   });
