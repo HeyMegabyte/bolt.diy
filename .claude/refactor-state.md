@@ -826,6 +826,7 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - **Padding alignment:** the workbench's outer px-1.5/px-3 frame dropped (the card border IS the frame); tab strip px-2 py-1.5 matches the chat reel gutter; chat reel 33→44rem.
 - **Gorgeous tab strip:** cyan sliding underline (::after scaleX, cubic-bezier) + accent hairline on the active tab; reduced-motion safe.
 - **Journey root cause (the last failing leg):** the marker WAS live seconds after publish — the spec's 15-min poll fetched the bare SITE_URL and re-read the CDN cache for the whole window (its own poll failed, not the bridge; PROBE-2 verified live via curl?cb=N). Cache-buster added (`bd5d5b6d`); v8 running.
-- **NEXT TARGET:** journey v8 verdict → then the deferred social.component split / ag-grid→TanStack waves.
+- **✅ JOURNEY v8 GREEN — 2/2 passed (8.9m).** The whole acceptance chain verified end-to-end on the hardened pipeline: real template build → published → analytics reconciled → editor change → Save & Deploy bridge → `urban-fitness.projectsites.dev` serves FRESH-FROM-THE-OVEN live. The cache-buster was the final defect — the bridge worked all along; the spec's bare-URL poll re-read the CDN cache. The 8.9m runtime (was 15-25m) is the template-first + time-box hardening paying off.
+- **NEXT TARGET:** the deferred social.component split / ag-grid→TanStack waves (the two tracked build-warnings).
 
 
