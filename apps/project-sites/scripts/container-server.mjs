@@ -263,6 +263,25 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
   const child = sp('su', ['cuser', '-s', '/bin/sh', '-c', `sh ${sf}`], {
     timeout: to, stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 100 * 1024 * 1024,
   });
+
+  // HARD WALL-CLOCK GUARD (Brian 2026-08-20): CF Containers cap wall-clock at
+  // ~15 min — anything longer gets evicted mid-run and the workflow can only
+  // recover ONCE. Beyond the spawn timeout's SIGTERM, kill the whole process
+  // GROUP 45s earlier than the budget so Claude's subagent children (which the
+  // su-wrapper SIGTERM may orphan) are reaped BEFORE the container eviction
+  // boundary, and the terminal status lands in KV while the container is
+  // still alive to report it.
+  const killAt = to - 45_000;
+  const killTimer = setTimeout(() => {
+    console.warn(`[${jobId}] Hard time-box reached (${(killAt / 60000).toFixed(1)}min) — killing the process group`);
+    try {
+      process.kill(-child.pid, 'SIGKILL');
+    } catch {
+      try { child.kill('SIGKILL'); } catch { /* already dead */ }
+    }
+  }, killAt);
+  child.on('close', () => clearTimeout(killTimer));
+  child.on('error', () => clearTimeout(killTimer));
   let stdout = '', stderr = '';
   child.stdout.on('data', d => { stdout += d.toString(); });
   child.stderr.on('data', d => { stderr += d.toString(); });
