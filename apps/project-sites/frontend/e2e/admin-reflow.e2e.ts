@@ -25,8 +25,9 @@ const ROUTES = [
   '/admin/sites', '/admin/feature-flags', '/admin/analytics', '/admin/billing',
   '/admin/media', '/admin/audit', '/admin/social', '/admin/seo', '/admin/content-freshness',
   // Data-dense / wide-table + form routes most at risk of a 320px overflow
-  // (ai-logs + ai-endpoints render ag-grid; apps/domains/voice/webhooks are
-  // table/list-heavy; user-settings + deliverability are dense forms).
+  // (ai-logs + audit render TanStack tables since the 2026-08-20 perf-wave;
+  // apps/domains/voice/webhooks are table/list-heavy; user-settings +
+  // deliverability are dense forms).
   '/admin/ai-logs', '/admin/ai-endpoints', '/admin/apps', '/admin/domains',
   '/admin/voice', '/admin/webhooks', '/admin/user', '/admin/deliverability',
   // Completed to the full admin set — a fixed-width element can overflow @320px
@@ -119,17 +120,28 @@ test.describe('admin — 320px reflow (WCAG 1.4.10) + mobile drawer', () => {
       await page.goto('/admin/sites', { waitUntil: 'load' });
       await expect(page.locator('header, .admin-topbar').first()).toBeVisible({ timeout: 30000 });
 
-      const closeBtn = page.getByRole('button', { name: 'Close navigation menu' });
-      // Drawer closed by default on mobile → close button not rendered (round 47).
-      await expect(closeBtn).toHaveCount(0);
+      // The shell's drawer contract is now a persistent slide-in panel (the
+      // close-button container stays mounted off-screen — round 47's unmount
+      // contract is gone). Assert the shell-owned state signals instead: the
+      // hamburger FLIPS its aria-label + aria-expanded (Open↔Close navigation
+      // menu), and the backdrop mounts only while the drawer is open.
+      const hamburger = page.locator('.admin-hamburger');
+      const backdrop = page.locator('.admin-drawer-backdrop');
+
+      // Drawer closed by default on mobile → hamburger in its Open state.
+      await expect(page.getByRole('button', { name: 'Open navigation menu' })).toBeVisible();
+      await expect(hamburger).toHaveAttribute('aria-expanded', 'false');
+      await expect(backdrop).toHaveCount(0);
 
       await page.getByRole('button', { name: 'Open navigation menu' }).click();
-      // Drawer open → close button now rendered + visible.
-      await expect(closeBtn).toBeVisible({ timeout: 5000 });
+      // Drawer open → hamburger flips to the Close state + backdrop mounts.
+      await expect(hamburger).toHaveAttribute('aria-expanded', 'true', { timeout: 5000 });
+      await expect(backdrop).toBeVisible({ timeout: 5000 });
 
-      // Backdrop click closes the drawer → close button gone again.
-      await page.locator('.fixed.inset-0').first().click({ position: { x: 360, y: 400 } });
-      await expect(closeBtn).toHaveCount(0, { timeout: 5000 });
+      // Backdrop click closes the drawer → hamburger back to Open, backdrop gone.
+      await backdrop.first().click({ position: { x: 360, y: 400 } });
+      await expect(hamburger).toHaveAttribute('aria-expanded', 'false', { timeout: 5000 });
+      await expect(backdrop).toHaveCount(0, { timeout: 5000 });
     });
   });
 });
