@@ -309,7 +309,11 @@ image = "./Dockerfile"
 # 90m sleepAfter backstop the actual running count, but warm instances inside
 # their sleep window still hold slots).
 max_instances = 20
-instance_type = "standard-4"
+# Right-sized 2026-08-20: standard-4 (12 GiB) → standard-1 (4 GiB) — the build
+# container rarely needs 12 GiB and provisioned-memory billing made the warm
+# pool ~$124/mo. 4 GiB still clears Claude Code + npm/vite builds; pool cap stays
+# 20 for scale (raise toward hundreds only when concurrent customers justify it).
+instance_type = "standard-1"
 
 [[env.production.durable_objects.bindings]]
 name = "SITE_BUILDER"
