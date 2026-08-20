@@ -157,12 +157,23 @@ test.describe('CHAOS 18 — template build journey (keystone)', () => {
     await page.waitForTimeout(800);
     const deployClicked = await page.evaluate(() => {
       const els = [...document.querySelectorAll('[role="menuitem"], button, div, span')];
-      const t = els.find((x) => x.textContent?.trim() === 'Save & Deploy');
+      // The menu item flips to "Publishing…" (disabled) the instant the
+      // bridge fires — locate by EITHER label; a found-but-publishing state
+      // means the click already landed and the publish is in flight.
+      const t = els.find(
+        (x) =>
+          ['Save & Deploy', 'Publishing…'].includes(x.textContent?.trim() ?? ''),
+      );
       if (!t) return 'missing';
-      (t.closest('button') || t.closest('[role="menuitem"]') || t).click();
-      return 'clicked';
+      const btn = t.closest('button') || t.closest('[role="menuitem"]') || t;
+      const label = t.textContent?.trim() ?? '';
+      if (label === 'Save & Deploy') {
+        (btn as HTMLElement).click();
+        return 'clicked';
+      }
+      return 'already-publishing';
     });
-    expect(deployClicked, 'Save & Deploy menu item present').toBe('clicked');
+    expect(['clicked', 'already-publishing'], 'Save & Deploy fired').toContain(deployClicked);
     // The publish flows through the admin bridge (PS_REQUEST_FILES →
     // PS_FILES_READY → POST publish-bolt). Poll the LIVE site for the marker.
     await expect
