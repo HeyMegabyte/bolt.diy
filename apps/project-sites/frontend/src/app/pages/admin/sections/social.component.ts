@@ -45,7 +45,6 @@ import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { InlineErrorComponent } from '../../../components/states';
 import { HlmInputDirective, HlmSelectDirective, HlmTablistDirective } from '../../../ui';
-import { DialogShellComponent } from '../../../components/dialog-shell/dialog-shell.component';
 import { IntegrationHelpComponent, type IntegrationHelpRow } from '../../../components/integration-help/integration-help.component';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
@@ -244,7 +243,7 @@ const PLATFORMS: readonly PlatformDef[] = [
   selector: 'app-admin-social',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RevealDirective, RollingCounterComponent, DialogShellComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, InlineErrorComponent, IntegrationHelpComponent, SocialCalendarComponent, SocialAutoPilotDialogComponent, SocialPasteConnectDialogComponent],
+  imports: [CommonModule, FormsModule, RevealDirective, RollingCounterComponent, HlmInputDirective, HlmSelectDirective, HlmTablistDirective, InlineErrorComponent, IntegrationHelpComponent, SocialCalendarComponent, SocialAutoPilotDialogComponent, SocialPasteConnectDialogComponent],
   template: `
 <div class="social-wrap" [class.is-loading]="loading()">
 
@@ -743,7 +742,7 @@ const PLATFORMS: readonly PlatformDef[] = [
                 <header class="post-h">
                   <input type="checkbox" class="post-sel" [checked]="isBulkSelected(post.id)" (change)="toggleBulk(post.id)" [attr.aria-label]="'Select this post for bulk actions'" />
                   <div class="post-platforms">
-                    @for (p of post.platforms ?? []; track p) {
+                    @for (p of post.platforms; track p) {
                       @let pd = defOf(p);
                       <span class="post-pglyph" [style.--brand]="pd?.color" [title]="pd?.label || p">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path [attr.d]="pd?.glyph || ''"/></svg>
@@ -754,7 +753,7 @@ const PLATFORMS: readonly PlatformDef[] = [
                   <span class="post-time">{{ post.scheduled_at || post.published_at | date:'short' }}</span>
                 </header>
                 <p class="post-body">{{ post.content }}</p>
-                @if (post.media?.length) {
+                @if (post.media.length) {
                   <div class="post-thumbs">
                     @for (m of post.media; track m.id) {
                       <img [src]="m.thumb_url || m.url" [alt]="m.alt" loading="lazy" />
@@ -778,7 +777,7 @@ const PLATFORMS: readonly PlatformDef[] = [
                     }
                   </div>
                   <div class="post-links">
-                    @for (p of post.platforms ?? []; track p) {
+                    @for (p of post.platforms; track p) {
                       @if (post.per_platform_url?.[p]) {
                         <a [href]="post.per_platform_url![p]!" target="_blank" rel="noopener noreferrer">View on {{ defOf(p)?.label }}<svg class="inline-block align-[-2px] ml-[3px]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
                       }

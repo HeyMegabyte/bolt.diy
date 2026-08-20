@@ -316,7 +316,7 @@ function actionToFallbackMessage(action: string): string {
                       <div class="detail-grid-2">
                         <div class="det-block">
                           <div class="det-label">Action</div>
-                          <div class="det-value mono">{{ row.original.action ?? '—' }}</div>
+                          <div class="det-value mono">{{ row.original.action }}</div>
                         </div>
                         <div class="det-block">
                           <div class="det-label">Target</div>
