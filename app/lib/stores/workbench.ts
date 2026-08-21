@@ -391,13 +391,28 @@ export class WorkbenchStore {
    * files map directly, matching the text dirent shape FilesStore uses.
    */
   setVirtualFile(filePath: string, content: string): void {
-    this.files.setKey(filePath, {
+    /*
+     * The FileTree renders with `rootFolder={WORK_DIR}` and `buildFileList`
+     * DROPS every entry whose key doesn't start with `${WORK_DIR}/`. The
+     * chat-import stash carries RELATIVE paths (`package.json`, `src/App.tsx`),
+     * so writing them raw put all 80 files OUTSIDE the tree root — restore
+     * reported success but the navigator stayed empty (journey 2026-08-21).
+     * Anchor every path under WORK_DIR (idempotent — an already-absolute
+     * `/home/project/...` action path is left untouched), matching the keys the
+     * WebContainer watcher produces AND the `/home/project/` prefix Save &
+     * Deploy strips.
+     */
+    const fullPath =
+      filePath === WORK_DIR || filePath.startsWith(`${WORK_DIR}/`)
+        ? filePath
+        : `${WORK_DIR}/${filePath.replace(/^\/+/, '')}`;
+    this.files.setKey(fullPath, {
       type: 'file',
       content,
       isBinary: false,
       isLocked: false,
     });
-    this.setSelectedFile(filePath);
+    this.setSelectedFile(fullPath);
   }
 
   async createFile(filePath: string, content: string | Uint8Array = '') {

@@ -305,10 +305,13 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
                   props.chatMode === 'discuss' ? 'Mode: discuss · click to build' : 'Mode: build · click to discuss'
                 }
                 className={classNames(
-                  'font-mono text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border transition-colors leading-none',
-                  props.chatMode === 'discuss'
-                    ? 'bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent border-bolt-elements-item-contentAccent'
-                    : 'text-bolt-elements-textTertiary border-bolt-elements-borderColor hover:text-bolt-elements-textSecondary',
+                  'font-mono text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border transition-opacity leading-none',
+                  // Both modes render as the same polished accent pill (resolves to
+                  // cyan in the dark theme / green in the light theme) — the LABEL is
+                  // the mode indicator. The old `build` state was a fill-less ghost
+                  // (tertiary 40%-opacity text + faint border) that read as a washed
+                  // "all white" chip on the chat surface (Brian, 2026-08-21).
+                  'bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent border-bolt-elements-item-contentAccent hover:opacity-80',
                 )}
                 onClick={() => {
                   props.setChatMode?.(props.chatMode === 'discuss' ? 'build' : 'discuss');
