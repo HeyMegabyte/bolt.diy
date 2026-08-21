@@ -17,13 +17,9 @@ export default defineConfig({
     'e2e/voice.spec.ts', // ANCHORED: bare 'voice.spec.ts' also pulled in e2e/admin/voice.spec.ts (stale, deleted)
     'observability_gateway.spec.ts',
     'adversarial/**/*.spec.ts',
-    // BLOCKING CWV gate — re-enabled 2026-06-23 (perf loop #14) after the homepage
-    // held all-green for 2 fires (fire 8 enabled critical-CSS inlining → FCP 1349→
-    // ~460ms; fire 9 confirmed the hold). Asserts LCP≤2000 / CLS≤0.05 / FCP≤1200 on
-    // the live marketing homepage under throttled 3G/6×CPU. A CWV regression now
-    // fails the prod suite instead of silently shipping. History: started at
-    // LCP=9.4s (CSR-only SPA, fire 3) → app-shell static hero (fire 5) → async
-    // fonts (fire 5b) → critical-CSS inline (fire 8). Tracked in _PERFECTION_BACKLOG.md Dim I.
+    // BLOCKING CWV gate — asserts LCP≤2000 / CLS≤0.05 / FCP≤1200 on the live marketing
+    // homepage under throttled 3G/6×CPU. A CWV regression fails the prod suite instead
+    // of silently shipping.
     'perf/ttfr.spec.ts',
     'auth-oauth-buttons.spec.ts', // F001 — Google + GitHub OAuth buttons (Pass 1)
     'auth-and-signin.spec.ts', // Full auth flow (all 6 methods + 2FA)
