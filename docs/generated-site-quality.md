@@ -93,5 +93,5 @@ TODO: split a `lighthouserc.generated.json` that asserts `error` against a deplo
 
 ## See
 
-- `docs/STACK.md` §6 · `rules/quality-metrics` · `apps/project-sites/docs/architecture/cloudflare-first.md`
-- `docs/ai-observability.md` — AI-generation quality (evals/grounding) that feeds these sites
+- `rules/quality-metrics` · `apps/project-sites/docs/architecture/cloudflare-first.md`
+- `docs/OBSERVABILITY.md` — AI-observability that feeds these sites
