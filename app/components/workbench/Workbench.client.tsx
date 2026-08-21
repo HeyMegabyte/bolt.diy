@@ -290,30 +290,9 @@ export const Workbench = memo(
                     />
                     {/* Top tab strip — Code | Preview | Functions | Data (+ Chat on mobile) */}
                     <div className="flex items-center gap-0.5 flex-1 overflow-x-auto">
-                      {TOP_TABS.map((tab) => {
-                        const active = selectedView === tab.value;
-                        return (
-                          <button
-                            key={tab.value}
-                            type="button"
-                            onClick={() => setSelectedView(tab.value)}
-                            aria-pressed={active}
-                            className={classNames(
-                              'ps-tab relative flex items-center gap-1.5 text-sm cursor-pointer px-2.5 py-1 h-7 whitespace-nowrap rounded-md transition-colors',
-                              active
-                                ? 'ps-tab-active bg-bolt-elements-terminals-buttonBackground text-bolt-elements-textPrimary'
-                                : 'bg-transparent text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3',
-                            )}
-                          >
-                            <div className={classNames(tab.icon, 'text-base')} />
-                            {tab.text}
-                          </button>
-                        );
-                      })}
-                      {/* Chat tab — the mobile surface for the chat panel. Only
-                          rendered below 1024px where the panel becomes a
-                          slide-over; clicking opens it (Escape / the tab again
-                          closes). */}
+                      {/* Chat tab — LEFTMOST tab (Brian 2026-08-21). Below 1024px
+                          the chat panel NESTS under this tab strip; tapping opens
+                          it, tapping any sibling tab closes it + shows that panel. */}
                       {isSmallViewport && (
                         <button
                           type="button"
@@ -331,6 +310,31 @@ export const Workbench = memo(
                           Chat
                         </button>
                       )}
+                      {TOP_TABS.map((tab) => {
+                        const active = selectedView === tab.value;
+                        return (
+                          <button
+                            key={tab.value}
+                            type="button"
+                            onClick={() => {
+                              setSelectedView(tab.value);
+                              // Selecting a real panel closes the mobile chat so the
+                              // tabs behave like one mutually-exclusive tab strip.
+                              chatStore.setKey('mobileChatOpen', false);
+                            }}
+                            aria-pressed={active}
+                            className={classNames(
+                              'ps-tab relative flex items-center gap-1.5 text-sm cursor-pointer px-2.5 py-1 h-7 whitespace-nowrap rounded-md transition-colors',
+                              active
+                                ? 'ps-tab-active bg-bolt-elements-terminals-buttonBackground text-bolt-elements-textPrimary'
+                                : 'bg-transparent text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3',
+                            )}
+                          >
+                            <div className={classNames(tab.icon, 'text-base')} />
+                            {tab.text}
+                          </button>
+                        );
+                      })}
                     </div>
                     <div className="ml-auto flex items-center gap-1">
                       {selectedView === 'code' && (
@@ -434,14 +438,6 @@ export const Workbench = memo(
                         </div>
                       )}
                     </div>
-                    <IconButton
-                      icon="i-ph:x-circle"
-                      className="-mr-1"
-                      size="xl"
-                      onClick={() => {
-                        workbenchStore.showWorkbench.set(false);
-                      }}
-                    />
                   </div>
                   <div className="relative flex-1 overflow-hidden">
                     {/* All four panels stay MOUNTED and cross-fade via opacity —

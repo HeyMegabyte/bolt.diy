@@ -532,10 +532,12 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
             className={classNames(
               styles.Chat,
               'flex flex-col h-full w-full order-first shrink-0 lg:w-[calc(var(--workbench-split)-1px)] lg:min-w-[320px] border-0 overflow-hidden',
-              // Mobile (<1024px): the chat becomes a full-screen slide-over
-              // panel toggled by the Workbench's "Chat" tab (same tab strip as
-              // Code/Preview/Functions/Data) — never both squeezed side-by-side.
-              'max-lg:absolute max-lg:inset-0 max-lg:z-50 max-lg:transition-transform max-lg:duration-300 max-lg:bolt-ease-cubic-bezier',
+              // Mobile (<1024px): the chat NESTS inside the workbench tab strip —
+              // it fills the panel area BELOW the tab row (top-10 ≈ the ~40px tab
+              // strip height) instead of covering everything, so the Chat | Code |
+              // Preview | Functions | Data tabs stay visible + switch like real
+              // tabs (Brian 2026-08-21). Slides in from the right when opened.
+              'max-lg:absolute max-lg:top-10 max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-50 max-lg:transition-transform max-lg:duration-300 max-lg:bolt-ease-cubic-bezier',
               mobileChatOpen ? 'max-lg:translate-x-0' : 'max-lg:translate-x-full',
             )}
           >
@@ -666,7 +668,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
               initial="smooth"
             >
               <StickToBottom.Content className="flex flex-col gap-4 relative ">
-                {!heroState.embedded && (
+                {!heroState.embedded && !isEmbedded && (
                   <div className="ps-hero mx-auto max-w-chat text-center pt-10 pb-2">
                     <h1 className="ps-hero-title">
                       {heroState.slug ? `Build for ${heroState.slug}` : 'Where ideas begin'}

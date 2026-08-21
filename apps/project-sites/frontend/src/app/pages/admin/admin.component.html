@@ -469,8 +469,8 @@
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
-            <span class="cmdk-label max-md:hidden">Quick find</span>
-            <kbd class="cmdk-kbd max-md:hidden">⌘K</kbd>
+            <span class="cmdk-label max-[1000px]:hidden">Quick find</span>
+            <kbd class="cmdk-kbd max-[1000px]:hidden">⌘K</kbd>
           </button>
           <!-- Tier 1 #10: Full-width mode toggle — collapses sidebar to icon rail -->
           <button
@@ -494,7 +494,7 @@
                 <path d="M3 8V3m0 0h5M3 3l7 7m11 6v5m0 0h-5m5 0-7-7" />
               }
             </svg>
-            <span class="cmdk-label max-md:hidden">{{ fullWidth() ? 'Show sidebar' : 'Full width' }}</span>
+            <span class="cmdk-label max-[1000px]:hidden">{{ fullWidth() ? 'Show sidebar' : 'Full width' }}</span>
           </button>
           <!-- Site actions — Preview · Save & Deploy · Review links collapsed into one
              dropdown so the navbar stays compact and has room for more commands. -->
@@ -521,7 +521,7 @@
                 >
                   <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                 </svg>
-                <span>Actions</span>
+                <span class="max-[1000px]:hidden">Actions</span>
                 <svg
                   class="sa-chevron"
                   width="12"
