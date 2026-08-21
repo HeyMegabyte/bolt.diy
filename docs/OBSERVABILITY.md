@@ -1,6 +1,6 @@
 # Observability & Analytics
 
-Single reference for logging, tracing, product analytics, error tracking, the analytics warehouse, and AI observability on projectsites.dev. Cloudflare-first: **Workers Analytics Engine is the default analytics plane**; the Axiom + ClickHouse-on-Fly stack below is the documented **Fly escape-hatch** (as-deployed per `architecture/current.md` content folded into `ARCHITECTURE.md` + `DEPLOYMENT.md`) used for high-volume structured logs/warehouse where Analytics Engine isn't enough.
+Single reference for logging, tracing, product analytics, error tracking, the analytics warehouse, and AI observability on projectsites.dev. Cloudflare-first: **Workers Analytics Engine is the default analytics plane**; the Axiom + ClickHouse-on-Fly stack below is the documented **Fly escape-hatch** (as-deployed per `ARCHITECTURE.md` + `DEPLOYMENT.md`) used for high-volume structured logs/warehouse where Analytics Engine isn't enough.
 
 ## Stack at a glance
 
@@ -69,7 +69,7 @@ Generic AI-feature governance (trace + eval-gate + prompt-version + budget-cap +
 - **Trace** via Langfuse (prompt name+version, model, latency, tokens, cost, `featureSlug`, `orgId`, request `correlationId`). **Eval** via Promptfoo (`--mock-only` in CI, `--live-only` pre-release; no eval = build-fail). **Prompt registry** `apps/project-sites/prompts/` + `src/prompts/` (never inline). **Budget**: `org_ai_budget_cap` hard ceiling, credit-metered wallet, near-cap alert.
 - Provider tiers: Premium = Anthropic/OpenAI (architecture, security/payment/auth, ALL vision); Mid (default) = DeepSeek `deepseek-chat`; Instant = CF Workers AI `@cf/meta/llama-*` FP8. `DEEPSEEK_API_KEY` always a wrangler secret.
 
-See `STACK.md` §AI, `generated-site-quality.md`.
+See `generated-site-quality.md`.
 
 ## Environment variables
 

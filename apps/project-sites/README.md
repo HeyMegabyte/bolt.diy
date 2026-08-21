@@ -1,7 +1,7 @@
 # Project Sites Worker — `projectsites.dev`
 
 Cloudflare Worker (Hono) powering the AI SaaS website-delivery engine. Full AI/onboarding
-guide: [`CLAUDE.md`](CLAUDE.md). Stack selection + convergence work items: [`../../docs/STACK.md`](../../docs/STACK.md).
+guide: [`CLAUDE.md`](CLAUDE.md).
 
 ## Domain Catalog
 

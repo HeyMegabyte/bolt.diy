@@ -14,5 +14,4 @@
 - **Cosign / Sigstore** — sign every published image + release artifact (keyless OIDC); attach SBOM + provenance.
 - **Supply-chain hardening** — GitHub Actions SHA-pinned (not tags); OIDC for cloud auth (`cloudflare/wrangler-action@v3`), never long-lived `CLOUDFLARE_API_TOKEN`/`AWS_*` secrets; least-privilege, scoped, expiring keys for the platform MCP.
 
-Run `/security-supply-chain` for the unified audit; see `docs/STACK.md` §Observability/quality
-for the tool versions.
+Run `/security-supply-chain` for the unified audit.
