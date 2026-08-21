@@ -512,6 +512,36 @@ app.route('/', adminFunnel); // /api/admin/activation-funnel — Super-Admin rev
 app.route('/', adminAnalytics); // /api/admin/analytics/* — Super-Admin events-daily + publishes-by-source + claims-by-source rollups (Tinybird, read-only)
 app.route('/', claimRoutes); // /api/claim/:shortlink — claimyour.site funnel: resolve→click→session START→redirect /create
 app.route('/', siteRollbackRoutes); // /api/sites/:id/history + /api/sites/:id/rollback — GitHub repo rollback (flag: github_repo_sync)
+
+// ── PostHog same-origin reverse proxy (/ingest/*) ──────────────────────────
+// The `/admin` shell ships `COEP: credentialless` so the embedded bolt.diy editor
+// can cross-origin-isolate (WebContainer live Preview needs SharedArrayBuffer).
+// A document-level COEP blocked PostHog's cross-origin no-cors beacons before
+// (4e02d113), so admin PostHog now points at this SAME-ORIGIN path — same-origin
+// requests are immune to COEP (and ad-blockers). Static assets (array.js,
+// recorder) come from us-assets; events/decide/flags/session-recording from us.i.
+app.all('/ingest/*', async (c) => {
+  const url = new URL(c.req.url);
+  const isStatic = url.pathname.startsWith('/ingest/static/');
+  const upstreamHost = isStatic ? 'us-assets.i.posthog.com' : 'us.i.posthog.com';
+  const upstream = `https://${upstreamHost}${url.pathname.replace(/^\/ingest/, '')}${url.search}`;
+
+  const headers = new Headers(c.req.raw.headers);
+  headers.set('Host', upstreamHost);
+  headers.delete('cookie'); // cookie-free ingestion — distinct_id rides in the body
+
+  const upstreamRes = await fetch(upstream, {
+    method: c.req.method,
+    headers,
+    body: ['GET', 'HEAD'].includes(c.req.method) ? undefined : c.req.raw.body,
+    redirect: 'manual',
+  });
+
+  const res = new Response(upstreamRes.body, upstreamRes);
+  res.headers.set('Cross-Origin-Resource-Policy', 'same-origin');
+  return res;
+});
+
 // Marketing Dashboard — widget config + metrics (flag: marketing_dashboard)
 app.get('/api/sites/:siteId/dashboard', async (c) => {
   const siteId = c.req.param('siteId');
@@ -1354,20 +1384,23 @@ app.all('*', async (c) => {
         // renders its own 404 view. Known routes (incl. every /admin/* + dynamic
         // blog/:slug) stay 200. Real HTML files (hasExtension) are never soft-404'd.
         const isSoft404 = !hasExtension && !isKnownMarketingRoute(path);
+        // `/admin/*` embeds the bolt.diy editor iframe, whose live Preview runs
+        // `npm` inside a WebContainer — that needs SharedArrayBuffer, which needs the
+        // PARENT document (this shell) to be crossOriginIsolated (COOP + COEP). The
+        // editor doc setting its OWN COEP is NOT enough; nested isolation requires
+        // the embedder too. Marketing routes stay COEP-free so their PostHog/GTM
+        // beacons are untouched; on /admin, PostHog rides the same-origin `/ingest`
+        // proxy so a `credentialless` COEP cannot block it. (Brian 2026-08-21 —
+        // restores the Preview that removing COEP in 4e02d113 broke.)
+        const isAdminShell = path === '/admin' || path.startsWith('/admin/');
         return new Response(html, {
           status: isSoft404 ? 404 : 200,
           headers: {
             'Content-Type': 'text/html',
             'Cache-Control': isSoft404 ? 'no-cache, no-store' : 'public, max-age=60',
             ...(isSoft404 ? { 'X-Robots-Tag': 'noindex, nofollow' } : {}),
-            // COOP same-origin, but deliberately NO COEP here: this shell (marketing
-            // AND /admin/*) loads no-cors cross-origin beacons (PostHog, GTM) whose
-            // responses lack a CORP header — a `credentialless` COEP on this document
-            // made the browser block every one of them (CORP errors, 2026-08-20).
-            // WebContainer cross-origin isolation lives on the bolt.diy EDITOR document
-            // (editor.projectsites.dev proxy sets its own COEP/COOP) — per-document
-            // isolation never required it on this parent shell.
             'Cross-Origin-Opener-Policy': 'same-origin',
+            ...(isAdminShell ? { 'Cross-Origin-Embedder-Policy': 'credentialless' } : {}),
             'Origin-Agent-Cluster': '?1',
             // ALL-STAR #15 hint to CDN/CDN-aware clients
             Link: '<https://projectsites.dev/>; rel="prerender"',

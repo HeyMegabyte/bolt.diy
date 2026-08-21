@@ -188,8 +188,15 @@ export class TelemetryService {
       return;
     }
 
+    // On `/admin` the shell ships `COEP: credentialless` (so the embedded bolt.diy
+    // editor can cross-origin-isolate for WebContainer's live Preview). A
+    // document-level COEP blocked direct cross-origin PostHog beacons before, so
+    // admin PostHog routes through the SAME-ORIGIN `/ingest` reverse proxy (worker),
+    // which is immune to COEP. Marketing (no COEP) talks to PostHog directly.
+    const onAdmin = typeof location !== 'undefined' && location.pathname.startsWith('/admin');
     const config: Partial<PostHogConfig> = {
-      api_host: 'https://us.i.posthog.com',
+      api_host: onAdmin ? `${location.origin}/ingest` : 'https://us.i.posthog.com',
+      ui_host: 'https://us.posthog.com',
       persistence: 'memory',
       autocapture: true,
       capture_pageview: false, // we fire `$pageview` ourselves via the Router

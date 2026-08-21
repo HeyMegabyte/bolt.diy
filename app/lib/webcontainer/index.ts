@@ -147,13 +147,23 @@ export function recoverWebContainer(reason: string): Promise<WebContainer> {
 }
 
 if (!import.meta.env.SSR) {
-  if (isEmbedded) {
+  const isolated = typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
+
+  if (!isolated) {
     /*
-     * In embedded mode (iframe), WebContainers cannot boot because
-     * crossOriginIsolated is false. The code editor still works —
-     * only live preview and terminal are unavailable.
+     * WebContainer needs SharedArrayBuffer, which requires the document to be
+     * crossOriginIsolated (COOP + COEP). Standalone editor.projectsites.dev ships
+     * both; the ADMIN embed is isolated only when the parent /admin shell ALSO
+     * ships COEP (restored 2026-08-21) AND the iframe carries
+     * allow="cross-origin-isolated". Gate on the ACTUAL flag, NOT on isEmbedded —
+     * an isolated embed CAN boot, and that is exactly what makes the live Preview
+     * run `npm install` / `npm run dev`. When false, skip boot; the code editor +
+     * materialization publish-bridge still work, only live preview + terminal are
+     * unavailable.
      */
-    console.warn('[webcontainer] Skipping boot — embedded mode (no SharedArrayBuffer in cross-origin iframe)');
+    console.warn(
+      `[webcontainer] Skipping boot — not crossOriginIsolated (embedded=${isEmbedded}); live preview + terminal unavailable`,
+    );
   } else {
     webcontainer =
       import.meta.hot?.data.webcontainer ??

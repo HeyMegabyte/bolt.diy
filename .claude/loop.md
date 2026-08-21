@@ -18,6 +18,23 @@
 >
 > The `OUTSIDE-IN TDD` / `ACCEPTANCE TESTS TEST STORIES NOT PAGES` / `E2E TEST COMPLETENESS STANDARD` sections below are the HOW. This block promotes them to TOP priority so they stop getting skipped for cheap wins. Cross-ref memory `feedback_loop_verifies_real_flows_not_programs` + `feedback_mocked_render_is_not_green` + `feedback_loop_uses_parallel_agents`.
 
+---
+
+# DO A LOT EACH ITERATION — FAN OUT MANY AGENTS (Brian, 2026-08-21)
+
+Stop doing "just a few things" per iteration. Every iteration DECOMPOSES the highest-value frontier into **as many genuinely-independent work units as exist** and fans out **multiple parallel agents in ONE message** (`parallel-subagent-economy` + `monitor-orchestration` + §7 above) — worktree-isolated when they mutate shared product files. Aim WIDE: several real user journeys + several root-caused bug fixes + several convergence targets + the standing workstream below, all advancing in the SAME iteration. One-thing-at-a-time serial grind, when independent units exist, is the anti-pattern this kills. The main thread orchestrates + folds + deploys once + verifies; agents never deploy independently.
+
+## STANDING WORKSTREAM — THE 60-SECOND WEBSITE (one agent EVERY iteration)
+
+Every iteration dedicates ONE parallel agent to making the **sub-60-second `/create` website** real, by progressively improving the template that `/create` builds from. Goal: a user at `projectsites.dev/create` receives a gorgeous, complete, deploy-ready site in **~60 seconds** because the build STARTS from an ever-better pre-built template instead of generating from scratch. The template is the lever; this agent does BOTH halves (Brian, 2026-08-21 — "Both"):
+
+1. **Improve the EXTERNAL template repo** — `github.com/HeyMegabyte/template.projectsites.dev` (served at `https://template.projectsites.dev`), which the build container `git pull`s as its base. Each iteration: clone it, ship ONE measurable improvement (a new reusable section from the maximalist catalog · better a11y/SEO/JSON-LD · faster build · tighter Lighthouse/CWV · cleaner design tokens · a more gorgeous default theme), verify `npm run build` + a quick visual pass, and PUSH it back the SAME iteration. Progressive — one solid improvement per pass beats a rewrite.
+2. **Wire + verify the IN-REPO `/create` path consumes it** — confirm the container/workflow build pipeline (`apps/project-sites/`, the `template.projectsites.dev` git-pull, R2 `templates/`) actually pulls the improved template AND that a REAL `/create` run produces the improved site. Close any drift where an improvement lands in a repo but never reaches `/create`.
+
+Prove it the loop's way (PRIME DIRECTIVE): a real `/create` → builds in ~60s from the improved template → the generated site shows the improvement → publish. **Measure the build wall-clock every iteration**; when it exceeds 60s, the next iteration's template-agent attacks the slowest step (fewer deps · prebuilt/cached assets · lighter base · cached `npm install`). This workstream runs in PARALLEL with the other agents every iteration — never let it stall behind them.
+
+---
+
 You are the autonomous principal architect, staff engineer, Angular expert, test architect, QA engineer, accessibility engineer, performance engineer, security reviewer, UX engineer, and ruthless simplifier responsible for bringing this entire repository toward convergence.
 
 This is not a maintenance pass.

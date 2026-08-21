@@ -217,6 +217,66 @@ export const Workbench = memo(
       }
     }, []);
 
+    // ── Draggable chat|workbench divider (Brian 2026-08-21) ──
+    // Restore the persisted split on mount; default stays 50/50.
+    useEffect(() => {
+      try {
+        const saved = localStorage.getItem('ps_workbench_split');
+
+        if (saved) {
+          document.documentElement.style.setProperty('--workbench-split', saved);
+        }
+      } catch {
+        // localStorage unavailable (private mode) — keep the CSS default
+      }
+    }, []);
+
+    const setSplit = useCallback((pct: number) => {
+      const clamped = Math.min(80, Math.max(25, pct));
+      document.documentElement.style.setProperty('--workbench-split', `${clamped}%`);
+
+      try {
+        localStorage.setItem('ps_workbench_split', `${clamped}%`);
+      } catch {
+        // ignore persistence failure
+      }
+    }, []);
+
+    const startWorkbenchResize = useCallback(
+      (event: React.PointerEvent<HTMLDivElement>) => {
+        event.preventDefault();
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'col-resize';
+
+        const onMove = (ev: PointerEvent) => {
+          document.documentElement.style.setProperty(
+            '--workbench-split',
+            `${Math.min(80, Math.max(25, (ev.clientX / window.innerWidth) * 100))}%`,
+          );
+        };
+        const onUp = () => {
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+          document.body.style.userSelect = '';
+          document.body.style.cursor = '';
+
+          const split = document.documentElement.style.getPropertyValue('--workbench-split').trim();
+
+          try {
+            if (split) {
+              localStorage.setItem('ps_workbench_split', split);
+            }
+          } catch {
+            // ignore persistence failure
+          }
+        };
+
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      },
+      [],
+    );
+
     return (
       chatStarted && (
         <>
@@ -230,7 +290,7 @@ export const Workbench = memo(
           >
             <div
               className={classNames(
-                'fixed top-[calc(var(--header-height)+1.2rem)] bottom-6 w-[var(--workbench-inner-width)] z-0 transition-[left,width] duration-200 bolt-ease-cubic-bezier',
+                'fixed top-[var(--header-height)] bottom-0 w-[var(--workbench-inner-width)] z-0 transition-[left,width] duration-200 bolt-ease-cubic-bezier',
                 {
                   'w-full': isSmallViewport,
                   'left-0': showWorkbench && isSmallViewport,
@@ -239,8 +299,32 @@ export const Workbench = memo(
                 },
               )}
             >
+              {/* Drag divider — resize chat|workbench; keyboard-operable (Brian 2026-08-21) */}
+              {showWorkbench && !isSmallViewport && (
+                <div
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label="Drag to resize chat and workbench"
+                  tabIndex={0}
+                  onPointerDown={startWorkbenchResize}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+                      return;
+                    }
+
+                    e.preventDefault();
+
+                    const cur =
+                      parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--workbench-split')) || 50;
+                    setSplit(cur + (e.key === 'ArrowLeft' ? -2 : 2));
+                  }}
+                  className="group absolute left-0 top-0 bottom-0 z-20 w-2 -translate-x-1/2 cursor-col-resize focus:outline-none"
+                >
+                  <div className="mx-auto h-full w-px bg-bolt-elements-borderColor transition-colors group-hover:w-0.5 group-hover:bg-bolt-elements-item-contentAccent group-focus:w-0.5 group-focus:bg-bolt-elements-item-contentAccent" />
+                </div>
+              )}
               <div className="absolute inset-0">
-                <div className="h-full flex flex-col bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor shadow-sm rounded-lg overflow-hidden">
+                <div className="h-full flex flex-col bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor shadow-sm overflow-hidden">
                   <div className="flex items-center px-2 py-1.5 border-b border-bolt-elements-borderColor gap-1">
                     <button
                       className={`${showChat ? 'i-ph:sidebar-simple-fill' : 'i-ph:sidebar-simple'} text-lg text-bolt-elements-textSecondary mr-1`}

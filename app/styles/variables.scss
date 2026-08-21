@@ -224,15 +224,16 @@
   --chat-max-width: 44rem;
   --chat-min-width: 533px;
   /*
-   * Half/half split: the chat panel is EXACTLY 50% of the viewport (BaseChat
-   * lg:w-[calc(50%-1px)]), so the workbench overlay must also derive from
-   * 50% — the old chat-min-width (533px) math only agreed at ~1066px and
-   * OVERLAPPED everywhere else (Brian 2026-08-20). The workbench sits in the
-   * right half; its 1px breathing gap keeps the border from doubling.
+   * Chat|workbench split. `--workbench-split` is the divider position as a %
+   * of the viewport (default 50/50); it is DRAGGABLE — the resize handle on the
+   * workbench's left edge writes it to :root, and the chat (flex-grow, clamped
+   * by --chat-min-width) reflows into the remaining space. The 1px gap keeps the
+   * shared border from doubling. (Brian 2026-08-21 — was a hardcoded 50%.)
    */
-  --workbench-width: calc(50% - 1px);
+  --workbench-split: 50%;
+  --workbench-left: calc(var(--workbench-split) + 1px);
+  --workbench-width: calc(100% - var(--workbench-split) - 1px);
   --workbench-inner-width: var(--workbench-width);
-  --workbench-left: calc(50% + 1px);
 
   /* Toasts */
   --toastify-color-progress-success: var(--bolt-elements-icon-success);

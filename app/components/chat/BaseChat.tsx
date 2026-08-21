@@ -531,7 +531,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
           <div
             className={classNames(
               styles.Chat,
-              'flex flex-col h-full w-full order-first shrink-0 lg:w-[calc(50%-1px)] lg:min-w-[min(50%,520px)] border-0 overflow-hidden',
+              'flex flex-col h-full w-full order-first shrink-0 lg:w-[calc(var(--workbench-split)-1px)] lg:min-w-[320px] border-0 overflow-hidden',
               // Mobile (<1024px): the chat becomes a full-screen slide-over
               // panel toggled by the Workbench's "Chat" tab (same tab strip as
               // Code/Preview/Functions/Data) — never both squeezed side-by-side.
@@ -541,7 +541,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
           >
             {/* ── Persistent chat panel, docked left of the workbench/preview ── */}
             <StickToBottom
-              className="pt-2 px-2 sm:px-3 relative flex-1 min-h-0 flex flex-col modern-scrollbar overflow-y-auto"
+              className="pt-0 px-2 sm:px-3 relative flex-1 min-h-0 flex flex-col modern-scrollbar overflow-y-auto"
               resize="smooth"
               initial="smooth"
             >
