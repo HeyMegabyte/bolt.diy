@@ -214,17 +214,33 @@ export const BottomPanelTabs = memo(() => {
                   >
                     <div className="i-ph:terminal-window-duotone text-base" />
                     {index > 0 ? (
-                      <button
-                        type="button"
-                        className="text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary"
+                      // Close control INSIDE the tab button — must NOT be a nested
+                      // <button> (invalid HTML: the browser restructures it and the
+                      // masked `i-ph:x` icon rendered as a solid white square, Brian
+                      // 2026-08-21). A keyboard-operable <span> is valid inside a
+                      // button, and an inline SVG draws the ✕ with zero mask/CSP/
+                      // data-URL dependency.
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        className="inline-flex items-center cursor-pointer text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary"
                         aria-label={`Close ${label}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           closeTerminal(index);
                         }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            closeTerminal(index);
+                          }
+                        }}
                       >
-                        <div className="i-ph:x text-xs" />
-                      </button>
+                        <svg viewBox="0 0 256 256" className="w-3 h-3" fill="currentColor" aria-hidden="true">
+                          <path d="M205.66 194.34a8 8 0 0 1-11.32 11.32L128 139.31l-66.34 66.35a8 8 0 0 1-11.32-11.32L116.69 128L50.34 61.66a8 8 0 0 1 11.32-11.32L128 116.69l66.34-66.35a8 8 0 0 1 11.32 11.32L139.31 128Z" />
+                        </svg>
+                      </span>
                     ) : null}
                   </button>
                 </Tooltip.Trigger>
