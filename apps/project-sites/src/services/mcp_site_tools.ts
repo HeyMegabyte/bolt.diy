@@ -41,13 +41,20 @@ export async function mintSiteMcpToken(
   const tokenHash = await hashToken(rawToken);
   const id = crypto.randomUUID();
 
-  await dbInsert(db, 'site_mcp_tokens', {
+  // dbInsert RETURNS { error } — it never throws. A dropped row would hand the
+  // caller a raw token that authenticates NOTHING (the hash row is the
+  // credential) — a dead-credential lying-success. Capture + throw; the callers
+  // own the error policy.
+  const { error } = await dbInsert(db, 'site_mcp_tokens', {
     id,
     site_id: siteId,
     token_hash: tokenHash,
     label,
     created_by: userId,
   });
+  if (error) {
+    throw new Error(`Failed to store site_mcp_tokens row: ${error}`);
+  }
 
   return { id, token: rawToken };
 }
@@ -83,13 +90,20 @@ export async function revokeSiteMcpToken(
   tokenId: string,
   siteId: string,
 ): Promise<void> {
-  await dbUpdate(
+  // A dropped revoke UPDATE is a SECURITY failure — a token that keeps
+  // authenticating after the operator revoked it. dbUpdate returns { error }
+  // rather than throwing, so a bare await would report success while the
+  // credential stays live. Capture + throw.
+  const { error } = await dbUpdate(
     db,
     'site_mcp_tokens',
     { revoked_at: new Date().toISOString() },
     'id = ? AND site_id = ?',
     [tokenId, siteId],
   );
+  if (error) {
+    throw new Error(`Failed to revoke site_mcp_tokens row: ${error}`);
+  }
 }
 
 // ─── Tool definitions ─────────────────────────────────────────────────────────
@@ -283,13 +297,22 @@ async function handleUpdatePageSection(
   if (!row) return { content: [{ type: 'text', text: `Page not found: ${slug}` }], isError: true };
 
   // Store the section override in a lightweight JSON patch column.
-  await dbUpdate(
+  // The READ succeeded but the WRITE can still drop — dbUpdate returns
+  // { error } rather than throwing, so a bare await would report
+  // "Section updated" over a silent D1 failure (lying-success).
+  const { error } = await dbUpdate(
     db,
     'site_pages',
     { content: JSON.stringify({ ...safeParse(row.content), [section_id]: content }) },
     'id = ?',
     [row.id],
   );
+  if (error) {
+    return {
+      content: [{ type: 'text', text: `Failed to update section "${section_id}": ${error}` }],
+      isError: true,
+    };
+  }
   return { content: [{ type: 'text', text: `Section "${section_id}" updated on ${slug}.` }] };
 }
 
@@ -306,7 +329,12 @@ async function handleCreatePage(
     };
   }
   const id = crypto.randomUUID();
-  await dbInsert(db, 'site_pages', { id, site_id: siteId, slug, title, content });
+  // dbInsert returns { error } — a dropped page row must never report
+  // "Page created" (lying-success).
+  const { error } = await dbInsert(db, 'site_pages', { id, site_id: siteId, slug, title, content });
+  if (error) {
+    return { content: [{ type: 'text', text: `Failed to create page ${slug}: ${error}` }], isError: true };
+  }
   return { content: [{ type: 'text', text: `Page created: ${slug} (id: ${id})` }] };
 }
 
@@ -344,17 +372,25 @@ async function handleCreateBlogPost(
   args: Record<string, unknown>,
 ): Promise<ToolResult> {
   const { title, content } = args as { title: string; content: string };
+  // Validate BEFORE deriving the slug — a missing title used to throw a
+  // TypeError mid-slug-derivation (title.toLowerCase on undefined) into the
+  // generic catch envelope instead of the friendly required-fields message.
+  if (!title || content === undefined) {
+    return { content: [{ type: 'text', text: 'title and content are required' }], isError: true };
+  }
   const slug =
     (args.slug as string | undefined) ??
     `/${title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '')}`;
-  if (!title || content === undefined) {
-    return { content: [{ type: 'text', text: 'title and content are required' }], isError: true };
-  }
   const id = crypto.randomUUID();
-  await dbInsert(db, 'blog_posts', { id, site_id: siteId, slug, title, content });
+  // dbInsert returns { error } — a dropped post row must never report
+  // "Blog post created" (lying-success).
+  const { error } = await dbInsert(db, 'blog_posts', { id, site_id: siteId, slug, title, content });
+  if (error) {
+    return { content: [{ type: 'text', text: `Failed to create blog post ${slug}: ${error}` }], isError: true };
+  }
   return { content: [{ type: 'text', text: `Blog post created: ${slug} (id: ${id})` }] };
 }
 

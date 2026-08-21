@@ -386,3 +386,59 @@ describe('dispatchTool — unknown tool and error envelope', () => {
     expect(textOf(r)).toBe('internal error');
   });
 });
+
+// ─── Dropped-write honesty (iter 242) ────────────────────────────────────────
+// dbInsert/dbUpdate RETURN { error } — they never throw. A dropped D1 write
+// must never reach a success message ("Page created", "updated on") or hand a
+// caller a dead credential: the lying-success class. These lock the honesty
+// contract: writes capture { error } → isError envelope (dispatch handlers) or
+// throw (token mint/revoke — the callers own the error policy).
+
+describe('dispatchTool — dropped-write honesty (no lying-success)', () => {
+  it('create_page surfaces a dbInsert error as isError (never "Page created")', async () => {
+    mockInsert.mockResolvedValueOnce({ error: 'D1 write failed', changes: 0 });
+    const r = await dispatchTool(db, SITE, 'create_page', { slug: '/x', title: 'X', content: 'c' });
+    expect(r.isError).toBe(true);
+    expect(textOf(r)).toContain('D1 write failed');
+    expect(textOf(r)).not.toContain('Page created');
+  });
+
+  it('create_blog_post surfaces a dbInsert error as isError', async () => {
+    mockInsert.mockResolvedValueOnce({ error: 'D1 write failed', changes: 0 });
+    const r = await dispatchTool(db, SITE, 'create_blog_post', { title: 'T', content: 'b' });
+    expect(r.isError).toBe(true);
+    expect(textOf(r)).toContain('D1 write failed');
+  });
+
+  it('update_page_section surfaces a dbUpdate error as isError (read succeeded, write dropped)', async () => {
+    mockQueryOne.mockResolvedValueOnce({ id: 'pg-1', content: JSON.stringify({ hero: 'old' }) });
+    mockUpdate.mockResolvedValueOnce({ error: 'D1 write failed', changes: 0 });
+    const r = await dispatchTool(db, SITE, 'update_page_section', {
+      slug: '/',
+      section_id: 'cta',
+      content: 'v',
+    });
+    expect(r.isError).toBe(true);
+    expect(textOf(r)).toContain('D1 write failed');
+    expect(textOf(r)).not.toContain('updated on');
+  });
+
+  it('create_blog_post with a missing title returns the friendly message (validation BEFORE slug derivation)', async () => {
+    const r = await dispatchTool(db, SITE, 'create_blog_post', { content: 'b' });
+    expect(r.isError).toBe(true);
+    expect(textOf(r)).toContain('title and content are required');
+    expect(mockInsert).not.toHaveBeenCalled();
+  });
+});
+
+describe('mintSiteMcpToken / revokeSiteMcpToken — honest credential writes', () => {
+  it('mintSiteMcpToken throws when the insert errors (no dead credential handed out)', async () => {
+    mockInsert.mockResolvedValueOnce({ error: 'D1 write failed', changes: 0 });
+    await expect(mintSiteMcpToken(db, SITE, 'user-1')).rejects.toThrow(/site_mcp_tokens|D1 write failed/);
+  });
+
+  it('revokeSiteMcpToken throws when the update errors (a still-valid token must never report revoked)', async () => {
+    mockUpdate.mockResolvedValueOnce({ error: 'D1 write failed', changes: 0 });
+    await expect(revokeSiteMcpToken(db, 'tok-9', SITE)).rejects.toThrow(/site_mcp_tokens|D1 write failed/);
+  });
+});
