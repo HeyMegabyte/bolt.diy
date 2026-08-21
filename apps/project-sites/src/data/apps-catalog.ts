@@ -618,10 +618,7 @@ export const APPS_CATALOG: ReadonlyArray<CatalogApp> = [
   },
 
   // ── AI Marketing ───────────────────────────────────────────────
-  /**
-   * Postiz — open Buffer/Hootsuite alternative with AI scheduler. 17+
-   * platforms, AI auto-complete. Single image + Postgres.
-   */
+  // Postiz REMOVED (2026-08-20) — native social stack replaced it (ADR-0034).
 
   // ── Media (AI photo management) ────────────────────────────────
   /**

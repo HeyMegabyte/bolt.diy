@@ -1,7 +1,7 @@
 /**
  * @module durable_objects/app_runtime_subclasses
  * @description Per-image DO subclasses for catalog apps deployable on CFC+Neon+Upstash.
- * Excludes GPU apps + unprofessional/ugly UIs + always-on services (Postiz: BullMQ scheduler).
+ * Excludes GPU apps + unprofessional/ugly UIs + always-on services (BullMQ-style schedulers).
  * @packageDocumentation
  */
 

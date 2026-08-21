@@ -2,7 +2,7 @@
  * @module services/service_registry
  *
  * Typed service registry — one entry per self-hosted app (Plane, Twenty,
- * Listmonk, Unkey, Postiz, Inngest, CMS, LLM, CRM). The admin dashboard,
+ * Listmonk, CMS, LLM, CRM). The admin dashboard,
  * health probes, and secret-rotation calendar all read from this single SSOT.
  * Pure + deterministic: zero I/O, zero side-effects.
  *
@@ -123,7 +123,7 @@ export function createRegistry(entries: readonly ServiceEntry[]): ServiceRegistr
 /**
  * Default registry of known live services at projectsites.dev / megabyte.space.
  *
- * Derived from the running fleet: Twenty (crm), Listmonk (mail), Postiz (social).
+ * Derived from the running fleet: Twenty (crm), Listmonk (mail), native social.
  * Descriptions, secrets, and
  * categories reflect real-world deployment state as of 2026-06-29.
  */

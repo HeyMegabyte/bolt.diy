@@ -142,7 +142,7 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
   },
   app_launcher: {
     checklist: [
-      'Per-tenant app provisioning planner over the 11-app catalog (Plane, Twenty, Listmonk, Chatwoot, Lago, Unkey, Nango, Payload, ...)',
+      'Per-tenant app provisioning planner over the companion-app catalog (Twenty, Listmonk, Chatwoot, Payload, ...)',
       'ON -> GET /api/apps/catalog lists apps; POST /api/apps/launch returns a provisioning plan',
       'OFF (default) -> both routes 404 (no existence leak)',
       'Planner only: hands a plan to the operator, does not itself provision',
@@ -580,13 +580,13 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
 
   social_publishing_native: {
     checklist: [
-      'Native social posting (instant + scheduled) across 14 platforms: the CF-native replacement for Postiz',
+      'Native social posting (instant + scheduled) across 14 platforms on CF primitives',
       'ANCHOR flag: also gates the folded social_agent (content proposals + engagement scoring)',
       'ON -> /api/sites/:id/social/* proposal + publishing surfaces resolve',
       'OFF (default) -> the social surfaces 404',
     ],
     explanation:
-      'Native social publishing on CF primitives (D1 + Upstash + Workflows v2 + MCP OAuth), replacing the Postiz escape-hatch. Group ANCHOR flag: the social_agent content-proposal module folds under it, so one flag toggles the whole native-social area. Off-vision relative to the core site builder -- it is the Social expansion.',
+      'Native social publishing on CF primitives (D1 + Upstash + Workflows v2 + MCP OAuth) — Postiz fully removed 2026-08-20. Group ANCHOR flag: the social_agent content-proposal module folds under it, so one flag toggles the whole native-social area. Off-vision relative to the core site builder -- it is the Social expansion.',
     smoke_test: [
       'Flag ON: POST /api/sites/:id/social/proposals returns platform-aware content proposals',
       'Flag ON: the native social publishing surface accepts an instant + a scheduled post',

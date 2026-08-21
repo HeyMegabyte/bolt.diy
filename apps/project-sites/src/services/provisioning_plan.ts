@@ -91,7 +91,7 @@ const SERVICE_META: Record<
     estDurationSeconds: 10,
   },
   social_native: {
-    displayName: 'Social Scheduler (Postiz)',
+    displayName: 'Native Social',
     description: 'Schedule, publish, and analyze social media posts.',
     estDurationSeconds: 10,
   },

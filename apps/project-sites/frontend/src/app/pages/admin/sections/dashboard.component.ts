@@ -7,7 +7,18 @@
  * page now opens straight on a search bar over the "Build your site" content.
  *
  */
-import { ChangeDetectionStrategy, Component, DestroyRef, HostListener, computed, effect, inject, signal, viewChild, type ElementRef } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  HostListener,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChild,
+  type ElementRef,
+} from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -78,7 +89,18 @@ const RECENT_KEY = 'ps_dash_recents';
   selector: 'app-admin-dashboard',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [NgTemplateOutlet, FormsModule, RouterLink, RevealDirective, CmdGlyphComponent, RollingCounterComponent, QuotaChipComponent, OnboardingChecklistComponent, RecentActivityComponent, ReferralCardComponent],
+  imports: [
+    NgTemplateOutlet,
+    FormsModule,
+    RouterLink,
+    RevealDirective,
+    CmdGlyphComponent,
+    RollingCounterComponent,
+    QuotaChipComponent,
+    OnboardingChecklistComponent,
+    RecentActivityComponent,
+    ReferralCardComponent,
+  ],
   template: `
     <section class="dash" aria-label="Getting started">
       <!-- Site-quota chip (#35) — owner sees usage before a create-limit 403 -->
@@ -102,7 +124,15 @@ const RECENT_KEY = 'ps_dash_recents';
           data-testid="dash-search"
         />
         @if (query()) {
-          <button class="search-clear" type="button" (click)="clear()" aria-label="Clear search" data-testid="dash-search-clear">✕</button>
+          <button
+            class="search-clear"
+            type="button"
+            (click)="clear()"
+            aria-label="Clear search"
+            data-testid="dash-search-clear"
+          >
+            ✕
+          </button>
         } @else {
           <span class="search-kbd" aria-hidden="true"><kbd>/</kbd></span>
         }
@@ -116,7 +146,14 @@ const RECENT_KEY = 'ps_dash_recents';
             <span class="no-match-glyph" aria-hidden="true"><app-cmd-glyph name="search" /></span>
             <p class="no-match-title">No sections match “{{ query() }}”</p>
             <p class="no-match-sub">Try a different word, or browse everything below.</p>
-            <button class="cta cta-ghost" type="button" (click)="clear()" data-testid="dash-no-match-clear">Clear search</button>
+            <button
+              class="cta cta-ghost"
+              type="button"
+              (click)="clear()"
+              data-testid="dash-no-match-clear"
+            >
+              Clear search
+            </button>
           </div>
         } @else {
           <section class="group" aria-label="Search results">
@@ -127,7 +164,10 @@ const RECENT_KEY = 'ps_dash_recents';
             <ul class="cards">
               @for (card of results; track card.link) {
                 <li class="card-cell" [style.animation-delay.ms]="$index * 28">
-                  <ng-container [ngTemplateOutlet]="cardTpl" [ngTemplateOutletContext]="{ card: card }" />
+                  <ng-container
+                    [ngTemplateOutlet]="cardTpl"
+                    [ngTemplateOutletContext]="{ card: card }"
+                  />
                 </li>
               }
             </ul>
@@ -139,13 +179,18 @@ const RECENT_KEY = 'ps_dash_recents';
              metric→record link into the filtered /admin/sites view. -->
         @if (hasSites() && siteStatusSummary().length > 0) {
           <section class="group" appReveal aria-labelledby="grp-status">
-            <h2 class="group-title" id="grp-status"><app-cmd-glyph name="activity" /> Site status</h2>
+            <h2 class="group-title" id="grp-status">
+              <app-cmd-glyph name="activity" /> Site status
+            </h2>
             <p class="status-source">Live · from your account, auto-refreshed every 30s</p>
             <ul class="status-strip" aria-label="Site status summary">
               @for (b of siteStatusSummary(); track b.key) {
                 <li>
-                  <span class="status-tile" [class]="'tone-' + b.tone"
-                     [attr.aria-label]="b.count + ' ' + b.label + ' — ' + b.interp">
+                  <span
+                    class="status-tile"
+                    [class]="'tone-' + b.tone"
+                    [attr.aria-label]="b.count + ' ' + b.label + ' — ' + b.interp"
+                  >
                     <span class="status-dot" aria-hidden="true"></span>
                     <app-rolling-counter class="status-count" [value]="b.count" />
                     <span class="status-label">{{ b.label }}</span>
@@ -159,7 +204,9 @@ const RECENT_KEY = 'ps_dash_recents';
 
         @if (hasSites() && latestMetrics()) {
           <section class="group cwv-group" appReveal aria-labelledby="grp-cwv">
-            <h2 class="group-title" id="grp-cwv"><app-cmd-glyph name="activity" /> Core Web Vitals</h2>
+            <h2 class="group-title" id="grp-cwv">
+              <app-cmd-glyph name="activity" /> Core Web Vitals
+            </h2>
             @if (hasCwvData()) {
               <p class="status-source">From your latest snapshot · real Lighthouse data</p>
               <ul class="cwv-strip" aria-label="Core Web Vitals">
@@ -172,16 +219,24 @@ const RECENT_KEY = 'ps_dash_recents';
                   </li>
                 }
                 <li>
-                  <span class="cwv-chip"
-                        [attr.data-tier]="tierForLh(latestMetrics()!.lh_performance)"
-                        title="Lighthouse Performance score (0-100). Target ≥90.">
+                  <span
+                    class="cwv-chip"
+                    [attr.data-tier]="tierForLh(latestMetrics()!.lh_performance)"
+                    title="Lighthouse Performance score (0-100). Target ≥90."
+                  >
                     <span class="cwv-label">Perf</span>
-                    <span class="cwv-value">{{ latestMetrics()!.lh_performance !== null ? latestMetrics()!.lh_performance : '—' }}</span>
+                    <span class="cwv-value">{{
+                      latestMetrics()!.lh_performance !== null
+                        ? latestMetrics()!.lh_performance
+                        : '—'
+                    }}</span>
                   </span>
                 </li>
               </ul>
             } @else {
-              <p class="status-source">Latest snapshot captured — Lighthouse metrics not run on it yet</p>
+              <p class="status-source">
+                Latest snapshot captured — Lighthouse metrics not run on it yet
+              </p>
               <p class="cwv-empty" data-testid="cwv-empty">
                 No Core Web Vitals on your most recent snapshot. They populate automatically once a
                 snapshot runs with Lighthouse enabled.
@@ -197,7 +252,10 @@ const RECENT_KEY = 'ps_dash_recents';
             <ul class="cards">
               @for (card of pinnedCards(); track card.link) {
                 <li class="card-cell" [style.animation-delay.ms]="$index * 28">
-                  <ng-container [ngTemplateOutlet]="cardTpl" [ngTemplateOutletContext]="{ card: card }" />
+                  <ng-container
+                    [ngTemplateOutlet]="cardTpl"
+                    [ngTemplateOutletContext]="{ card: card }"
+                  />
                 </li>
               }
             </ul>
@@ -207,11 +265,16 @@ const RECENT_KEY = 'ps_dash_recents';
         <!-- ── Recently opened ────────────────────────────────── -->
         @if (recentCards().length > 0) {
           <section class="group" appReveal aria-labelledby="grp-recent">
-            <h2 class="group-title" id="grp-recent"><app-cmd-glyph name="activity" /> Jump back in</h2>
+            <h2 class="group-title" id="grp-recent">
+              <app-cmd-glyph name="activity" /> Jump back in
+            </h2>
             <ul class="cards">
               @for (card of recentCards(); track card.link) {
                 <li class="card-cell" [style.animation-delay.ms]="$index * 28">
-                  <ng-container [ngTemplateOutlet]="cardTpl" [ngTemplateOutletContext]="{ card: card }" />
+                  <ng-container
+                    [ngTemplateOutlet]="cardTpl"
+                    [ngTemplateOutletContext]="{ card: card }"
+                  />
                 </li>
               }
             </ul>
@@ -222,7 +285,6 @@ const RECENT_KEY = 'ps_dash_recents';
              when the flag is off (API 404) or the org has no activity yet. -->
         <app-recent-activity />
 
-
         <!-- ── Section guide ──────────────────────────────────── -->
         @for (group of displayGroups(); track group.title) {
           <section class="group" appReveal aria-labelledby="grp-{{ $index }}">
@@ -230,7 +292,10 @@ const RECENT_KEY = 'ps_dash_recents';
             <ul class="cards">
               @for (card of group.cards; track card.link) {
                 <li class="card-cell" [style.animation-delay.ms]="$index * 28">
-                  <ng-container [ngTemplateOutlet]="cardTpl" [ngTemplateOutletContext]="{ card: card }" />
+                  <ng-container
+                    [ngTemplateOutlet]="cardTpl"
+                    [ngTemplateOutletContext]="{ card: card }"
+                  />
                 </li>
               }
             </ul>
@@ -247,7 +312,9 @@ const RECENT_KEY = 'ps_dash_recents';
           <ul class="tips">
             @for (tip of tips; track tip.text) {
               <li class="tip">
-                <span class="tip-glyph" aria-hidden="true"><app-cmd-glyph [name]="tip.glyph" /></span>
+                <span class="tip-glyph" aria-hidden="true"
+                  ><app-cmd-glyph [name]="tip.glyph"
+                /></span>
                 <span class="tip-text">{{ tip.text }}</span>
               </li>
             }
@@ -275,44 +342,75 @@ const RECENT_KEY = 'ps_dash_recents';
     <!-- ── Reusable section-card (anchor + pin button sibling) ──── -->
     <ng-template #cardTpl let-card="card">
       @if (card.external) {
-        <a class="sec-card" [href]="card.link" target="_blank" rel="noopener" [attr.data-testid]="'dash-sec-' + card.glyph">
+        <a
+          class="sec-card"
+          [href]="card.link"
+          target="_blank"
+          rel="noopener"
+          [attr.data-testid]="'dash-sec-' + card.glyph"
+        >
           <span class="sec-glyph" aria-hidden="true"><app-cmd-glyph [name]="card.glyph" /></span>
           <span class="sec-body">
-            <strong class="sec-label">@for (p of parts(card.label); track $index) {<span>{{ p.pre }}</span>@if (p.hit) {<mark>{{ p.hit }}</mark>}<span>{{ p.post }}</span>}</strong>
+            <strong class="sec-label">
+              @for (p of parts(card.label); track $index) {
+                <span>{{ p.pre }}</span>
+                @if (p.hit) {
+                  <mark>{{ p.hit }}</mark>
+                }
+                <span>{{ p.post }}</span>
+              }
+            </strong>
             <span class="sec-desc">{{ card.desc }}</span>
             @if (card.keywords?.length) {
               <span class="sec-tags" aria-hidden="true">
-                @for (kw of card.keywords; track kw) {<span class="tag">{{ kw }}</span>}
+                @for (kw of card.keywords; track kw) {
+                  <span class="tag">{{ kw }}</span>
+                }
               </span>
             }
           </span>
           <span class="sec-cta" aria-hidden="true">↗</span>
         </a>
       } @else {
-        <a class="sec-card" [routerLink]="card.link" (click)="recordOpen(card.link)" [attr.data-testid]="'dash-sec-' + card.glyph">
-        <span class="sec-glyph" aria-hidden="true"><app-cmd-glyph [name]="card.glyph" /></span>
-        <span class="sec-body">
-          <strong class="sec-label">@for (p of parts(card.label); track $index) {<span>{{ p.pre }}</span>@if (p.hit) {<mark>{{ p.hit }}</mark>}<span>{{ p.post }}</span>}</strong>
-          <span class="sec-desc">{{ card.desc }}</span>
-          @if (card.keywords?.length) {
-            <span class="sec-tags" aria-hidden="true">
-              @for (kw of card.keywords; track kw) {<span class="tag">{{ kw }}</span>}
-            </span>
-          }
-        </span>
-        <span class="sec-cta" aria-hidden="true">→</span>
-      </a>
-      <button
-        class="sec-pin"
-        type="button"
-        (click)="toggleFav(card.link)"
-        [class.is-pinned]="isFav(card.link)"
-        [attr.aria-pressed]="isFav(card.link)"
-        [attr.aria-label]="(isFav(card.link) ? 'Unpin ' : 'Pin ') + card.label"
-        [attr.data-testid]="'dash-pin-' + card.glyph"
-      >
-        <app-cmd-glyph name="star" />
-      </button>
+        <a
+          class="sec-card"
+          [routerLink]="card.link"
+          (click)="recordOpen(card.link)"
+          [attr.data-testid]="'dash-sec-' + card.glyph"
+        >
+          <span class="sec-glyph" aria-hidden="true"><app-cmd-glyph [name]="card.glyph" /></span>
+          <span class="sec-body">
+            <strong class="sec-label">
+              @for (p of parts(card.label); track $index) {
+                <span>{{ p.pre }}</span>
+                @if (p.hit) {
+                  <mark>{{ p.hit }}</mark>
+                }
+                <span>{{ p.post }}</span>
+              }
+            </strong>
+            <span class="sec-desc">{{ card.desc }}</span>
+            @if (card.keywords?.length) {
+              <span class="sec-tags" aria-hidden="true">
+                @for (kw of card.keywords; track kw) {
+                  <span class="tag">{{ kw }}</span>
+                }
+              </span>
+            }
+          </span>
+          <span class="sec-cta" aria-hidden="true">→</span>
+        </a>
+        <button
+          class="sec-pin"
+          type="button"
+          (click)="toggleFav(card.link)"
+          [class.is-pinned]="isFav(card.link)"
+          [attr.aria-pressed]="isFav(card.link)"
+          [attr.aria-label]="(isFav(card.link) ? 'Unpin ' : 'Pin ') + card.label"
+          [attr.data-testid]="'dash-pin-' + card.glyph"
+        >
+          <app-cmd-glyph name="star" />
+        </button>
       }
     </ng-template>
   `,
@@ -347,7 +445,9 @@ const RECENT_KEY = 'ps_dash_recents';
         box-shadow: 0 18px 48px -28px rgba(0, 229, 255, 0.5);
         backdrop-filter: blur(14px) saturate(140%);
         -webkit-backdrop-filter: blur(14px) saturate(140%);
-        transition: border-color 0.333s ease, box-shadow 0.333s ease;
+        transition:
+          border-color 0.333s ease,
+          box-shadow 0.333s ease;
       }
       .search-wrap:focus-within {
         border-color: var(--ps-accent, #00e5ff);
@@ -399,7 +499,10 @@ const RECENT_KEY = 'ps_dash_recents';
         background: rgba(255, 255, 255, 0.04);
         color: var(--ps-ink, #f4f4ff);
         cursor: pointer;
-        transition: border-color 0.333s ease, transform 0.333s ease, background 0.333s ease;
+        transition:
+          border-color 0.333s ease,
+          transform 0.333s ease,
+          background 0.333s ease;
       }
       .search-clear:hover {
         border-color: rgba(0, 229, 255, 0.5);
@@ -508,7 +611,11 @@ const RECENT_KEY = 'ps_dash_recents';
         border-radius: 14px;
         text-decoration: none;
         color: inherit;
-        transition: border-color 0.333s ease, transform 0.333s ease, background 0.333s ease, box-shadow 0.333s ease;
+        transition:
+          border-color 0.333s ease,
+          transform 0.333s ease,
+          background 0.333s ease,
+          box-shadow 0.333s ease;
       }
       .sec-card:hover {
         border-color: rgba(0, 229, 255, 0.5);
@@ -581,7 +688,9 @@ const RECENT_KEY = 'ps_dash_recents';
         font-size: 1.1rem;
         opacity: 0;
         transform: translateX(-4px);
-        transition: opacity 0.333s ease, transform 0.333s ease;
+        transition:
+          opacity 0.333s ease,
+          transform 0.333s ease;
         color: var(--ps-accent, #00e5ff);
       }
       .sec-card:hover .sec-cta {
@@ -604,7 +713,11 @@ const RECENT_KEY = 'ps_dash_recents';
         cursor: pointer;
         opacity: 0;
         font-size: 0.85rem;
-        transition: opacity 0.333s ease, color 0.333s ease, border-color 0.333s ease, transform 0.333s ease;
+        transition:
+          opacity 0.333s ease,
+          color 0.333s ease,
+          border-color 0.333s ease,
+          transform 0.333s ease;
       }
       .card-cell:hover .sec-pin,
       .sec-pin:focus-visible,
@@ -643,7 +756,9 @@ const RECENT_KEY = 'ps_dash_recents';
         border-radius: 12px;
         font-size: 0.86rem;
         line-height: 1.4;
-        transition: border-color 0.333s ease, transform 0.333s ease;
+        transition:
+          border-color 0.333s ease,
+          transform 0.333s ease;
       }
       .tip:hover {
         border-color: rgba(124, 58, 237, 0.4);
@@ -673,7 +788,9 @@ const RECENT_KEY = 'ps_dash_recents';
         color: var(--ps-ink, #f4f4ff);
         text-decoration: none;
         font-size: 0.85rem;
-        transition: border-color 0.333s ease, transform 0.333s ease;
+        transition:
+          border-color 0.333s ease,
+          transform 0.333s ease;
       }
       .links a app-cmd-glyph {
         font-size: 1rem;
@@ -696,36 +813,88 @@ const RECENT_KEY = 'ps_dash_recents';
       .status-source {
         margin: -2px 0 10px;
         font-family: var(--ps-font-code, 'Fira Code', ui-monospace, monospace);
-        font-size: 0.62rem; letter-spacing: 0.04em; text-transform: uppercase;
+        font-size: 0.62rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
         /* 66% (not 45%) so this 0.62rem caption clears WCAG AA 4.5:1 on the dark
            bg — the axe serious color-contrast advisory the real-Chrome sweep flagged. */
-        color: rgba(255,255,255,0.66);
+        color: rgba(255, 255, 255, 0.66);
       }
       .status-strip {
-        list-style: none; margin: 0; padding: 0;
-        display: grid; gap: 10px;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 10px;
         grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
       }
       .status-tile {
-        display: grid; grid-template-columns: auto auto 1fr; align-items: center;
-        gap: 4px 8px; padding: 12px 14px; text-decoration: none;
-        background: var(--ps-surface-1, rgba(255,255,255,0.03));
-        border: 1px solid var(--ps-hairline, rgba(255,255,255,0.08));
+        display: grid;
+        grid-template-columns: auto auto 1fr;
+        align-items: center;
+        gap: 4px 8px;
+        padding: 12px 14px;
+        text-decoration: none;
+        background: var(--ps-surface-1, rgba(255, 255, 255, 0.03));
+        border: 1px solid var(--ps-hairline, rgba(255, 255, 255, 0.08));
         border-radius: var(--ps-radius-lg, 14px);
-        transition: border-color 0.333s ease, transform 0.333s cubic-bezier(0.16,1,0.3,1), background 0.333s ease;
+        transition:
+          border-color 0.333s ease,
+          transform 0.333s cubic-bezier(0.16, 1, 0.3, 1),
+          background 0.333s ease;
       }
-      .status-tile:hover { transform: translateY(-2px); border-color: var(--ps-accent, #00e5ff); }
-      .status-tile:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
-      .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ps-text-muted, #7aa7b3); }
-      .status-count { grid-column: 2; font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; color: #e8fbff; }
-      .status-label { grid-column: 1 / -1; font-size: 0.82rem; font-weight: 600; color: #e8fbff; }
-      .status-interp { grid-column: 1 / -1; font-size: 0.68rem; color: var(--ps-text-muted, rgba(255,255,255,0.5)); }
-      .status-tile.tone-published .status-dot { background: var(--ps-success, #4dffb5); }
-      .status-tile.tone-building  .status-dot { background: var(--ps-accent, #00e5ff); }
-      .status-tile.tone-draft     .status-dot { background: rgba(255,255,255,0.4); }
-      .status-tile.tone-error     .status-dot { background: #ff4d6d; }
-      .status-tile.tone-error { border-color: color-mix(in oklch, #ff4d6d 30%, transparent); }
-      @media (prefers-reduced-motion: reduce) { .status-tile:hover { transform: none; } }
+      .status-tile:hover {
+        transform: translateY(-2px);
+        border-color: var(--ps-accent, #00e5ff);
+      }
+      .status-tile:focus-visible {
+        outline: 2px solid var(--ps-accent, #00e5ff);
+        outline-offset: 2px;
+      }
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--ps-text-muted, #7aa7b3);
+      }
+      .status-count {
+        grid-column: 2;
+        font-size: 1.5rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        color: #e8fbff;
+      }
+      .status-label {
+        grid-column: 1 / -1;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #e8fbff;
+      }
+      .status-interp {
+        grid-column: 1 / -1;
+        font-size: 0.68rem;
+        color: var(--ps-text-muted, rgba(255, 255, 255, 0.5));
+      }
+      .status-tile.tone-published .status-dot {
+        background: var(--ps-success, #4dffb5);
+      }
+      .status-tile.tone-building .status-dot {
+        background: var(--ps-accent, #00e5ff);
+      }
+      .status-tile.tone-draft .status-dot {
+        background: rgba(255, 255, 255, 0.4);
+      }
+      .status-tile.tone-error .status-dot {
+        background: #ff4d6d;
+      }
+      .status-tile.tone-error {
+        border-color: color-mix(in oklch, #ff4d6d 30%, transparent);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .status-tile:hover {
+          transform: none;
+        }
+      }
       .stat app-rolling-counter {
         font-weight: 700;
         color: var(--ps-accent, #00e5ff);
@@ -742,7 +911,9 @@ const RECENT_KEY = 'ps_dash_recents';
         font-weight: 600;
         cursor: pointer;
         text-decoration: none;
-        transition: transform 0.333s ease, border-color 0.333s ease;
+        transition:
+          transform 0.333s ease,
+          border-color 0.333s ease;
       }
       .cta-ghost {
         background: rgba(0, 229, 255, 0.05);
@@ -804,17 +975,23 @@ const RECENT_KEY = 'ps_dash_recents';
         border-color: rgba(34, 197, 94, 0.4);
         background: rgba(34, 197, 94, 0.07);
       }
-      .cwv-chip[data-tier='green'] .cwv-value { color: #4ade80; }
+      .cwv-chip[data-tier='green'] .cwv-value {
+        color: #4ade80;
+      }
       .cwv-chip[data-tier='yellow'] {
         border-color: rgba(234, 179, 8, 0.4);
         background: rgba(234, 179, 8, 0.07);
       }
-      .cwv-chip[data-tier='yellow'] .cwv-value { color: #facc15; }
+      .cwv-chip[data-tier='yellow'] .cwv-value {
+        color: #facc15;
+      }
       .cwv-chip[data-tier='red'] {
         border-color: rgba(239, 68, 68, 0.4);
         background: rgba(239, 68, 68, 0.07);
       }
-      .cwv-chip[data-tier='red'] .cwv-value { color: #f87171; }
+      .cwv-chip[data-tier='red'] .cwv-value {
+        color: #f87171;
+      }
 
       @media (max-width: 720px) {
         .dash {
@@ -903,7 +1080,12 @@ export class AdminDashboardComponent {
       buckets[cls] = (buckets[cls] ?? 0) + 1;
     }
     const defs: { key: string; label: string; interp: string; tone: string }[] = [
-      { key: 'error', label: 'Needs attention', interp: 'build failed — open to retry', tone: 'error' },
+      {
+        key: 'error',
+        label: 'Needs attention',
+        interp: 'build failed — open to retry',
+        tone: 'error',
+      },
       { key: 'published', label: 'Live', interp: 'published + serving', tone: 'published' },
       { key: 'building', label: 'Building', interp: 'generating or deploying', tone: 'building' },
       { key: 'draft', label: 'Draft', interp: 'not yet published', tone: 'draft' },
@@ -922,36 +1104,126 @@ export class AdminDashboardComponent {
     {
       title: 'Build your site',
       cards: [
-        { label: 'Editor', desc: 'Edit your site’s code and content in the live Bolt editor.', link: '/admin/editor', glyph: 'code', keywords: ['bolt', 'code', 'content', 'build'] },
-        { label: 'Snapshots', desc: 'Frozen versions of every build — preview, restore, or roll back.', link: '/admin/snapshots', glyph: 'camera', keywords: ['versions', 'restore', 'rollback', 'history'] },
-        { label: 'Domains', desc: 'Connect a custom domain and manage your hostnames.', link: '/admin/domains', glyph: 'globe', keywords: ['dns', 'hostname', 'custom', 'ssl'] },
+        {
+          label: 'Editor',
+          desc: 'Edit your site’s code and content in the live Bolt editor.',
+          link: '/admin/editor',
+          glyph: 'code',
+          keywords: ['bolt', 'code', 'content', 'build'],
+        },
+        {
+          label: 'Snapshots',
+          desc: 'Frozen versions of every build — preview, restore, or roll back.',
+          link: '/admin/snapshots',
+          glyph: 'camera',
+          keywords: ['versions', 'restore', 'rollback', 'history'],
+        },
+        {
+          label: 'Domains',
+          desc: 'Connect a custom domain and manage your hostnames.',
+          link: '/admin/domains',
+          glyph: 'globe',
+          keywords: ['dns', 'hostname', 'custom', 'ssl'],
+        },
       ],
     },
     {
       title: 'Grow your audience',
       cards: [
-        { label: 'Analytics', desc: 'Traffic, conversions, and funnel insight for every site.', link: '/admin/analytics', glyph: 'chart', keywords: ['traffic', 'conversions', 'funnel', 'metrics'] },
-        { label: 'SEO', desc: 'Titles, meta, structured data, and search readiness.', link: '/admin/seo', glyph: 'search', keywords: ['meta', 'schema', 'keywords', 'ranking'] },
-        { label: 'Social', desc: 'Compose, schedule, and measure posts across 11 networks.', link: '/admin/social', glyph: 'share', keywords: ['posts', 'schedule', 'twitter', 'linkedin'] },
-        { label: 'Forms', desc: 'Every form submission, routed and searchable.', link: '/admin/forms', glyph: 'inbox', keywords: ['submissions', 'leads', 'contact'] },
+        {
+          label: 'Analytics',
+          desc: 'Traffic, conversions, and funnel insight for every site.',
+          link: '/admin/analytics',
+          glyph: 'chart',
+          keywords: ['traffic', 'conversions', 'funnel', 'metrics'],
+        },
+        {
+          label: 'SEO',
+          desc: 'Titles, meta, structured data, and search readiness.',
+          link: '/admin/seo',
+          glyph: 'search',
+          keywords: ['meta', 'schema', 'keywords', 'ranking'],
+        },
+        {
+          label: 'Social',
+          desc: 'Compose, schedule, and measure posts across 11 networks.',
+          link: '/admin/social',
+          glyph: 'share',
+          keywords: ['posts', 'schedule', 'twitter', 'linkedin'],
+        },
+        {
+          label: 'Forms',
+          desc: 'Every form submission, routed and searchable.',
+          link: '/admin/forms',
+          glyph: 'inbox',
+          keywords: ['submissions', 'leads', 'contact'],
+        },
       ],
     },
     {
       title: 'Operate & monitor',
       cards: [
-        { label: 'Voice', desc: 'A phone number, SMS, and a browser test console.', link: '/admin/voice', glyph: 'phone', keywords: ['phone', 'sms', 'call', 'number'] },
-        { label: 'Apps', desc: 'A self-hostable app store on Cloudflare Containers.', link: '/admin/apps', glyph: 'grid', keywords: ['marketplace', 'install', 'containers', 'self-host'] },
-        { label: 'Traces', desc: 'Every AI call — forms, chat, endpoints, and search.', link: '/admin/traces', glyph: 'activity', keywords: ['ai', 'llm', 'observability', 'calls'] },
-        { label: 'Logs', desc: 'Audit trail plus structured request, AI, and job logs.', link: '/admin/logs', glyph: 'list', keywords: ['audit', 'requests', 'jobs', 'debug'] },
+        {
+          label: 'Voice',
+          desc: 'A phone number, SMS, and a browser test console.',
+          link: '/admin/voice',
+          glyph: 'phone',
+          keywords: ['phone', 'sms', 'call', 'number'],
+        },
+        {
+          label: 'Apps',
+          desc: 'A self-hostable app store on Cloudflare Containers.',
+          link: '/admin/apps',
+          glyph: 'grid',
+          keywords: ['marketplace', 'install', 'containers', 'self-host'],
+        },
+        {
+          label: 'Traces',
+          desc: 'Every AI call — forms, chat, endpoints, and search.',
+          link: '/admin/traces',
+          glyph: 'activity',
+          keywords: ['ai', 'llm', 'observability', 'calls'],
+        },
+        {
+          label: 'Logs',
+          desc: 'Audit trail plus structured request, AI, and job logs.',
+          link: '/admin/logs',
+          glyph: 'list',
+          keywords: ['audit', 'requests', 'jobs', 'debug'],
+        },
       ],
     },
     {
       title: 'Account & help',
       cards: [
-        { label: 'Settings', desc: 'Site preferences, integrations, and notifications.', link: '/admin/settings', glyph: 'gear', keywords: ['preferences', 'integrations', 'mcp', 'webhooks'] },
-        { label: 'Billing', desc: 'Your plan, credits, and invoices in one place.', link: '/admin/billing', glyph: 'credit-card', keywords: ['plan', 'credits', 'invoices', 'subscription'] },
-        { label: 'API Docs', desc: 'An interactive explorer — call any endpoint from your session.', link: '/admin/docs', glyph: 'book', keywords: ['openapi', 'reference', 'endpoints'] },
-        { label: 'Features', desc: 'Turn site capabilities on — plan-aware and reversible.', link: '/admin/site-features', glyph: 'layers', keywords: ['capabilities', 'addons', 'plan', 'autopilot'] },
+        {
+          label: 'Settings',
+          desc: 'Site preferences, integrations, and notifications.',
+          link: '/admin/settings',
+          glyph: 'gear',
+          keywords: ['preferences', 'integrations', 'mcp', 'webhooks'],
+        },
+        {
+          label: 'Billing',
+          desc: 'Your plan, credits, and invoices in one place.',
+          link: '/admin/billing',
+          glyph: 'credit-card',
+          keywords: ['plan', 'credits', 'invoices', 'subscription'],
+        },
+        {
+          label: 'API Docs',
+          desc: 'An interactive explorer — call any endpoint from your session.',
+          link: '/admin/docs',
+          glyph: 'book',
+          keywords: ['openapi', 'reference', 'endpoints'],
+        },
+        {
+          label: 'Features',
+          desc: 'Turn site capabilities on — plan-aware and reversible.',
+          link: '/admin/site-features',
+          glyph: 'layers',
+          keywords: ['capabilities', 'addons', 'plan', 'autopilot'],
+        },
       ],
     },
   ];
@@ -959,11 +1231,38 @@ export class AdminDashboardComponent {
   private readonly sysAdminTools: SectionGroup = {
     title: 'More tools',
     cards: [
-      { label: 'Mail', desc: 'Self-hosted Listmonk — newsletters, campaigns, and transactional email.', link: 'https://mail.projectsites.dev', glyph: 'mail', keywords: ['email', 'listmonk', 'newsletter', 'campaigns'], external: true },
-      { label: 'CRM', desc: 'Twenty CRM — contacts, companies, deals, and workflows.', link: 'https://crm.projectsites.dev', glyph: 'users', keywords: ['twenty', 'crm', 'contacts', 'deals', 'sales'], external: true },
-      { label: 'Social', desc: 'Postiz social scheduler — compose, schedule, measure across networks.', link: 'https://social.projectsites.dev', glyph: 'send', keywords: ['postiz', 'posts', 'schedule', 'social-media'], external: true },
-      { label: 'Events', desc: 'Inngest durable workflows — event-driven background jobs.', link: 'https://events.projectsites.dev', glyph: 'zap', keywords: ['inngest', 'workflows', 'jobs', 'queues'], external: true },
-      { label: 'CMS', desc: 'Payload CMS — headless content management for teams.', link: 'https://cms.projectsites.dev', glyph: 'file-text', keywords: ['payload', 'content', 'headless', 'cms'], external: true },
+      {
+        label: 'Mail',
+        desc: 'Self-hosted Listmonk — newsletters, campaigns, and transactional email.',
+        link: 'https://mail.projectsites.dev',
+        glyph: 'mail',
+        keywords: ['email', 'listmonk', 'newsletter', 'campaigns'],
+        external: true,
+      },
+      {
+        label: 'CRM',
+        desc: 'Twenty CRM — contacts, companies, deals, and workflows.',
+        link: 'https://crm.projectsites.dev',
+        glyph: 'users',
+        keywords: ['twenty', 'crm', 'contacts', 'deals', 'sales'],
+        external: true,
+      },
+      {
+        label: 'Social',
+        desc: 'Native social scheduling — compose, schedule, measure across 14 platforms.',
+        link: '/admin/social',
+        glyph: 'send',
+        keywords: ['posts', 'schedule', 'social-media'],
+        external: false,
+      },
+      {
+        label: 'CMS',
+        desc: 'Payload CMS — headless content management for teams.',
+        link: 'https://cms.projectsites.dev',
+        glyph: 'file-text',
+        keywords: ['payload', 'content', 'headless', 'cms'],
+        external: true,
+      },
     ],
   };
 
@@ -984,7 +1283,9 @@ export class AdminDashboardComponent {
   );
 
   /** Flat list of every visible card (operator card included only for sysadmins). */
-  private readonly allCards = computed<readonly SectionCard[]>(() => this.displayGroups().flatMap((g) => g.cards));
+  private readonly allCards = computed<readonly SectionCard[]>(() =>
+    this.displayGroups().flatMap((g) => g.cards),
+  );
 
   private byLink(links: readonly string[]): readonly SectionCard[] {
     const all = this.allCards();
@@ -1008,14 +1309,19 @@ export class AdminDashboardComponent {
   readonly resultAnnounce = computed(() => {
     const f = this.filtered();
     if (f === null) return '';
-    return f.length === 0 ? `No results for ${this.query()}` : `${f.length} ${f.length === 1 ? 'result' : 'results'}`;
+    return f.length === 0
+      ? `No results for ${this.query()}`
+      : `${f.length} ${f.length === 1 ? 'result' : 'results'}`;
   });
 
   /** Keyboard + workflow tricks most customers never discover on their own. */
   readonly tips: readonly Tip[] = [
     { glyph: 'command', text: 'Press ⌘K (or Ctrl+K) to jump to any section or action instantly.' },
     { glyph: 'search', text: 'Press / to focus this search and filter every section as you type.' },
-    { glyph: 'star', text: 'Hover a card and tap the ☆ to pin your most-used sections to the top.' },
+    {
+      glyph: 'star',
+      text: 'Hover a card and tap the ☆ to pin your most-used sections to the top.',
+    },
     { glyph: 'image', text: 'Drag a file onto any admin page to add it to your Media library.' },
   ];
 
@@ -1025,7 +1331,13 @@ export class AdminDashboardComponent {
     if (!q) return [{ pre: label, hit: '', post: '' }];
     const idx = label.toLowerCase().indexOf(q.toLowerCase());
     if (idx < 0) return [{ pre: label, hit: '', post: '' }];
-    return [{ pre: label.slice(0, idx), hit: label.slice(idx, idx + q.length), post: label.slice(idx + q.length) }];
+    return [
+      {
+        pre: label.slice(0, idx),
+        hit: label.slice(idx, idx + q.length),
+        post: label.slice(idx + q.length),
+      },
+    ];
   }
 
   clear(): void {
@@ -1038,7 +1350,9 @@ export class AdminDashboardComponent {
   }
 
   toggleFav(link: string): void {
-    const next = this.isFav(link) ? this.favorites().filter((l) => l !== link) : [...this.favorites(), link];
+    const next = this.isFav(link)
+      ? this.favorites().filter((l) => l !== link)
+      : [...this.favorites(), link];
     this.favorites.set(next);
     this.writeList(FAV_KEY, next);
   }
@@ -1137,10 +1451,42 @@ export class AdminDashboardComponent {
 
   cwvPills(m: SnapshotMetrics): CwvPill[] {
     return [
-      { key: 'lcp', label: 'LCP', rawValue: m.lcp_ms, formatted: this.formatMs(m.lcp_ms), tier: this.cwvTier(m.lcp_ms, 2500, 4000), budget: 4000, tooltip: 'Largest Contentful Paint. Good ≤2.5s · poor >4.0s.' },
-      { key: 'cls', label: 'CLS', rawValue: m.cls,    formatted: this.formatCls(m.cls),   tier: this.cwvTier(m.cls,    0.1,  0.25), budget: 0.25, tooltip: 'Cumulative Layout Shift. Good ≤0.1 · poor >0.25.' },
-      { key: 'inp', label: 'INP', rawValue: m.inp_ms, formatted: this.formatMs(m.inp_ms), tier: this.cwvTier(m.inp_ms, 200,  500),  budget: 500,  tooltip: 'Interaction to Next Paint. Good ≤200ms · poor >500ms.' },
-      { key: 'tbt', label: 'TBT', rawValue: m.tbt_ms, formatted: this.formatMs(m.tbt_ms), tier: this.cwvTier(m.tbt_ms, 200,  600),  budget: 600,  tooltip: 'Total Blocking Time. Good ≤200ms · poor >600ms.' },
+      {
+        key: 'lcp',
+        label: 'LCP',
+        rawValue: m.lcp_ms,
+        formatted: this.formatMs(m.lcp_ms),
+        tier: this.cwvTier(m.lcp_ms, 2500, 4000),
+        budget: 4000,
+        tooltip: 'Largest Contentful Paint. Good ≤2.5s · poor >4.0s.',
+      },
+      {
+        key: 'cls',
+        label: 'CLS',
+        rawValue: m.cls,
+        formatted: this.formatCls(m.cls),
+        tier: this.cwvTier(m.cls, 0.1, 0.25),
+        budget: 0.25,
+        tooltip: 'Cumulative Layout Shift. Good ≤0.1 · poor >0.25.',
+      },
+      {
+        key: 'inp',
+        label: 'INP',
+        rawValue: m.inp_ms,
+        formatted: this.formatMs(m.inp_ms),
+        tier: this.cwvTier(m.inp_ms, 200, 500),
+        budget: 500,
+        tooltip: 'Interaction to Next Paint. Good ≤200ms · poor >500ms.',
+      },
+      {
+        key: 'tbt',
+        label: 'TBT',
+        rawValue: m.tbt_ms,
+        formatted: this.formatMs(m.tbt_ms),
+        tier: this.cwvTier(m.tbt_ms, 200, 600),
+        budget: 600,
+        tooltip: 'Total Blocking Time. Good ≤200ms · poor >600ms.',
+      },
     ];
   }
 }
