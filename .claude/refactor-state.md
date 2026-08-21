@@ -946,3 +946,10 @@ Fold → `npx tsc --noEmit` 0 → full jest slice → ONE wrangler deploy → de
 - 8 parallel honest-write agents + 1 mcp_oauth auditor dispatched; ALL mutators failed `subagent_tokens: 0` — the shared CLAUDE.md-heavy repo saturates fresh subagent context in this deep session. Per [[parallel-subagent-economy]] saturation doctrine: checkpointed (above), NO retry in-session.
 - The mcp_oauth audit agent (security-reviewer) was the last spawned — its findings land via notification if it completes; fold into the queued wave's fix list.
 - **NEXT TARGET:** a FRESH session executing the queued wave above, verbatim.
+
+## 🔧 iter 246 (security-review wave fold — Vercel marketplace IDOR CLOSED, deployed)
+
+- **The security-reviewer's HIGH finding landed and was fixed + deployed same fire** (`9178d84b`): the unauthenticated Vercel-marketplace callback wrote `mcp_connections` keyed on the CLIENT-supplied `configurationId` with `ON CONFLICT DO UPDATE` — any Vercel user could clobber a victim's connection row with their own token (victim's site then ran Vercel API calls as the attacker). Now the row key = the exchange-returned `installation_id`; a mismatched client id → 403 before any write; a missing installation_id → 502. 3 regression tests RED→GREEN (31/31 — the branch had zero coverage). Worker deployed `3bd24611`; prod E2E 17/17.
+- **Subagent saturation confirmed structural**: all 8 honest-write mutators died `subagent_tokens: 0` (CLAUDE.md-heavy repo + deep session). The queued wave (iter 245 entry) remains the fresh-session handoff — this fire folded the highest-value single unit INLINE instead (the IDOR), which is the correct pattern: main-thread mechanical fixes, no re-fan-out.
+- **The security-reviewer's MEDIUM findings are queued** for the fresh-session wave: (1) Discord/Zapier paste-key URL validation (SSRF read/write into the LLM tool path, mcp_client.ts:584/953), (2) state SELECT-then-DELETE → atomic `DELETE ... RETURNING`.
+- **NEXT TARGET:** fresh session → execute the queued honest-write wave (iter 245 table) + the two SSRF/atomic-state MEDIUM fixes above.
