@@ -920,3 +920,29 @@ Brian: *"delete all other things that are dead weight and address the fact that 
 - Worker deployed `491c28a0`; tsc 0; prod E2E 17/17 (health + admin-mcp surfaces).
 - **⚠️ Journey v16/v17 both hit BUILD_LIMIT_RETRY again** (concurrent journeys hold the slot); v15's GREEN stands as this week's acceptance proof.
 - **NEXT TARGET:** the `mcp_oauth.ts` (22KB) paste-key + PKCE flow — the remaining MCP surface — OR the fresh admin browser chaos pass (the pre-drawer-refactor sweep is stale).
+
+## 🚀 WAVE QUEUED — honest-write class close-out (BLOCKED by session saturation, execute in a FRESH session)
+
+**Scope scan verdict:** 21 bare `dbInsert` + 6 bare `dbExecute` sites across 16 files remain (the lying-success class, detectors: `scripts/check-unchecked-dbinsert.mjs` + `check-unchecked-dbexecute.mjs`). Plus the `mcp_oauth.ts` read-only audit. All 8 mutator agents hit `subagent_tokens: 0` ("Prompt is too long") this session — the saturation HARD STOP. Do NOT retry in-session; run this wave in a fresh session (the recipe below is complete — fire 8 tiny-brief agents, fold, one deploy).
+
+**Recipe per unit** (all sites verified 2026-08-20): capture `const { error } = await dbX(...)`, on error match the file's existing convention (warn JSON or throw), success-path identical, one regression test per site (mock `{error:'D1 write failed'}`), jest single-arg-expect only, verify `npx tsc --noEmit` 0 + detector greps empty per file. Never touch src/services/db.ts (line 223 = the helper itself) or lago/langfuse/concurrent-owned files.
+
+| Unit | Files + sites |
+|---|---|
+| 1 | src/auth/better-auth.ts 104/112/118 (dark — capture+warn only); src/services/db_shards.ts 85 (dbExecute) |
+| 2 | src/routes/api.ts 9167/9341/10590/10933/11097 (dbInsert) |
+| 3 | src/services/claim_links.ts 58 (insert) + 88 (dbExecute update); claim_session_store.ts 96 |
+| 4 | src/services/benchmark.ts 259; domain_stack.ts 90; weekly_digest.ts 464 |
+| 5 | src/services/site_branches.ts 83 + 207; workflows/social-publish.ts 360 (audit write — warn min) |
+| 6 | src/services/sms_agent.ts 74/288 (insert) + 304 (dbExecute update); task_inbox.ts 330 (dbExecute delete — error-only, no changes===0) |
+| 7 | libs/features/abuse_takedown/service.ts 42; wireframe_planning/service.ts 47 |
+| 8 | libs/features/platform_mcp/handlers.ts 129; batch_operations/service.ts 33 (insert) + 39 (update) |
+| 9 (audit, read-only) | src/routes/mcp_oauth.ts PKCE/state-consumption/open-redirect/paste-key Zod — findings → next fix wave |
+
+Fold → `npx tsc --noEmit` 0 → full jest slice → ONE wrangler deploy → detector greps ALL empty → commit explicit paths.
+
+## 🔧 iter 245 (wave launch attempt — saturation hard stop, honest checkpoint)
+
+- 8 parallel honest-write agents + 1 mcp_oauth auditor dispatched; ALL mutators failed `subagent_tokens: 0` — the shared CLAUDE.md-heavy repo saturates fresh subagent context in this deep session. Per [[parallel-subagent-economy]] saturation doctrine: checkpointed (above), NO retry in-session.
+- The mcp_oauth audit agent (security-reviewer) was the last spawned — its findings land via notification if it completes; fold into the queued wave's fix list.
+- **NEXT TARGET:** a FRESH session executing the queued wave above, verbatim.
