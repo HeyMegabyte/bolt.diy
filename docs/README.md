@@ -6,9 +6,7 @@ Canonical documentation for projectsites.dev. The published MkDocs site builds f
 ## Start here
 
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — shipped Worker topology, data flow, D1 schema, Fly/Cloudflare split, as-deployed map
-- [`STACK.md`](./STACK.md) — tooling matrix + convergence work items
 - [`DEPLOYMENT.md`](./DEPLOYMENT.md) — auth chain, bindings, smoke-test matrix, rollback, Fly runbook, post-deploy verification
-- [`REQUIREMENTS.md`](./REQUIREMENTS.md) — requirement checklist (built / deferred)
 - [`SUBDOMAINS.md`](./SUBDOMAINS.md) — public subdomain/service map
 - [`TESTING.md`](./TESTING.md) — Jest + Playwright guide
 
@@ -22,7 +20,6 @@ Canonical documentation for projectsites.dev. The published MkDocs site builds f
 
 - [`OBSERVABILITY.md`](./OBSERVABILITY.md) — logging, OTel, PostHog, Sentry, Axiom, ClickHouse/Tinybird, AI-observability
 - [`SERVICES-AND-SOCIAL.md`](./SERVICES-AND-SOCIAL.md) — native social + Postiz, Chatwoot support
-- [`FEATURE-IDEAS.md`](./FEATURE-IDEAS.md) — consolidated feature backlog (IDE / payments / KB chat / benchmarks / editor)
 
 ## Policy (repo-delta; canonical doctrine in `~/.agentskills`)
 
@@ -31,6 +28,6 @@ Canonical documentation for projectsites.dev. The published MkDocs site builds f
 ## Decisions
 
 - [`../DECISIONS.md`](../DECISIONS.md) — root architecture ADR log (0001–0011)
-- [`../apps/project-sites/docs/adr/`](../DECISIONS.md) — convergence ADR series
+- [`../apps/project-sites/docs/decisions/`](../apps/project-sites/docs/decisions/) — convergence ADR series
 
 The Worker's own deep docs live in [`../apps/project-sites/docs/`](../apps/project-sites/docs/).
