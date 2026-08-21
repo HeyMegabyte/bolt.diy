@@ -5087,7 +5087,6 @@ api.post('/api/sites/:id/publish-bolt', async (c) => {
   });
 });
 
-
 // ─── Admin Domain Management Routes ─────────────────────────
 
 // NOTE: `GET /api/admin/domains` (org-wide hostname list) is served by aiAdmin
