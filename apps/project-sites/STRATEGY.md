@@ -1,7 +1,7 @@
 # Strategy — Agent-native positioning + Edge-hosting thesis
 
 > Consolidated (folded from AGENT_NATIVE_POSITIONING.md + EDGE_HOSTING_STRATEGY.md, 2026-06-27).
-> Actionable items flow to ROADMAP.md; this is the durable positioning + thesis reference.
+> Actionable items flow to `_LOOP_LEDGER.md`; this is the durable positioning + thesis reference.
 
 ---
 
@@ -11,7 +11,7 @@
 
 > Canonical positioning + the agent-grade feature backlog for projectsites.dev.
 > Authored 2026-06-17. Pricing model + curated ideas integrated from the AI-native
-> positioning pass. Actionable items flow into `ROADMAP.md`; this file is the WHY +
+> positioning pass. Actionable items flow into `_LOOP_LEDGER.md`; this file is the WHY +
 > the full idea catalog. Statuses live in `libs/features/CATALOG.md`.
 
 ---
@@ -240,12 +240,12 @@ no competitor ships. These are the moat. (Build behind flags per feature-module 
 36. **Deploy target in agent IDEs** — Cursor/Windsurf/Replit/Bolt/Lovable "deploy to projectsites." 37. **Consume others' MCPs inside builds** (Stripe/Resend/Notion via the OAuth layer → richer sites).
 38. **Model marketplaces** — OpenRouter / HF Spaces demo via AI Gateway. 39. **Agent-commerce rails** — agentic-checkout so an agent can buy a $50/mo site. 40. **Verification/badge programs** — "Works with Claude," OpenAI/Google partner badges, MCP "verified server."
 
-**Eligibility bundle (#6-#10) first** — ship once → ~15 listings become possible. Then prep #1/#2/#11 artifacts (do not submit). All `platform_mcp`-adjacent; track in `ROADMAP.md`.
+**Eligibility bundle (#6-#10) first** — ship once → ~15 listings become possible. Then prep #1/#2/#11 artifacts (do not submit). All `platform_mcp`-adjacent; track in `_LOOP_LEDGER.md`.
 
 ---
 
-> See `ROADMAP.md` for the priority-ordered, $-sorted build queue (these items land there as
-> flagged modules). Capital-efficiency program: `ROADMAP.md` § Capital efficiency.
+> See `_LOOP_LEDGER.md` for the consolidated build queue (these items land there as
+> flagged modules).
 
 
 ---
