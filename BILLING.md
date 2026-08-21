@@ -305,7 +305,7 @@ tenant's responsibility, surfaced at onboarding:
 > collecting and remitting any applicable sales tax, VAT, or GST. We do not collect tax
 > on your behalf."
 
-Stripe Tax integration is on BACKLOG.md for v1.1. When shipped, tenants opt in per-site,
+Stripe Tax integration is planned for v1.1. When shipped, tenants opt in per-site,
 and we charge a flat 0.5% platform tax-handling fee on top of Stripe Tax's own fee.
 
 ---
@@ -431,5 +431,4 @@ any webhook drops. Mismatches fire a Sentry alert.
 - [ADR-0004](./DECISIONS.md#adr-0004) — Stripe Link exclusively
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — webhook handler topology
 - [SECURITY.md](./SECURITY.md) — Stripe webhook signature verification + secret handling
-- [BACKLOG.md](./BACKLOG.md) — Stripe Tax, Square fallback, Enterprise tier work
 - `~/.claude/plugins/heymegabyte-claude-skills/rules/payments-routing.md` — global rule + this exception

@@ -893,7 +893,6 @@ Links to docs, RFCs, sibling ADRs.
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — current topology reflecting all accepted ADRs
 - [BILLING.md](./BILLING.md) — implements ADR-0004
 - [SECURITY.md](./SECURITY.md) — what's shipped vs what's deferred
-- [apps/project-sites/FEATURE_CATALOG.md](./apps/project-sites/FEATURE_CATALOG.md) § Ideas backlog — v2+ candidates (BACKLOG.md/_IDEAS.md dissolved into it)
 
 ## ADR-0009 — Cost guardrails + deferred scope (merged from WONT_BUILD_YET.md, 2026-06-17)
 
