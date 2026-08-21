@@ -2,7 +2,7 @@
  * @module services/analytics_tracker
  *
  * Builds the client-side beacon `<script>` injected into every served site so
- * page events reach `POST /api/events` (Plane H of `_CONVERGENCE_BACKLOG.md`).
+ * page events reach `POST /api/events`.
  * This closes the "Analytics tab shows nothing" gap whose #1 cause is a site
  * with NO tracking code. Pure + deterministic → unit-testable; the serve path
  * supplies the `siteId` and injects the returned string before `</body>`.

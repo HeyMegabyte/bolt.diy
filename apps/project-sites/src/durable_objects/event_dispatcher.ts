@@ -1,7 +1,7 @@
 /**
  * @module durable_objects/event_dispatcher
  *
- * Per-site Unified Analytics dispatcher (Plane H of `_CONVERGENCE_BACKLOG.md`).
+ * Per-site Unified Analytics dispatcher.
  * One Durable Object instance per `siteId` (`idFromName(siteId)`) → lock-free
  * dedup + ordered batching. It is a THIN shell composing seven already-tested
  * primitives:

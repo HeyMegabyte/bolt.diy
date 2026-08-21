@@ -1,8 +1,8 @@
 /**
  * @module services/analytics_events
  *
- * The contract + provider transforms for the Unified Analytics ingestion plane
- * (Plane H of `_CONVERGENCE_BACKLOG.md`). Single source of truth (Zod) for the
+ * The contract + provider transforms for the Unified Analytics ingestion plane.
+ * Single source of truth (Zod) for the
  * event shape accepted at `POST /api/events`, plus the PURE mappers that turn
  * one generic event into each downstream provider's payload — so the
  * `EventDispatcher` Durable Object NEVER forwards a raw event to all four.
