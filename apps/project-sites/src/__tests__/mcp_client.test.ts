@@ -153,6 +153,36 @@ describe('loadConnections', () => {
     const { env } = envWithRows([]);
     expect(await loadConnections(env, 'site-x')).toEqual([]);
   });
+
+  // The skip keeps the surface alive (partial outage never blocks the tool
+  // router), but a decrypt failure is DEGRADED — it must be observable, never
+  // invisible: the skip still returns a connection-less surface, and the
+  // operator must be able to see WHY (missing/rotated MCP_ENCRYPTION_KEY reads
+  // as an honest-empty "no tools" surface otherwise).
+  it('emits a structured warn per skipped decrypt failure (degraded = logged)', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      mockDecrypt.mockResolvedValueOnce('ok-token').mockRejectedValueOnce(new Error('bad key'));
+      const { env } = envWithRows([
+        { provider: 'stripe', access_token_encrypted: 'good', account_metadata_json: null },
+        { provider: 'slack', access_token_encrypted: 'bad', account_metadata_json: null },
+      ]);
+      const conns = await loadConnections(env, 'site-1');
+      expect(conns).toHaveLength(1); // the skip contract is unchanged
+
+      const warns = warnSpy.mock.calls
+        .map((c) => c[0])
+        .filter((a): a is string => typeof a === 'string')
+        .map((w) => JSON.parse(w) as Record<string, unknown>)
+        .filter((w) => w.service === 'mcp_client');
+      expect(warns).toHaveLength(1);
+      expect(warns[0]?.message).toBe('mcp_connection_decrypt_failed');
+      expect(warns[0]?.provider).toBe('slack');
+      expect(String(warns[0]?.error)).toContain('bad key');
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
 });
 
 describe('loadAvailableTools', () => {

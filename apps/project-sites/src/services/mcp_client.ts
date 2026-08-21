@@ -1157,8 +1157,21 @@ export async function loadConnections(
         accessToken: token,
         metadata: safeParseJSON<Record<string, unknown>>(r.account_metadata_json, {}),
       });
-    } catch {
-      /* skip rows that fail to decrypt (likely missing key in dev) */
+    } catch (err) {
+      // The row is skipped so a partial outage never blocks the whole tool
+      // surface — but the skip must be OBSERVABLE: a missing/rotated
+      // MCP_ENCRYPTION_KEY would otherwise read as an honest-empty
+      // "no tools connected" surface with zero operator signal
+      // (degraded = logged, never invisible).
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'mcp_client',
+          message: 'mcp_connection_decrypt_failed',
+          provider: r.provider,
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
     }
   }
   return out;
