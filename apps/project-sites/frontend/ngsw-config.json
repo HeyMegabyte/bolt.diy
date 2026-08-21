@@ -50,7 +50,11 @@
   "dataGroups": [
     {
       "name": "ps-api-cache",
-      "urls": ["/api/sites", "/api/auth/me", "/api/billing/entitlements"],
+      "urls": [
+        "/api/sites",
+        "/api/auth/me",
+        "/api/billing/entitlements"
+      ],
       "cacheConfig": {
         "strategy": "freshness",
         "maxSize": 64,
@@ -61,7 +65,6 @@
     {
       "name": "ps-api-no-cache",
       "urls": [
-        "/api/analytics/**",
         "/api/sites/*/snapshots",
         "/api/sites/*/form-submissions",
         "/api/audit-logs",

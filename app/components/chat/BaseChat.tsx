@@ -531,11 +531,11 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
           <div
             className={classNames(
               styles.Chat,
-              'flex flex-col h-full w-full order-first shrink-0 lg:w-[calc(50%-1px)] lg:min-w-[min(50%,520px)] border-r border-bolt-elements-borderColor overflow-hidden',
+              'flex flex-col h-full w-full order-first shrink-0 lg:w-[calc(50%-1px)] lg:min-w-[min(50%,520px)] border-0 overflow-hidden',
               // Mobile (<1024px): the chat becomes a full-screen slide-over
               // panel toggled by the Workbench's "Chat" tab (same tab strip as
               // Code/Preview/Functions/Data) — never both squeezed side-by-side.
-              'max-lg:absolute max-lg:inset-0 max-lg:z-50 max-lg:border-r-0 max-lg:transition-transform max-lg:duration-300 max-lg:bolt-ease-cubic-bezier',
+              'max-lg:absolute max-lg:inset-0 max-lg:z-50 max-lg:transition-transform max-lg:duration-300 max-lg:bolt-ease-cubic-bezier',
               mobileChatOpen ? 'max-lg:translate-x-0' : 'max-lg:translate-x-full',
             )}
           >

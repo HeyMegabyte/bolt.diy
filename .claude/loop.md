@@ -14,6 +14,7 @@
 > 7. **Parallelize by default — MANY agents, a lot shipped fast** (Brian, 2026-08-17). Each iteration decomposes into independent work units and fans out **3-6 parallel agents in ONE message** (`monitor-orchestration` + `parallel-subagent-economy`), worktree-isolated when they mutate shared product files. The 5 master journeys (`chaos-1..5`) are the canonical independent fan-out unit — one agent per journey. Serial ONLY for a true dependency chain or a single shared hot file. Grinding one-thing-at-a-time serially, when independent units exist, is the anti-pattern this kills. Main thread orchestrates + folds + deploys once + verifies; agents never deploy independently.
 > 8. **Coverage is INVENTORY-FIRST and EXHAUSTIVE, not file-first** (Brian, 2026-08-17 — said several ways). Do NOT just "polish the existing specs." (a) Build/maintain the COMPLETE inventory of every actionable element in the product — every button, icon-button, link, nav item, tab, dropdown item, toggle, checkbox, radio, form submit, filter, sort, pagination, bulk action, keyboard shortcut, modal, destructive/undo/retry action. (b) PARTITION the whole inventory across the ~5 master journeys so EVERY actionable element is pressed AND its business result asserted in ≥1 journey. (c) A coverage matrix (element → journey) in `.claude/refactor-state.md` is the exit gate — an orphaned actionable element = NOT done. (d) Journeys STITCH elements into long realistic stories (mutate → navigate → return → hard-refresh → assert persistence → assert cross-feature effect), never isolated cases. File-first polishing that leaves buttons untested is the anti-pattern this kills.
 > 9. **Subagent-context caveat (mechanism).** This repo's `CLAUDE.md` is large; fresh subagents thrash context and die at `subagent_tokens: 0` if told to "go read the app and figure it out." So: build the actionable-element INVENTORY and one SHARED journey-helper (real-auth seed, `goto('/')`, console-error gate, prod config) in the MAIN thread FIRST; then hand each fan-out agent a TINY brief (its exact element slice + the helper path + near-zero reads). If agents keep thrashing, author the journeys in the main thread serially — a landed journey beats a thrashed fan-out.
+> 10. **BROWSER-VERIFY must be a HUMAN-LIKE ADMIN CLICK-AROUND, not a route sweep** (Brian 2026-08-20). Interactive surfaces (domain picker + "Show me different ones", dialogs, switchers), `requestfailed` collection (the ONLY deterministic signal for SW-rejected FetchEvents / aborted egress / CORP+CSP-blocked beacons), and a minimal console-error allowlist that NEVER exempts CORP / SW "Failed to fetch" / CSP / Trusted-Types. Every finding → root-cause fix + permanent regression spec (`frontend/e2e/admin-clickaround-errors.e2e.ts`). Full recipe: § BROWSER-VERIFY 9.1 below.
 >
 > The `OUTSIDE-IN TDD` / `ACCEPTANCE TESTS TEST STORIES NOT PAGES` / `E2E TEST COMPLETENESS STANDARD` sections below are the HOW. This block promotes them to TOP priority so they stop getting skipped for cheap wins. Cross-ref memory `feedback_loop_verifies_real_flows_not_programs` + `feedback_mocked_render_is_not_green` + `feedback_loop_uses_parallel_agents`.
 
@@ -365,6 +366,40 @@ Run appropriate automated verification.
 ## 9. BROWSER-VERIFY
 
 Exercise meaningful user-facing functionality through a real browser.
+
+### 9.1 HUMAN-LIKE ADMIN CLICK-AROUND (Brian directive 2026-08-20 — every iteration)
+
+The loop's own E2E suites were route-shallow: they loaded each `/admin/*` route,
+asserted the sidebar, and moved on. Brian clicked around like a human and found
+FOUR real defects the suites had walked past for weeks (domains/suggest 400 on
+slug-style site ids, "Show me different ones" dead from a `{results}` vs
+`{suggestions}` response-key mismatch, service-worker-rejected analytics
+FetchEvents, CORP-blocked PostHog/GTM beacons from a document-level COEP). A
+render-asserting sweep CANNOT see these — they live in network-failure +
+console-error space, not DOM space.
+
+Every iteration's BROWSER-VERIFY step MUST include the human-like click-around:
+
+1. **Real browser, real session** (Browserbase-as-brian or prod Playwright with the
+   `E2E_API_KEY` ps_session seed) — start at `/admin`, navigate by CLICKING the UI.
+2. **Open interactive surfaces**, not just routes: the domain picker (open it,
+   wait for AI suggestions, click "Show me different ones ↻", Escape), site switcher,
+   section tabs, dialogs, toasts, the ⌘K palette — the surfaces a human touches.
+3. **Collect NETWORK-FAILURE signals** (`page.on('requestfailed')`) across the whole
+   journey — this is the only deterministic signal for service-worker-rejected
+   FetchEvents, aborted egress, and CSP/CORP-blocked beacons. DOM assertions are
+   blind to all three.
+4. **Collect CONSOLE errors with a MINIMAL allowlist** — never allowlist CORP
+   violations, SW "Failed to fetch", CSP violations, or Trusted-Types errors;
+   only truly-benign items (bolt-iframe origin, no-data 404s, SAB warning).
+5. **Any finding → fix root cause → convert to a PERMANENT regression spec**
+   (`frontend/e2e/admin-clickaround-errors.e2e.ts` is the canonical home) → keep
+   the click-around green every fire.
+
+Reference incident 2026-08-20: the four defects above shipped because
+BROWSER-VERIFY asserted DOM render-integrity, never request-failure or
+console-error hygiene during an interactive journey. The regression spec +
+this doctrine section close that class.
 
 ## 10. ADVERSARIAL REVIEW
 

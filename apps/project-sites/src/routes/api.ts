@@ -5693,9 +5693,23 @@ api.post('/api/domains/register', async (c) => {
 
 // ─── AI Domain Suggester (dropdown-fill endpoint) ───────────
 
+/**
+ * Site PKs are MIXED-format in prod: real UUID rows coexist with legacy
+ * slug-style ids (`e2e-site-1`, `site-megabytespace-001`). `.uuid()` here
+ * 400'd every slug-id site's domain picker — validate SHAPE only; the
+ * ownership guard below is the real gate (404 on missing/foreign, never
+ * leak existence). Reference incident 2026-08-20.
+ */
+const siteIdSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(80)
+  .regex(/^[a-zA-Z0-9._-]+$/, 'site_id must be a valid site id');
+
 /** Zod input for the GET suggest endpoint. */
 const suggestQuerySchema = z.object({
-  site_id: z.string().uuid('site_id must be a UUID'),
+  site_id: siteIdSchema,
   count: z.coerce.number().int().min(1).max(20).optional(),
   query: z.string().trim().max(63).optional(),
   refresh: z.union([z.literal('true'), z.literal('false')]).optional(),
@@ -5703,7 +5717,7 @@ const suggestQuerySchema = z.object({
 
 /** Zod body for the POST refine endpoint. */
 const suggestRefineSchema = z.object({
-  site_id: z.string().uuid('site_id must be a UUID'),
+  site_id: siteIdSchema,
   feedback: z.string().trim().max(400).optional(),
   exclude_domains: z.array(z.string().trim().toLowerCase()).max(40).optional(),
   count: z.number().int().min(1).max(20).optional(),
@@ -8807,15 +8821,18 @@ async function queryGa4DataApi(
     .replace(/=+$/, '');
   const jwt = `${header}.${payload}.${signatureB64}`;
 
-  // Exchange JWT for access token
+  // Exchange JWT for access token. 8s bound — a hung Google egress used to
+  // hold /api/analytics/:siteId past the service worker's 30s freshness
+  // timeout, rejecting the FetchEvent (SW "Failed to fetch", 2026-08-20).
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+    signal: AbortSignal.timeout(8000),
   });
   const tokenData = (await tokenRes.json()) as { access_token: string };
 
-  // Run GA4 Data API report
+  // Run GA4 Data API report (8s bound — same reasoning as above).
   const reportRes = await fetch(
     `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
     {
@@ -8824,6 +8841,7 @@ async function queryGa4DataApi(
         Authorization: `Bearer ${tokenData.access_token}`,
         'Content-Type': 'application/json',
       },
+      signal: AbortSignal.timeout(8000),
       body: JSON.stringify({
         dateRanges: [{ startDate: `${days}daysAgo`, endDate: 'today' }],
         dimensions: [

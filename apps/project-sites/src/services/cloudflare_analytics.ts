@@ -174,6 +174,8 @@ export async function loadSiteTraffic(env: Env, slug: string, days = 7): Promise
     }
   `;
 
+  // 8s bound — a hung GraphQL egress used to hold /api/analytics/:siteId past
+  // the service worker's 30s freshness timeout, rejecting the FetchEvent.
   const res = await fetch('https://api.cloudflare.com/client/v4/graphql', {
     method: 'POST',
     headers: {
@@ -184,6 +186,7 @@ export async function loadSiteTraffic(env: Env, slug: string, days = 7): Promise
       query,
       variables: { zoneTag: env.CF_ZONE_ID, since, until, host },
     }),
+    signal: AbortSignal.timeout(8000),
   });
   if (!res.ok) {
     const body = await res.text();

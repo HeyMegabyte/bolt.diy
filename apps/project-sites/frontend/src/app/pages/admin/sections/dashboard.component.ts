@@ -368,6 +368,13 @@ const RECENT_KEY = 'ps_dash_recents';
         font: inherit;
         font-size: 1rem;
       }
+      /* No focus/focus-visible outline on the input — the wrapping search bar
+         provides the affordance. Brian directive 2026-08-20. */
+      .search-input:focus,
+      .search-input:focus-visible {
+        outline: none !important;
+        box-shadow: none !important;
+      }
       .search-input::placeholder {
         color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 45%, transparent);
       }
@@ -953,9 +960,7 @@ export class AdminDashboardComponent {
     title: 'More tools',
     cards: [
       { label: 'Mail', desc: 'Self-hosted Listmonk — newsletters, campaigns, and transactional email.', link: 'https://mail.projectsites.dev', glyph: 'mail', keywords: ['email', 'listmonk', 'newsletter', 'campaigns'], external: true },
-      { label: 'Plane', desc: 'Open-source project management — issues, cycles, and modules.', link: 'https://pm.projectsites.dev', glyph: 'briefcase', keywords: ['pm', 'plane', 'issues', 'cycles', 'projects'], external: true },
       { label: 'CRM', desc: 'Twenty CRM — contacts, companies, deals, and workflows.', link: 'https://crm.projectsites.dev', glyph: 'users', keywords: ['twenty', 'crm', 'contacts', 'deals', 'sales'], external: true },
-      { label: 'Unkey', desc: 'API key management, rate limiting, and usage metering.', link: 'https://api.projectsites.dev', glyph: 'key', keywords: ['api', 'keys', 'rate-limit', 'metering'], external: true },
       { label: 'Social', desc: 'Postiz social scheduler — compose, schedule, measure across networks.', link: 'https://social.projectsites.dev', glyph: 'send', keywords: ['postiz', 'posts', 'schedule', 'social-media'], external: true },
       { label: 'Events', desc: 'Inngest durable workflows — event-driven background jobs.', link: 'https://events.projectsites.dev', glyph: 'zap', keywords: ['inngest', 'workflows', 'jobs', 'queues'], external: true },
       { label: 'CMS', desc: 'Payload CMS — headless content management for teams.', link: 'https://cms.projectsites.dev', glyph: 'file-text', keywords: ['payload', 'content', 'headless', 'cms'], external: true },

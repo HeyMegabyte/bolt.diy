@@ -236,86 +236,6 @@ const LOW_BALANCE_CENTS = 500;
         from { opacity: 0; transform: translateY(-6px) scale(0.985); }
         to { opacity: 1; transform: translateY(0) scale(1); }
       }
-      .dp-wallet {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 8px 12px;
-        border-radius: var(--ps-radius-md, 12px);
-        font-size: 0.74rem;
-        line-height: 1.3;
-      }
-      .dp-wallet--active {
-        background: color-mix(in oklch, var(--ps-accent, #00e5ff) 7%, transparent);
-        border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 22%, transparent);
-        color: var(--ps-ink, #f4f4ff);
-      }
-      .dp-wallet--low {
-        background: color-mix(in oklch, #f59e0b 12%, transparent);
-        border-color: color-mix(in oklch, #f59e0b 35%, transparent);
-      }
-      .dp-wallet--cta {
-        background: linear-gradient(
-          135deg,
-          color-mix(in oklch, var(--ps-accent, #00e5ff) 14%, transparent),
-          color-mix(in oklch, #7c3aed 14%, transparent)
-        );
-        border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 30%, transparent);
-        color: var(--ps-ink, #f4f4ff);
-      }
-      .dp-wallet-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--ps-accent, #00e5ff);
-        box-shadow: 0 0 8px var(--ps-accent, #00e5ff);
-        flex-shrink: 0;
-      }
-      .dp-wallet--low .dp-wallet-dot {
-        background: #f59e0b;
-        box-shadow: 0 0 8px #f59e0b;
-      }
-      .dp-wallet-line {
-        flex: 1;
-        min-width: 0;
-      }
-      .dp-wallet-line strong {
-        color: var(--ps-accent, #00e5ff);
-        font-weight: 600;
-      }
-      .dp-wallet-link {
-        color: var(--ps-accent, #00e5ff);
-        text-decoration: none;
-        font-size: 0.7rem;
-        font-weight: 600;
-        padding: 2px 8px;
-        border: 1px solid color-mix(in oklch, var(--ps-accent, #00e5ff) 35%, transparent);
-        border-radius: 4px;
-        transition: background 0.14s, border-color 0.14s;
-      }
-      .dp-wallet-link:hover {
-        background: color-mix(in oklch, var(--ps-accent, #00e5ff) 14%, transparent);
-        border-color: var(--ps-accent, #00e5ff);
-      }
-      .dp-wallet-cta {
-        padding: 5px 12px;
-        font-size: 0.72rem;
-        font-weight: 600;
-        color: var(--ps-bg, #060610);
-        background: linear-gradient(135deg, var(--ps-accent, #00e5ff), #7c3aed);
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        transition: filter 0.14s, transform 0.14s;
-      }
-      .dp-wallet-cta:not(:disabled):hover {
-        filter: brightness(1.1);
-        transform: translateY(-1px);
-      }
-      .dp-wallet-cta:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
       .dp-search {
         display: flex;
         align-items: center;
@@ -852,39 +772,6 @@ const LOW_BALANCE_CENTS = 500;
           aria-label="Domain picker"
           (keydown)="onPanelKeydown($event)"
         >
-          <!-- 0. Wallet status strip — always visible at the top. -->
-          @if (wallet().has_wallet) {
-            <div class="dp-wallet dp-wallet--active" [class.dp-wallet--low]="wallet().balance_cents < LOW_BALANCE_CENTS">
-              <span class="dp-wallet-dot" aria-hidden="true"></span>
-              <span class="dp-wallet-line">
-                <strong>Wallet: {{ formatUsd(wallet().balance_cents) }}</strong>
-                · {{ formatUsd(wallet().monthly_topup_cents) }}/mo
-                @if (wallet().default_card_last4) {
-                  · card ••••&nbsp;{{ wallet().default_card_last4 }}
-                }
-              </span>
-              <a class="dp-wallet-link" routerLink="/admin/billing" (click)="close()">Manage</a>
-            </div>
-          } @else {
-            <div class="dp-wallet dp-wallet--cta">
-              <span class="dp-wallet-line">
-                Start a $50/mo wallet to unlock one-click domain buys.
-              </span>
-              <button
-                type="button"
-                class="dp-wallet-cta"
-                [disabled]="walletCheckoutLoading()"
-                (click)="startWallet()"
-              >
-                @if (walletCheckoutLoading()) {
-                  Opening…
-                } @else {
-                  Start wallet
-                }
-              </button>
-            </div>
-          }
-
           <!-- 1. Auto-focused search input. -->
           <div class="dp-search">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1139,9 +1026,6 @@ export class DomainPickerComponent implements OnDestroy {
   @ViewChild('searchInput', { static: false }) searchInput?: ElementRef<HTMLInputElement>;
   @ViewChild('panel', { static: false }) panel?: ElementRef<HTMLDivElement>;
 
-  /** Exposed for template — threshold below which the wallet pill flips amber. */
-  readonly LOW_BALANCE_CENTS = LOW_BALANCE_CENTS;
-
   /** Skeleton-row range — 10 placeholders while AI suggestions load. */
   readonly skeletonRange = Array.from({ length: AI_SUGGESTION_COUNT }, (_, i) => i);
 
@@ -1154,7 +1038,6 @@ export class DomainPickerComponent implements OnDestroy {
   suggestionsLoading = signal(false);
   refining = signal(false);
   registering = signal<string | null>(null);
-  walletCheckoutLoading = signal(false);
 
   hostnames = signal<Hostname[]>([]);
   suggestions = signal<DomainSuggestion[]>([]);
@@ -1346,11 +1229,14 @@ export class DomainPickerComponent implements OnDestroy {
     this.suggestionsLoading.set(true);
     try {
       const res = await this.fetchSuggestEndpoint(`/domains/suggest?site_id=${encodeURIComponent(siteId)}&count=${AI_SUGGESTION_COUNT}`, 'GET');
-      const results = (res?.results ?? []) as DomainSuggestion[];
+      // Worker contract is `{ suggestions }` — a `{ results }` read here
+      // silently swallowed every real suggestion and made "Show me different
+      // ones" look dead (response-key-mismatch lying-empty, fixed 2026-08-20).
+      const suggestions = (res?.suggestions ?? []) as DomainSuggestion[];
       // Never show an empty dropdown — fall back to brand-derived idea fillers so
       // there are always 8-12 starting options before the user types anything.
-      this.suggestions.set(results.length ? results.slice(0, AI_SUGGESTION_COUNT) : this.brandFallbackSuggestions());
-      this.telemetry.track('domain.suggestions_shown', { count: this.suggestions().length, fallback: results.length === 0 });
+      this.suggestions.set(suggestions.length ? suggestions.slice(0, AI_SUGGESTION_COUNT) : this.brandFallbackSuggestions());
+      this.telemetry.track('domain.suggestions_shown', { count: this.suggestions().length, fallback: suggestions.length === 0 });
     } catch (err) {
       console.warn('domain-picker AI suggestions failed', err);
       this.suggestions.set(this.brandFallbackSuggestions());
@@ -1393,9 +1279,9 @@ export class DomainPickerComponent implements OnDestroy {
         exclude_domains: exclude,
         site_id: site.id,
       });
-      const results = (res?.results ?? []) as DomainSuggestion[];
-      this.suggestions.set(results.slice(0, AI_SUGGESTION_COUNT));
-      this.telemetry.track('domain.suggestions_shown', { count: results.length, refined: true });
+      const suggestions = (res?.suggestions ?? []) as DomainSuggestion[];
+      this.suggestions.set(suggestions.slice(0, AI_SUGGESTION_COUNT));
+      this.telemetry.track('domain.suggestions_shown', { count: suggestions.length, refined: true });
     } catch (err) {
       console.warn('domain-picker refine failed', err);
       this.toast.error("Couldn't fetch fresh picks — give it a moment.");
@@ -1413,12 +1299,12 @@ export class DomainPickerComponent implements OnDestroy {
     path: string,
     method: 'GET' | 'POST',
     body?: unknown,
-  ): Promise<{ results: DomainSuggestion[] } | null> {
+  ): Promise<{ suggestions: DomainSuggestion[] } | null> {
     const { firstValueFrom } = await import('rxjs');
     if (method === 'GET') {
-      return firstValueFrom(this.api.get<{ results: DomainSuggestion[] }>(path));
+      return firstValueFrom(this.api.get<{ suggestions: DomainSuggestion[] }>(path));
     }
-    return firstValueFrom(this.api.post<{ results: DomainSuggestion[] }>(path, body));
+    return firstValueFrom(this.api.post<{ suggestions: DomainSuggestion[] }>(path, body));
   }
 
   // ---------- Search ----------
@@ -1746,7 +1632,6 @@ export class DomainPickerComponent implements OnDestroy {
    * user dismissed it.
    */
   private async startWalletViaCheckout(): Promise<boolean> {
-    this.walletCheckoutLoading.set(true);
     try {
       const checkoutUrl = await this.billing.startWalletCheckout();
       const popup = window.open(checkoutUrl, 'stripe-wallet', 'width=500,height=700');
@@ -1789,27 +1674,13 @@ export class DomainPickerComponent implements OnDestroy {
       console.warn('domain-picker startWalletViaCheckout failed', err);
       this.toast.error("Couldn't open billing — try again in a moment.");
       return false;
-    } finally {
-      this.walletCheckoutLoading.set(false);
     }
-  }
-
-  /** Open Stripe Checkout from the top-strip CTA. */
-  async startWallet(): Promise<void> {
-    await this.startWalletViaCheckout();
   }
 
   // ---------- Misc ----------
 
   statusLabel(s: string): string {
     return (s || 'unknown').toUpperCase();
-  }
-
-  /** Cents → "$12" or "$12.99" — no superfluous zeros. */
-  formatUsd(cents: number): string {
-    const dollars = (cents || 0) / 100;
-    if (Number.isInteger(dollars)) return `$${dollars.toFixed(0)}`;
-    return `$${dollars.toFixed(2)}`;
   }
 
   copyCname(): void {

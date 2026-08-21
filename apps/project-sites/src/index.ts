@@ -1366,9 +1366,14 @@ app.all('*', async (c) => {
             'Content-Type': 'text/html',
             'Cache-Control': isSoft404 ? 'no-cache, no-store' : 'public, max-age=60',
             ...(isSoft404 ? { 'X-Robots-Tag': 'noindex, nofollow' } : {}),
-            // Cross-origin isolation for WebContainers in embedded bolt.diy editor
+            // COOP same-origin, but deliberately NO COEP here: this shell (marketing
+            // AND /admin/*) loads no-cors cross-origin beacons (PostHog, GTM) whose
+            // responses lack a CORP header — a `credentialless` COEP on this document
+            // made the browser block every one of them (CORP errors, 2026-08-20).
+            // WebContainer cross-origin isolation lives on the bolt.diy EDITOR document
+            // (editor.projectsites.dev proxy sets its own COEP/COOP) — per-document
+            // isolation never required it on this parent shell.
             'Cross-Origin-Opener-Policy': 'same-origin',
-            'Cross-Origin-Embedder-Policy': 'credentialless',
             'Origin-Agent-Cluster': '?1',
             // ALL-STAR #15 hint to CDN/CDN-aware clients
             Link: '<https://projectsites.dev/>; rel="prerender"',
