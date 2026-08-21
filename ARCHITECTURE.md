@@ -6,8 +6,8 @@
 > [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) (shipped single-worker detail + as-deployed
 > map + Fly/Cloudflare split). Where this file disagrees with that, it wins for "now"; this
 > file wins for "target".
-> **Status:** Authoritative TARGET topology for v2. Reflects all eight accepted ADRs in
-> [DECISIONS.md](./DECISIONS.md). Last reviewed: 2026-05-26.
+> **Status:** Authoritative TARGET topology for v2. Reflects the accepted ADRs in
+> [DECISIONS.md](./DECISIONS.md).
 > **Audience:** Engineers wiring service bindings, ops reading runbooks, sub-agents
 > establishing context for a new feature.
 
@@ -124,8 +124,7 @@ flowchart TB
 ### 2.1 `apps/web` — Angular SSR Worker
 
 - **Purpose:** Server-side render the marketing site, the admin SPA, the tenant
-  preview surface. Hydrates client-side via Angular's incremental hydration
-  ([BACKLOG.md #3](./BACKLOG.md)).
+  preview surface. Hydrates client-side via Angular's incremental hydration.
 - **Runtime:** Cloudflare Workers with the `@angular/ssr` adapter compiled to a single
   Worker bundle.
 - **Routing:** TanStack Router (per [ADR-0002](./DECISIONS.md#adr-0002--angular-21--standalone--signals--zoneless))
@@ -288,7 +287,7 @@ flowchart LR
 
 ### 4.1 Platform D1 (`projectsites-platform`)
 
-Owns global system state. Tables (current count: 123 per AUDIT.md §3):
+Owns global system state. Tables:
 
 - `tenants` — slug, name, status, stripe_account_id, d1_database_id, primary_hostname,
   created_at, deleted_at
@@ -687,8 +686,7 @@ The mobile app is the Angular `apps/mobile` workspace, wrapped in Capacitor 6 fo
 native iOS + Android shells. It calls the same `control-plane` API as the web app —
 no separate mobile backend.
 
-Deep-link routes (`https://projectsites.dev/site/{slug}` → installed app) are deferred
-to BACKLOG.md #46.
+Deep-link routes (`https://projectsites.dev/site/{slug}` → installed app) are deferred.
 
 ---
 
@@ -771,12 +769,12 @@ near-term changes:
 
 - **Hyperdrive in front of Neon** if/when a tenant analytics workload exceeds D1's
   capacity — at that point Neon becomes a parallel data tier with Hyperdrive as the
-  pooler ([BACKLOG.md #19](./BACKLOG.md))
+  pooler
 - **Multi-region D1 read replicas** when tenants in EU/APAC show measurable
   cross-Atlantic read latency
 - **Tauri 2 desktop shells** as a third client target alongside `apps/web` and
-  `apps/mobile` ([BACKLOG.md #45](./BACKLOG.md))
-- **Square Web Payments fallback** if a strategic geo breaks Connect ([BACKLOG.md #10](./BACKLOG.md))
+  `apps/mobile`
+- **Square Web Payments fallback** if a strategic geo breaks Connect
 
 When any of these land, file a new ADR, then update the relevant section of this file
 in the same PR.
@@ -788,7 +786,4 @@ in the same PR.
 - [DECISIONS.md](./DECISIONS.md) — every architectural commitment
 - [BILLING.md](./BILLING.md) — payment topology details
 - [SECURITY.md](./SECURITY.md) — threat model + control list (shipped vs deferred)
-- [BACKLOG.md](./BACKLOG.md) — queued work post-v1
-- [AUDIT.md](./AUDIT.md) — Phase 0 findings (tables, routes, design tokens)
-- [PHASE1_SCAFFOLD_PLAN.md](./PHASE1_SCAFFOLD_PLAN.md) — Nx scaffold + merge plan
 - [apps/project-sites/CLAUDE.md](./apps/project-sites/CLAUDE.md) — current production worker docs
