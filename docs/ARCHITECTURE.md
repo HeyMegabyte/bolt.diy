@@ -687,13 +687,12 @@ Fly.io VMs have persistent processes, native volumes, and multi-process support 
 
 Neon (Postgres) and Upstash (Redis) are used by Fly.io services because those services require their respective databases. They are not used by the main Worker (which uses D1 for relational data). This is consistent with the CF-first rule: D1 is the default; Neon is the fallback only when Postgres semantics are genuinely required.
 
-When Fly.io services are decommissioned, their Neon databases are dropped (not the Neon project — see [Neon Database Conservation](../../rules/neon-database-conservation.md)).
+When Fly.io services are decommissioned, their Neon databases are dropped (not the Neon project).
 
 ---
 
 ## Related Docs
 
-- [Architecture overview](./current.md)
 - [ClickHouse warehouse](./OBSERVABILITY.md)
 - [Chatwoot service](./SERVICES-AND-SOCIAL.md)
 - [Deployment: Fly.io guide](./DEPLOYMENT.md)
