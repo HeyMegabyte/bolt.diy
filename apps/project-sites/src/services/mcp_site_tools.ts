@@ -333,7 +333,10 @@ async function handleCreatePage(
   // "Page created" (lying-success).
   const { error } = await dbInsert(db, 'site_pages', { id, site_id: siteId, slug, title, content });
   if (error) {
-    return { content: [{ type: 'text', text: `Failed to create page ${slug}: ${error}` }], isError: true };
+    return {
+      content: [{ type: 'text', text: `Failed to create page ${slug}: ${error}` }],
+      isError: true,
+    };
   }
   return { content: [{ type: 'text', text: `Page created: ${slug} (id: ${id})` }] };
 }
@@ -389,7 +392,10 @@ async function handleCreateBlogPost(
   // "Blog post created" (lying-success).
   const { error } = await dbInsert(db, 'blog_posts', { id, site_id: siteId, slug, title, content });
   if (error) {
-    return { content: [{ type: 'text', text: `Failed to create blog post ${slug}: ${error}` }], isError: true };
+    return {
+      content: [{ type: 'text', text: `Failed to create blog post ${slug}: ${error}` }],
+      isError: true,
+    };
   }
   return { content: [{ type: 'text', text: `Blog post created: ${slug} (id: ${id})` }] };
 }

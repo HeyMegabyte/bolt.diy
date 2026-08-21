@@ -104,7 +104,9 @@ describe('generateDkimKey', () => {
   });
 
   it('isCryptoKeyPair narrows a pair and rejects a bare CryptoKey', () => {
-    expect(isCryptoKeyPair({ publicKey: {}, privateKey: {} } as unknown as CryptoKeyPair)).toBe(true);
+    expect(isCryptoKeyPair({ publicKey: {}, privateKey: {} } as unknown as CryptoKeyPair)).toBe(
+      true,
+    );
     expect(isCryptoKeyPair({ type: 'private' } as unknown as CryptoKey)).toBe(false);
   });
 });

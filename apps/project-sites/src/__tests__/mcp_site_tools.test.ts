@@ -434,11 +434,15 @@ describe('dispatchTool — dropped-write honesty (no lying-success)', () => {
 describe('mintSiteMcpToken / revokeSiteMcpToken — honest credential writes', () => {
   it('mintSiteMcpToken throws when the insert errors (no dead credential handed out)', async () => {
     mockInsert.mockResolvedValueOnce({ error: 'D1 write failed', changes: 0 });
-    await expect(mintSiteMcpToken(db, SITE, 'user-1')).rejects.toThrow(/site_mcp_tokens|D1 write failed/);
+    await expect(mintSiteMcpToken(db, SITE, 'user-1')).rejects.toThrow(
+      /site_mcp_tokens|D1 write failed/,
+    );
   });
 
   it('revokeSiteMcpToken throws when the update errors (a still-valid token must never report revoked)', async () => {
     mockUpdate.mockResolvedValueOnce({ error: 'D1 write failed', changes: 0 });
-    await expect(revokeSiteMcpToken(db, 'tok-9', SITE)).rejects.toThrow(/site_mcp_tokens|D1 write failed/);
+    await expect(revokeSiteMcpToken(db, 'tok-9', SITE)).rejects.toThrow(
+      /site_mcp_tokens|D1 write failed/,
+    );
   });
 });
