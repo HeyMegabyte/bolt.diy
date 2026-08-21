@@ -109,9 +109,7 @@ describe('resolveBillingProviderId', () => {
   });
 
   it('rejects unknown providers', () => {
-    expect(() => resolveBillingProviderId(stubEnv('fantasy_biller'))).toThrow(
-      /not supported/,
-    );
+    expect(() => resolveBillingProviderId(stubEnv('fantasy_biller'))).toThrow(/not supported/);
   });
 });
 
