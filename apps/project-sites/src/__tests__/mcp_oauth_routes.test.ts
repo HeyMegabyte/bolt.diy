@@ -612,3 +612,85 @@ describe('GET /api/mcp/connections', () => {
     expect(select!.sql).not.toMatch(/site_id = \?/i);
   });
 });
+
+/**
+ * Vercel Marketplace callback — IDOR hardening (iter 246, security-review wave).
+ *
+ * The marketplace install flow is UNAUTHENTICATED (no org/user context — Vercel
+ * initiates it) and previously keyed the credential write on the CLIENT-supplied
+ * `configurationId` (`site_id = 'vercel:${configurationId}'`) with
+ * `ON CONFLICT ... DO UPDATE`. Any Vercel user could install the public
+ * integration, rewrite `configurationId` to a victim's ID, and clobber that
+ * victim's `mcp_connections` row with their own token — the victim's site then
+ * executes Vercel API calls as the attacker's account (CWE-639).
+ *
+ * Fix: the exchange response carries the AUTHORITATIVE identity
+ * (`installation_id`, `team_id`, `user_id`) — the row key must derive from
+ * THAT, and a client-supplied `configurationId` must MATCH the installation_id
+ * (or be absent) before any write happens. These tests lock both branches.
+ */
+describe('GET /api/mcp/vercel/callback (marketplace install — IDOR-hardened)', () => {
+  const vercelAdapter = (exchangeResult: unknown) =>
+    makeAdapter({ exchangeCode: jest.fn(async () => exchangeResult) });
+
+  it('accepts a MATCHING client configurationId and keys the row on the exchange installation_id', async () => {
+    const exchangeCode = jest.fn(async () => ({
+      access_token: 'vx_token',
+      metadata: { installation_id: 'inst-authoritative', team_id: 'team-a', user_id: 'u1' },
+    }));
+    mockGetAdapter.mockReturnValue(makeAdapter({ exchangeCode }));
+    const db = makeDb({});
+    const env = makeEnv({ DB: db });
+    const res = await req(
+      makeApp(),
+      '/api/mcp/vercel/callback?code=vc&configurationId=inst-authoritative',
+      env,
+      { redirect: 'manual' },
+    );
+    expect(res.status).toBe(200);
+    const stmts = db._statements;
+    const upsert = stmts.find((s) => /INSERT INTO mcp_connections/i.test(s.sql));
+    expect(upsert).toBeDefined();
+    expect(upsert!.params).toContain('vercel:inst-authoritative');
+  });
+
+  it('rejects when the client configurationId does NOT match the exchange installation_id (clobber attempt)', async () => {
+    const exchangeCode = jest.fn(async () => ({
+      access_token: 'vx_token',
+      metadata: { installation_id: 'inst-authoritative', team_id: null, user_id: 'u1' },
+    }));
+    mockGetAdapter.mockReturnValue(makeAdapter({ exchangeCode }));
+    const db = makeDb({});
+    const env = makeEnv({ DB: db });
+    const res = await req(
+      makeApp(),
+      '/api/mcp/vercel/callback?code=vc&configurationId=victims-id',
+      env,
+      { redirect: 'manual' },
+    );
+    expect(res.status).toBe(403);
+    const stmts = db._statements;
+    expect(stmts.some((s) => /INSERT INTO mcp_connections/i.test(s.sql))).toBe(false);
+    expect(mockEncrypt).not.toHaveBeenCalled();
+  });
+
+  it('still accepts a configurationId-less marketplace callback (keys on installation_id alone)', async () => {
+    const exchangeCode = jest.fn(async () => ({
+      access_token: 'vx_token',
+      metadata: { installation_id: 'inst-only', team_id: null, user_id: 'u1' },
+    }));
+    mockGetAdapter.mockReturnValue(makeAdapter({ exchangeCode }));
+    const db = makeDb({});
+    const env = makeEnv({ DB: db });
+    const res = await req(
+      makeApp(),
+      '/api/mcp/vercel/callback?code=vc',
+      env,
+      { redirect: 'manual' },
+    );
+    expect(res.status).toBe(200);
+    const stmts = db._statements;
+    const upsert = stmts.find((s) => /INSERT INTO mcp_connections/i.test(s.sql));
+    expect(upsert!.params).toContain('vercel:inst-only');
+  });
+});

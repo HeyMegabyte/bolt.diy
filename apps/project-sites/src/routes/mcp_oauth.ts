@@ -197,13 +197,22 @@ mcpOauth.get('/api/mcp/:provider/callback', async (c) => {
   const code = c.req.query('code');
 
   // ── Vercel Marketplace install flow ──
-  // Vercel-initiated installs hit this callback with `code` + `configurationId` + `teamId`
-  // + `next` but NO `state` (there's no prior /connect state row). Exchange the code,
-  // store the token account-level (keyed by configurationId — no site context), then
-  // redirect the user back to Vercel's `next` ("installed") page.
-  if (provider === 'vercel' && c.req.query('configurationId') && !c.req.query('state')) {
+  // Vercel-initiated installs hit this callback with `code` (+ `configurationId` +
+  // `teamId` + `next`) but NO `state` (there's no prior /connect state row).
+  // Exchange the code, store the token account-level keyed on the EXCHANGE-returned
+  // identity (installation_id — the provider's authoritative claim), then redirect
+  // the user back to Vercel's `next` ("installed") page.
+  //
+  // IDOR hardening (2026-08-20, security-review wave): the credential write was
+  // previously keyed on the CLIENT-supplied `configurationId` with
+  // `ON CONFLICT ... DO UPDATE` — any Vercel user could install the public
+  // integration, rewrite `configurationId` to a victim's ID, and clobber that
+  // victim's connection row with their own token (CWE-639). Now the row key is
+  // the exchange-returned `installation_id`; a client-supplied
+  // `configurationId` MUST match it (or be absent) or the write is refused 403.
+  if (provider === 'vercel' && !c.req.query('state')) {
     if (!code) return c.json({ error: { message: 'code required' } }, 400);
-    const configurationId = c.req.query('configurationId') as string;
+    const configurationId = (c.req.query('configurationId') as string | undefined) ?? null;
     const teamId = c.req.query('teamId') ?? null;
     const next = c.req.query('next');
     let vx;
@@ -235,6 +244,47 @@ mcpOauth.get('/api/mcp/:provider/callback', async (c) => {
         502,
       );
     }
+    const installationId = vx.metadata?.installation_id as string | undefined;
+    if (!installationId) {
+      // The exchange gave us no authoritative identity — refuse rather than
+      // fall back to the client-supplied id (that was the vulnerability).
+      console.warn(
+        JSON.stringify({
+          level: 'error',
+          service: 'mcp-oauth-callback',
+          message: 'vercel exchange returned no installation_id',
+          provider: 'vercel',
+        }),
+      );
+      return c.json(
+        {
+          error: {
+            code: 'OAUTH_EXCHANGE_FAILED',
+            message: 'Connection failed — please try again.',
+          },
+        },
+        502,
+      );
+    }
+    if (configurationId && configurationId !== installationId) {
+      // The client-supplied configurationId does NOT match the installation the
+      // exchanged code actually authorizes — a cross-installation clobber
+      // attempt. Refuse before any write.
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'mcp-oauth-callback',
+          message: 'vercel configurationId mismatch rejected',
+          provider: 'vercel',
+          expected: configurationId,
+          actual: installationId,
+        }),
+      );
+      return c.json(
+        { error: { code: 'FORBIDDEN', message: 'Configuration mismatch.' } },
+        403,
+      );
+    }
     const encTok = await encrypt(c.env, vx.access_token);
     await c.env.DB.prepare(
       `INSERT INTO mcp_connections (id, org_id, site_id, provider, display_name,
@@ -247,7 +297,7 @@ mcpOauth.get('/api/mcp/:provider/callback', async (c) => {
     )
       .bind(
         crypto.randomUUID(),
-        `vercel:${configurationId}`,
+        `vercel:${installationId}`,
         encTok,
         JSON.stringify({ ...vx.metadata, configurationId, teamId }),
       )
