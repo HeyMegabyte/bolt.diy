@@ -1,6 +1,6 @@
 /**
  * @module services/integration_health
- * @description LOOP-NANGO-007 core — per-connection integration health scoring.
+ * @description Per-connection integration health scoring.
  * Pure functions that score API connection health from status signals.
  * Zero I/O.
  *

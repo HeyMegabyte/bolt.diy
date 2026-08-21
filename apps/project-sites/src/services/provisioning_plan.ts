@@ -2,7 +2,7 @@
  * @module provisioning_plan
  * @remarks
  * AP20 (#326): provisioning checklist for optional add-on services (CRM, email,
- * social scheduler — PM/auth removed 2026-08-20 with Plane/Unkey). Built at
+ * social scheduler — PM removed 2026-08-20 with Plane). Built at
  * signup and consumed by a background worker that provisions each service when
  * the user opts in.
  *

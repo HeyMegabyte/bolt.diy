@@ -15,7 +15,7 @@
  * (CloudflareWorkflowProvider / HatchetProvider) implement the
  * same port — a follow-on slice; this lands the contract + the testable fake.
  *
- * @see docs/adr/0003-cloudflare-workflows-inngest-hatchet-routing.md
+ * @see docs/decisions/0034-platform-consolidation-cf-native.md
  */
 
 import {

@@ -5,7 +5,6 @@ export const EVENT_PRODUCERS = [
   'twenty',
   'listmonk',
   'social_native',
-  'unkey',
   'billing',
 ] as const;
 export type EventProducer = (typeof EVENT_PRODUCERS)[number];

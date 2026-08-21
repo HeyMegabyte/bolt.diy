@@ -10,6 +10,7 @@
     "!/auth/**",
     "!/**/*.*"
   ],
+  "_comment_dataGroups": "Intentionally OMITTED. Dynamic, auth'd, per-org API responses (/api/sites, /api/auth/me, /api/analytics/*, …) must NEVER be cached or freshness-proxied by the Angular service worker. A `freshness` DataGroup with a `timeout` REJECTS on slow/failed egress — surfacing as `ngsw-worker.js DataGroup.safeFetch → Uncaught TypeError: Failed to fetch` — and a rejected /api/sites blocks selectedSite() so the persistent bolt editor iframe never boots (no files). It also risks serving one org's cached sites to another. API calls go straight to the network; AdminStateService/ApiService own their own 30s timeout + catchError. The SW caches the app shell + static assets only (assetGroups below).",
   "assetGroups": [
     {
       "name": "app",
@@ -44,37 +45,6 @@
           "https://fonts.googleapis.com/**",
           "https://fonts.gstatic.com/**"
         ]
-      }
-    }
-  ],
-  "dataGroups": [
-    {
-      "name": "ps-api-cache",
-      "urls": [
-        "/api/sites",
-        "/api/auth/me",
-        "/api/billing/entitlements"
-      ],
-      "cacheConfig": {
-        "strategy": "freshness",
-        "maxSize": 64,
-        "maxAge": "1h",
-        "timeout": "3s"
-      }
-    },
-    {
-      "name": "ps-api-no-cache",
-      "urls": [
-        "/api/sites/*/snapshots",
-        "/api/sites/*/form-submissions",
-        "/api/audit-logs",
-        "/api/sites/*/workflow",
-        "/v1/forms/submit"
-      ],
-      "cacheConfig": {
-        "strategy": "freshness",
-        "maxSize": 0,
-        "maxAge": "1s"
       }
     }
   ]

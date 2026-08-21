@@ -25,6 +25,7 @@ import { firstValueFrom } from 'rxjs';
 import { GlobalErrorHandler } from './services/error-handler.service';
 import { retryInterceptor } from './interceptors/retry.interceptor';
 import { loadingInterceptor } from './interceptors/loading.interceptor';
+import { SwUpdateService } from './services/sw-update.service';
 
 /** Preload translations before the app renders — prevents flash of raw keys.
  * Priority: localStorage > ?lang= query param > browser language > 'en' */
@@ -120,15 +121,25 @@ export const appConfig: ApplicationConfig = {
      * - `registrationStrategy: 'registerWhenStable:30000'` waits for app
      *   stability (or 30s) before installing so the first paint is never
      *   blocked.
-     * - The SW caches the shell + critical assets per `ngsw-config.json`.
-     *   API responses live in `dataGroups` with a `freshness` strategy and a
-     *   short timeout so the dashboard never reads stale data — falls back
-     *   to cache only when the network is genuinely unreachable.
+     * - The SW caches ONLY the shell + static assets (`ngsw-config.json`
+     *   assetGroups). Dynamic, auth'd `/api/*` responses are deliberately NOT
+     *   in any `dataGroups` — a `freshness` DataGroup with a timeout REJECTS on
+     *   slow/failed egress (`ngsw-worker.js DataGroup.safeFetch → Failed to
+     *   fetch`), and a rejected `/api/sites` strands the `/admin/editor` shell.
+     * - `SwUpdateService` (below) activates a ready update + reloads so a
+     *   deployed fix reaches the browser instead of being masked by a stale SW.
      */
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',
     }),
+    {
+      // Self-heal a stale/broken service worker (see SwUpdateService docstring).
+      provide: APP_INITIALIZER,
+      useFactory: (sw: SwUpdateService) => (): void => sw.init(),
+      deps: [SwUpdateService],
+      multi: true,
+    },
   ],
 };
 

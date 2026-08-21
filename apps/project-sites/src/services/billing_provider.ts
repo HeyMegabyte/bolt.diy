@@ -218,11 +218,11 @@ export function resolveBillingProviderId(env: Env): BillingProviderId {
   const raw = env.BILLING_PROVIDER ?? 'noop';
   if (raw === 'noop') return raw;
   throw new Error(
-    `BILLING_PROVIDER=${raw} is no longer supported — Lago removed 2026-08-20 (billing is Stripe). Use noop.`,
+    `BILLING_PROVIDER=${raw} is not supported — billing runs on Stripe; only 'noop' is valid.`,
   );
 }
 
-// Lago billable-code mapping REMOVED (2026-08-20) — noop provider has no codes.
+// Billable-code mapping removed — the noop provider has no codes (billing is Stripe).
 
 // ─── Provider factory ───────────────────────────────────────────────────
 
@@ -269,7 +269,7 @@ export const METRIC_RATE_CENTS: Record<string, number> = {
 
 /**
  * Estimate cost in cents for a given metric+quantity.
- * Display-only — actual billing uses Lago rate cards.
+ * Display-only — actual billing runs through Stripe.
  */
 export function estimateCostCents(metric: string, quantity: number): number {
   return Math.round(quantity * (METRIC_RATE_CENTS[metric] ?? 0));

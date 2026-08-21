@@ -98,19 +98,19 @@ describe('resolveBillingProviderId', () => {
   });
 
   it('resolves valid providers', () => {
-    expect(() => resolveBillingProviderId(stubEnv('lago'))).toThrow(/no longer supported/);
+    expect(() => resolveBillingProviderId(stubEnv('lago'))).toThrow(/not supported/);
     expect(resolveBillingProviderId(stubEnv('noop'))).toBe('noop');
   });
 
   it('rejects removed providers (stripe_meters, openmeter, metronome)', () => {
-    expect(() => resolveBillingProviderId(stubEnv('stripe_meters'))).toThrow('no longer supported');
-    expect(() => resolveBillingProviderId(stubEnv('openmeter'))).toThrow('no longer supported');
-    expect(() => resolveBillingProviderId(stubEnv('metronome'))).toThrow('no longer supported');
+    expect(() => resolveBillingProviderId(stubEnv('stripe_meters'))).toThrow('not supported');
+    expect(() => resolveBillingProviderId(stubEnv('openmeter'))).toThrow('not supported');
+    expect(() => resolveBillingProviderId(stubEnv('metronome'))).toThrow('not supported');
   });
 
   it('rejects unknown providers', () => {
     expect(() => resolveBillingProviderId(stubEnv('fantasy_biller'))).toThrow(
-      /no longer supported/,
+      /not supported/,
     );
   });
 });

@@ -3,7 +3,7 @@
  *
  * @description
  * `HatchetJobProvider` — the `hatchet` backend adapter for the §20 job dispatch
- * port, completing the 3-plane set (CF Workflows · Inngest · Hatchet Cloud). Heavy
+ * port, completing the 2-plane set (CF Workflows · Hatchet Cloud). Heavy
  * kinds (site-generation, lead-scan, screenshot, crawl, browser) push a trigger
  * event to Hatchet Cloud (ADR-0004 — Cloud, never Fly); the Hatchet workflow for
  * that event runs the long/stateful/browser work.
@@ -16,7 +16,7 @@
  * Depends on an injected {@link HatchetPusher} seam (binds `pushHatchetEvent` in
  * prod) → unit-testable with a fake. Refuses non-hatchet-routed kinds.
  *
- * @see docs/adr/0003-cloudflare-workflows-inngest-hatchet-routing.md
+ * @see docs/decisions/0034-platform-consolidation-cf-native.md
  * @see docs/adr/0004-hatchet-cloud-not-flyio.md
  */
 

@@ -35,7 +35,7 @@ export const SYSTEM_SERVICES: Readonly<Record<string, SystemService>> = {
   // EMPTIED 2026-06-25 per Brian: status-page shims are FALSE PASSES — a domain
   // must return 200 from its REAL app, not a crafted page. Each former entry now
   // resolves to its real backend (or an honest 404 until deployed):
-  //   jobs  → falls through to the Inngest server (serve.ts routes jobs./events.)
+  //   jobs  → falls through to createJobsRoutes() dispatch (CF Workflows / Hatchet)
   //   browser → Skyvern container (infra/skyvern, deploy pending) — 404 until live
   //   traces  → Langfuse container (deploy pending) — 404 until live
   //   auth/app → no standalone real app + not requested → honest 404

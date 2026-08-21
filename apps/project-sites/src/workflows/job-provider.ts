@@ -5,16 +5,15 @@
  * `CloudflareWorkflowProvider` — the `cloudflare-workflows` backend adapter for
  * the §20 job dispatch port. Each CF-native job kind (claim-flow, billing-lifecycle,
  * domain-verification, performance-audit) maps to a Cloudflare Workflow binding;
- * `start` calls `binding.create({ id, params })`. Unlike the Inngest adapter, CF
- * Workflows expose per-instance status + termination, so `getJobStatus`/`cancelJob`
- * are real here.
+ * `start` calls `binding.create({ id, params })`. CF Workflows expose per-instance
+ * status + termination, so `getJobStatus`/`cancelJob` are real here.
  *
  * Idempotency (§23): the instance is created with `id = ctx.idempotencyKey` — CF
  * Workflows reject a duplicate create for an existing instance id, so re-dispatch
  * is safe. Depends on a narrow {@link CfWorkflowBinding} seam (which the real
  * `Workflow` binding structurally satisfies) → unit-testable with fakes.
  *
- * @see docs/adr/0003-cloudflare-workflows-inngest-hatchet-routing.md
+ * @see docs/decisions/0034-platform-consolidation-cf-native.md
  */
 
 import { routeJob, type JobKind } from '../platform/workflow-router.js';

@@ -5,7 +5,7 @@
  * `GotenbergContainer` — Durable Object wrapping a Cloudflare Containers (CFC)
  * instance that runs **self-hosted Gotenberg** (Office→PDF conversion via
  * LibreOffice + Chromium) for `convert.projectsites.dev`. Mirrors the
- * `InngestContainer` / `DocumensoContainer` dedicated-container pattern: a
+ * `SiteBuilderContainer` / `DocumensoContainer` dedicated-container pattern: a
  * single platform-owned warm instance at a fixed subdomain.
  *
  * - Image: `containers/gotenberg/Dockerfile` (`FROM gotenberg/gotenberg:8`,

@@ -36,17 +36,16 @@ const KNOWN_INTEGRATIONS = new Set([
   'deepgram', // Managed SaaS — STT
   'langfuse', // CF Container — traces.projectsites.dev
   'payload', // CF Container — cms.projectsites.dev
-  // Removed / deprecated (probe returns 410 Gone)
-  'resend', // Deprecated → SES (ADR-0019)
-  'lago', // Removed → Stripe Meters (ADR-0034)
-  'unkey', // Removed 2026-08-20 (§30 port wraps the D1 api_tokens keystore)
-  'nango', // Removed → Native OAuth (ADR-0034)
-  'inngest', // Removed → CF Workflows v2 (ADR-0034)
-  'postiz', // Removed → Native social (ADR-0034)
+  'resend', // Deprecated → SES (ADR-0019); still config-probed until migration completes
 ]);
 
-/** Services fully decommissioned per ADR-0034 — probe returns 410 Gone. */
-const REMOVED_INTEGRATIONS = new Set(['nango', 'inngest', 'postiz', 'lago', 'unkey']);
+/**
+ * Fully-decommissioned integrations — a probe for one of these returns 410 Gone.
+ * Currently EMPTY: every prior removal has been fully purged, so a probe for a
+ * decommissioned service is simply UNKNOWN now (404). Add an id here to tombstone
+ * a FUTURE decommission with an explicit 410 Gone during its sunset window.
+ */
+const REMOVED_INTEGRATIONS = new Set<string>([]);
 
 /**
  * Per-probe network timeout (ms). A health endpoint must never hang the aggregate
@@ -164,8 +163,8 @@ async function probeLiveness(provider: string, url: string): Promise<ConnectionS
  * - `listmonk` / `twenty` / `payload` → LIVE public-liveness probe.
  * - config-only services (stripe, deepgram, langfuse, resend) →
  *   presence of their {@link CONFIG_ENV_KEY} secret marks them configured.
- * - decommissioned services (nango/inngest/postiz/lago/unkey) → the literal `'removed'`,
- *   which callers render as 410 Gone / `status: 'removed'`.
+ * - a decommissioned service in {@link REMOVED_INTEGRATIONS} (currently none) →
+ *   the literal `'removed'`, which callers render as 410 Gone / `status: 'removed'`.
  *
  * @param name - lowercased integration name (must be in {@link KNOWN_INTEGRATIONS})
  * @param env - Worker env bindings

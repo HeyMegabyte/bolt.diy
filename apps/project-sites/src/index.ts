@@ -178,9 +178,8 @@ export { ConversationHub } from './durable_objects/conversation_hub.js';
 // (watched one-way-door DO migration). Feature: collab_editing.
 export { CollabRoomDO } from './durable_objects/collab_room.js';
 export { EventDispatcher } from './durable_objects/event_dispatcher.js';
-// Inngest REMOVED (2026-08-20) — class, container, adapter, env, routes, and
-// the DO namespace (CF API, Formbricks precedent) all deleted. jobs./events.
-// hosts now serve the branded status page / 404.
+// Job dispatch seam: createJobsRoutes() (POST /api/jobs) routes via getJobRouter(env)
+// to CF Workflows or Hatchet Cloud. No external job-runner container.
 // Formbricks REMOVED (2026-06-27): class, container, binding, route, env, and the
 // orphaned DO namespace all deleted (exceeds the 4-service max). Nothing remains.
 // sign.projectsites.dev — self-hosted Documenso e-signature container (dedicated DO).
@@ -777,9 +776,8 @@ app.get('/', async (c, next) => {
   }
   return next();
 });
-// jobs./events.projectsites.dev — Inngest REMOVED (2026-08-20): §13 self-hosted
-// plane replaced by CF-native outbox → Hatchet Cloud (ADR-0004). The
-// createJobsRoutes mount above is the single dispatch seam.
+// createJobsRoutes() is the dispatch seam: POST /api/jobs routes via
+// getJobRouter(env) to CF Workflows or Hatchet Cloud (see ADR-0034).
 app.route('/', createJobsRoutes()); // POST /api/jobs + GET /api/jobs/:id/status — authed WorkflowRouter dispatch seam (§20); routes to CF Workflows/Hatchet via getJobRouter(env)
 // Formbricks REMOVED (2026-06-27): survey.* host route, FormbricksContainer DO
 // class, container block, binding, all FORMBRICKS_* env, AND the orphaned DO
@@ -1029,12 +1027,6 @@ app.all('*', async (c, next) => {
   out.headers.set('X-Appsmith-Proxy', 'cf-worker');
   return out;
 });
-
-// fetch (error 1101). Use the direct Fly URL for now:
-//   https://projectsites-lago.fly.dev/users/sign_in
-//   admin@megabyte.space / 32D7OjlTK3id1M8flrQ
-// TODO: Origin Rule or DNS CNAME unproxy (requires Business plan or
-//   removing wildcard Worker route)
 
 // ─── docs.projectsites.dev — Scalar API Reference ──────────
 app.all('*', async (c, next) => {

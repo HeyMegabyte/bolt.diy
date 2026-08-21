@@ -2,12 +2,11 @@
  * @module middleware/api-keys
  *
  * @description
- * Real adapter + factory for the §30 Unkey API-key port. Wraps the existing
+ * Real adapter + factory for the §30 native API-key port. Wraps the existing
  * `services/api_tokens` keystore (D1 `api_tokens`, SHA-256 hashes, scopes, expiry,
- * revoke) in the Unkey-style `ApiKeyProvider` contract. No external service and no
- * env secret — it delegates to our own keystore, so it is always available and
- * needs no gate (see ADR-0030). A managed Unkey adapter would slot in here behind
- * an `UNKEY_ROOT_KEY` env var without touching call sites.
+ * revoke) in the `ApiKeyProvider` contract. No external service and no env secret —
+ * it delegates to our own keystore, so it is always available and needs no gate (see
+ * ADR-0030). A different adapter could slot in here without touching call sites.
  *
  * @see platform/api-keys.ts (the port + Fake)
  * @see services/api_tokens.ts (the wrapped keystore)
@@ -33,7 +32,7 @@ function toApiScopes(scopes: readonly string[]): ApiScope[] {
 }
 
 /**
- * Unkey-shaped provider backed by the production D1 `api_tokens` keystore.
+ * D1-backed provider for the production `api_tokens` keystore.
  * `verifyKey` fails soft: a thrown DB error returns `{ valid: false, code: 'NOT_FOUND' }`
  * rather than propagating (mirrors the keystore's own null-on-error behavior).
  */

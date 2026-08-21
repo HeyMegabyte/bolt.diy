@@ -12,15 +12,11 @@
  *   2. hatchet — heavy/stateful/long/browser/AI execution (site generation,
  *      bulk scans, screenshots, crawls). Hatchet Cloud, never Fly (ADR-0004).
  *
- * (Inngest REMOVED 2026-08-20 — the §13 self-hosted plane was replaced by the
- * CF-native outbox → Hatchet Cloud; its event-driven jobs were retargeted to
- * cloudflare-workflows.)
+ * Two execution planes: CF Workflows (light/native) and Hatchet Cloud
+ * (heavy/stateful/browser). Pure + deterministic → fully unit-testable, no I/O.
+ * Backend adapters (CloudflareWorkflowProvider / HatchetProvider) plug in here.
  *
- * Pure + deterministic → fully unit-testable, no I/O. Backend adapters
- * (CloudflareWorkflowProvider / HatchetProvider) are a follow-on slice; this
- * module is the routing brain they plug into.
- *
- * @see docs/adr/0003-cloudflare-workflows-inngest-hatchet-routing.md
+ * @see docs/decisions/0034-platform-consolidation-cf-native.md
  */
 
 /** The execution planes, in preference order. */
@@ -58,7 +54,7 @@ export interface JobRoutingFlags {
 /**
  * Choose the execution backend for a job (convergence §20 selection logic).
  * CF-native + light → Workflows; everything heavy/stateful/browser/filesystem
- * → Hatchet. (The former Inngest plane folded into Workflows.)
+ * → Hatchet.
  *
  * @example chooseWorkflowBackend({ kind: 'claim-flow', isCloudflareNative: true }) // 'cloudflare-workflows'
  * @example chooseWorkflowBackend({ kind: 'site-generation', needsHeavyRuntime: true }) // 'hatchet'
@@ -160,7 +156,7 @@ export const JOB_DEFINITIONS = {
     costCategory: 'google-api',
   },
 
-  // ── Former Inngest plane — retargeted to cloudflare-workflows (2026-08-20) ──
+  // ── CF-native event-driven workflows (routed to cloudflare-workflows) ──────
   'notification-workflow': {
     kind: 'notification-workflow',
     isCloudflareNative: true,

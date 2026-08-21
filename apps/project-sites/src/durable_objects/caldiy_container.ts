@@ -5,7 +5,7 @@
  * `CaldiyContainer` — Durable Object wrapping a Cloudflare Containers (CFC)
  * instance that runs **self-hosted cal.diy** (the community Cal.com distribution,
  * enterprise features removed) for `schedule.projectsites.dev`. Mirrors
- * `DocumensoContainer` / `InngestContainer`: a single
+ * `DocumensoContainer` / `SiteBuilderContainer`: a single
  * platform-owned warm instance at a fixed subdomain.
  *
  * - Image: `containers/caldiy/Dockerfile` (`FROM calcom/cal.diy` — local

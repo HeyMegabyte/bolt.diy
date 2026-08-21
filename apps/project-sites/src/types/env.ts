@@ -164,10 +164,8 @@ export interface Env {
   ACTIVITY_HUB?: DurableObjectNamespace;
   /** Per-site Durable Object — Unified Analytics ingestion dispatcher (Plane H). */
   EVENT_DISPATCHER?: DurableObjectNamespace;
-  // Inngest REMOVED (2026-08-20) — §13 self-hosted plane replaced by CF-native
-  // outbox → Hatchet Cloud (ADR-0004). Container, DO class, src/inngest adapter,
-  // and all INNGEST_* env deleted. jobs./events.projectsites.dev now serve the
-  // branded status page only.
+  // §13 self-hosted job-runner plane replaced by CF-native Workflows + Hatchet
+  // Cloud (ADR-0034). All associated env vars and bindings were removed.
   // Formbricks REMOVED (2026-06-27) — exceeds the 4-service max. Container, DO
   // class, namespace, binding, host route, and all FORMBRICKS_* env deleted.
 
@@ -519,8 +517,8 @@ export interface Env {
   SENDGRID_API_KEY?: string;
 
   // ── Native OAuth client credentials (per-provider — used by mcp_oauth.ts) ───
-  // NOTE: the Nango/Composio/Pipedream capability-router subsystem was removed
-  // (Pass 28) — it was unmounted dead code superseded by native OAuth (ADR-0034).
+  // NOTE: a former capability-router subsystem was removed (Pass 28) — it was
+  // unmounted dead code superseded by native OAuth (ADR-0034).
   /** Notion OAuth client ID for integration connections. */
   NOTION_OAUTH_CLIENT_ID?: string;
   /** Notion OAuth client secret for integration connections. */
@@ -592,8 +590,9 @@ export interface Env {
   // ── Billing / Metering ──────────────────────────────────────
   /**
    * Billing provider identifier.
-   * `lago` (default) | `noop` (dev/test).
-   * `stripe_meters`, `openmeter`, and `metronome` are NOT valid values — removed.
+   * `noop` only (the default) — billing runs on Stripe; the former metering
+   * provider was removed. `stripe_meters`, `openmeter`, and `metronome` are
+   * NOT valid values either.
    */
   BILLING_PROVIDER?: string;
   /** Legacy metering provider identifier — superseded by BILLING_PROVIDER. */
@@ -602,7 +601,7 @@ export interface Env {
   STRIPE_PRICE_BASE_SITE_MONTHLY?: string;
   STRIPE_PRICE_BASE_SITE_YEARLY?: string;
 
-  // Lago REMOVED (2026-08-20) — billing provider deleted; BILLING_PROVIDER is noop-only.
+  // Billing runs on Stripe; BILLING_PROVIDER is noop-only (metering provider removed).
   /** HMAC secret used to sign one-click weekly-digest unsubscribe tokens. */
   WEEKLY_DIGEST_SECRET?: string;
 

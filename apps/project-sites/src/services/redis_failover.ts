@@ -5,10 +5,10 @@
  * Upstash-primary, Fly.io-fallback Redis client for Workers.
  *
  * ## Default: Upstash
- * All catalog apps use Upstash Redis by default. Fly Redis is reserved for
- * Nango only — it's an OAuth proxy where cache latency hits every proxied API
- * call. Apps that don't need sub-ms Redis (Teable, Native Social — spreadsheet cache +
- * job queue) use Upstash via catalog auto-provisioning.
+ * All catalog apps use Upstash Redis by default. Fly Redis remains a documented
+ * fallback, but NO app is currently approved for it as primary (`FLY_REDIS_PRIMARY_APPS`
+ * is empty). Apps that don't need sub-ms Redis (Teable, Native Social — spreadsheet
+ * cache + job queue) use Upstash via catalog auto-provisioning.
  *
  * To override to Fly Redis: set `FLY_REDIS_PRIMARY=true` in the app's env.
  * This is a review gate — adding an app to `FLY_REDIS_PRIMARY_APPS` requires
@@ -46,11 +46,11 @@ const UPSTASH_BASE_RE = /^https:\/\/([^.]+)\.upstash\.io$/;
 const FLY_REDIS_URL = 'redis://:ohyi2Fjm8gCJ8Bfuh8rO/anHQYa1cMuk@projectsites-redis.internal:6379';
 
 /**
- * Apps approved for Fly Redis primary. Only Nango — OAuth proxy where
- * every proxied API call hits the token cache. Adding an app here requires
- * commit-message justification of sub-ms latency need.
+ * Apps approved for Fly Redis primary. Currently EMPTY — no app needs sub-ms
+ * Fly-Redis-primary latency (the former OAuth-proxy exception was removed with
+ * its service). Adding an app here requires commit-message justification.
  */
-const FLY_REDIS_PRIMARY_APPS = new Set(['nango']);
+const FLY_REDIS_PRIMARY_APPS = new Set<string>([]);
 
 /** Return true when an app is approved for Fly Redis as its primary. */
 export function isFlyRedisPrimary(appSlug: string): boolean {

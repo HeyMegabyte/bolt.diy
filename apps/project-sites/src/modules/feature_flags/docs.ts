@@ -586,7 +586,7 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'OFF (default) -> the social surfaces 404',
     ],
     explanation:
-      'Native social publishing on CF primitives (D1 + Upstash + Workflows v2 + MCP OAuth) — Postiz fully removed 2026-08-20. Group ANCHOR flag: the social_agent content-proposal module folds under it, so one flag toggles the whole native-social area. Off-vision relative to the core site builder -- it is the Social expansion.',
+      'Native social publishing on CF primitives (D1 + Upstash + Workflows v2 + MCP OAuth). Group ANCHOR flag: the social_agent content-proposal module folds under it, so one flag toggles the whole native-social area. Off-vision relative to the core site builder -- it is the Social expansion.',
     smoke_test: [
       'Flag ON: POST /api/sites/:id/social/proposals returns platform-aware content proposals',
       'Flag ON: the native social publishing surface accepts an instant + a scheduled post',
@@ -595,13 +595,13 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
   },
   system_status: {
     checklist: [
-      '9 integration health targets',
+      '6 integration health targets',
       '5s timeout per probe',
       'Parallel aggregation via Promise.all',
       'Returns overall + per-integration status',
     ],
     explanation:
-      'Aggregated health checks for all platform integrations (Listmonk, Lago, Nango, LiteLLM, Plane, Twenty, Payload, Unkey, Chatwoot). Each probe runs independently with a 5-second timeout. Results are never cached — real-time status strip for the admin top bar.',
+      'Aggregated health checks for all platform integrations (Listmonk, LiteLLM, Plane, Twenty, Payload, Chatwoot). Each probe runs independently with a 5-second timeout. Results are never cached — real-time status strip for the admin top bar.',
     smoke_test: [
       'Enable flag → GET /api/system/status → 200 with overall+integrations array',
       'Each integration has status (healthy/degraded/down/unknown) + latencyMs',

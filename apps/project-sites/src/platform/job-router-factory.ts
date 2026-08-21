@@ -8,8 +8,7 @@
  * handlers + queue consumers call `getJobRouter(env).start(kind, ctx, payload)`
  * and never touch a vendor SDK (§11/§20/§74.12).
  *
- * (Inngest REMOVED 2026-08-20 — §13 self-hosted plane replaced by CF-native
- * outbox → Hatchet Cloud; its event-driven jobs were retargeted to Workflows.)
+ * Two planes: CF Workflows (light/native) and Hatchet Cloud (heavy/stateful).
  *
  * Dependencies are injectable (`deps`) with env-bound defaults: prod calls
  * `getJobRouter(env)`; tests pass fakes to assert wiring without real I/O.
@@ -19,7 +18,7 @@
  * binding map, so those kinds throw a clear "no binding" error until their
  * Workflow classes land (graceful, not silent). Hatchet is live.
  *
- * @see docs/adr/0003-cloudflare-workflows-inngest-hatchet-routing.md
+ * @see docs/decisions/0034-platform-consolidation-cf-native.md
  */
 
 import type { Env } from '../types/env.js';

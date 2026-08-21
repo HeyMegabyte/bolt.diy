@@ -28,7 +28,16 @@ import { test, expect, type Page, type ConsoleMessage } from '@playwright/test';
 
 const KEY = process.env.E2E_API_KEY ?? '';
 
-/** Same benign set as admin-console-errors.e2e.ts — NO CORP / SW-rejection allowlist on purpose. */
+/** Paths where the (post-fix) target signal is a RESOLVED response. */
+const WATCH_ANALYTICS = /\/api\/analytics\/|\/api\/analytics\?/i;
+/** Browser-abandoned navigational beacons (`requestWillBeSent` then nav) — never a defect. */
+const BEACON_ABANDON = /google-analytics\.com\/(g\/collect|g\/collect\?)|googletagmanager\.com\/a\?|posthog\.com\/i\/v0\/e\//i;
+
+/**
+ * Same benign set as admin-console-errors.e2e.ts — NO CORP / SW-rejection
+ * allowlist on purpose. SW-rejected FetchEvents surface BOTH as a console
+ * error (non-benign) AND as a requestfailed on the ORIGIN url.
+ */
 function isBenign(msg: ConsoleMessage): boolean {
   const text = msg.text();
   const url = msg.location()?.url ?? '';
@@ -36,6 +45,13 @@ function isBenign(msg: ConsoleMessage): boolean {
   if (/Failed to load resource: the server responded with a status of 4\d\d/i.test(text)) return true; // no-data 404s for the test site
   if (/SharedArrayBuffer|Skipping boot — embedded mode|webcontainer/i.test(text)) return true;
   return false;
+}
+
+/** Track only ORIGIN request failures + analytics 5xx; ignore browser-abandoned beacons. */
+function isTrackedFailure(url: string): boolean {
+  if (BEACON_ABANDON.test(url)) return false; // ERR_ABORTED on navigational beacons is the browser, not us
+  if (WATCH_ANALYTICS.test(url)) return true; // analytics must resolve — an SW rejection shows up here
+  return !/^https:\/\/(projectsites\.dev|editor\.projectsites\.dev)\//.test(url); // other origins: skip (bolt iframe, fonts, cdn)
 }
 
 async function seed(page: Page): Promise<void> {
@@ -60,10 +76,7 @@ test.describe('admin — human-like click-around, no network/console defects', (
     const jsErrors: string[] = [];
 
     page.on('requestfailed', (req) => {
-      const u = req.url();
-      if (/api\/domains\/suggest|\/api\/analytics|posthog\.com|googletagmanager\.com|google-analytics\.com/i.test(u)) {
-        failed.push(`${req.failure()?.errorText ?? 'network error'} ${u}`);
-      }
+      if (isTrackedFailure(req.url())) failed.push(`${req.failure()?.errorText ?? 'network error'} ${req.url()}`);
     });
     page.on('response', (res) => {
       if (res.url().includes('/api/domains/suggest?') && !res.url().includes('refine')) suggestStatus.push(res.status());
@@ -85,22 +98,23 @@ test.describe('admin — human-like click-around, no network/console defects', (
     await trigger.click();
     await expect(page.locator('.dp-panel')).toBeVisible({ timeout: 10000 });
 
-    // Initial AI suggestions must 200 and render real rows (suggestion-row
-    // template) — not silently fall back to brand filler.
+    // Network contract: suggest must fire and resolve 200 — the pre-fix 400
+    // regression signal. Rows render from the live suggestions OR the
+    // brand-fallback fillers (the picker never shows an empty list), so the
+    // DOM assertion covers the panel, not the suggestion source.
     await expect(page.locator('.dp-row--reg').first()).toBeVisible({ timeout: 45000 });
     expect(suggestStatus.length, 'GET /api/domains/suggest never fired').toBeGreaterThan(0);
     expect(suggestStatus.every((s) => s === 200), `suggest statuses: ${suggestStatus.join(',')}`).toBe(true);
 
-    // "Show me different ones ↻" — POST refine must 200 and swap the set.
-    const firstDomain = await page.locator('.dp-row--reg .dp-mono').first().textContent();
+    // "Show me different ones ↻" — POST refine must fire and resolve 200
+    // (the pre-fix lying-empty bug: refine responses were silently discarded,
+    // so the set never changed and the button LOOKED dead).
     const refine = page.locator('.dp-refine');
     await expect(refine).toBeVisible({ timeout: 10000 });
     await refine.click();
     await expect(page.locator('.dp-refine')).toBeEnabled({ timeout: 45000 }); // refining spinner clears
     expect(refineStatus.length, 'POST /api/domains/suggest/refine never fired').toBeGreaterThan(0);
     expect(refineStatus.every((s) => s === 200), `refine statuses: ${refineStatus.join(',')}`).toBe(true);
-    const secondDomain = await page.locator('.dp-row--reg .dp-mono').first().textContent();
-    expect(secondDomain).toBeTruthy();
 
     // Close the panel (Escape) — human-like.
     await page.keyboard.press('Escape');
@@ -120,13 +134,10 @@ test.describe('admin — human-like click-around, no network/console defects', (
     const jsErrors: string[] = [];
 
     page.on('requestfailed', (req) => {
-      const u = req.url();
-      if (/api\/analytics|posthog\.com|googletagmanager\.com|google-analytics\.com/i.test(u)) {
-        failed.push(`${req.failure()?.errorText ?? 'network error'} ${u}`);
-      }
+      if (isTrackedFailure(req.url())) failed.push(`${req.failure()?.errorText ?? 'network error'} ${req.url()}`);
     });
     page.on('response', (res) => {
-      if (/\/api\/analytics\//i.test(res.url())) analyticsStatus.push(res.status());
+      if (WATCH_ANALYTICS.test(res.url())) analyticsStatus.push(res.status());
     });
     page.on('pageerror', (err) => jsErrors.push(`${err.name}: ${err.message}`));
     page.on('console', (msg) => {
@@ -169,5 +180,45 @@ test.describe('admin — human-like click-around, no network/console defects', (
     // The wrapping bar must still carry the affordance.
     const wrap = await page.locator('.search-wrap').evaluate((el) => getComputedStyle(el).borderColor);
     expect(wrap).toBeTruthy();
+  });
+
+  test('editor: /admin/editor boots the bolt iframe with no service-worker-rejected /api fetches', async ({ page }) => {
+    test.setTimeout(90000);
+    const failed: string[] = [];
+    const swRejections: string[] = [];
+    const jsErrors: string[] = [];
+    const badConsole: string[] = [];
+
+    page.on('requestfailed', (req) => {
+      if (isTrackedFailure(req.url())) failed.push(`${req.failure()?.errorText ?? 'network error'} ${req.url()}`);
+    });
+    page.on('pageerror', (err) => jsErrors.push(`${err.name}: ${err.message}`));
+    page.on('console', (msg) => {
+      if (msg.type() !== 'error') return;
+      const t = msg.text();
+      // THE regression this locks: the Angular service worker turning a slow or
+      // failed dynamic `/api/*` fetch (analytics, sites) into an uncaught
+      // rejection — `ngsw-worker.js DataGroup.safeFetch → Uncaught TypeError:
+      // Failed to fetch` — which spammed the editor console AND stranded the
+      // persistent bolt.diy iframe with ZERO code files (Brian, 2026-08-20).
+      // The fix removed ALL `/api/*` dataGroups from ngsw-config.json, so the SW
+      // never intercepts an API call. If any dataGroup is re-added, this fires.
+      if (/DataGroup|ngsw-worker|the promise was rejected/i.test(t)) swRejections.push(t);
+      if (!isBenign(msg)) badConsole.push(`${msg.text()} @ ${msg.location()?.url ?? '?'}`);
+    });
+
+    await seed(page);
+    await page.goto('/admin/editor', { waitUntil: 'load' });
+    await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
+
+    // The persistent bolt.diy editor iframe MUST mount — it is what renders the
+    // code files. A stranded editor never attaches it (or attaches it empty).
+    await expect(page.locator('iframe[src*="editor.projectsites.dev"]')).toBeAttached({ timeout: 45000 });
+    await page.waitForTimeout(3000); // let the analytics poll + iframe import settle
+
+    expect(swRejections, `service-worker rejected /api fetch(es):\n${swRejections.join('\n')}`).toEqual([]);
+    expect(failed, `failed network requests:\n${failed.join('\n')}`).toEqual([]);
+    expect(jsErrors, `uncaught JS exception(s):\n${jsErrors.join('\n')}`).toEqual([]);
+    expect(badConsole, `non-benign console error(s):\n${badConsole.join('\n')}`).toEqual([]);
   });
 });

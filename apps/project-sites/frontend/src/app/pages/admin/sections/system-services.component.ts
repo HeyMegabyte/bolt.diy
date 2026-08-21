@@ -41,10 +41,7 @@ const LIVE_PROBE_NAME: Readonly<Record<string, string>> = {
   'crm-twenty': 'twenty',
   'billing-stripe': 'stripe',
   'traces-langfuse': 'langfuse',
-  'keys-unkey': 'unkey',
   'email-resend': 'resend',
-  'oauth-nango': 'nango',
-  'jobs-inngest': 'inngest',
 };
 
 /** Display order: live first, planned last. */
@@ -172,13 +169,20 @@ export class SystemServicesComponent implements OnInit {
   /** Live probe status keyed by bare integration name (empty until aggregate resolves). */
   private readonly liveHealth = signal<ReadonlyMap<string, LiveHealth>>(new Map());
 
-  /** Sorted live-first for the operator scan. */
+  /**
+   * Sorted live-first for the operator scan. `removed` services are dropped
+   * entirely — a decommissioned service (Inngest, Nango, …) is a tombstone in
+   * the registry for audit/referential-integrity, NOT something the operator
+   * should see in the live catalog. The tab shows only what actually runs.
+   */
   readonly services = computed(() =>
-    [...this.raw()].sort(
-      (a, b) =>
-        (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9) ||
-        a.name.localeCompare(b.name),
-    ),
+    [...this.raw()]
+      .filter((s) => s.status !== 'removed')
+      .sort(
+        (a, b) =>
+          (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9) ||
+          a.name.localeCompare(b.name),
+      ),
   );
 
   readonly countChips = computed(() =>

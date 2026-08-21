@@ -1,7 +1,7 @@
 /**
  * @module services/oauth
  *
- * Native OAuth provider adapters — replaces Nango (removed ADR-0034, 2026-07-27).
+ * Native OAuth provider adapters (no external token vault).
  * Each provider gets a typed adapter for connection lifecycle: authorize, callback,
  * token exchange, refresh, revoke. AES-GCM encrypted tokens stored in D1
  * `mcp_connections` table via `mcp_oauth.ts`.

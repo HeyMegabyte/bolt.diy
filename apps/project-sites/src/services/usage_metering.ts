@@ -191,7 +191,7 @@ export async function computeOverageMicroUsd(
 import { createBillingProvider, type UsageMetric as BillingMetric } from './billing_provider.js';
 
 /**
- * Record AI token usage through the billing provider (noop since Lago removal 2026-08-20).
+ * Record AI token usage through the billing provider (noop — billing is Stripe; no per-token billing provider).
  *
  * Call AFTER an LLM response with actual token counts (NOT estimated).
  * One event per AI call, with separate input + output token quantities.

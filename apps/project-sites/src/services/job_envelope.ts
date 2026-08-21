@@ -6,7 +6,7 @@
  * and trace correlation for free.
  *
  * Pure functions — no I/O, no queue binding. The actual enqueue/dequeue
- * lives in the Queue consumer / Workflow step / Inngest function.
+ * lives in the Queue consumer / Workflow step / Hatchet worker.
  *
  * @packageDocumentation
  */

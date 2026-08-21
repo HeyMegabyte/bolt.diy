@@ -12,7 +12,7 @@
  *   4. CNAME registered in KV (apphost:pm.customer.com → instanceId)
  *   5. DO boots → reads env → connects to own DB → serves on CNAME
  */
-export type AppSlug = 'plane' | 'twenty' | 'listmonk' | 'chatwoot' | 'lago' | 'unkey' | 'nango' | 'payload' | 'litellm';
+export type AppSlug = 'plane' | 'twenty' | 'listmonk' | 'chatwoot' | 'payload' | 'litellm';
 
 export interface AppCatalogEntry {
   slug: AppSlug; name: string; description: string;
@@ -58,21 +58,6 @@ export const APP_CATALOG: Record<AppSlug, AppCatalogEntry> = {
     slug: 'chatwoot', name: 'Chatwoot', description: 'Customer support platform',
     image: 'ghcr.io/chatwoot/chatwoot:latest', infra: ['postgres', 'redis'],
     defaultPort: 3000, envTemplate: { DATABASE_URL: '${DATABASE_URL}', REDIS_URL: '${REDIS_URL}', SECRET_KEY_BASE: '${SECRET_KEY}' },
-  },
-  lago: {
-    slug: 'lago', name: 'Lago', description: 'Usage-based billing',
-    image: 'ghcr.io/getlago/lago-api:latest', infra: ['postgres', 'redis'],
-    defaultPort: 3000, envTemplate: { DATABASE_URL: '${DATABASE_URL}', REDIS_URL: '${REDIS_URL}', LAGO_SECRET: '${SECRET_KEY}' },
-  },
-  unkey: {
-    slug: 'unkey', name: 'Unkey', description: 'API key management',
-    image: 'ghcr.io/unkeyed/unkey:latest', infra: ['postgres'],
-    defaultPort: 8080, envTemplate: { DATABASE_URL: '${DATABASE_URL}', UNKEY_SECRET: '${SECRET_KEY}' },
-  },
-  nango: {
-    slug: 'nango', name: 'Nango', description: 'OAuth integration hub',
-    image: 'ghcr.io/nango/nango:latest', infra: ['postgres', 'redis'],
-    defaultPort: 3003, envTemplate: { NANGO_DB_URL: '${DATABASE_URL}', NANGO_REDIS_URL: '${REDIS_URL}', NANGO_SECRET: '${SECRET_KEY}' },
   },
   payload: {
     slug: 'payload', name: 'Payload CMS', description: 'Headless content management',

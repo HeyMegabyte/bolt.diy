@@ -63,9 +63,12 @@ describe('buildSignal — config-only services reflect their secret presence', (
     });
   }
 
-  it('decommissioned services return the "removed" sentinel', async () => {
+  it('fully-purged services are no longer tombstoned (REMOVED facility empty)', async () => {
+    // nango/inngest/postiz/lago/unkey were fully purged — a probe for one is now
+    // UNKNOWN (404 at the route), never the 'removed' 410 sentinel. No live
+    // integration is a tombstone.
     for (const name of ['nango', 'inngest', 'postiz', 'lago', 'unkey']) {
-      expect(await buildSignal(name, configuredEnv())).toBe('removed');
+      expect(await buildSignal(name, configuredEnv())).not.toBe('removed');
     }
   });
 
@@ -154,8 +157,10 @@ describe('GET /api/integrations/health — aggregate reflects real per-service s
       expect(row?.status).not.toBe('unknown');
     }
 
-    // Removed services surface as `removed`, never a misleading `unknown`.
-    expect(byName.get('nango')?.status).toBe('removed');
+    // Fully-purged services (nango/inngest/postiz/lago/unkey) are absent from
+    // the aggregate entirely — they are no longer known integrations.
+    expect(byName.has('nango')).toBe(false);
+    expect(byName.has('unkey')).toBe(false);
   });
 
   it('aggregate status AGREES with the per-service endpoint (anti-drift)', async () => {
@@ -173,14 +178,16 @@ describe('GET /api/integrations/health — aggregate reflects real per-service s
     }
   });
 
-  it('per-service endpoint returns 410 for decommissioned services', async () => {
+  it('per-service endpoint returns 404 for a fully-purged service', async () => {
+    // nango/inngest/postiz/lago/unkey were fully removed — a probe for one is
+    // UNKNOWN now (404), not the transitional 410 Gone tombstone.
     const res = await integrationHealth.request(
       '/api/integrations/nango/health',
       {},
       configuredEnv(),
     );
-    expect(res.status).toBe(410);
-    const body = (await res.json()) as { status: string };
-    expect(body.status).toBe('removed');
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('unknown_integration');
   });
 });

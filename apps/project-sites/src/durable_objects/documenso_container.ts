@@ -4,7 +4,7 @@
  * @description
  * `DocumensoContainer` — Durable Object wrapping a Cloudflare Containers (CFC)
  * instance that runs **self-hosted Documenso** (e-signatures) for
- * `sign.projectsites.dev`. Mirrors `InngestContainer`:
+ * `sign.projectsites.dev`. Mirrors `SiteBuilderContainer`:
  * a single platform-owned warm instance at a fixed subdomain.
  *
  * - Image: `containers/documenso/Dockerfile` (`FROM documenso/documenso` —
@@ -124,7 +124,7 @@ function documensoEnvVars(env: Env): Record<string, string> {
  * @remarks
  * Container-backed DO → migrates on the SQLite backend via `new_sqlite_classes`
  * (CF API error 10074 rejects `new_classes` for any container DO), mirroring
- * `SiteBuilderContainer` + `InngestContainer`.
+ * `SiteBuilderContainer` + `CaldiyContainer`.
  *
  * @example
  * const id = env.DOCUMENSO_CONTAINER.idFromName('documenso-singleton');

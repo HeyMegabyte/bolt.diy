@@ -133,18 +133,7 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     status: 'integrated',
     access: 'service-only',
     notes:
-      'Routing policy + JOB_DEFINITIONS + port + backend adapters (CF Workflows/Hatchet; Inngest removed 2026-08-20) + getJobRouter(env) factory + POST /api/jobs dispatch route (mounted, tested). Remaining: migrate the claim/billing/domain flows to dispatch through it (their dedicated Workflow classes). ADR-0003.',
-  },
-  {
-    id: 'jobs-inngest',
-    name: 'Inngest durable-jobs server — REMOVED (2026-08-20)',
-    domain: 'jobs.projectsites.dev',
-    category: 'jobs',
-    runtime: 'removed',
-    status: 'removed',
-    access: 'internal-access',
-    notes:
-      'Replaced by CF-native outbox → Hatchet Cloud (ADR-0004). Container, DO class, src/inngest adapter, and all INNGEST_* env deleted; jobs./events.* now serve the branded status page only.',
+      'Routing policy + JOB_DEFINITIONS + port + backend adapters (CF Workflows/Hatchet) + getJobRouter(env) factory + POST /api/jobs dispatch route (mounted, tested). Remaining: migrate the claim/billing/domain flows to dispatch through it (their dedicated Workflow classes). ADR-0034.',
   },
   {
     id: 'event-dispatcher',
@@ -377,7 +366,7 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     status: 'production',
     access: 'customer-authenticated',
     notes:
-      'Replaces Nango (removed 2026-07-27 per ADR-0034). /api/mcp/:provider/connect + /callback + /paste — PKCE state flow + paste-key fallback when client_id unset. AES-GCM encrypted tokens in D1 mcp_connections table. Per-provider native adapters in src/services/oauth/. Zero external token vault.',
+      'The canonical OAuth layer — no external token vault. /api/mcp/:provider/connect + /callback + /paste — PKCE state flow + paste-key fallback when client_id unset. AES-GCM encrypted tokens in D1 mcp_connections table. Per-provider native adapters in src/services/oauth/.',
   },
   {
     id: 'auth-better-auth',
@@ -405,8 +394,8 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
       'FeatureEvaluationProvider port (OpenFeature ResolutionDetails contract) + FakeFeatureEvaluationProvider + D1FlagEvaluationProvider + getFeatureEvaluationProvider(env) factory, all tested. Deliberately wraps the EXISTING modules/feature_flags engine (D1 flag_overrides + KV + registry + rollout hashing) rather than adopting the OpenFeature vendor SDK — zero new deps, Workers-native, our D1 store stays source of truth. No env secret (wraps our own engine → always available, no gate). Ships dark: no handler calls it yet; wiring is additive + behavior-neutral. ADR-0033.',
   },
   {
-    id: 'keys-unkey',
-    name: 'Unkey-shaped API-key port over the D1 api_tokens keystore (§30/ADR-0030)',
+    id: 'api-keys-native',
+    name: 'Native API-key port over the D1 api_tokens keystore (§30/ADR-0030)',
     category: 'security',
     runtime: 'library',
     ownerPackage: 'apps/project-sites/src/platform/api-keys.ts',
@@ -414,7 +403,7 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     status: 'integrated',
     access: 'service-only',
     notes:
-      'ApiKeyProvider port (Unkey create/verify/revoke contract w/ structured KeyVerificationResult) + FakeApiKeyProvider + D1ApiKeyProvider + getApiKeyProvider(env) factory, all tested. Deliberately wraps the EXISTING services/api_tokens keystore (psk_<hex>, SHA-256 hash in D1, scopes, expiry, revoke) rather than hosting Unkey (its product is a DB-backed container stack; edge key-verification is already Worker-native here). Zero new deps, no env secret (wraps our own keystore → always available, no gate). Ships dark: api_tokens stays the live verification path; a managed Unkey adapter could slot behind the factory via UNKEY_ROOT_KEY later. ADR-0030.',
+      'ApiKeyProvider port (create/verify/revoke contract w/ structured KeyVerificationResult) + FakeApiKeyProvider + D1ApiKeyProvider + getApiKeyProvider(env) factory, all tested. Wraps the EXISTING services/api_tokens keystore (psk_<hex>, SHA-256 hash in D1, scopes, expiry, revoke) — edge key-verification is Worker-native, so no external key-management service is hosted. Zero new deps, no env secret (wraps our own keystore → always available, no gate). api_tokens is the live verification path. ADR-0030.',
   },
   {
     id: 'traces-opentelemetry',
@@ -428,19 +417,6 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     access: 'service-only',
     notes:
       'Tracer/Span/TracerProvider port (OTel-shaped) + NoopTracerProvider + FakeTracerProvider + OtlpTracerProvider (fetch-based OTLP/HTTP JSON exporter, no @opentelemetry SDK) + getTracerProvider(env) factory, all tested. Deliberately a thin port over the EXISTING observability backbone (CF Workers Tracing [observability] zero-config OTLP + lib/log.ts traceId + Sentry + PostHog) rather than the heavy OTel SDK. Fail-soft export. Ships DARK behind OTEL_EXPORTER_OTLP_ENDPOINT → unset = NoopTracerProvider (zero overhead). Remaining: wire getTracerProvider + waitUntil(flush) into hot handlers (site-serving, workflow steps) to actually emit spans. §35.',
-  },
-  {
-    id: 'oauth-nango',
-    name: 'OAuth connection layer — Nango (REMOVED 2026-07-27 per ADR-0034)',
-    category: 'auth',
-    runtime: 'self-hosted-container',
-    domain: 'integrations.projectsites.dev',
-    ownerPackage: 'apps/project-sites/infra/nango/',
-    adapterPackage: 'apps/project-sites/src/routes/mcp_oauth.ts',
-    status: 'removed',
-    access: 'internal-access',
-    notes:
-      'REMOVED 2026-07-27. Replaced by native OAuth connections via mcp_oauth.ts (PKCE + paste-key fallback + AES-GCM encrypted tokens in D1 mcp_connections). Each provider gets a native adapter in src/services/oauth/. Zero external token vault. See ADR-0034.',
   },
   {
     id: 'crawl-deepcrawl',

@@ -240,14 +240,16 @@ export class BoltEmbedService {
       hideDeploy: 'true',
       slug: site.slug,
     });
-    // Only import prior chat/version for a site that actually HAS built content in
-    // R2. Gate on `current_build_version` (the real `_manifest.json` indicator),
-    // NOT `status==='published'` alone: a published-but-unbuilt site (build never
-    // finished) has no manifest, so `/api/sites/by-slug/:slug/chat` 404s — and
-    // because the iframe is persistently mounted, bolt fires that import on EVERY
-    // admin route, polluting the console with a guaranteed 404 (the very thing
-    // this guard exists to prevent). A fresh chat is the correct start otherwise.
-    if (site.status === 'published' && site.current_build_version) {
+    // Import prior chat/files for any site that actually HAS built content in R2.
+    // The gate is `current_build_version` ALONE — it is the real `_manifest.json`
+    // indicator. We deliberately do NOT also require `status==='published'`: a
+    // site that has a build but whose status has drifted (e.g. back to `draft`
+    // after an inline edit, or mid-`generating`) still has a manifest to import,
+    // and requiring `published` too silently stranded the editor with ZERO files
+    // for such sites (Brian, 2026-08-20). A published-but-UNBUILT site has null
+    // `current_build_version`, so it still correctly starts a fresh chat instead
+    // of firing a guaranteed-404 `/api/sites/by-slug/:slug/chat` import.
+    if (site.current_build_version) {
       params.set('importChatFrom', `${window.location.origin}/api/sites/by-slug/${site.slug}/chat`);
     }
     if (opts.file) params.set('file', opts.file);

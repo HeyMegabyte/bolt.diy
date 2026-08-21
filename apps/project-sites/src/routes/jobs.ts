@@ -6,7 +6,7 @@
  * WorkflowRouter (§20). The handler builds a typed `ProjectSitesJobContext`
  * (trace + idempotency + tenant from the session) and calls
  * `getJobRouter(c.env).start(kind, ctx, payload)`, which routes to the correct
- * execution plane (CF Workflows / Inngest / Hatchet). App code never touches a
+ * execution plane (CF Workflows / Hatchet). App code never touches a
  * vendor SDK (§11/§74.12).
  *
  * Hot path (§22): validate + dispatch only — the heavy work runs in the chosen
@@ -16,7 +16,7 @@
  *
  * The router factory is injectable for tests (`createJobsRoutes(fakeFactory)`).
  *
- * @see docs/adr/0003-cloudflare-workflows-inngest-hatchet-routing.md
+ * @see docs/decisions/0034-platform-consolidation-cf-native.md
  */
 
 import { Hono } from 'hono';

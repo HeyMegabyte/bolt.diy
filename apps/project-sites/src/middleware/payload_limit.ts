@@ -32,7 +32,7 @@ const UPLOAD_PATHS = ['/api/publish/bolt', '/api/sites/'];
 const CONTAINER_APP_HOSTS = new Set([
   'sign.projectsites.dev', // Documenso — e-signatures, avatar + PDF uploads
   'schedule.projectsites.dev', // cal.diy — scheduling
-  // Inngest REMOVED (2026-08-20) — jobs./events.* no longer proxy to a container.
+  // job dispatch handled in-process via createJobsRoutes() — no container proxy.
 ]);
 
 /**

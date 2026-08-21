@@ -2,15 +2,13 @@
  * @module platform/api-keys
  *
  * @description
- * Unkey-shaped API-KEY management port (convergence §30, Unkey). ProjectSites
- * already owns a complete API-key system (`services/api_tokens`: `psk_<hex>` keys,
- * SHA-256 hash stored in D1, scopes, expiry, revoke, last-used throttling). Per the
- * include-list protocol we do NOT host Unkey or reimplement it — Unkey's product is
- * a DB-backed container stack, and edge key-VERIFICATION is exactly what `api_tokens`
- * already does Worker-natively. This port exposes the existing keystore through an
- * Unkey-style provider contract (`create` / `verify` / `revoke` with a structured
- * verification result) so call sites are vendor-neutral: a managed Unkey adapter
- * could later slot behind the factory without touching them.
+ * Native API-key management port over the D1 `api_tokens` keystore (convergence §30).
+ * ProjectSites already owns a complete API-key system (`services/api_tokens`:
+ * `psk_<hex>` keys, SHA-256 hash stored in D1, scopes, expiry, revoke, last-used
+ * throttling). This port exposes the existing keystore through a typed provider
+ * contract (`create` / `verify` / `revoke` with a structured verification result) so
+ * call sites are vendor-neutral: a different adapter could later slot behind the
+ * factory without touching them.
  *
  * Ports-and-adapters: this file is the pure port (interface + Fake). The real
  * adapter over the D1 keystore + the `getApiKeyProvider(env)` factory live in
@@ -19,11 +17,11 @@
  *
  * @see services/api_tokens.ts (the keystore this wraps)
  * @see middleware/api-keys.ts (D1 adapter + factory)
- * @see docs/adr/0030-unkey-port-over-api-tokens.md
+ * @see docs/decisions/0034-platform-consolidation-cf-native.md
  */
 
 /**
- * Unkey-style verification outcome code.
+ * Verification outcome code for the native API-key provider.
  * - `VALID` — key found, not revoked, not expired.
  * - `NOT_FOUND` — no matching key (also covers revoked/expired, which the
  *   keystore collapses into "no valid row" — never leak which).
@@ -31,13 +29,13 @@
  */
 export type KeyVerificationCode = 'VALID' | 'NOT_FOUND' | 'FORBIDDEN';
 
-/** Structured result of verifying an API key (Unkey `keys.verifyKey` shape). */
+/** Structured result of verifying an API key (create/verify/revoke contract). */
 export interface KeyVerificationResult {
   readonly valid: boolean;
   readonly code: KeyVerificationCode;
   /** Key id (D1 `api_tokens.id`) when found. */
   readonly keyId?: string;
-  /** Owner the key belongs to (D1 `org_id`) — Unkey's `ownerId`. */
+  /** Owner the key belongs to (D1 `org_id`). */
   readonly ownerId?: string;
   /** Granted scopes when valid. */
   readonly scopes?: readonly string[];
@@ -60,7 +58,7 @@ export interface CreateKeyResult {
   readonly key: string;
 }
 
-/** Unkey-shaped API-key management provider (create / verify / revoke). */
+/** Native API-key management provider (create / verify / revoke). */
 export interface ApiKeyProvider {
   /** Provider name for diagnostics. */
   readonly name: string;
