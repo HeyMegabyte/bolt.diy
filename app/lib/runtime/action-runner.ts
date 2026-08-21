@@ -314,17 +314,21 @@ export class ActionRunner {
     }
 
     /*
-     * EMBEDDED MODE: the WebContainer never boots (no SharedArrayBuffer in a
-     * cross-origin iframe). Awaiting it here hung every AI file action —
-     * the exact 'chat streams but no file lands' defect (journey 2026-08-19).
-     * In embedded mode, run the file write through the workbench's
-     * WebContainer-free saveFile, which updates the in-memory files map the
-     * PS_FILES_READY responder publishes.
+     * EMBEDDED MODE: a NON-isolated embed cannot boot WebContainer (no
+     * SharedArrayBuffer in a non-cross-origin-isolated iframe) — awaiting it
+     * hangs every AI file action ('chat streams but no file lands', journey
+     * 2026-08-19). There, write through the WebContainer-free store, which
+     * updates the in-memory files map the PS_FILES_READY responder publishes.
+     *
+     * An ISOLATED embed (the /admin shell now ships COEP, 2026-08-21) HAS a live
+     * WebContainer, so fall through to the real fs.writeFile below — the running
+     * dev server then hot-reloads the edit into the Preview.
      */
     const embedded = new URLSearchParams(window.location.search).has('embedded') ||
       (() => { try { return localStorage.getItem('ps_embedded') === '1'; } catch { return false; } })();
+    const isolated = typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
 
-    if (embedded) {
+    if (embedded && !isolated) {
       const { workbenchStore } = await import('~/lib/stores/workbench');
       await workbenchStore.setVirtualFile(action.filePath, action.content);
       return;

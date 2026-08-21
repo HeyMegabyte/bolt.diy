@@ -1,33 +1,9 @@
 import { useStore } from '@nanostores/react';
-import { AnimatePresence, motion, type HTMLMotionProps, type Variants } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 import { computed } from 'nanostores';
 import { memo, useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 
-/*
- * Item 9 (perf): View Transitions API — native browser cross-fade for the
- * Code↔Preview slider. Replaces a framer-motion `<motion.div>` per-frame
- * JS animation with a CSS-driven `::view-transition-*` pseudo paint. Chrome
- * 111+ + Safari 18+ ship natively; Firefox falls back to instant swap.
- */
-type StartViewTransition = (cb: () => void) => { ready: Promise<void>; finished: Promise<void> };
-
-function runViewTransition(cb: () => void): void {
-  if (typeof document === 'undefined') {
-    cb();
-    return;
-  }
-
-  const doc = document as Document & { startViewTransition?: StartViewTransition };
-  const reduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-
-  if (doc.startViewTransition && !reduced) {
-    doc.startViewTransition(cb);
-    return;
-  }
-
-  cb();
-}
 import type { FileHistory } from '~/types/actions';
 import {
   type OnChangeCallback as OnEditorChange,
@@ -63,21 +39,6 @@ interface WorkspaceProps {
   setSelectedElement?: (element: ElementInfo | null) => void;
 }
 
-const viewTransition = { ease: cubicEasingFn };
-
-/*
- * Tab-panel transition — a CROSSFADE with a subtle directional drift, NOT the
- * bare instant x-jump the old View used (which flashed the box in/out — the
- * "no flash" directive, Brian 2026-08-20). Each panel fades + settles 6px on
- * the travel axis while the outgoing one fades away — continuous motion, no
- * blank frame, `prefers-reduced-motion` handled by framer's global config.
- */
-const viewVariants = {
-  enter: (dir: number) => ({ x: dir * 14, opacity: 0, scale: 0.995 }),
-  center: { x: 0, opacity: 1, scale: 1 },
-  exit: (dir: number) => ({ x: dir * -14, opacity: 0, scale: 0.995 }),
-};
-
 /** Top editor tabs — order drives the tab strip left-to-right. */
 const TOP_TABS: { value: WorkbenchViewType; text: string; icon: string }[] = [
   { value: 'code', text: 'Code', icon: 'i-ph:code-duotone' },
@@ -85,23 +46,6 @@ const TOP_TABS: { value: WorkbenchViewType; text: string; icon: string }[] = [
   { value: 'functions', text: 'Functions', icon: 'i-ph:lightning-duotone' },
   { value: 'data', text: 'Data', icon: 'i-ph:chart-bar-duotone' },
 ];
-
-const VIEW_ORDER: WorkbenchViewType[] = TOP_TABS.map((t) => t.value);
-
-function getViewX(view: WorkbenchViewType, selectedView: WorkbenchViewType): string {
-  const viewIndex = VIEW_ORDER.indexOf(view);
-  const selectedIndex = VIEW_ORDER.indexOf(selectedView);
-
-  if (viewIndex < selectedIndex) {
-    return '-100%';
-  }
-
-  if (viewIndex > selectedIndex) {
-    return '100%';
-  }
-
-  return '0%';
-}
 
 const workbenchVariants = {
   closed: {
@@ -154,13 +98,14 @@ export const Workbench = memo(
 
     const setSelectedView = (view: WorkbenchViewType) => {
       /*
-       * Item 9: route the Code↔Preview swap through the View Transitions API
-       * so the cross-fade is done in the compositor (off main thread) instead
-       * of via per-frame JS in framer-motion. The existing `<View>` motion
-       * wrappers stay intact for users on browsers that don't support VT —
-       * they'll still see the existing slide.
+       * Just set the view — the panels stay MOUNTED and cross-fade via the
+       * PanelLayer opacity transition below. NO View-Transitions snapshot here:
+       * VT snapshots the whole workbench, and because the old design also
+       * unmounted/remounted the panel on every swap (reloading the Preview
+       * iframe, re-initing the editor) that snapshot captured a blank frame —
+       * the flash Brian saw. Keeping panels alive + a pure opacity fade is smooth.
        */
-      runViewTransition(() => workbenchStore.currentView.set(view));
+      workbenchStore.currentView.set(view);
     };
 
     useEffect(() => {
@@ -491,43 +436,35 @@ export const Workbench = memo(
                     />
                   </div>
                   <div className="relative flex-1 overflow-hidden">
-                    {/* Panels mount ONE-AT-A-TIME under AnimatePresence: the
-                        crossfade + drift transition runs between them — no
-                        x-slide flash, no blank frame (Brian 2026-08-20). */}
-                    <AnimatePresence initial={false} mode="popLayout">
-                      {selectedView === 'code' && (
-                        <View key="code" data-dir={-1}>
-                          <EditorPanel
-                            editorDocument={currentDocument}
-                            isStreaming={isStreaming}
-                            selectedFile={selectedFile}
-                            files={files}
-                            unsavedFiles={unsavedFiles}
-                            fileHistory={fileHistory}
-                            onFileSelect={onFileSelect}
-                            onEditorScroll={onEditorScroll}
-                            onEditorChange={onEditorChange}
-                            onFileSave={onFileSave}
-                            onFileReset={onFileReset}
-                          />
-                        </View>
-                      )}
-                      {selectedView === 'preview' && (
-                        <View key="preview" data-dir={1}>
-                          <Preview setSelectedElement={setSelectedElement} />
-                        </View>
-                      )}
-                      {selectedView === 'functions' && (
-                        <View key="functions" data-dir={1}>
-                          <FunctionsPanel />
-                        </View>
-                      )}
-                      {selectedView === 'data' && (
-                        <View key="data" data-dir={1}>
-                          <DataPanel />
-                        </View>
-                      )}
-                    </AnimatePresence>
+                    {/* All four panels stay MOUNTED and cross-fade via opacity —
+                        switching tabs never unmounts/remounts, so the Preview
+                        iframe never reloads and the editor never re-inits (no
+                        flash). Active panel is interactive + on top; the rest are
+                        opacity-0 + pointer-events-none but alive. (Brian 2026-08-21) */}
+                    <PanelLayer active={selectedView === 'code'}>
+                      <EditorPanel
+                        editorDocument={currentDocument}
+                        isStreaming={isStreaming}
+                        selectedFile={selectedFile}
+                        files={files}
+                        unsavedFiles={unsavedFiles}
+                        fileHistory={fileHistory}
+                        onFileSelect={onFileSelect}
+                        onEditorScroll={onEditorScroll}
+                        onEditorChange={onEditorChange}
+                        onFileSave={onFileSave}
+                        onFileReset={onFileReset}
+                      />
+                    </PanelLayer>
+                    <PanelLayer active={selectedView === 'preview'}>
+                      <Preview setSelectedElement={setSelectedElement} />
+                    </PanelLayer>
+                    <PanelLayer active={selectedView === 'functions'}>
+                      <FunctionsPanel />
+                    </PanelLayer>
+                    <PanelLayer active={selectedView === 'data'}>
+                      <DataPanel />
+                    </PanelLayer>
                   </div>
                   {/* Item 36 — StatusBar pinned to the bottom of the workbench */}
                   <StatusBar />
@@ -541,26 +478,17 @@ export const Workbench = memo(
   },
 );
 
-// View component for rendering content with motion transitions
-interface ViewProps extends HTMLMotionProps<'div'> {
-  children: JSX.Element;
-}
-
-const View = memo(({ children, ...props }: ViewProps) => {
-  const dir = (props as { 'data-dir'?: number })['data-dir'] ?? 0;
-
-  return (
-    <motion.div
-      className="absolute inset-0 will-change-transform will-change-opacity"
-      custom={dir}
-      variants={viewVariants}
-      initial="enter"
-      animate="center"
-      exit="exit"
-      transition={{ duration: 0.28, ease: cubicEasingFn }}
-      {...props}
-    >
-      {children}
-    </motion.div>
-  );
-});
+// Panel layer — keeps its child mounted at all times and cross-fades via opacity.
+// Inactive panels stay alive (the Preview iframe never reloads, the editor never
+// re-inits) but go non-interactive + transparent. Honors prefers-reduced-motion.
+const PanelLayer = memo(({ active, children }: { active: boolean; children: JSX.Element }) => (
+  <div
+    aria-hidden={!active}
+    className={classNames(
+      'absolute inset-0 transition-opacity duration-300 ease-out motion-reduce:transition-none',
+      active ? 'opacity-100 z-10' : 'opacity-0 pointer-events-none z-0',
+    )}
+  >
+    {children}
+  </div>
+));

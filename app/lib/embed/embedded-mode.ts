@@ -347,11 +347,100 @@ export function restoreMaterializedFiles(): void {
       if (restored > 0) {
         postToParent({ type: 'PS_TOAST', kind: 'info', level: 'info', message: `Editor workbench restored (${restored} files) — Save & Deploy now carries the site` });
       }
+
+      /*
+       * If this embed is cross-origin-isolated, WebContainer CAN boot — so mount
+       * the imported project into its filesystem and run `npm install` + `npm run
+       * dev`, which makes the live Preview actually spin up (Brian 2026-08-21 —
+       * "ensure the npm command runs that causes the Preview to display"). Files
+       * were only written to the in-memory store above (for the FileTree +
+       * Save & Deploy bridge); the dev server needs them on the REAL WC disk. A
+       * non-isolated embed stays materialization-only — WebContainer never boots.
+       */
+      const isolated = typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
+
+      if (isolated && restored > 0) {
+        void spinUpWebContainerPreview(files);
+      }
     }).catch(() => {
       // workbench store failed to load — the stash is already drained; fail soft
     });
   } catch {
     // malformed stash — drop it
+  }
+}
+
+/** Nest flat `{relPath -> contents}` into the WebContainer `FileSystemTree` shape. */
+function filesToTree(files: Record<string, string>): Record<string, unknown> {
+  const tree: Record<string, unknown> = {};
+
+  for (const [rawPath, contents] of Object.entries(files)) {
+    const parts = rawPath.replace(/^\/+/, '').split('/').filter(Boolean);
+
+    if (parts.length === 0) {
+      continue;
+    }
+
+    let node = tree;
+
+    for (let i = 0; i < parts.length - 1; i++) {
+      const dir = parts[i];
+      node[dir] = (node[dir] as { directory: Record<string, unknown> }) ?? { directory: {} };
+      node = (node[dir] as { directory: Record<string, unknown> }).directory;
+    }
+
+    node[parts[parts.length - 1]] = { file: { contents } };
+  }
+
+  return tree;
+}
+
+/**
+ * Mount the imported project into WebContainer and start its dev server so the
+ * embedded editor's Preview displays the running site. Fire-and-forget — every
+ * phase toasts progress to the admin shell; failures fail soft.
+ *
+ * @remarks Impure — mounts to the WebContainer fs and spawns npm processes.
+ */
+async function spinUpWebContainerPreview(files: Record<string, string>): Promise<void> {
+  try {
+    const { webcontainer } = await import('~/lib/webcontainer');
+    const wc = await webcontainer; // resolves only when the isolated embed booted
+
+    await wc.mount(filesToTree(files));
+
+    postToParent({ type: 'PS_TOAST', kind: 'info', level: 'info', message: 'Installing dependencies…' });
+
+    const install = await wc.spawn('npm', ['install']);
+    const installCode = await install.exit;
+
+    if (installCode !== 0) {
+      postToParent({ type: 'PS_TOAST', kind: 'error', level: 'error', message: 'npm install failed — see the terminal' });
+      return;
+    }
+
+    // Pick the dev script from package.json (dev → start → serve), default `dev`.
+    let devScript = 'dev';
+
+    try {
+      const scripts = (JSON.parse(files['package.json'] ?? '{}') as { scripts?: Record<string, string> }).scripts ?? {};
+      devScript = scripts.dev ? 'dev' : scripts.start ? 'start' : scripts.serve ? 'serve' : 'dev';
+    } catch {
+      // no/invalid package.json — fall back to `dev`
+    }
+
+    postToParent({ type: 'PS_TOAST', kind: 'info', level: 'info', message: 'Starting dev server…' });
+
+    // Non-blocking — the dev server keeps running; `server-ready` (PreviewsStore)
+    // surfaces the URL into the Preview tab.
+    await wc.spawn('npm', ['run', devScript]);
+  } catch (err) {
+    postToParent({
+      type: 'PS_TOAST',
+      kind: 'error',
+      level: 'error',
+      message: 'Preview failed to start: ' + String(err).slice(0, 90),
+    });
   }
 }
 
