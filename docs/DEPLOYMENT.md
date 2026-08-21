@@ -751,7 +751,6 @@ For CI deployments, set `FLY_API_TOKEN` as a repository secret. The deploy step:
 - [Architecture: CF vs Fly split](./ARCHITECTURE.md)
 - [ClickHouse warehouse](./OBSERVABILITY.md)
 - [Chatwoot service](./SERVICES-AND-SOCIAL.md)
-- [Post-deploy verification](./verification.md)
 
 
 ---
@@ -948,6 +947,5 @@ All checks passed.
 
 ## Related Docs
 
-- [Deployment: Fly.io guide](./fly.md)
 - [Observability overview](./OBSERVABILITY.md)
 - [Architecture overview](./ARCHITECTURE.md)
