@@ -13,6 +13,7 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { api } from '../routes/api.js';
+import { domains } from '../../libs/features/domains/handlers.js';
 
 const mockDb = {
   prepare: jest.fn(() => ({
@@ -36,6 +37,7 @@ app.use('*', async (c, next) => {
   c.set('requestId', 'req-1');
   await next();
 });
+app.route('/', domains);
 app.route('/', api);
 
 beforeEach(() => jest.spyOn(console, 'warn').mockImplementation(() => {}));

@@ -31,6 +31,7 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { api } from '../routes/api.js';
+import { domains } from '../../libs/features/domains/handlers.js';
 import { dbQueryOne } from '../services/db.js';
 import { getSiteAuditLogs } from '../services/audit.js';
 
@@ -71,6 +72,7 @@ function createAuthenticatedApp(envOverrides: Partial<Env> = {}) {
     c.set('requestId', 'req-1');
     await next();
   });
+  authedApp.route('/', domains);
   authedApp.route('/', api);
   const env = createMockEnv(envOverrides);
   return { app: authedApp, env };
@@ -79,6 +81,7 @@ function createAuthenticatedApp(envOverrides: Partial<Env> = {}) {
 function createUnauthenticatedApp(envOverrides: Partial<Env> = {}) {
   const app = new Hono<{ Bindings: Env; Variables: Variables }>();
   app.onError(errorHandler);
+  app.route('/', domains);
   app.route('/', api);
   const env = createMockEnv(envOverrides);
   return { app, env };

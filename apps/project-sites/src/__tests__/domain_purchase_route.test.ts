@@ -18,6 +18,7 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { api } from '../routes/api.js';
+import { domains } from '../../libs/features/domains/handlers.js';
 
 // SQL-aware mock: site/user lookups go through dbQueryOne→dbQuery→.all(), the
 // hostnames lookup uses .all() directly, and audit writes use .run(). Branch on
@@ -58,6 +59,7 @@ app.use('*', async (c, next) => {
   c.set('requestId', 'req-1');
   await next();
 });
+app.route('/', domains);
 app.route('/', api);
 
 function post(env: Env, body: unknown, rawBody?: string) {
