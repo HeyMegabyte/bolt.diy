@@ -404,22 +404,15 @@ function filesToTree(files: Record<string, string>): Record<string, unknown> {
  */
 async function spinUpWebContainerPreview(files: Record<string, string>): Promise<void> {
   try {
-    const { webcontainer } = await import('~/lib/webcontainer');
+    const [{ webcontainer }, { workbenchStore }] = await Promise.all([
+      import('~/lib/webcontainer'),
+      import('~/lib/stores/workbench'),
+    ]);
     const wc = await webcontainer; // resolves only when the isolated embed booted
 
     await wc.mount(filesToTree(files));
 
-    postToParent({ type: 'PS_TOAST', kind: 'info', level: 'info', message: 'Installing dependencies…' });
-
-    const install = await wc.spawn('npm', ['install']);
-    const installCode = await install.exit;
-
-    if (installCode !== 0) {
-      postToParent({ type: 'PS_TOAST', kind: 'error', level: 'error', message: 'npm install failed — see the terminal' });
-      return;
-    }
-
-    // Pick the dev script from package.json (dev → start → serve), default `dev`.
+    // Pick the dev script (dev → start → serve), default `dev`.
     let devScript = 'dev';
 
     try {
@@ -429,10 +422,48 @@ async function spinUpWebContainerPreview(files: Record<string, string>): Promise
       // no/invalid package.json — fall back to `dev`
     }
 
-    postToParent({ type: 'PS_TOAST', kind: 'info', level: 'info', message: 'Starting dev server…' });
+    /*
+     * Prefer the BOLT SHELL TERMINAL so `npm install` + Vite's ready banner
+     * (`VITE vX ready … Local: …`) + HMR update logs stream into the VISIBLE
+     * terminal — that is the running dev server whose watcher live-reloads the
+     * Preview on every file save (Brian 2026-08-21). Fall back to a detached
+     * `spawn` only if the terminal never attaches, so the Preview still boots.
+     */
+    const shell = workbenchStore.boltTerminal;
+    const shellReady = await Promise.race([
+      shell.ready().then(() => true),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 20000)),
+    ]);
 
-    // Non-blocking — the dev server keeps running; `server-ready` (PreviewsStore)
-    // surfaces the URL into the Preview tab.
+    postToParent({ type: 'PS_TOAST', kind: 'info', level: 'info', message: 'Installing dependencies…' });
+
+    if (shellReady) {
+      const install = await shell.executeCommand('ps-spinup', 'npm install');
+
+      if (install && install.exitCode !== 0) {
+        postToParent({ type: 'PS_TOAST', kind: 'error', level: 'error', message: 'npm install failed — see the terminal' });
+        return;
+      }
+
+      postToParent({ type: 'PS_TOAST', kind: 'info', level: 'info', message: 'Starting dev server…' });
+
+      // Long-running — fire-and-forget so Vite keeps running + `server-ready`
+      // (PreviewsStore) surfaces the URL into the Preview tab.
+      void shell.executeCommand('ps-spinup', `npm run ${devScript}`);
+
+      return;
+    }
+
+    // Fallback (terminal never attached): detached spawn — no visible output,
+    // but the dev server + Preview still come up.
+    const install = await wc.spawn('npm', ['install']);
+
+    if ((await install.exit) !== 0) {
+      postToParent({ type: 'PS_TOAST', kind: 'error', level: 'error', message: 'npm install failed' });
+      return;
+    }
+
+    postToParent({ type: 'PS_TOAST', kind: 'info', level: 'info', message: 'Starting dev server…' });
     await wc.spawn('npm', ['run', devScript]);
   } catch (err) {
     postToParent({

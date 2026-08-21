@@ -549,18 +549,22 @@ export class FilesStore {
 
   async saveFile(filePath: string, content: string) {
     /*
-     * EMBEDDED MODE: the WebContainer NEVER boots (no SharedArrayBuffer in a
-     * cross-origin iframe), so `await this.#webcontainer` hangs every
-     * AI-authored file save forever — the artifact runner never completes,
-     * nothing paints, and Save & Deploy publishes zero edits (journey
-     * 2026-08-19 — the exact 'chat answers but the transcript stays empty'
-     * defect). In embedded mode, write the in-memory files map directly —
-     * the module-level PS_FILES_READY responder reads this same map.
+     * A NON-isolated embed can't boot WebContainer (no SharedArrayBuffer), so
+     * `await this.#webcontainer` would hang every save forever (journey
+     * 2026-08-19). There, write the in-memory files map directly — the
+     * module-level PS_FILES_READY responder reads this same map.
+     *
+     * An ISOLATED embed (the /admin shell ships COEP, 2026-08-21) HAS a live
+     * WebContainer running the dev server, so fall through to `fs.writeFile`
+     * below — that is what makes Vite's watcher fire and the Preview
+     * live-reload (HMR) on a user edit. The `#init` watcher syncs the WC fs
+     * back into the files map, so PS_FILES_READY stays current there too.
      */
     const embedded = new URLSearchParams(window.location.search).has('embedded') ||
       (() => { try { return localStorage.getItem('ps_embedded') === '1'; } catch { return false; } })();
+    const isolated = typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
 
-    if (embedded) {
+    if (embedded && !isolated) {
       const currentFile = this.files.get()[filePath];
       const isLocked = currentFile?.type === 'file' ? currentFile.isLocked : false;
       this.files.setKey(filePath, {
