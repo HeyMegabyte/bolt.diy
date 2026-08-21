@@ -686,13 +686,17 @@ button[aria-label*='end message' i]:hover:not(:disabled) {
    Bolt.diy uses panel resize handles. Subtle cyan highlight on hover
    so the user knows they're draggable. */
 [class*='ResizeHandle'],
-[data-panel-resize-handle-id] {
+[data-panel-resize-handle-id],
+.ps-wb-resize-handle {
   background: transparent !important;
   transition: background var(--ps-dur-fast) var(--ps-ease-emphasized);
 }
 [class*='ResizeHandle']:hover,
 [data-panel-resize-handle-id]:hover,
-[data-panel-resize-handle-id][data-resize-handle-active] {
+[data-panel-resize-handle-id][data-resize-handle-active],
+.ps-wb-resize-handle:hover,
+.ps-wb-resize-handle:focus-visible,
+.ps-wb-resize-handle[data-dragging='true'] {
   background: rgba(0, 229, 255, 0.22) !important;
   box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
 }

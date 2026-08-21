@@ -187,9 +187,14 @@ export const Workbench = memo(
       }
     }, []);
 
+    // `true` only while the divider is being dragged — the workbench drops its
+    // left/width transition so it tracks the cursor instantly (Brian 2026-08-21).
+    const [isWorkbenchResizing, setIsWorkbenchResizing] = useState(false);
+
     const startWorkbenchResize = useCallback(
       (event: React.PointerEvent<HTMLDivElement>) => {
         event.preventDefault();
+        setIsWorkbenchResizing(true);
         document.body.style.userSelect = 'none';
         document.body.style.cursor = 'col-resize';
 
@@ -202,6 +207,7 @@ export const Workbench = memo(
         const onUp = () => {
           window.removeEventListener('pointermove', onMove);
           window.removeEventListener('pointerup', onUp);
+          setIsWorkbenchResizing(false);
           document.body.style.userSelect = '';
           document.body.style.cursor = '';
 
@@ -235,7 +241,10 @@ export const Workbench = memo(
           >
             <div
               className={classNames(
-                'fixed top-[var(--header-height)] bottom-0 w-[var(--workbench-inner-width)] z-0 transition-[left,width] duration-200 bolt-ease-cubic-bezier',
+                'fixed top-[var(--header-height)] bottom-0 w-[var(--workbench-inner-width)] z-0',
+                // Drop the left/width transition WHILE dragging so the divider tracks
+                // the cursor instantly; keep it for the open/close slide (Brian 2026-08-21).
+                isWorkbenchResizing ? '' : 'transition-[left,width] duration-200 bolt-ease-cubic-bezier',
                 {
                   'w-full': isSmallViewport,
                   'left-0': showWorkbench && isSmallViewport,
@@ -263,10 +272,9 @@ export const Workbench = memo(
                       parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--workbench-split')) || 50;
                     setSplit(cur + (e.key === 'ArrowLeft' ? -2 : 2));
                   }}
-                  className="group absolute left-0 top-0 bottom-0 z-20 w-2 -translate-x-1/2 cursor-col-resize focus:outline-none"
-                >
-                  <div className="mx-auto h-full w-px bg-bolt-elements-borderColor transition-colors group-hover:w-0.5 group-hover:bg-bolt-elements-item-contentAccent group-focus:w-0.5 group-focus:bg-bolt-elements-item-contentAccent" />
-                </div>
+                  data-dragging={isWorkbenchResizing ? 'true' : undefined}
+                  className="ps-wb-resize-handle absolute left-0 top-0 bottom-0 z-20 w-1.5 -translate-x-1/2 cursor-col-resize focus:outline-none"
+                />
               )}
               <div className="absolute inset-0">
                 <div className="h-full flex flex-col bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor shadow-sm overflow-hidden">
