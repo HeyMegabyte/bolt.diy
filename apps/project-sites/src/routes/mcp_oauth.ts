@@ -280,10 +280,7 @@ mcpOauth.get('/api/mcp/:provider/callback', async (c) => {
           actual: installationId,
         }),
       );
-      return c.json(
-        { error: { code: 'FORBIDDEN', message: 'Configuration mismatch.' } },
-        403,
-      );
+      return c.json({ error: { code: 'FORBIDDEN', message: 'Configuration mismatch.' } }, 403);
     }
     const encTok = await encrypt(c.env, vx.access_token);
     await c.env.DB.prepare(

@@ -682,12 +682,9 @@ describe('GET /api/mcp/vercel/callback (marketplace install — IDOR-hardened)',
     mockGetAdapter.mockReturnValue(makeAdapter({ exchangeCode }));
     const db = makeDb({});
     const env = makeEnv({ DB: db });
-    const res = await req(
-      makeApp(),
-      '/api/mcp/vercel/callback?code=vc',
-      env,
-      { redirect: 'manual' },
-    );
+    const res = await req(makeApp(), '/api/mcp/vercel/callback?code=vc', env, {
+      redirect: 'manual',
+    });
     expect(res.status).toBe(200);
     const stmts = db._statements;
     const upsert = stmts.find((s) => /INSERT INTO mcp_connections/i.test(s.sql));
