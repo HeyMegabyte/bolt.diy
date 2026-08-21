@@ -387,7 +387,7 @@ forms.post('/api/v1/forms/submit', async (c) => {
     }
   }
 
-  // Meter form submission through LagoProvider (free metric, analytics only).
+  // Meter form submission through the billing provider (free metric, analytics only).
   void (async () => {
     try {
       const { meterFormSubmission } = await import('../services/usage_metering.js');

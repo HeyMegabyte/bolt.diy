@@ -212,7 +212,6 @@ export {
   ImmichContainer,
   JellyfinContainer,
   KhojContainer,
-  LagoContainer,
   LangflowContainer,
   LangfuseContainer,
   LibrechatContainer,
@@ -232,7 +231,6 @@ export {
   OutlineContainer,
   PayloadContainer,
   PerplexicaContainer,
-  PlaneContainer,
   PlausibleContainer,
   PocketbaseContainer,
   QdrantContainer,
@@ -1032,7 +1030,6 @@ app.all('*', async (c, next) => {
   return out;
 });
 
-// billing.projectsites.dev → Lago on Fly. CF free plan blocks Worker→Fly
 // fetch (error 1101). Use the direct Fly URL for now:
 //   https://projectsites-lago.fly.dev/users/sign_in
 //   admin@megabyte.space / 32D7OjlTK3id1M8flrQ

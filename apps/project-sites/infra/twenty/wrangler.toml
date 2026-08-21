@@ -20,7 +20,7 @@ enabled = true
 class_name = "TwentyCrm"
 image = "./Dockerfile"
 max_instances = 1
-instance_type = "standard-4"
+instance_type = "standard-1"  # right-sized 2026-08-20: 12 GiB → 4 GiB (scale-to-zero sweep)
 name = "projectsites-twenty"
 
 [[durable_objects.bindings]]

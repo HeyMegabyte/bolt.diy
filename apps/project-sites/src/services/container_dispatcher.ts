@@ -87,7 +87,6 @@ const BINDING_BY_SLUG: Readonly<Record<string, keyof Env>> = {
   outline: 'APP_RUNTIME_OUTLINE',
   perplexica: 'APP_RUNTIME_PERPLEXICA',
   phoenix: 'APP_RUNTIME_PHOENIX',
-  plane: 'APP_RUNTIME_PLANE',
   plausible: 'APP_RUNTIME_PLAUSIBLE',
   pocketbase: 'APP_RUNTIME_POCKETBASE',
   qdrant: 'APP_RUNTIME_QDRANT',

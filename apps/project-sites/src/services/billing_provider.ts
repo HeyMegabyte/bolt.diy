@@ -211,52 +211,18 @@ export interface BillingMeteringProvider {
 // ─── Provider configuration ─────────────────────────────────────────────
 
 /** Valid billing provider identifiers. */
-export type BillingProviderId = 'lago' | 'noop';
+export type BillingProviderId = 'noop';
 
 /** Resolve the configured billing provider from the environment. */
 export function resolveBillingProviderId(env: Env): BillingProviderId {
-  const raw = env.BILLING_PROVIDER ?? 'lago';
-  if (raw === 'lago' || raw === 'noop') return raw;
-  if (raw === 'stripe_meters' || raw === 'openmeter' || raw === 'metronome') {
-    throw new Error(`BILLING_PROVIDER=${raw} is no longer supported. Use lago.`);
-  }
-  throw new Error(`Unknown BILLING_PROVIDER: ${raw}. Expected lago | noop.`);
+  const raw = env.BILLING_PROVIDER ?? 'noop';
+  if (raw === 'noop') return raw;
+  throw new Error(
+    `BILLING_PROVIDER=${raw} is no longer supported — Lago removed 2026-08-20 (billing is Stripe). Use noop.`,
+  );
 }
 
-// ─── Lago billable metric code mapping (one place, never scatter) ────────
-
-/**
- * Maps internal UsageMetric → Lago billable metric code.
- *
- * Lago billable codes are defined in the Lago UI/API. These are the canonical
- * mapping — no other file should hardcode a Lago code.
- *
- * Charging model (per Brian):
- * - AI: per TOKEN (input/output/embedding), per IMAGE, per MINUTE (voice)
- * - Compute: per MINUTE (browser, build)
- * - Traffic: per VISIT, per GB (bandwidth egress)
- * - Storage: per GB-HOUR
- * - Messaging: per SEND (email, SMS)
- */
-export const LAGO_BILLABLE_CODE: Record<UsageMetric, string> = {
-  ai_input_tokens: 'ps_ai_input_tokens',
-  ai_output_tokens: 'ps_ai_output_tokens',
-  ai_embedding_tokens: 'ps_ai_embedding_tokens',
-  ai_image_generations: 'ps_ai_image_generations',
-  ai_voice_minutes: 'ps_ai_voice_minutes',
-  browser_automation_minutes: 'ps_browser_automation_minutes',
-  build_compute_minutes: 'ps_build_compute_minutes',
-  site_visits: 'ps_site_visits',
-  bandwidth_egress_gb: 'ps_bandwidth_egress_gb',
-  storage_gb_hours: 'ps_storage_gb_hours',
-  email_sends: 'ps_email_sends',
-  sms_sends: 'ps_sms_sends',
-  form_submissions: 'ps_form_submissions',
-  social_posts: 'ps_social_posts',
-  booking_events: 'ps_booking_events',
-  crm_seats: 'ps_crm_seats',
-  premium_app_installs: 'ps_premium_app_installs',
-};
+// Lago billable-code mapping REMOVED (2026-08-20) — noop provider has no codes.
 
 // ─── Provider factory ───────────────────────────────────────────────────
 
@@ -268,10 +234,6 @@ export const LAGO_BILLABLE_CODE: Record<UsageMetric, string> = {
 export async function createBillingProvider(env: Env): Promise<BillingMeteringProvider> {
   const id = resolveBillingProviderId(env);
   switch (id) {
-    case 'lago': {
-      const { LagoProvider } = await import('./billing_provider_lago.js');
-      return new LagoProvider(env);
-    }
     case 'noop': {
       const { NoopBillingProvider } = await import('./billing_provider_noop.js');
       return new NoopBillingProvider(env);
@@ -283,7 +245,7 @@ export async function createBillingProvider(env: Env): Promise<BillingMeteringPr
 
 /**
  * Per-unit cost in CENTS for each metric. Display-only estimates.
- * Actual billing: Lago rate cards.
+ * Actual billing: Stripe.
  */
 export const METRIC_RATE_CENTS: Record<string, number> = {
   ai_input_tokens: 0.000015,

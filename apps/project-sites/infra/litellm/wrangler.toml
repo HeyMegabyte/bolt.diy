@@ -20,7 +20,7 @@ enabled = true
 class_name = "LiteLLM"
 image = "./Dockerfile"
 max_instances = 1
-instance_type = "standard-2"
+instance_type = "basic"  # right-sized 2026-08-20: Python proxy ~300 MB (scale-to-zero sweep)
 name = "projectsites-litellm"
 
 [[durable_objects.bindings]]

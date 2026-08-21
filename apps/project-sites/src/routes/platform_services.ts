@@ -41,7 +41,6 @@ export const PLATFORM_SERVICES: Readonly<Record<string, PlatformService>> = {
       'Centralized structured logging, search, dashboards, and alerts — every event, every trace, every request.',
     url: 'https://app.axiom.co',
   },
-  // billing is now self-hosted Lago on Fly — proxied, not a static landing page
   webhooks: {
     sub: 'webhooks',
     name: 'Webhooks',

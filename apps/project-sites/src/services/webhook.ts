@@ -4,7 +4,7 @@
  *
  * Provides signature verification, idempotency checking, event storage, and
  * status tracking for inbound webhooks from multiple providers (Stripe, Dub,
- * Chatwoot, Novu, Lago).
+ * Chatwoot, Novu).
  *
  * ## Processing pipeline
  *

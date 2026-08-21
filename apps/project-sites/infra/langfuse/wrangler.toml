@@ -19,7 +19,7 @@ enabled = true
 class_name = "Langfuse"
 image = "./Dockerfile"
 max_instances = 1
-instance_type = "standard-4"
+instance_type = "basic"  # right-sized 2026-08-20 (scale-to-zero sweep)
 name = "projectsites-langfuse"
 
 [[durable_objects.bindings]]

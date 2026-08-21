@@ -46,7 +46,7 @@ interface Env {
 
 export class LiteLLM extends Container<Env> {
   override defaultPort = 4000;
-  override sleepAfter = '20m';
+  override sleepAfter = '15m'; // scale-to-zero 2026-08-20
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);

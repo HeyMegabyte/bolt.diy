@@ -191,7 +191,7 @@ export async function computeOverageMicroUsd(
 import { createBillingProvider, type UsageMetric as BillingMetric } from './billing_provider.js';
 
 /**
- * Record AI token usage through LagoProvider.
+ * Record AI token usage through the billing provider (noop since Lago removal 2026-08-20).
  *
  * Call AFTER an LLM response with actual token counts (NOT estimated).
  * One event per AI call, with separate input + output token quantities.
@@ -374,7 +374,7 @@ export async function meterBandwidthEgress(
 }
 
 /**
- * Record build compute minutes through LagoProvider.
+ * Record build compute minutes through the billing provider.
  *
  * Call from site-generation workflow after build completion with elapsed wall-clock minutes.
  * ~$0.02/min estimate. Cost: <1ms (async, fire-and-forget via `void`).
@@ -454,7 +454,7 @@ export async function getUsagePanelPayload(
 }
 
 /**
- * Record a site visit (page view) through LagoProvider.
+ * Record a site visit (page view) through the billing provider.
  * Cost: ~$0.00001/visit (effectively free). Call from site_serving on every page serve.
  * No org lookup needed — just counts the visit for analytics.
  */
@@ -482,7 +482,7 @@ export async function meterSiteVisit(
 }
 
 /**
- * Record a form submission through LagoProvider. Free tier — metered for analytics.
+ * Record a form submission through the billing provider. Free tier — metered for analytics.
  * Cost: $0 (free metric). Call from form handlers after successful submission.
  */
 export async function meterFormSubmission(

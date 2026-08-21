@@ -123,26 +123,11 @@ export function createRegistry(entries: readonly ServiceEntry[]): ServiceRegistr
 /**
  * Default registry of known live services at projectsites.dev / megabyte.space.
  *
- * Derived from the running fleet: Plane (pm), Twenty (crm), Listmonk (mail),
- * Unkey (api), Postiz (social), Inngest (events). Descriptions, secrets, and
+ * Derived from the running fleet: Twenty (crm), Listmonk (mail), Postiz (social).
+ * Descriptions, secrets, and
  * categories reflect real-world deployment state as of 2026-06-29.
  */
 export const DEFAULT_SERVICES = Object.freeze([
-  Object.freeze({
-    slug: 'plane',
-    name: 'Plane',
-    description: 'Project management and issue tracking (self-hosted)',
-    url: 'https://pm.projectsites.dev',
-    healthPath: '/api/instances/',
-    category: 'pm' as const,
-    secrets: Object.freeze([
-      'PLANE_SECRET_KEY',
-      'PLANE_DB_URL',
-      'PLANE_EMAIL_HOST',
-      'PLANE_EMAIL_PASS',
-    ]),
-    container: true,
-  }),
   Object.freeze({
     slug: 'twenty',
     name: 'Twenty',
@@ -161,16 +146,6 @@ export const DEFAULT_SERVICES = Object.freeze([
     healthPath: '/health',
     category: 'email' as const,
     secrets: Object.freeze(['LISTMONK_DB_URL', 'LISTMONK_SMTP_USER', 'LISTMONK_SMTP_PASS']),
-    container: true,
-  }),
-  Object.freeze({
-    slug: 'unkey',
-    name: 'Unkey',
-    description: 'API key management and rate limiting',
-    url: 'https://api.projectsites.dev',
-    healthPath: '/v1/health',
-    category: 'auth' as const,
-    secrets: Object.freeze(['UNKEY_SECRET_KEY', 'UNKEY_DB_URL']),
     container: true,
   }),
   Object.freeze({

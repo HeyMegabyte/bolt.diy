@@ -39,7 +39,7 @@ interface Env {
 export class TwentyCrm extends Container<Env> {
   override defaultPort = 3000;
   // Twenty's first boot runs migrations; give it room and hibernate after idle.
-  override sleepAfter = '30m';
+  override sleepAfter = '15m'; // scale-to-zero 2026-08-20
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);

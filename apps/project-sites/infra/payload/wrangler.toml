@@ -22,7 +22,7 @@ enabled = true
 class_name = "PayloadCms"
 image = "./app/Dockerfile"
 max_instances = 1
-instance_type = "standard-4"
+instance_type = "basic"  # right-sized 2026-08-20: 12 GiB → 1 GiB (scale-to-zero sweep)
 name = "projectsites-payload"
 
 [[durable_objects.bindings]]

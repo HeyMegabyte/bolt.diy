@@ -2,7 +2,7 @@
  * Integration health — probes every live platform service's health endpoint.
  *
  * Verifies all 12 services per ADR-0034: Listmonk, Twenty, Nango(removed→native OAuth),
- * Payload, Langfuse (CF Containers) + Stripe, PostHog, Unkey Cloud, Deepgram, SES
+ * Payload, Langfuse (CF Containers) + Stripe, PostHog, Deepgram, SES
  * (managed SaaS) + Better Auth, CF Workflows binding.
  */
 import { test, expect } from '@playwright/test';
@@ -44,9 +44,15 @@ const HEALTH_PROBES: HealthProbe[] = [
     required: false,
   },
   {
-    name: 'Lago (removed→Stripe Meters)',
+    name: 'Lago (removed)',
     path: '/api/integrations/lago/health',
-    expectedStatus: 200,
+    expectedStatus: 410,
+    required: false,
+  },
+  {
+    name: 'Unkey (removed)',
+    path: '/api/integrations/unkey/health',
+    expectedStatus: 410,
     required: false,
   },
   {
@@ -74,7 +80,7 @@ test.describe('Integration Health Probes', () => {
         // 404/501=not-wired, 503=down, 5xx/408/429=transient, 410=removed/decommissioned.
         // resilientGet already retries pure transport stalls; this widens the tolerated HTTP
         // surface so a cold container can't red the shard. Required probes stay strict-200 above.
-        // ⚠️ 410 is DELIBERATE: decommissioned integrations (lago/nango/inngest/postiz per
+        // ⚠️ 410 is DELIBERATE: decommissioned integrations (lago/unkey/nango/inngest/postiz per
         // ADR-0034) correctly return `410 Gone` from /api/integrations/:name/health — the
         // Lago probe below is one, and omitting 410 made it fail DETERMINISTICALLY every run
         // (not an env flake). The removed-*status* correctness is guarded separately by

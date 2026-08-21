@@ -137,8 +137,8 @@ describe('config_template', () => {
   // ── APP_TEMPLATES ────────────────────────────────────────────────────────
 
   describe('APP_TEMPLATES', () => {
-    it('contains all four service templates (inngest removed 2026-08-20)', () => {
-      expect(Object.keys(APP_TEMPLATES).sort()).toEqual(['listmonk', 'plane', 'twenty', 'unkey']);
+    it('contains the two live service templates (plane/unkey removed 2026-08-20)', () => {
+      expect(Object.keys(APP_TEMPLATES).sort()).toEqual(['listmonk', 'twenty']);
     });
 
     it('every template has a non-empty name', () => {
@@ -188,14 +188,6 @@ describe('config_template', () => {
       }
     });
 
-    it('plane template has required DB_URL and SECRET_KEY', () => {
-      const plane = APP_TEMPLATES.plane;
-      const keys = plane.fields.map((f) => f.key);
-      expect(keys).toContain('PLANE_DB_URL');
-      expect(keys).toContain('PLANE_SECRET_KEY');
-      expect(keys).toContain('PLANE_ENCRYPTION_KEY');
-    });
-
     it('listmonk template has SMTP_FROM_EMAIL', () => {
       const lm = APP_TEMPLATES.listmonk;
       expect(lm.fields.some((f) => f.key === 'LISTMONK_SMTP_FROM_EMAIL')).toBe(true);
@@ -204,11 +196,6 @@ describe('config_template', () => {
     it('twenty template has STORAGE_TYPE', () => {
       const t = APP_TEMPLATES.twenty;
       expect(t.fields.some((f) => f.key === 'TWENTY_STORAGE_TYPE')).toBe(true);
-    });
-
-    it('unkey template has TiDB URL', () => {
-      const u = APP_TEMPLATES.unkey;
-      expect(u.fields.some((f) => f.key === 'UNKEY_DB_URL')).toBe(true);
     });
 
     it('listmonk template carries the Postgres URL key', () => {

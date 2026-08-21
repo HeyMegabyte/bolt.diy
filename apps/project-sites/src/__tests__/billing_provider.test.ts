@@ -4,21 +4,14 @@
  * Covers:
  * - NoopBillingProvider works in local/test
  * - BILLING_PROVIDER config rejects removed providers
- * - Lago billable code mapping is complete
  * - Idempotency keys are stable
  * - Usage events carry all required fields
  * - METRIC_UNIT covers every UsageMetric
- * - LAGO_BILLABLE_CODE covers every UsageMetric
  */
 
 import { describe, expect, it } from '@jest/globals';
-import {
-  LAGO_BILLABLE_CODE,
-  METRIC_UNIT,
-  resolveBillingProviderId,
-} from '../services/billing_provider.js';
+import { METRIC_UNIT, resolveBillingProviderId } from '../services/billing_provider.js';
 import { NoopBillingProvider } from '../services/billing_provider_noop.js';
-import { LagoProvider } from '../services/billing_provider_lago.js';
 import { estimateCostCents, METRIC_RATE_CENTS } from '../services/billing_provider.js';
 
 // ─── Helpers ────────────────────────────────────────────────────────────
@@ -100,12 +93,12 @@ describe('NoopBillingProvider', () => {
 // ─── Provider config ────────────────────────────────────────────────────
 
 describe('resolveBillingProviderId', () => {
-  it('defaults to lago when unset', () => {
-    expect(resolveBillingProviderId(stubEnv(undefined))).toBe('lago');
+  it('defaults to noop when unset (Lago removed 2026-08-20)', () => {
+    expect(resolveBillingProviderId(stubEnv(undefined))).toBe('noop');
   });
 
   it('resolves valid providers', () => {
-    expect(resolveBillingProviderId(stubEnv('lago'))).toBe('lago');
+    expect(() => resolveBillingProviderId(stubEnv('lago'))).toThrow(/no longer supported/);
     expect(resolveBillingProviderId(stubEnv('noop'))).toBe('noop');
   });
 
@@ -117,32 +110,12 @@ describe('resolveBillingProviderId', () => {
 
   it('rejects unknown providers', () => {
     expect(() => resolveBillingProviderId(stubEnv('fantasy_biller'))).toThrow(
-      'Unknown BILLING_PROVIDER',
+      /no longer supported/,
     );
   });
 });
 
 // ─── Stripe meter mapping ───────────────────────────────────────────────
-
-describe('LAGO_BILLABLE_CODE', () => {
-  it('covers every UsageMetric', () => {
-    for (const metric of Object.keys(METRIC_UNIT)) {
-      expect(LAGO_BILLABLE_CODE).toHaveProperty(metric);
-      expect(typeof LAGO_BILLABLE_CODE[metric as keyof typeof LAGO_BILLABLE_CODE]).toBe('string');
-    }
-  });
-
-  it('all codes use ps_ prefix', () => {
-    for (const name of Object.values(LAGO_BILLABLE_CODE)) {
-      expect(name).toMatch(/^ps_/);
-    }
-  });
-
-  it('has no duplicate meter names', () => {
-    const names = Object.values(LAGO_BILLABLE_CODE);
-    expect(new Set(names).size).toBe(names.length);
-  });
-});
 
 // ─── METRIC_UNIT ────────────────────────────────────────────────────────
 
@@ -237,13 +210,6 @@ describe('Per-unit cost accuracy', () => {
     expect(estimateCostCents('sms_sends', 100)).toBe(100); // $1.00
   });
 
-  it('METRIC_RATE_CENTS covers all metrics in LAGO_BILLABLE_CODE', () => {
-    for (const metric of Object.keys(LAGO_BILLABLE_CODE)) {
-      expect(METRIC_RATE_CENTS).toHaveProperty(metric);
-      expect(typeof METRIC_RATE_CENTS[metric]).toBe('number');
-    }
-  });
-
   it('free-tier metrics are zero-cost', () => {
     expect(estimateCostCents('form_submissions', 1000)).toBe(0);
     expect(estimateCostCents('booking_events', 1000)).toBe(0);
@@ -251,64 +217,4 @@ describe('Per-unit cost accuracy', () => {
   });
 });
 
-// ─── LagoProvider swap compatibility ──────────────────────────────────────
-
-describe('LagoProvider swap compatibility', () => {
-  function stubLagoEnv() {
-    return {
-      BILLING_PROVIDER: 'lago',
-      LAGO_API_KEY: undefined,
-      DB: { prepare: () => ({ bind: () => ({ run: () => Promise.resolve() }) }) },
-    } as unknown as import('../types/env.js').Env;
-  }
-
-  it('implements BillingMeteringProvider interface', () => {
-    const provider = new LagoProvider(stubLagoEnv());
-    const _check = provider;
-    expect(_check).toBe(provider);
-  });
-
-  it('recordUsage is a no-op when no API key configured', async () => {
-    const provider = new LagoProvider(stubLagoEnv());
-    await expect(
-      provider.recordUsage({
-        id: crypto.randomUUID(),
-        idempotencyKey: crypto.randomUUID(),
-        customerId: 'cus_x',
-        metric: 'ai_input_tokens',
-        quantity: 1000,
-        unit: 'token',
-        source: 'test',
-        occurredAt: new Date().toISOString(),
-      }),
-    ).resolves.toBeUndefined();
-  });
-
-  it('NoopBillingProvider and LagoProvider are both valid providers', () => {
-    const noop = new NoopBillingProvider(stubLagoEnv());
-    const lago = new LagoProvider(stubLagoEnv());
-    expect(noop).toBeTruthy();
-    expect(lago).toBeTruthy();
-  });
-
-  it('all providers accept the same UsageEvent shape', () => {
-    const event = {
-      id: crypto.randomUUID(),
-      idempotencyKey: crypto.randomUUID(),
-      customerId: 'cus_x',
-      orgId: 'org_x',
-      siteId: 'site_x',
-      appId: 'app_x',
-      metric: 'ai_output_tokens',
-      quantity: 500,
-      unit: 'token',
-      source: 'ai_gateway',
-      occurredAt: new Date().toISOString(),
-      pricingVersion: '2026-Q3',
-      metadata: { model: 'gpt-4o' },
-    };
-    const _check = event;
-    expect(_check.metric).toBe('ai_output_tokens');
-    expect(_check.unit).toBe('token');
-  });
-});
+// LagoProvider swap compatibility REMOVED (2026-08-20) — Lago deleted.

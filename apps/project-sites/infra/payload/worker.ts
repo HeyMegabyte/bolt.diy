@@ -38,7 +38,7 @@ interface Env {
 
 export class PayloadCms extends Container<Env> {
   override defaultPort = 3000;
-  override sleepAfter = '30m';
+  override sleepAfter = '15m'; // scale-to-zero 2026-08-20
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);

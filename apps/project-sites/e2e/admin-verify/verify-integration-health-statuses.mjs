@@ -9,7 +9,7 @@
  *     mail/health, cms/healthz) → must NEVER read config-presence 'unknown'. An 'unknown'
  *     means the probe regressed back to an authed data endpoint (twenty /rest/companies
  *     403, listmonk /api/health 403) or a config-presence check.
- *   - lago / nango / inngest / postiz → decommissioned (ADR-0034) → must read 'removed',
+ *   - lago / unkey / nango / inngest / postiz → decommissioned → must read 'removed',
  *     never a config-presence status.
  *   - unkey → must NEVER read 'failing'. api.projectsites.dev/api/health is the MAIN
  *     worker's own health (self-subrequest LOOP), so live-probing it falsely reports
@@ -30,7 +30,7 @@ const URL = 'https://projectsites.dev/api/integrations/health';
 /** Services LIVE-probed at a public health endpoint — a probe regression shows as 'unknown'. */
 const LIVE_PROBED = ['twenty', 'listmonk', 'payload'];
 /** Decommissioned per ADR-0034 — must read 'removed'. */
-const REMOVED = ['lago', 'nango', 'inngest', 'postiz'];
+const REMOVED = ['lago', 'nango', 'inngest', 'postiz', 'unkey'];
 
 const res = await fetch(URL, { headers: { 'User-Agent': UA, Accept: 'application/json' } });
 if (!res.ok) {
@@ -69,5 +69,5 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(
-  '✅ integration-health statuses correct — twenty/listmonk/payload live (not unknown), decommissioned removed, unkey not-failing',
+  '✅ integration-health statuses correct — twenty/listmonk/payload live (not unknown), decommissioned removed',
 );

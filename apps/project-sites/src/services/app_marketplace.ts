@@ -10,15 +10,6 @@ export interface AppListing {
 }
 export const APP_LISTINGS: readonly AppListing[] = [
   {
-    slug: 'plane',
-    name: 'Plane',
-    description: 'Open-source project management',
-    url: 'https://pm.projectsites.dev',
-    category: 'pm',
-    tags: ['project-management', 'kanban', 'cycles'],
-    status: 'live',
-  },
-  {
     slug: 'twenty',
     name: 'Twenty CRM',
     description: 'Modern open-source CRM',
@@ -34,15 +25,6 @@ export const APP_LISTINGS: readonly AppListing[] = [
     url: 'https://mail.projectsites.dev',
     category: 'email',
     tags: ['email', 'newsletter', 'campaigns'],
-    status: 'live',
-  },
-  {
-    slug: 'unkey',
-    name: 'Unkey',
-    description: 'API key management & rate limiting',
-    url: 'https://api.projectsites.dev',
-    category: 'auth',
-    tags: ['api-keys', 'rate-limiting', 'security'],
     status: 'live',
   },
   {

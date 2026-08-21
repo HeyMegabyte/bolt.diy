@@ -1,8 +1,8 @@
 /**
  * @module services/identity_graph
  * @description AP13 — cross-app identity graph. Maps a projectsites user to
- * their linked identities across the self-hosted stack (Plane / Twenty CRM /
- * Listmonk / Unkey) so services like psnotify, billing aggregation, and AI ops
+ * their linked identities across the self-hosted stack (Twenty CRM / Listmonk)
+ * so services like psnotify, billing aggregation, and AI ops
  * can resolve a unified customer view. Pure + zero-I/O: the caller resolves the
  * raw rows from each app's DB/API and passes them in; this layer is the
  * deterministic merge + dedup logic. Never throws.
@@ -12,7 +12,7 @@
 
 /** A linked identity in one app. */
 export interface AppIdentity {
-  /** App key, e.g. `plane` / `twenty` / `listmonk` / `unkey`. */
+  /** App key, e.g. `twenty` / `listmonk` / `social_native`. */
   readonly app: string;
   /** The app's native identifier (UUID / member-id / subscriber-id / key-id). */
   readonly externalId: string;
@@ -56,7 +56,7 @@ export interface IdentityGraph {
  *
  * @example
  * buildIdentityGraph([
- *   { userId:'u1', email:'x@y.com', app:'plane', externalId:'mem_1', role:'admin' },
+ *   { userId:'u1', email:'x@y.com', app:'twenty', externalId:'lead_1', role:'admin' },
  *   { userId:'u1', email:'x@y.com', app:'twenty', externalId:'p_1' },
  * ]).crossAppUsers // → 1
  */

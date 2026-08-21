@@ -4,7 +4,7 @@
  *
  * Guards the display-vs-source-of-truth bug fixed 2026-08-08: the aggregate
  * `GET /api/integrations/health` had its OWN degraded switch that fell to a
- * `default: unconfigured` branch, so live configured services (deepgram, unkey,
+ * `default: unconfigured` branch, so live configured services (deepgram,
  * langfuse, payload) reported `unknown` in the aggregate while the per-service
  * endpoint reported them configured. Both now share `buildSignal`, so the two
  * can never diverge. These tests assert that invariant directly.
@@ -31,7 +31,6 @@ function configuredEnv(overrides: Record<string, unknown> = {}): Env {
     RESEND_API_KEY: 're_x',
     DEEPGRAM_API_KEY: 'dg_x',
     LAGO_API_KEY: 'lago_x',
-    UNKEY_ROOT_KEY: 'unkey_x',
     LANGFUSE_PUBLIC_KEY: 'pk_x',
     PAYLOAD_API_URL: 'https://cms.example.test',
     ...overrides,
@@ -52,7 +51,6 @@ describe('buildSignal — config-only services reflect their secret presence', (
     ['deepgram', 'DEEPGRAM_API_KEY'],
     ['langfuse', 'LANGFUSE_PUBLIC_KEY'],
     ['resend', 'RESEND_API_KEY'],
-    ['unkey', 'UNKEY_ROOT_KEY'],
   ] as const) {
     it(`${name}: configured when ${envKey} is set, not-configured when unset`, async () => {
       const on = await buildSignal(name, configuredEnv());
@@ -66,7 +64,7 @@ describe('buildSignal — config-only services reflect their secret presence', (
   }
 
   it('decommissioned services return the "removed" sentinel', async () => {
-    for (const name of ['nango', 'inngest', 'postiz', 'lago']) {
+    for (const name of ['nango', 'inngest', 'postiz', 'lago', 'unkey']) {
       expect(await buildSignal(name, configuredEnv())).toBe('removed');
     }
   });
@@ -148,7 +146,7 @@ describe('GET /api/integrations/health — aggregate reflects real per-service s
     };
     const byName = new Map(body.integrations.map((i) => [i.integration, i]));
 
-    for (const name of ['deepgram', 'unkey', 'langfuse', 'payload', 'stripe']) {
+    for (const name of ['deepgram', 'langfuse', 'payload', 'stripe']) {
       const row = byName.get(name);
       expect(row).toBeDefined();
       // The bug: these read `unknown` (unconfigured default branch). Now configured.
@@ -167,7 +165,7 @@ describe('GET /api/integrations/health — aggregate reflects real per-service s
     ).json()) as { integrations: Array<{ integration: string; status: string }> };
     const aggByName = new Map(agg.integrations.map((i) => [i.integration, i.status]));
 
-    for (const name of ['deepgram', 'unkey', 'langfuse', 'payload', 'stripe']) {
+    for (const name of ['deepgram', 'langfuse', 'payload', 'stripe']) {
       const perRes = await integrationHealth.request(`/api/integrations/${name}/health`, {}, env);
       expect(perRes.status).toBe(200);
       const per = (await perRes.json()) as { status: string };

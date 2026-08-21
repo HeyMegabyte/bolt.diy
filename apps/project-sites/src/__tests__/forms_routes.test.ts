@@ -10,7 +10,7 @@
  *    unknown-site 404, disallowed-Origin 403, Zod 400, the no-integrations
  *    "received" path, and the all-success "forwarded" / partial fan-out paths
  *    (contact record + audit dispatch). Every successful submit ALSO meters a
- *    `usage_events` row via meterFormSubmission → LagoProvider (through the
+ *    `usage_events` row via meterFormSubmission → billing provider (through the
  *    mocked db.js helpers) — asserted by table name alongside the
  *    form_submissions capture.
  * 2. **Auth-gated CRUD** — list submissions (401 unauthenticated, org-scoping
@@ -263,8 +263,8 @@ describe('POST /api/v1/forms/submit', () => {
     // The submit path persists TWO rows (both intentional):
     //   1. the form_submissions capture, then
     //   2. a usage_events metering row — the fire-and-forget
-    //      meterFormSubmission → LagoProvider #persistToLedger (free metric,
-    //      analytics only; deliverToLago no-ops without LAGO_API_KEY).
+    //      meterFormSubmission → billing provider #persistToLedger (free metric,
+    //      analytics only).
     // The metering runs in a floating `void (async …)()`, so drain one
     // macrotask to make the second insert deterministic before asserting.
     await new Promise((resolve) => setTimeout(resolve, 0));

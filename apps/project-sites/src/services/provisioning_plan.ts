@@ -2,29 +2,24 @@
  * @module provisioning_plan
  * @remarks
  * AP20 (#326): provisioning checklist for optional add-on services (CRM, email,
- * PM workspace, auth rate-limiting, social scheduler). Built at signup and
- * consumed by a background worker that provisions each service when the user
- * opts in.
+ * social scheduler — PM/auth removed 2026-08-20 with Plane/Unkey). Built at
+ * signup and consumed by a background worker that provisions each service when
+ * the user opts in.
  *
  * Pure zero-I/O module — never reads env, never throws.
  *
  * @example
  * ```ts
  * const plan = buildProvisioningPlan({
- *   optIns: ['crm_twenty', 'email_listmonk', 'pm_plane'],
+ *   optIns: ['crm_twenty', 'email_listmonk'],
  * });
- * // plan.steps → 5 entries (3 opted in, 2 not)
+ * // plan.steps → 3 entries (2 opted in, 1 not)
  * // plan.urls.crm_twenty → 'https://crm.projectsites.dev'
  * ```
  */
 
-/** All 5 supported provisioning services. */
-export type ProvisioningService =
-  | 'crm_twenty'
-  | 'email_listmonk'
-  | 'pm_plane'
-  | 'auth_unkey'
-  | 'social_native';
+/** All supported provisioning services. */
+export type ProvisioningService = 'crm_twenty' | 'email_listmonk' | 'social_native';
 
 /** A single step in the provisioning checklist. */
 export interface ProvisioningStep {
@@ -52,12 +47,10 @@ export interface ProvisioningPlan {
 // Canonical data
 // ---------------------------------------------------------------------------
 
-/** All 5 services in provisioning order (CRM → email → PM → auth → social). */
+/** All services in provisioning order (CRM → email → social). */
 export const ALL_SERVICES: readonly ProvisioningService[] = [
   'crm_twenty',
   'email_listmonk',
-  'pm_plane',
-  'auth_unkey',
   'social_native',
 ] as const;
 
@@ -66,16 +59,12 @@ export const ALL_SERVICES: readonly ProvisioningService[] = [
  * - CRM provisions first (everything links contacts to it).
  * - Email (Listmonk) depends on CRM for contact import.
  * - Social depends on email for subscriber sync.
- * - PM (Plane) is standalone.
- * - Auth (Unkey) is standalone.
  */
 export const SERVICE_DEPENDENCIES: Readonly<
   Record<ProvisioningService, ProvisioningService | null>
 > = {
   crm_twenty: null,
   email_listmonk: 'crm_twenty',
-  pm_plane: null,
-  auth_unkey: null,
   social_native: 'email_listmonk',
 } as const;
 
@@ -83,8 +72,6 @@ export const SERVICE_DEPENDENCIES: Readonly<
 const DEFAULT_BASE_URLS: Record<ProvisioningService, string> = {
   crm_twenty: 'https://crm.projectsites.dev',
   email_listmonk: 'https://mail.projectsites.dev',
-  pm_plane: 'https://pm.projectsites.dev',
-  auth_unkey: 'https://api.projectsites.dev',
   social_native: 'https://social.projectsites.dev',
 };
 
@@ -103,16 +90,6 @@ const SERVICE_META: Record<
     description: 'Email campaigns, newsletter, subscriber management.',
     estDurationSeconds: 10,
   },
-  pm_plane: {
-    displayName: 'Project Management (Plane)',
-    description: 'Workspace, issues, sprints, and team collaboration.',
-    estDurationSeconds: 10,
-  },
-  auth_unkey: {
-    displayName: 'API Auth (Unkey)',
-    description: 'Rate limiting, API key management, and usage enforcement.',
-    estDurationSeconds: 5,
-  },
   social_native: {
     displayName: 'Social Scheduler (Postiz)',
     description: 'Schedule, publish, and analyze social media posts.',
@@ -127,7 +104,7 @@ const SERVICE_META: Record<
 /**
  * Build a provisioning plan from a user's opt-in selections.
  *
- * The plan includes ALL 5 services; each is marked `optedIn: true` or
+ * The plan includes ALL services; each is marked `optedIn: true` or
  * `optedIn: false` based on the caller's selections. Unknown service names
  * in `optIns` are silently skipped (never throws).
  *
@@ -149,8 +126,6 @@ export function buildProvisioningPlan(opts: {
   const urls: Record<ProvisioningService, string> = {
     crm_twenty: opts.baseUrls?.crm_twenty ?? DEFAULT_BASE_URLS.crm_twenty,
     email_listmonk: opts.baseUrls?.email_listmonk ?? DEFAULT_BASE_URLS.email_listmonk,
-    pm_plane: opts.baseUrls?.pm_plane ?? DEFAULT_BASE_URLS.pm_plane,
-    auth_unkey: opts.baseUrls?.auth_unkey ?? DEFAULT_BASE_URLS.auth_unkey,
     social_native: opts.baseUrls?.social_native ?? DEFAULT_BASE_URLS.social_native,
   };
 

@@ -5,8 +5,8 @@ import {
   generateJsonLd,
 } from '../services/app_marketplace.js';
 describe('app_marketplace A18', () => {
-  it('has >=6 listings', () => {
-    expect(APP_LISTINGS.length).toBeGreaterThanOrEqual(6);
+  it('has >=4 listings (plane/unkey removed 2026-08-20)', () => {
+    expect(APP_LISTINGS.length).toBeGreaterThanOrEqual(4);
   });
   it('all slugs unique', () => {
     expect(new Set(APP_LISTINGS.map((a) => a.slug)).size).toBe(APP_LISTINGS.length);
@@ -19,16 +19,14 @@ describe('app_marketplace A18', () => {
     });
   });
   it('filters by category', () => {
-    expect(appsByCategory('pm')[0].slug).toBe('plane');
     expect(appsByCategory('nonexistent')).toEqual([]);
   });
   it('case-insensitive category', () => {
     expect(appsByCategory('CRM')[0].slug).toBe('twenty');
   });
   it('search matches name/desc/tags', () => {
-    expect(searchApps('project').length).toBe(1);
     expect(searchApps('newsletter').length).toBe(1);
-    expect(searchApps('open').length).toBeGreaterThanOrEqual(2);
+    expect(searchApps('open').length).toBeGreaterThanOrEqual(1);
   });
   it('empty search returns empty', () => {
     expect(searchApps('')).toEqual([]);

@@ -602,13 +602,7 @@ export interface Env {
   STRIPE_PRICE_BASE_SITE_MONTHLY?: string;
   STRIPE_PRICE_BASE_SITE_YEARLY?: string;
 
-  // ── Lago (billing provider) ─────────────────────────────────
-  /** Lago API key — required when BILLING_PROVIDER=lago (default). */
-  LAGO_API_KEY?: string;
-  /** Lago API base URL (default: https://api.getlago.com/api/v1). */
-  LAGO_API_URL?: string;
-  /** Lago webhook signing secret for invoice/event callbacks. */
-  LAGO_WEBHOOK_SECRET?: string;
+  // Lago REMOVED (2026-08-20) — billing provider deleted; BILLING_PROVIDER is noop-only.
   /** HMAC secret used to sign one-click weekly-digest unsubscribe tokens. */
   WEEKLY_DIGEST_SECRET?: string;
 
@@ -819,7 +813,6 @@ export interface Env {
   /** Arize Phoenix — `arizephoenix/phoenix:latest` */
   APP_RUNTIME_PHOENIX?: DurableObjectNamespace;
   /** Plane — `makeplane/plane-frontend:latest` */
-  APP_RUNTIME_PLANE?: DurableObjectNamespace;
   /** Plausible — `plausible/community-edition:latest` */
   APP_RUNTIME_PLAUSIBLE?: DurableObjectNamespace;
   /** PocketBase — `spectado/pocketbase:latest` */

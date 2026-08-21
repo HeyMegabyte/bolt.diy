@@ -11,7 +11,7 @@
  * build their signals through the SINGLE {@link buildSignal} function, so the
  * two can never diverge. (Historically the aggregate had its own degraded
  * switch that fell to a `default: unconfigured` branch and mis-reported live,
- * configured services — deepgram/unkey/langfuse/payload — as `unknown`, a
+ * configured services — deepgram/langfuse/payload — as `unknown`, a
  * display-vs-source-of-truth divergence per rule verify-against-source-of-truth.)
  *
  * @packageDocumentation
@@ -34,19 +34,19 @@ const KNOWN_INTEGRATIONS = new Set([
   'twenty', // CF Container — crm.projectsites.dev
   'stripe', // Managed SaaS — billing
   'deepgram', // Managed SaaS — STT
-  'unkey', // CF Container — api.projectsites.dev
   'langfuse', // CF Container — traces.projectsites.dev
   'payload', // CF Container — cms.projectsites.dev
   // Removed / deprecated (probe returns 410 Gone)
   'resend', // Deprecated → SES (ADR-0019)
   'lago', // Removed → Stripe Meters (ADR-0034)
+  'unkey', // Removed 2026-08-20 (§30 port wraps the D1 api_tokens keystore)
   'nango', // Removed → Native OAuth (ADR-0034)
   'inngest', // Removed → CF Workflows v2 (ADR-0034)
   'postiz', // Removed → Native social (ADR-0034)
 ]);
 
 /** Services fully decommissioned per ADR-0034 — probe returns 410 Gone. */
-const REMOVED_INTEGRATIONS = new Set(['nango', 'inngest', 'postiz', 'lago']);
+const REMOVED_INTEGRATIONS = new Set(['nango', 'inngest', 'postiz', 'lago', 'unkey']);
 
 /**
  * Per-probe network timeout (ms). A health endpoint must never hang the aggregate
@@ -75,11 +75,6 @@ const CONFIG_ENV_KEY: Readonly<Record<string, string>> = {
   resend: 'RESEND_API_KEY',
   deepgram: 'DEEPGRAM_API_KEY',
   langfuse: 'LANGFUSE_PUBLIC_KEY',
-  // unkey stays config-presence: api.projectsites.dev has NO Worker-probeable health path
-  // (`/api/health` returns the MAIN worker's own health — a self-subrequest LOOP that fails;
-  // `/v1/liveness` is a landing page). Live-probing it falsely reported 'failing' for a live
-  // service. Shows 'unknown' until UNKEY_ROOT_KEY is a Worker secret.
-  unkey: 'UNKEY_ROOT_KEY',
 };
 
 /**
@@ -167,9 +162,9 @@ async function probeLiveness(provider: string, url: string): Promise<ConnectionS
  * aggregate, so they can never report different statuses for the same service.
  *
  * - `listmonk` / `twenty` / `payload` → LIVE public-liveness probe.
- * - config-only services (stripe, deepgram, langfuse, resend, unkey) →
+ * - config-only services (stripe, deepgram, langfuse, resend) →
  *   presence of their {@link CONFIG_ENV_KEY} secret marks them configured.
- * - decommissioned services (nango/inngest/postiz/lago) → the literal `'removed'`,
+ * - decommissioned services (nango/inngest/postiz/lago/unkey) → the literal `'removed'`,
  *   which callers render as 410 Gone / `status: 'removed'`.
  *
  * @param name - lowercased integration name (must be in {@link KNOWN_INTEGRATIONS})
@@ -309,7 +304,7 @@ integrationHealth.get('/api/integrations/:name/health', async (c) => {
  *
  * Returns a rolled-up status for every registered integration in one call.
  * Uses the SAME {@link buildSignal} probe as the per-service endpoint, so a
- * configured live service (deepgram/unkey/langfuse/payload) reports its real
+ * configured live service (deepgram/langfuse/payload) reports its real
  * status here — never a degraded `unknown` from a divergent code path.
  */
 integrationHealth.get('/api/integrations/health', async (c) => {
