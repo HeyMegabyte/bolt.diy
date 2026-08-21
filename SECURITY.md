@@ -117,7 +117,7 @@ sliding window for tenant quotas where tier complexity demands it.
 | **chezmoi** for developer-machine secrets | `~/.local/share/chezmoi/home/.chezmoitemplates/secrets/*` (age-encrypted) | Per `~/.claude/plugins/heymegabyte-claude-skills/rules/secret-provisioning.md` |
 | **Two-way mirror** prod ↔ chezmoi | `scripts/lib/secrets.mjs` writes both sides atomically | Prevents drift; preserves recoverability |
 | **No secrets in `wrangler.toml` `[vars]`** | `[vars]` is for non-secret config only; everything sensitive uses `secret put` | `[vars]` is committed to git; `secret put` is encrypted at CF |
-| **Scoped Cloudflare API tokens** | Per [secret-auto-provisioning.md](file:///Users/Apple/.claude/plugins/heymegabyte-claude-skills/rules/secret-auto-provisioning.md) Tier 2 — mint scoped tokens via parent global key, never deploy with global key | Least-privilege at runtime |
+| **Scoped Cloudflare API tokens** | Per secret-auto-provisioning.md Tier 2 — mint scoped tokens via parent global key, never deploy with global key | Least-privilege at runtime |
 | **Stripe restricted keys** | Production uses restricted keys with only the resources we need (no `account.read`, no `application.read`) | Limits blast radius of key compromise |
 | **Audit on secret access** | `scripts/check-secrets.mjs --audit` runs in CI; reports any wrangler secret not mirrored to chezmoi (and vice versa) | Drift detection |
 
@@ -229,8 +229,7 @@ practical with our third-party surface. Documented as a known gap.
 
 **When we'll reconsider:** Either (a) when our threat profile moves into regulated
 industry (HIPAA, finserv beyond marketplace scale), or (b) when all four third-party
-scripts (Stripe, Clerk, PostHog, Sentry) ship clean nonce-compatible loaders. Tracking
-in BACKLOG.md § 4.
+scripts (Stripe, Clerk, PostHog, Sentry) ship clean nonce-compatible loaders.
 
 ### 3.2 Trusted Types — **SKIPPED for v1**
 
@@ -285,7 +284,7 @@ schemes, BCP/DR documentation, formal incident response playbooks).
   webhook drop, third-party outage).
 
 **When we'll reconsider:** When the first Enterprise-tier prospect requires SOC 2 Type
-II. Tracked in BACKLOG.md § 6.
+II.
 
 ### 3.5 Penetration testing — **DEFERRED to post-launch**
 
@@ -505,7 +504,6 @@ We commit to:
 - [ADR-0005](./DECISIONS.md#adr-0005) — Cloudflare-native runtime
 - [ADR-0008](./DECISIONS.md#adr-0008) — Per-tenant D1 isolation
 - [BILLING.md](./BILLING.md) § 10 — Stripe webhook integrity
-- [BACKLOG.md](./BACKLOG.md) — CSP L3, SOC 2, pentest, bug bounty
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — middleware topology, audit log placement
 - `~/.claude/plugins/heymegabyte-claude-skills/rules/secret-provisioning.md`
 - `~/.claude/plugins/heymegabyte-claude-skills/rules/secret-auto-provisioning.md`
