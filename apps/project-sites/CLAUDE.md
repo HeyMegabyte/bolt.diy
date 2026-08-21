@@ -428,8 +428,6 @@ Every generated website must embody **Stripe / Linear / Vercel-level polish**:
 
 **49 API integrations deployed** — see memory file for full list. Key: Unsplash, Foursquare, Yelp, YouTube, Pexels, Pixabay, DALL-E, Stability AI, Cloudinary, Mapbox, Brandfetch, Logo.dev, plus quality gates (PageSpeed, GTmetrix).
 
-**Build process reference:** See [`docs/BUILD_PROCESS.md`](docs/BUILD_PROCESS.md) for the complete technical flow — from user click to published site, including all prompts, APIs, and quality gates.
-
 **Quality rules:** See memory file `website_quality_rules.md` for the criticism registry — every user feedback item about generated websites, organized by category.
 
 **Every prompt's suggestions should be considered** and possibly included in the multi-stage build process. When a user provides feedback about a generated site, the feedback should be generalized into rules that apply to all future builds.
