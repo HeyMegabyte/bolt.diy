@@ -45,6 +45,7 @@ import { chatStore } from '~/lib/stores/chat';
 import { describeImage } from '~/lib/chat/voice-vision';
 import { isEmbedded } from '~/lib/embed/embedded-mode';
 import { workbenchStore } from '~/lib/stores/workbench';
+import useViewport from '~/lib/hooks';
 
 /*
  * Single-line default for the cinematic-persona input redesign (2026-05-24);
@@ -163,16 +164,16 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     const [qrModalOpen, setQrModalOpen] = useState(false);
     const [mentionQuery, setMentionQuery] = useState<string | null>(null);
     const currentChatId = useStore(chatId);
-    // Mobile slide-over state — the Workbench's "Chat" tab flips this; the
-    // panel slides in/out via the max-lg transform classes below.
-    const mobileChatOpen = useStore(chatStore).mobileChatOpen;
-
     // First-load reveal gate (embedded /admin editor, Brian 2026-08-21): keep the
     // whole surface blank until BOTH the chat and the z-workbench are up, then
     // fade them in together — no flash of a half-built (chat-only) layout.
     // Non-embedded reveals immediately (its pre-chat landing IS the intended first
     // view). Failsafe reveal after 7s so a no-project landing never stays blank.
     const workbenchVisible = useStore(workbenchStore.showWorkbench);
+    // Tablet/mobile (<1024px): the chat is rendered INSIDE the z-workbench as its
+    // own tab panel; desktop docks it as the left column. Same breakpoint the
+    // Workbench uses for its Chat tab.
+    const isSmallViewport = useViewport(1024);
     const [editorRevealed, setEditorRevealed] = useState(!isEmbedded);
     useEffect(() => {
       if (editorRevealed) {
@@ -528,6 +529,131 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       }
     };
 
+    // Chat content (messages + input) — ONE instance. Rendered as the docked LEFT
+    // column on desktop, or INSIDE the z-workbench as its own tab panel on
+    // tablet/mobile (passed to <Workbench mobileChatPanel>), so it always stays in
+    // sync with the live chat (Brian 2026-08-22).
+    const chatPanelContent = chatStarted ? (
+      <div className="flex flex-col h-full w-full overflow-hidden">
+        <StickToBottom
+          className="pt-0 px-2 sm:px-3 relative flex-1 min-h-0 flex flex-col modern-scrollbar overflow-y-auto"
+          resize="smooth"
+          initial="smooth"
+        >
+          <StickToBottom.Content className="flex flex-col gap-3 relative">
+            <Messages
+              className="flex flex-col w-full max-w-chat mx-auto"
+              messages={messages}
+              isStreaming={isStreaming}
+              append={append}
+              chatMode={chatMode}
+              setChatMode={setChatMode}
+              provider={provider}
+              model={model}
+              addToolResult={addToolResult}
+            />
+            <ScrollToBottom />
+          </StickToBottom.Content>
+        </StickToBottom>
+        <div className="flex flex-col gap-2 w-full px-2 sm:px-3 pb-3 z-prompt">
+          <div className="flex flex-col gap-2 w-full max-w-chat mx-auto">
+            <div className="flex flex-col gap-2">
+              {deployAlert && (
+                <DeployChatAlert
+                  alert={deployAlert}
+                  clearAlert={() => clearDeployAlert?.()}
+                  postMessage={(message: string | undefined) => {
+                    sendMessage?.({} as any, message);
+                    clearSupabaseAlert?.();
+                  }}
+                />
+              )}
+              {supabaseAlert && (
+                <SupabaseChatAlert
+                  alert={supabaseAlert}
+                  clearAlert={() => clearSupabaseAlert?.()}
+                  postMessage={(message) => {
+                    sendMessage?.({} as any, message);
+                    clearSupabaseAlert?.();
+                  }}
+                />
+              )}
+              {actionAlert && (
+                <ChatAlert
+                  alert={actionAlert}
+                  clearAlert={() => clearAlert?.()}
+                  postMessage={(message) => {
+                    sendMessage?.({} as any, message);
+                    clearAlert?.();
+                  }}
+                />
+              )}
+              {llmErrorAlert && (
+                <div style={{ display: 'none' }}>
+                  <LlmErrorAlert alert={llmErrorAlert} clearAlert={() => clearLlmErrorAlert?.()} />
+                </div>
+              )}
+            </div>
+            {progressAnnotations && <ProgressCompilation data={progressAnnotations} />}
+            {messages && messages.length > 0 && (
+              <PromptSuggestions messages={messages} isStreaming={isStreaming} onPick={pickSuggestion} />
+            )}
+            <div className="relative">
+              <FileMentionMenu query={mentionQuery} onSelect={pickMention} onClose={() => setMentionQuery(null)} />
+              {input && input.length > 0 && (
+                <div className="flex justify-end mb-1 px-1">
+                  <CostEstimateBadge input={input} model={model} />
+                </div>
+              )}
+            </div>
+            <ChatBox
+              isModelSettingsCollapsed={isModelSettingsCollapsed}
+              setIsModelSettingsCollapsed={setIsModelSettingsCollapsed}
+              provider={provider}
+              setProvider={setProvider}
+              providerList={providerList || (PROVIDER_LIST as ProviderInfo[])}
+              model={model}
+              setModel={setModel}
+              modelList={modelList}
+              apiKeys={apiKeys}
+              isModelLoading={isModelLoading}
+              onApiKeysChange={onApiKeysChange}
+              uploadedFiles={uploadedFiles}
+              setUploadedFiles={setUploadedFiles}
+              imageDataList={imageDataList}
+              setImageDataList={setImageDataList}
+              textareaRef={textareaRef}
+              input={input}
+              handleInputChange={handleInputChange}
+              handlePaste={handlePaste}
+              TEXTAREA_MIN_HEIGHT={TEXTAREA_MIN_HEIGHT}
+              TEXTAREA_MAX_HEIGHT={TEXTAREA_MAX_HEIGHT}
+              isStreaming={isStreaming}
+              handleStop={handleStop}
+              handleSendMessage={handleSendMessage}
+              enhancingPrompt={enhancingPrompt}
+              enhancePrompt={enhancePrompt}
+              isListening={isListening}
+              startListening={startListening}
+              stopListening={stopListening}
+              chatStarted={chatStarted}
+              exportChat={exportChat}
+              qrModalOpen={qrModalOpen}
+              setQrModalOpen={setQrModalOpen}
+              handleFileUpload={handleFileUpload}
+              chatMode={chatMode}
+              setChatMode={setChatMode}
+              designScheme={designScheme}
+              setDesignScheme={setDesignScheme}
+              selectedElement={selectedElement}
+              setSelectedElement={setSelectedElement}
+              onWebSearchResult={onWebSearchResult}
+            />
+          </div>
+        </div>
+      </div>
+    ) : null;
+
     const baseChat = (
       <div
         ref={ref}
@@ -544,6 +670,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
                   chatStarted={chatStarted}
                   isStreaming={isStreaming}
                   setSelectedElement={setSelectedElement}
+                  mobileChatPanel={isSmallViewport ? chatPanelContent : null}
                 />
               </Suspense>
             )}
@@ -552,137 +679,21 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
 
         {/* Chat + prompt — sidebar when !chatStarted, floating overlay when chatStarted */}
         {chatStarted ? (
-          <div
-            className={classNames(
-              styles.Chat,
-              'flex flex-col h-full w-full order-first shrink-0 lg:w-[calc(var(--workbench-split)-1px)] lg:min-w-[320px] border-0 overflow-hidden',
-              // Mobile (<1024px): the chat NESTS inside the workbench tab strip —
-              // it fills the panel area BELOW the tab row (top-10 ≈ the ~40px tab
-              // strip height) instead of covering everything, so the Chat | Code |
-              // Preview | Functions | Data tabs stay visible + switch like real
-              // tabs (Brian 2026-08-21). Slides in from the right when opened.
-              'max-lg:absolute max-lg:top-10 max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-50 max-lg:transition-transform max-lg:duration-300 max-lg:bolt-ease-cubic-bezier',
-              mobileChatOpen ? 'max-lg:translate-x-0' : 'max-lg:translate-x-full',
-            )}
-          >
-            {/* ── Persistent chat panel, docked left of the workbench/preview ── */}
-            <StickToBottom
-              className="pt-0 px-2 sm:px-3 relative flex-1 min-h-0 flex flex-col modern-scrollbar overflow-y-auto"
-              resize="smooth"
-              initial="smooth"
+          // Desktop (≥1024px): the chat is the docked LEFT column beside the
+          // z-workbench. Tablet/mobile (<1024px): the chat renders INSIDE the
+          // z-workbench as its own tab panel (see <Workbench mobileChatPanel>),
+          // so there is NO separate full-screen chat here — just the workbench
+          // with a Chat tab that switches like Code / Preview (Brian 2026-08-22).
+          !isSmallViewport ? (
+            <div
+              className={classNames(
+                styles.Chat,
+                'flex flex-col h-full order-first shrink-0 w-[calc(var(--workbench-split)-1px)] min-w-[320px] border-0 overflow-hidden',
+              )}
             >
-              <StickToBottom.Content className="flex flex-col gap-3 relative">
-              <Messages
-                className="flex flex-col w-full max-w-chat mx-auto"
-                messages={messages}
-                isStreaming={isStreaming}
-                append={append}
-                chatMode={chatMode}
-                setChatMode={setChatMode}
-                provider={provider}
-                model={model}
-                addToolResult={addToolResult}
-              />
-                <ScrollToBottom />
-              </StickToBottom.Content>
-            </StickToBottom>
-            <div className="flex flex-col gap-2 w-full px-2 sm:px-3 pb-3 z-prompt">
-              <div className="flex flex-col gap-2 w-full max-w-chat mx-auto">
-                <div className="flex flex-col gap-2">
-                  {deployAlert && (
-                    <DeployChatAlert
-                      alert={deployAlert}
-                      clearAlert={() => clearDeployAlert?.()}
-                      postMessage={(message: string | undefined) => {
-                        sendMessage?.({} as any, message);
-                        clearSupabaseAlert?.();
-                      }}
-                    />
-                  )}
-                  {supabaseAlert && (
-                    <SupabaseChatAlert
-                      alert={supabaseAlert}
-                      clearAlert={() => clearSupabaseAlert?.()}
-                      postMessage={(message) => {
-                        sendMessage?.({} as any, message);
-                        clearSupabaseAlert?.();
-                      }}
-                    />
-                  )}
-                  {actionAlert && (
-                    <ChatAlert
-                      alert={actionAlert}
-                      clearAlert={() => clearAlert?.()}
-                      postMessage={(message) => {
-                        sendMessage?.({} as any, message);
-                        clearAlert?.();
-                      }}
-                    />
-                  )}
-                  {llmErrorAlert && (
-                    <div style={{ display: 'none' }}>
-                      <LlmErrorAlert alert={llmErrorAlert} clearAlert={() => clearLlmErrorAlert?.()} />
-                    </div>
-                  )}
-                </div>
-                {progressAnnotations && <ProgressCompilation data={progressAnnotations} />}
-                {messages && messages.length > 0 && (
-                  <PromptSuggestions messages={messages} isStreaming={isStreaming} onPick={pickSuggestion} />
-                )}
-                <div className="relative">
-                  <FileMentionMenu query={mentionQuery} onSelect={pickMention} onClose={() => setMentionQuery(null)} />
-                  {input && input.length > 0 && (
-                    <div className="flex justify-end mb-1 px-1">
-                      <CostEstimateBadge input={input} model={model} />
-                    </div>
-                  )}
-                </div>
-                <ChatBox
-                  isModelSettingsCollapsed={isModelSettingsCollapsed}
-                  setIsModelSettingsCollapsed={setIsModelSettingsCollapsed}
-                  provider={provider}
-                  setProvider={setProvider}
-                  providerList={providerList || (PROVIDER_LIST as ProviderInfo[])}
-                  model={model}
-                  setModel={setModel}
-                  modelList={modelList}
-                  apiKeys={apiKeys}
-                  isModelLoading={isModelLoading}
-                  onApiKeysChange={onApiKeysChange}
-                  uploadedFiles={uploadedFiles}
-                  setUploadedFiles={setUploadedFiles}
-                  imageDataList={imageDataList}
-                  setImageDataList={setImageDataList}
-                  textareaRef={textareaRef}
-                  input={input}
-                  handleInputChange={handleInputChange}
-                  handlePaste={handlePaste}
-                  TEXTAREA_MIN_HEIGHT={TEXTAREA_MIN_HEIGHT}
-                  TEXTAREA_MAX_HEIGHT={TEXTAREA_MAX_HEIGHT}
-                  isStreaming={isStreaming}
-                  handleStop={handleStop}
-                  handleSendMessage={handleSendMessage}
-                  enhancingPrompt={enhancingPrompt}
-                  enhancePrompt={enhancePrompt}
-                  isListening={isListening}
-                  startListening={startListening}
-                  stopListening={stopListening}
-                  chatStarted={chatStarted}
-                  exportChat={exportChat}
-                  qrModalOpen={qrModalOpen}
-                  setQrModalOpen={setQrModalOpen}
-                  handleFileUpload={handleFileUpload}
-                  chatMode={chatMode}
-                  setChatMode={setChatMode}
-                  designScheme={designScheme}
-                  setDesignScheme={setDesignScheme}
-                  selectedElement={selectedElement}
-                  setSelectedElement={setSelectedElement}
-                  onWebSearchResult={onWebSearchResult}
-                />
-              </div>
+              {chatPanelContent}
             </div>
-          </div>
+          ) : null
         ) : (
           <div className={classNames(styles.Chat, 'flex flex-col flex-grow lg:min-w-[var(--chat-min-width)] h-full')}>
             {/* ── Sidebar mode (pre-chat) ── */}

@@ -1,7 +1,7 @@
 import { useStore } from '@nanostores/react';
 import { motion, type Variants } from 'framer-motion';
 import { computed } from 'nanostores';
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { toast } from 'react-toastify';
 
 import type { FileHistory } from '~/types/actions';
@@ -37,6 +37,9 @@ interface WorkspaceProps {
   };
   updateChatMestaData?: (metadata: any) => void;
   setSelectedElement?: (element: ElementInfo | null) => void;
+  /** Chat content rendered as a nested tab panel on tablet/mobile (<1024px) —
+   * the SAME instance BaseChat docks on desktop, so it stays in sync. */
+  mobileChatPanel?: ReactNode;
 }
 
 /** Top editor tabs — order drives the tab strip left-to-right. */
@@ -71,6 +74,7 @@ export const Workbench = memo(
     metadata: _metadata,
     updateChatMestaData: _updateChatMestaData,
     setSelectedElement,
+    mobileChatPanel,
   }: WorkspaceProps) => {
     renderLogger.trace('Workbench');
 
@@ -85,7 +89,7 @@ export const Workbench = memo(
     const unsavedFiles = useStore(workbenchStore.unsavedFiles);
     const files = useStore(workbenchStore.files);
     const selectedView = useStore(workbenchStore.currentView);
-    const { showChat } = useStore(chatStore);
+    const { showChat, mobileChatOpen } = useStore(chatStore);
     const canHideChat = showWorkbench || !showChat;
 
     const isSmallViewport = useViewport(1024);
@@ -469,6 +473,15 @@ export const Workbench = memo(
                     <PanelLayer active={selectedView === 'data'}>
                       <DataPanel />
                     </PanelLayer>
+                    {/* Chat as a nested tab panel — tablet/mobile only (<1024px).
+                        The SAME chat instance BaseChat docks on desktop (passed via
+                        mobileChatPanel), so it stays in sync. Active when the
+                        leftmost "Chat" tab is open; no separate full-screen chat. */}
+                    {mobileChatPanel && (
+                      <PanelLayer active={isSmallViewport && mobileChatOpen}>
+                        <div className="h-full w-full overflow-hidden">{mobileChatPanel}</div>
+                      </PanelLayer>
+                    )}
                   </div>
                   {/* Item 36 — StatusBar pinned to the bottom of the workbench */}
                   <StatusBar />
