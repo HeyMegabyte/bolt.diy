@@ -504,7 +504,7 @@ We commit to:
 - [ADR-0005](./DECISIONS.md#adr-0005) — Cloudflare-native runtime
 - [ADR-0008](./DECISIONS.md#adr-0008) — Per-tenant D1 isolation
 - [BILLING.md](./BILLING.md) § 10 — Stripe webhook integrity
-- [ARCHITECTURE.md](./ARCHITECTURE.md) — middleware topology, audit log placement
+- [ARCHITECTURE.md](./docs/ARCHITECTURE.md) — middleware topology, audit log placement
 - `~/.claude/plugins/heymegabyte-claude-skills/rules/secret-provisioning.md`
 - `~/.claude/plugins/heymegabyte-claude-skills/rules/secret-auto-provisioning.md`
 - `.well-known/security.txt` — RFC 9116 disclosure

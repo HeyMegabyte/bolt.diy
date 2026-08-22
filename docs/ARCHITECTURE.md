@@ -1,9 +1,9 @@
 # Project Sites — Architecture Document
 
 > Detailed technical architecture for the Project Sites SaaS website delivery engine.
-> **Scope:** the SHIPPED single-worker system + the as-deployed map and Fly/Cloudflare split
-> (folded in below). The aspirational v2 (3-worker) target lives in the root
-> [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
+> **Scope:** the SHIPPED single-worker system + the as-deployed map and Fly/Cloudflare split.
+> This is the single canonical architecture doc. Future-topology decisions (per-tenant D1,
+> worker split) are logged as ADRs in [`../DECISIONS.md`](../DECISIONS.md).
 
 ## System Overview (Mermaid)
 

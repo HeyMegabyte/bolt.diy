@@ -890,7 +890,7 @@ Links to docs, RFCs, sibling ADRs.
 
 ### Cross-links
 
-- [ARCHITECTURE.md](./ARCHITECTURE.md) — current topology reflecting all accepted ADRs
+- [ARCHITECTURE.md](./docs/ARCHITECTURE.md) — current topology reflecting all accepted ADRs
 - [BILLING.md](./BILLING.md) — implements ADR-0004
 - [SECURITY.md](./SECURITY.md) — what's shipped vs what's deferred
 

@@ -429,6 +429,6 @@ any webhook drops. Mismatches fire a Sentry alert.
 ## Cross-links
 
 - [ADR-0004](./DECISIONS.md#adr-0004) — Stripe Link exclusively
-- [ARCHITECTURE.md](./ARCHITECTURE.md) — webhook handler topology
+- [ARCHITECTURE.md](./docs/ARCHITECTURE.md) — webhook handler topology
 - [SECURITY.md](./SECURITY.md) — Stripe webhook signature verification + secret handling
 - `~/.claude/plugins/heymegabyte-claude-skills/rules/payments-routing.md` — global rule + this exception
