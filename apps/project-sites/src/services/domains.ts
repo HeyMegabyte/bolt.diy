@@ -1,33 +1,12 @@
 /**
  * @module domains
- * @description Domain provisioning service using Cloudflare for SaaS.
+ * @description Cloudflare-for-SaaS custom-hostname provisioning: free
+ * `slug.projectsites.dev` subdomains + custom CNAME domains, with CF-managed
+ * SSL/DV verification and a `hostnames` D1 tracking table.
  *
- * Manages both free subdomains (`slug.projectsites.dev`) and custom
- * CNAME domains for paid plans. Integrates with the Cloudflare Custom
- * Hostnames API for SSL provisioning and verification.
- *
- * ## Hostname Lifecycle
- *
- * ```
- * provisionFreeDomain / provisionCustomDomain
- *   → CF API: create custom hostname
- *   → D1: INSERT into hostnames (status = pending|active)
- *   → Cron: verifyPendingHostnames checks CF status
- *   → D1: UPDATE status to active|verification_failed
- * ```
- *
- * ## Table: `hostnames`
- *
- * | Column                  | Type   | Description                      |
- * | ----------------------- | ------ | -------------------------------- |
- * | `id`                    | TEXT   | UUID primary key                 |
- * | `org_id`                | TEXT   | Owning organization              |
- * | `site_id`               | TEXT   | Associated site                  |
- * | `hostname`              | TEXT   | Full domain (unique)             |
- * | `type`                  | TEXT   | `free_subdomain` or `custom_cname` |
- * | `status`                | TEXT   | pending / active / verification_failed |
- * | `cf_custom_hostname_id` | TEXT?  | Cloudflare hostname resource ID  |
- * | `ssl_status`            | TEXT   | pending / active / error         |
+ * Lifecycle: provision → CF creates custom hostname → INSERT hostnames row
+ * (pending|active) → `verifyPendingHostnames` cron polls CF → UPDATE to
+ * active|verification_failed.
  *
  * @packageDocumentation
  */
@@ -70,17 +49,11 @@ export interface DomainProvisioner {
 }
 
 /**
- * Create a Cloudflare for SaaS custom hostname via the API.
+ * Create a Cloudflare-for-SaaS custom hostname via the CF API.
  *
  * @param env      - Worker environment (needs `CF_API_TOKEN`, `CF_ZONE_ID`).
  * @param hostname - The fully-qualified domain to provision.
- * @returns Cloudflare hostname ID, status, and SSL status.
  * @throws {badRequest} If the Cloudflare API call fails.
- *
- * @example
- * ```ts
- * const { cf_id, status, ssl_status } = await createCustomHostname(env, 'example.com');
- * ```
  */
 export async function createCustomHostname(
   env: Env,
@@ -145,7 +118,6 @@ export async function createCustomHostname(
  *
  * @param env                 - Worker environment.
  * @param cfCustomHostnameId  - Cloudflare hostname resource ID.
- * @returns Current status, SSL status, and any verification errors.
  * @throws {notFound} If the hostname doesn't exist in Cloudflare.
  */
 export async function checkHostnameStatus(
@@ -218,15 +190,15 @@ export async function deleteCustomHostname(env: Env, cfCustomHostnameId: string)
 }
 
 /**
- * Compensating action (saga, per CLAUDE.md §8.2) for a failed `hostnames` D1 insert.
- * By the time we insert, {@link createCustomHostname} has ALREADY created the CF custom
- * hostname — so a dropped tracking row would ORPHAN it: invisible to
- * {@link getSiteHostnames} + the verify cron, and (on the custom path) it would let
- * {@link setSolePrimary} clear every primary then set one on a non-existent row, leaving
- * the site primary-less. `dbInsert` returns `{ error }` and NEVER throws, so a bare
- * `await` would return a phantom success. Best-effort-delete the CF hostname to undo the
- * side-effect, then THROW so provisioning fails loud. If compensation itself fails, log
- * the orphan for manual cleanup and still throw the original error.
+ * Compensating action (saga) for a failed `hostnames` D1 insert. By insert time
+ * {@link createCustomHostname} has ALREADY created the CF custom hostname — so a
+ * dropped tracking row would ORPHAN it: invisible to {@link getSiteHostnames} +
+ * the verify cron, and (on the custom path) it would let {@link setSolePrimary}
+ * clear every primary then set one on a non-existent row, leaving the site
+ * primary-less. `dbInsert` returns `{ error }` and NEVER throws, so a bare `await`
+ * would return a phantom success. Best-effort-delete the CF hostname to undo the
+ * side-effect, then THROW so provisioning fails loud. If compensation itself fails,
+ * log the orphan for manual cleanup and still throw the original error.
  *
  * @throws Always — never returns normally.
  */
@@ -257,23 +229,12 @@ async function rollbackHostnameInsert(
 /**
  * Provision a free subdomain for a site (e.g. `slug.projectsites.dev`).
  *
- * If the hostname already exists in D1, returns its current status without
- * creating a duplicate.
+ * Idempotent: if the hostname already exists in D1, returns its current status
+ * without creating a duplicate.
  *
  * @param db   - D1Database binding.
  * @param env  - Worker environment.
  * @param opts - Organization, site, and slug.
- * @returns The provisioned hostname and its status.
- *
- * @example
- * ```ts
- * const { hostname, status } = await provisionFreeDomain(env.DB, env, {
- *   org_id: orgId,
- *   site_id: siteId,
- *   slug: 'vitos-mens-salon',
- * });
- * // hostname = 'vitos-mens-salon.projectsites.dev'
- * ```
  */
 export async function provisionFreeDomain(
   db: D1Database,
@@ -282,7 +243,6 @@ export async function provisionFreeDomain(
 ): Promise<{ hostname: string; status: HostnameState }> {
   const hostname = `${opts.slug}${DOMAINS.SITES_SUFFIX}`;
 
-  // Check if already exists
   const existing = await dbQueryOne<{ id: string; status: string }>(
     db,
     'SELECT id, status FROM hostnames WHERE hostname = ? AND deleted_at IS NULL',
@@ -293,10 +253,9 @@ export async function provisionFreeDomain(
     return { hostname, status: existing.status as HostnameState };
   }
 
-  // Create CF custom hostname
   const cfResult = await createCustomHostname(env, hostname);
 
-  // Store in DB — the CF hostname now exists, so a dropped tracking row would orphan it.
+  // CF hostname now exists — a dropped tracking row would orphan it (see rollbackHostnameInsert).
   const { error: freeInsertError } = await dbInsert(db, 'hostnames', {
     id: crypto.randomUUID(),
     org_id: opts.org_id,
@@ -333,30 +292,19 @@ export async function provisionFreeDomain(
 /**
  * Provision a custom CNAME domain for a paid site.
  *
- * Enforces the per-org domain limit from entitlements and checks for
- * duplicate hostnames before calling the Cloudflare API.
+ * Enforces the per-org domain limit from entitlements and rejects duplicate
+ * hostnames before calling the Cloudflare API.
  *
  * @param db   - D1Database binding.
  * @param env  - Worker environment.
  * @param opts - Organization, site, and desired hostname.
- * @returns The provisioned hostname and its status.
  * @throws {conflict} If the domain limit is reached or hostname exists.
- *
- * @example
- * ```ts
- * const { hostname, status } = await provisionCustomDomain(env.DB, env, {
- *   org_id: orgId,
- *   site_id: siteId,
- *   hostname: 'www.example.com',
- * });
- * ```
  */
 export async function provisionCustomDomain(
   db: D1Database,
   env: Env,
   opts: { org_id: string; site_id: string; hostname: string },
 ): Promise<{ hostname: string; status: HostnameState; is_primary: boolean }> {
-  // Check domain limit
   const { data: existingDomains } = await dbQuery<{ id: string }>(
     db,
     'SELECT id FROM hostnames WHERE org_id = ? AND type = ? AND deleted_at IS NULL',
@@ -367,7 +315,6 @@ export async function provisionCustomDomain(
     throw conflict(`Maximum custom domains (${ENTITLEMENTS.paid.maxCustomDomains}) reached`);
   }
 
-  // Check if hostname already exists
   const existing = await dbQueryOne<{ id: string }>(
     db,
     'SELECT id FROM hostnames WHERE hostname = ? AND deleted_at IS NULL',
@@ -378,7 +325,7 @@ export async function provisionCustomDomain(
     throw conflict(`Hostname ${opts.hostname} already registered`);
   }
 
-  // Check if this site already has custom domains (for auto-primary logic)
+  // First custom domain for the site gets auto-promoted to primary below.
   const { data: siteCustomDomains } = await dbQuery<{ id: string; type: string }>(
     db,
     'SELECT id, type FROM hostnames WHERE site_id = ? AND type = ? AND deleted_at IS NULL',
@@ -387,14 +334,13 @@ export async function provisionCustomDomain(
 
   const isFirstCustomDomain = siteCustomDomains.length === 0;
 
-  // Create CF custom hostname
   const cfResult = await createCustomHostname(env, opts.hostname);
 
   const hostnameId = crypto.randomUUID();
 
-  // Store in DB — the CF hostname now exists, so a dropped tracking row would orphan it
-  // AND (below) let setSolePrimary clear every primary then set one on a non-existent row,
-  // leaving the site primary-less. Compensate + throw before that can happen.
+  // CF hostname now exists — a dropped tracking row would orphan it AND (below) let
+  // setSolePrimary clear every primary then set one on a non-existent row, leaving the
+  // site primary-less. Compensate + throw before that can happen (see rollbackHostnameInsert).
   const { error: customInsertError } = await dbInsert(db, 'hostnames', {
     id: hostnameId,
     org_id: opts.org_id,
@@ -412,7 +358,6 @@ export async function provisionCustomDomain(
     await rollbackHostnameInsert(env, cfResult.cf_id, opts.hostname, customInsertError);
   }
 
-  // Auto-set as primary if this is the first custom domain for the site (atomic swap).
   if (isFirstCustomDomain) {
     await setSolePrimary(db, opts.site_id, hostnameId);
   }
@@ -440,7 +385,6 @@ export async function provisionCustomDomain(
  *
  * @param db     - D1Database binding.
  * @param siteId - The site to query hostnames for.
- * @returns Array of hostname records with is_primary flag.
  */
 export async function getSiteHostnames(
   db: D1Database,
@@ -477,9 +421,7 @@ export async function getSiteHostnames(
  * D1 batch (implicit transaction). All-or-nothing — a partial write can never leave the
  * site with ZERO primary hostnames (broken canonical-host resolution) or two. On any
  * failure the batch rejects AND rolls back, so the caller surfaces an honest error with
- * the previous primary intact — vs the old two-separate-dbUpdate path, which caught the
- * D1 error, ignored it, and could silently commit the clear, drop the set, and leave the
- * site primary-less.
+ * the previous primary intact.
  *
  * @param db         - D1Database binding.
  * @param siteId     - The site whose hostnames are being re-primaried.
@@ -498,10 +440,7 @@ async function setSolePrimary(db: D1Database, siteId: string, hostnameId: string
 }
 
 /**
- * Set a hostname as the primary for its site.
- *
- * Clears primary from all other hostnames on the same site, then sets the
- * specified hostname as primary — atomically via {@link setSolePrimary}.
+ * Set a hostname as the primary for its site (atomic via {@link setSolePrimary}).
  *
  * @param db         - D1Database binding.
  * @param siteId     - The site ID.
@@ -513,7 +452,6 @@ export async function setPrimaryHostname(
   siteId: string,
   hostnameId: string,
 ): Promise<void> {
-  // Verify the hostname belongs to this site
   const hostname = await dbQueryOne<{ id: string }>(
     db,
     'SELECT id FROM hostnames WHERE id = ? AND site_id = ? AND deleted_at IS NULL',
@@ -528,9 +466,8 @@ export async function setPrimaryHostname(
 }
 
 /**
- * Check if a hostname has a CNAME record pointing to the expected target.
- *
- * Uses Cloudflare's DNS over HTTPS resolver to look up CNAME records.
+ * Check whether a hostname has a CNAME pointing to the expected target, via
+ * Cloudflare's DNS-over-HTTPS resolver.
  *
  * @param hostname - The domain to check.
  * @returns The CNAME target (without trailing dot), or null if no CNAME found.
@@ -564,7 +501,6 @@ export async function checkCnameTarget(hostname: string): Promise<string | null>
  *
  * @param db     - D1Database binding.
  * @param siteId - The site to query.
- * @returns The primary hostname string, or null if no hostnames exist.
  */
 export async function getPrimaryHostname(db: D1Database, siteId: string): Promise<string | null> {
   const primary = await dbQueryOne<{ hostname: string }>(
@@ -581,7 +517,6 @@ export async function getPrimaryHostname(db: D1Database, siteId: string): Promis
  *
  * @param db       - D1Database binding.
  * @param hostname - The full domain to look up.
- * @returns Hostname record or `null`.
  */
 export async function getHostnameByDomain(
   db: D1Database,
@@ -608,9 +543,6 @@ export async function getHostnameByDomain(
 
 /**
  * Verify all pending hostnames against Cloudflare (scheduled cron job).
- *
- * Iterates over hostnames with `status = 'pending'`, checks their Cloudflare
- * verification state, and updates D1 accordingly.
  *
  * @param db  - D1Database binding.
  * @param env - Worker environment.
@@ -745,9 +677,9 @@ export interface DomainAvailability {
 }
 
 /**
- * Resolve the Cloudflare account ID from env. Returns the hard-coded
- * production account ID as a last resort to match other call sites in the
- * worker (workflow + ai_admin) that pin to the same account.
+ * Resolve the Cloudflare account ID from env. Falls back to the hard-coded
+ * production account ID to match the other worker call sites (workflow + ai_admin)
+ * that pin to the same account.
  */
 function resolveAccountId(env: Env): string {
   return env.CF_ACCOUNT_ID ?? '84fa0d1b16ff8086dd958c468ce7fd59';
@@ -765,11 +697,9 @@ function tldOf(name: string): string {
 }
 
 /**
- * Best-effort price lookup table (USD/year) for common TLDs.
- *
- * Cloudflare Registrar prices are at-cost — these mirror the public pricing
- * page values for display. When Cloudflare returns an explicit `price` we
- * prefer that over this table.
+ * Best-effort price lookup table (USD/year) for common TLDs. CF Registrar prices
+ * are at-cost; these mirror the public pricing page for display. When CF returns
+ * an explicit `price` we prefer that over this table.
  */
 const TLD_PRICE_USD: Record<string, number> = {
   com: 9.77,
@@ -812,29 +742,19 @@ function priceForTld(tld: string): number {
  *
  * @param env   - Worker environment (RDAP needs no CF credentials).
  * @param names - List of domains to check (max ~50 per call).
- * @returns Array of availability records (one per input name). The
- *   `RegistrarSoftFailure` arm is retained for callsite compatibility but is no
- *   longer produced by this path.
- *
- * @example
- * ```ts
- * const r = await checkDomainAvailability(env, ['acme.com', 'acme.dev']);
- * if (Array.isArray(r)) r.forEach(d => console.log(d.name, d.available));
- * ```
+ * @returns Availability records (one per input name). The `RegistrarSoftFailure`
+ *   arm is retained for callsite compatibility but is no longer produced here.
  */
 export async function checkDomainAvailability(
   env: Env,
   names: readonly string[],
 ): Promise<DomainAvailability[] | RegistrarSoftFailure> {
   if (names.length === 0) return [];
-  // Availability via free RDAP (RFC 7480) — NOT the CF Registrar
-  // `/registrar/domains/check` endpoint. That path 404s: Cloudflare exposes no
-  // public bulk-availability API for arbitrary domains (the token only manages
-  // domains the account already OWNS), so this used to throw AppError(502) on
-  // EVERY call — availability was globally broken (see the ai-domain-search
-  // incident: search 502'd until wrapped, then showed all-unknown). RDAP is the
-  // keystone the domain-picker + domain_suggester already rely on:
-  // `GET rdap.org/domain/{name}` → 404 = available, 200 = taken, with a resilient
+  // Availability via free RDAP (RFC 7480) — the CF Registrar
+  // `/registrar/domains/check` path 404s (the token only manages domains the
+  // account already OWNS), which used to throw AppError(502) on EVERY call. RDAP
+  // (`GET rdap.org/domain/{name}`: 404 = available, 200 = taken) is the keystone
+  // the domain-picker + domain_suggester already rely on, with a resilient
   // `unknown` on any egress/registry hiccup (checkBatch NEVER throws). Pricing
   // falls back to the per-TLD table (CF wholesale pricing isn't reachable either).
   const { checkBatch } = await import('./rdap_availability.js');
@@ -854,19 +774,12 @@ export async function checkDomainAvailability(
  *
  * @param env  - Worker environment.
  * @param name - Fully-qualified domain name (e.g. `vitossalon.com`).
- * @returns Registration result with `expires_at` from Cloudflare.
  * @throws {AppError} `DOMAIN_PROVISIONING_ERROR` on 4xx (bad token, domain
  *   already registered upstream, TLD not supported by Cloudflare Registrar).
  *
  * @remarks
- * Cloudflare Registrar requires the account to have a default payment
- * method on file — the API will return 400 with a billing message if not.
- *
- * @example
- * ```ts
- * const reg = await registerDomain(env, 'vitossalon.com');
- * console.log(reg.expires_at);
- * ```
+ * Cloudflare Registrar requires the account to have a default payment method on
+ * file — the API returns 400 with a billing message if not.
  */
 export async function registerDomain(
   env: Env,
@@ -915,21 +828,13 @@ export async function registerDomain(
 }
 
 /**
- * Initiate a port-out transfer for a domain registered at Cloudflare.
- *
- * Unlocks the domain, generates an EPP/auth code via the Registrar API and
- * returns it so the customer can hand it to the gaining registrar.
+ * Initiate a port-out transfer for a domain registered at Cloudflare: unlocks the
+ * domain, generates an EPP/auth code via the Registrar API, and returns it for the
+ * gaining registrar.
  *
  * @param env  - Worker environment.
  * @param name - Domain to initiate transfer-out for.
- * @returns `{ auth_code, registrar_locked: false, instructions_url }`.
  * @throws {AppError} `DOMAIN_PROVISIONING_ERROR` on 4xx.
- *
- * @example
- * ```ts
- * const t = await initiateDomainTransfer(env, 'vitossalon.com');
- * console.log(t.auth_code);
- * ```
  */
 export async function initiateDomainTransfer(
   env: Env,

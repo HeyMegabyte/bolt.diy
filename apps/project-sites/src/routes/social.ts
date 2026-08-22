@@ -1,17 +1,6 @@
 /**
  * @module routes/social
- * @description Pulse Social — accounts + posts CRUD + publish controls.
- *
- *   GET    /api/social/accounts                  — list connected accounts
- *   DELETE /api/social/accounts/:id              — soft-delete (disconnect)
- *   GET    /api/social/posts?status=&limit=      — list posts
- *   POST   /api/social/posts                     — create draft
- *   PATCH  /api/social/posts/:id                 — edit draft
- *   POST   /api/social/posts/:id/schedule        — schedule
- *   POST   /api/social/posts/:id/publish-now     — schedule now()+1min
- *   DELETE /api/social/posts/:id                 — soft delete
- *   GET    /api/social/posts/:id/publishes       — per-platform publish rows
- *   GET    /api/social/posts/:id/analytics       — aggregate analytics
+ * @description Pulse Social — accounts + posts CRUD + publish controls + auto-pilot.
  */
 import { Hono } from 'hono';
 import { z } from 'zod';
@@ -43,11 +32,10 @@ function requireAuth(c: { get: (k: string) => unknown }): { userId: string; orgI
 }
 
 /**
- * Parse a JSON-array text column (`account_ids`, `hashtags`, `media_keys`) into a
- * `string[]`. Never throws — returns `[]` for null / empty / malformed input. The
- * Pulse Social UI consumes these as arrays; returning the raw column left them
- * `undefined`, so `post.media.length` / `@for (p of post.platforms)` crashed the
- * Drafts/Queue/Sent list the moment `pulse_posts` had rows.
+ * Parse a JSON-array text column into `string[]`. Never throws — returns `[]` for
+ * null / empty / malformed input. The Pulse Social UI consumes these as arrays;
+ * returning the raw column leaves them `undefined`, crashing `post.media.length` /
+ * `@for (p of post.platforms)` the moment `pulse_posts` has rows.
  */
 function jsonStringArray(raw: unknown): string[] {
   if (typeof raw !== 'string' || raw.trim() === '') return [];
@@ -62,13 +50,9 @@ function jsonStringArray(raw: unknown): string[] {
 const platformEnum = z.enum(PLATFORMS as readonly [Platform, ...Platform[]]);
 
 /**
- * `GET /api/social/best-times?platforms=x,linkedin` — Best posting-time labels
- * per platform for the admin Social composer's "best time" chips. Static
- * heuristic data (no org scoping, no auth needed) from the platform posting
- * playbook; unknown slugs are ignored. Was 404 (never registered) → the chips
- * silently hid; now returns the real labels.
- *
- * @returns `{ times: string[] }` — e.g. `['Tue 8am', 'Wed 12pm', 'Thu 5pm']`.
+ * `GET /api/social/best-times?platforms=x,linkedin` — best posting-time labels per
+ * platform for the composer's "best time" chips. Static heuristic data (no org
+ * scoping, no auth needed); unknown slugs are ignored.
  */
 socialRoutes.get('/api/social/best-times', (c) => {
   const platforms = (c.req.query('platforms') ?? '')
@@ -80,12 +64,6 @@ socialRoutes.get('/api/social/best-times', (c) => {
 
 // ── Accounts ─────────────────────────────────────────────────
 
-/**
- * `GET /api/social/accounts` — List connected social accounts for the
- * caller's org.
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- */
 socialRoutes.get('/api/social/accounts', async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
@@ -108,21 +86,13 @@ socialRoutes.get('/api/social/accounts', async (c) => {
        ORDER BY platform, created_at DESC`,
     [ctx.orgId],
   );
-  // The Pulse Social UI reads `connected` per account (its SocialAccount contract) —
-  // an account is connected once the OAuth/paste-key flow marks it `status = 'active'`.
-  // Without deriving it here the panel rendered every platform "Not connected" even
-  // with a live account row (the worker returned `status`, the UI read `connected`).
+  // UI reads `connected` per account (its SocialAccount contract); derive it from
+  // `status = 'active'` — the worker column is `status`, so without this every
+  // platform renders "Not connected" despite a live account row.
   const accounts = data.map((a) => ({ ...a, connected: a.status === 'active' }));
   return c.json({ data: accounts });
 });
 
-/**
- * `DELETE /api/social/accounts/:id` — Soft-delete (disconnect) a social
- * account.
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 404 NOT_FOUND when the account id doesn't belong to the caller's org.
- */
 socialRoutes.delete('/api/social/accounts/:id', async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
@@ -146,15 +116,11 @@ const MentionsQuerySchema = z.object({
 });
 
 /**
- * `GET /api/social/mentions?platform=&q=` — Handle autocomplete for the composer
- * @-mention popup (S37). Resolves from the org's OWN data — no restricted
- * platform handle-search API needed: (1) connected `social_accounts` handles for
- * the platform, then (2) handles previously @-mentioned in this org's posts.
- * Filtered by the `q` prefix (case-insensitive, leading `@` ignored), deduped,
- * capped at 8.
- *
- * @returns `{ items: { handle: string; name?: string }[] }`
- * @throws 401 UNAUTHORIZED when org/user context is missing.
+ * `GET /api/social/mentions?platform=&q=` — handle autocomplete for the composer
+ * @-mention popup. Resolves from the org's OWN data (no restricted platform
+ * handle-search API): connected `social_accounts` handles, then handles previously
+ * @-mentioned in this org's posts. Filtered by `q` prefix (leading `@` ignored),
+ * deduped, capped at 8.
  */
 socialRoutes.get('/api/social/mentions', zValidator('query', MentionsQuerySchema), async (c) => {
   const ctx = requireAuth(c);
@@ -163,7 +129,7 @@ socialRoutes.get('/api/social/mentions', zValidator('query', MentionsQuerySchema
   const needle = (q ?? '').toLowerCase().replace(/^@/, '');
   const items = new Map<string, { handle: string; name?: string }>();
 
-  // 1. Connected accounts on this platform (the highest-signal suggestions).
+  // 1. Connected accounts on this platform (highest-signal suggestions).
   const { data: accts } = await dbQuery<{ handle: string | null; display_name: string | null }>(
     c.env.DB,
     `SELECT handle, display_name FROM social_accounts
@@ -245,12 +211,8 @@ const CreatePostSchema = z.object({
 });
 
 /**
- * `POST /api/social/posts` — Create a new social post draft.
- *
- * @remarks
- * Body: {@link CreatePostSchema}. Content + platform list + optional
- * media + scheduled-time. No publish triggered — call `/schedule` or
- * `/publish-now` after to send.
+ * `POST /api/social/posts` — create a draft. No publish triggered — call
+ * `/schedule` or `/publish-now` after to send.
  *
  * @throws 400 BAD_REQUEST when payload validation fails.
  * @throws 401 UNAUTHORIZED when org/user context is missing.
@@ -260,7 +222,8 @@ socialRoutes.post('/api/social/posts', zValidator('json', CreatePostSchema), asy
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
   const body = c.req.valid('json');
 
-  // Validate that all account_ids belong to the org
+  // Tenant guard: every account_id must belong to this org (else a caller could
+  // schedule posts onto another org's connected accounts).
   const placeholders = body.account_ids.map(() => '?').join(',');
   const { data: accounts } = await dbQuery<{ id: string }>(
     c.env.DB,
@@ -299,12 +262,6 @@ socialRoutes.post('/api/social/posts', zValidator('json', CreatePostSchema), asy
   return c.json({ data: { id, status } }, 201);
 });
 
-/**
- * `GET /api/social/posts?status=&limit=` — List posts for the caller's
- * org, optionally filtered by status (`draft|scheduled|published|failed`).
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- */
 socialRoutes.get('/api/social/posts', async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
@@ -339,11 +296,9 @@ socialRoutes.get('/api/social/posts', async (c) => {
     [...params, limit],
   );
 
-  // Shape each row into the `SocialPost` contract the Pulse Social UI renders. Rows
-  // store account UUIDs (`account_ids` JSON) + hashtags JSON; the UI reads
-  // `post.platforms[]`, `post.media[]`, `post.hashtags[]`. Returning the raw row left
-  // `platforms`/`media` undefined → the list crashed on `post.media.length` once
-  // populated. Resolve account UUID → platform once, then map every post.
+  // Shape each row into the UI's `SocialPost` contract: rows store account UUIDs +
+  // hashtags as JSON, but the UI reads `post.platforms[]`/`post.media[]`/
+  // `post.hashtags[]`. Resolve account UUID → platform once, then map every post.
   const { data: accts } = await dbQuery<{ id: string; platform: string }>(
     c.env.DB,
     `SELECT id, platform FROM social_accounts WHERE org_id = ? AND deleted_at IS NULL`,
@@ -364,10 +319,9 @@ socialRoutes.get('/api/social/posts', async (c) => {
           .filter((p): p is string => !!p),
       ),
     ),
-    // Social posts are overwhelmingly text. A bare <img> can't send the Bearer to the
-    // authed R2 media endpoint (per the media-thumbnail 401 fix), so surface no
-    // thumbnails rather than emit a URL that 401s. TODO(social-media-thumbs): mint
-    // signed preview URLs from media_keys.
+    // A bare <img> can't send the Bearer to the authed R2 media endpoint (per the
+    // media-thumbnail 401 fix), so surface no thumbnails rather than emit a URL that
+    // 401s. TODO(social-media-thumbs): mint signed preview URLs from media_keys.
     media: [] as unknown[],
     hashtags: jsonStringArray(row.hashtags),
     link: row.link ?? undefined,
@@ -376,12 +330,6 @@ socialRoutes.get('/api/social/posts', async (c) => {
   return c.json({ data: posts });
 });
 
-/**
- * `GET /api/social/posts/:id` — Fetch a single post with its full content.
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 404 NOT_FOUND when the post id doesn't belong to the caller's org.
- */
 socialRoutes.get('/api/social/posts/:id', async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
@@ -397,16 +345,11 @@ socialRoutes.get('/api/social/posts/:id', async (c) => {
 const PatchPostSchema = CreatePostSchema.partial();
 
 /**
- * `PATCH /api/social/posts/:id` — Edit a draft post.
+ * `PATCH /api/social/posts/:id` — edit a draft post.
  *
- * @remarks
- * Body: {@link PatchPostSchema} (partial). Allowed only while
- * `status='draft'`.
- *
- * @throws 400 BAD_REQUEST when payload validation fails.
  * @throws 401 UNAUTHORIZED when org/user context is missing.
  * @throws 404 NOT_FOUND when the post id doesn't belong to the caller's org.
- * @throws 409 CONFLICT when the post is past draft state.
+ * @throws 409 CONFLICT when the post is already published/publishing.
  */
 socialRoutes.patch('/api/social/posts/:id', zValidator('json', PatchPostSchema), async (c) => {
   const ctx = requireAuth(c);
@@ -449,16 +392,13 @@ socialRoutes.patch('/api/social/posts/:id', zValidator('json', PatchPostSchema),
 const ScheduleSchema = z.object({ scheduled_at: z.string().datetime() });
 
 /**
- * `POST /api/social/posts/:id/schedule` — Schedule a draft post for
- * publishing.
- *
- * @remarks
- * Body: {@link ScheduleSchema} (`{ scheduled_for: ISO }`). Flips status
- * to `scheduled`. A cron picks up the row when `scheduled_for <= now()`.
+ * `POST /api/social/posts/:id/schedule` — flip a draft to `scheduled`. A cron picks
+ * up the row when `scheduled_at <= now()`.
  *
  * @throws 400 BAD_REQUEST when payload validation fails.
  * @throws 401 UNAUTHORIZED when org/user context is missing.
  * @throws 404 NOT_FOUND when the post id doesn't belong to the caller's org.
+ * @throws 503 FEATURE_DISABLED when the `social_publishing` kill-switch is off.
  */
 socialRoutes.post(
   '/api/social/posts/:id/schedule',
@@ -493,11 +433,12 @@ socialRoutes.post(
 );
 
 /**
- * `POST /api/social/posts/:id/publish-now` — Schedule the post to publish
- * at now+1 minute (slight delay so the user can cancel via Undo).
+ * `POST /api/social/posts/:id/publish-now` — schedule to publish at now+1 minute
+ * (slight delay so the user can cancel via Undo).
  *
  * @throws 401 UNAUTHORIZED when org/user context is missing.
  * @throws 404 NOT_FOUND when the post id doesn't belong to the caller's org.
+ * @throws 503 FEATURE_DISABLED when the `social_publishing` kill-switch is off.
  */
 socialRoutes.post('/api/social/posts/:id/publish-now', async (c) => {
   const ctx = requireAuth(c);
@@ -523,8 +464,8 @@ socialRoutes.post('/api/social/posts/:id/publish-now', async (c) => {
 });
 
 /**
- * `DELETE /api/social/posts/:id` — Soft-delete a post (sets `deleted_at`).
- * History rows on per-platform publishes remain for analytics.
+ * `DELETE /api/social/posts/:id` — soft-delete a post. History rows on per-platform
+ * publishes remain for analytics.
  *
  * @throws 401 UNAUTHORIZED when org/user context is missing.
  * @throws 404 NOT_FOUND when the post id doesn't belong to the caller's org.
@@ -544,13 +485,6 @@ socialRoutes.delete('/api/social/posts/:id', async (c) => {
   return c.json({ data: { deleted: true } });
 });
 
-/**
- * `GET /api/social/posts/:id/publishes` — Per-platform publish rows
- * (status, posted_at, platform_post_url, error).
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 404 NOT_FOUND when the post id doesn't belong to the caller's org.
- */
 socialRoutes.get('/api/social/posts/:id/publishes', async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
@@ -574,13 +508,6 @@ socialRoutes.get('/api/social/posts/:id/publishes', async (c) => {
   return c.json({ data });
 });
 
-/**
- * `GET /api/social/posts/:id/analytics` — Aggregate analytics across all
- * platforms the post published to (impressions, likes, shares, clicks).
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 404 NOT_FOUND when the post id doesn't belong to the caller's org.
- */
 socialRoutes.get('/api/social/posts/:id/analytics', async (c) => {
   const ctx = requireAuth(c);
   if (!ctx) return c.json({ error: { code: 'UNAUTHORIZED', message: 'auth required' } }, 401);
@@ -649,20 +576,9 @@ const AutoPilotConfigSchema = z
   .strict();
 
 /**
- * `GET /api/social/auto-pilot/config` — Read the caller-org's auto-pilot
- * settings.
- *
- * @remarks
- * Returns the canonical row (creating an implicit "off" default when the
- * org has never configured auto-pilot). Always includes `default_prompt`
- * so the dialog can offer a one-click "reset to default" affordance.
- *
- * @example
- * ```ts
- * const r = await fetch('/api/social/auto-pilot/config').then(r => r.json());
- * // r.data = { enabled, prompt, cadence_hours, target_networks, last_run_at,
- * //            next_run_at, default_prompt }
- * ```
+ * `GET /api/social/auto-pilot/config` — read the caller-org's auto-pilot settings.
+ * Creates an implicit "off" default when never configured. Always includes
+ * `default_prompt` so the dialog can offer "reset to default".
  *
  * @throws 401 UNAUTHORIZED when org/user context is missing.
  * @see {@link upsertAutoPilotConfig}
@@ -675,18 +591,11 @@ socialRoutes.get('/api/social/auto-pilot/config', async (c) => {
 });
 
 /**
- * `POST /api/social/auto-pilot/config` — Upsert org-scoped auto-pilot
- * config (enabled, prompt, cadence_hours, target_networks).
- *
- * @remarks
- * Body: {@link AutoPilotConfigSchema} (all fields optional). Recomputes
- * `next_run_at = now + cadence_hours * 3600_000` whenever `enabled` flips
- * true OR `cadence_hours` changes. Recording `next_run_at` here means the
- * every-minute cron sweep can find it cheaply via the partial index.
- *
- * Safety rail: writes never trigger an immediate generation — they only
- * schedule the next one. Use `/api/social/auto-pilot/run-now` to fire on
- * demand.
+ * `POST /api/social/auto-pilot/config` — upsert org-scoped auto-pilot config.
+ * Recomputes `next_run_at` whenever `enabled` flips true OR `cadence_hours` changes,
+ * so the every-minute cron sweep finds it cheaply via the partial index. Writes
+ * never trigger an immediate generation — they only schedule the next one; use
+ * `/run-now` to fire on demand.
  *
  * @throws 400 BAD_REQUEST when payload validation fails.
  * @throws 401 UNAUTHORIZED when org/user context is missing.
@@ -709,19 +618,13 @@ const AutoPilotPreviewSchema = z.object({
 });
 
 /**
- * `POST /api/social/auto-pilot/preview` — Generate one sample post for the
- * given network using the current (or supplied) prompt + business context.
- *
- * @remarks
- * Body: {@link AutoPilotPreviewSchema}. Does NOT persist — strictly a
- * dialog-side "try before you save" affordance. Honors the org's saved
- * prompt unless the caller overrides via `prompt`. Returns
- * `{ text, mediaSuggestion? }`.
+ * `POST /api/social/auto-pilot/preview` — generate one sample post for a network.
+ * Does NOT persist — a "try before you save" affordance. Honors the org's saved
+ * prompt unless overridden via `prompt`.
  *
  * @throws 400 BAD_REQUEST when payload validation fails.
  * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 502 AI_GENERATION_ERROR when the underlying LLM call fails (no
- *   provider configured, all providers down, etc).
+ * @throws 502 AI_GENERATION_ERROR when the underlying LLM call fails.
  */
 socialRoutes.post(
   '/api/social/auto-pilot/preview',
@@ -756,19 +659,13 @@ socialRoutes.post(
 );
 
 /**
- * `POST /api/social/auto-pilot/run-now` — Manually fire an auto-pilot run.
- *
- * @remarks
- * Generates one draft post per `target_networks` using the saved prompt
- * + business context, persists each as a `pulse_posts` row with
- * `status='draft'`. The user reviews + publishes manually. Mirrors what
- * the every-minute cron sweep does, but on demand.
- *
- * Auto-pilot does NOT need to be enabled to call this — operators may
- * want a one-shot brainstorm without the recurring schedule.
+ * `POST /api/social/auto-pilot/run-now` — fire one draft per `target_networks` using
+ * the saved prompt. Does NOT require auto-pilot to be enabled (operators may want a
+ * one-shot brainstorm). Mirrors the every-minute cron sweep, on demand.
  *
  * @throws 401 UNAUTHORIZED when org/user context is missing.
  * @throws 409 CONFLICT when no `target_networks` are configured.
+ * @throws 503 FEATURE_DISABLED when the `social_autopilot` kill-switch is off.
  * @see runAutoPilotIfDue (in src/index.ts cron handler)
  */
 socialRoutes.post('/api/social/auto-pilot/run-now', async (c) => {
@@ -824,7 +721,7 @@ socialRoutes.post('/api/social/auto-pilot/run-now', async (c) => {
       );
     }
   }
-  // Push the schedule cursor forward so the cron sweep stays consistent.
+  // Advance the schedule cursor so the cron sweep stays consistent.
   const now = Date.now();
   const next = now + cfg.cadence_hours * 3_600_000;
   const { error: cursorErr } = await dbExecute(
@@ -840,16 +737,12 @@ socialRoutes.post('/api/social/auto-pilot/run-now', async (c) => {
 });
 
 /**
- * `POST /api/social/import-rss` — Import posts from an RSS/Atom feed.
- *
- * Preview (`preview: true`): SSRF-guards the feed URL (public https only),
- * fetches it, and returns up to 10 `{ title, url }` items via the pure
- * {@link parseRssFeed}. Scheduling the parsed items as drafts is a follow-up;
- * the preview path is what the composer's "Preview feed" button calls.
+ * `POST /api/social/import-rss` — import posts from an RSS/Atom feed.
+ * Preview (`preview: true`): SSRF-guards the feed URL (public https only), fetches
+ * it, returns up to 10 `{ title, url }` items. Non-preview: imports items as drafts.
  *
  * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 400 BAD_REQUEST for a disallowed/unreachable feed URL.
- * @throws 501 NOT_IMPLEMENTED for the (deferred) schedule path.
+ * @throws 400 BAD_REQUEST for a disallowed/unreachable feed URL or empty feed.
  */
 const RssImportSchema = z
   .object({
@@ -874,10 +767,9 @@ socialRoutes.post('/api/social/import-rss', zValidator('json', RssImportSchema),
     );
   }
   // SSRF-safe fetch: `safeFetch` follows redirects MANUALLY and re-validates every
-  // hop (isSafeCrawlUrl), so a public feed URL that passes the seed guard above
-  // can't 302 to 169.254.169.254 / localhost / RFC1918 — the same redirect-SSRF the
-  // import crawler defends against. A naive `fetch(url)` (redirect:'follow') would
-  // follow the hop blindly. Never throws (null on network error / blocked redirect).
+  // hop (isSafeCrawlUrl), so a public feed URL that passes the seed guard above can't
+  // 302 to 169.254.169.254 / localhost / RFC1918. A naive `fetch(url)`
+  // (redirect:'follow') would follow the hop blindly. Never throws (null on error).
   const res = await safeFetch(url);
   if (!res || !res.ok) {
     return c.json(
@@ -894,8 +786,8 @@ socialRoutes.post('/api/social/import-rss', zValidator('json', RssImportSchema),
   const items = parseRssFeed(xml, 10);
   if (preview) return c.json({ items });
 
-  // Non-preview = import the items as draft posts (the operator assigns accounts
-  // + schedule in the composer). account_ids='[]' → editable draft.
+  // Non-preview: import items as draft posts (operator assigns accounts + schedule in
+  // the composer). account_ids='[]' → editable draft.
   const drafts = buildRssDraftRows(items);
   if (drafts.length === 0) {
     return c.json({ error: { code: 'BAD_REQUEST', message: 'No items found in that feed.' } }, 400);
@@ -925,11 +817,9 @@ socialRoutes.post('/api/social/import-rss', zValidator('json', RssImportSchema),
 });
 
 /**
- * `POST /api/social/og-preview` — Fetch a URL's Open-Graph card for the composer.
- *
- * SSRF-guards the URL (public https only) + fetches + extracts og/twitter/title
- * meta via the pure {@link parseOgTags}. Returns `{ og }` (fields may be empty —
- * the composer renders a fallback link card when so). Never leaks fetch errors.
+ * `POST /api/social/og-preview` — fetch a URL's Open-Graph card for the composer.
+ * SSRF-guards the URL (public https only), fetches, extracts og/twitter/title meta.
+ * Returns `{ og }` (fields may be empty — composer renders a fallback link card).
  *
  * @throws 401 UNAUTHORIZED when org/user context is missing.
  * @throws 400 BAD_REQUEST for a disallowed/unreachable URL.
@@ -946,8 +836,8 @@ socialRoutes.post('/api/social/og-preview', zValidator('json', OgPreviewSchema),
       400,
     );
   }
-  // SSRF-safe fetch (redirect:'manual' + per-hop re-validation) — same redirect-SSRF
-  // fix as import-rss above; a raw fetch(url) would follow a 302 to an internal target.
+  // SSRF-safe fetch (redirect:'manual' + per-hop re-validation) — same guard as
+  // import-rss; a raw fetch(url) would follow a 302 to an internal target.
   const res = await safeFetch(url);
   if (!res || !res.ok) {
     return c.json(
@@ -972,19 +862,14 @@ const DrainQueueSchema = z.object({
 });
 
 /**
- * `POST /api/internal/social/drain-queue` — Cron-called endpoint that drains
- * due posts from Upstash per-platform sorted sets and spawns
- * SocialPublishWorkflow instances for each.
- *
- * Called every 5 minutes by CF Cron Triggers. Degraded-mode: if Upstash is
- * unreachable, falls back to polling D1 `pulse_posts WHERE status='scheduled'
- * AND scheduled_at < now()` directly.
- *
- * Requires `INTERNAL_SHARED_SECRET` bearer token (set via cron config).
- * Flag-gated: 404 when `social_publishing_native` is off.
+ * `POST /api/internal/social/drain-queue` — cron-called every 5 min. Drains due posts
+ * from Upstash per-platform sorted sets and spawns SocialPublishWorkflow instances.
+ * Degraded-mode: if Upstash is unreachable, falls back to polling D1
+ * `pulse_posts WHERE status='scheduled' AND scheduled_at < now()` directly.
+ * Requires `INTERNAL_SHARED_SECRET` bearer. Flag-gated on `social_publishing_native`.
  *
  * @throws 401 UNAUTHORIZED when bearer is missing or invalid.
- * @throws 503 SERVICE_UNAVAILABLE when the flag is off.
+ * @throws 503 FEATURE_DISABLED when the flag is off.
  */
 socialRoutes.post(
   '/api/internal/social/drain-queue',
@@ -1026,12 +911,10 @@ socialRoutes.post(
             ]),
           });
           if (!res.ok) continue;
-          // Upstash pipeline returns results per-command; parse entries from first result.
-          // Spawn workflows for each drained entry via the existing WORKFLOW binding.
           drained++;
         }
       } catch {
-        // Degraded mode: fall through to D1 poll below.
+        // Degraded mode: fall through to the D1 poll below.
       }
     }
 
@@ -1059,11 +942,11 @@ socialRoutes.post(
             spawned++;
           }
         } catch {
-          // Workflow creation failed — will retry next tick
+          // Workflow creation failed — will retry next tick.
         }
       }
     } catch {
-      // D1 poll failed — retry next cron tick
+      // D1 poll failed — retry next cron tick.
     }
 
     return c.json({
