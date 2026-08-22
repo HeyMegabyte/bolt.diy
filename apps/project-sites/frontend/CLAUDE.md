@@ -217,122 +217,20 @@ npm run verify:production                # Playwright smoke on https://projectsi
 The worker serves the SPA shell at `/` and `/admin/*` from R2 + the marketing
 homepage at `/`. Asset paths are CDN-busted via Angular's hashed filenames.
 
-### Known perf-budget items (tracked 2026-06-02 — `ng build` WARNS, does not fail)
+### Known perf-budget items (`ng build` WARNS, does not fail)
 
-- **✅ RESOLVED 2026-08-07 (commit `fe90fa69`) — budget CLOSED, warning GONE.**
-  Initial bundle now **1.11 MB raw / 243.6 KB transfer** (was 1.81 MB / 436 KB).
-  Fix: moved ag-grid's `ModuleRegistry.registerModules` out of the EAGER `main.ts`
-  into a lazy-only `app/pages/admin/sections/_ag-grid-setup.ts` (imported ONLY by
-  the two `loadComponent`-lazy grids audit + ai-logs) and removed main.ts's ag-grid
-  import entirely → esbuild put ag-grid in an 864 KB LAZY chunk. Deployed +
-  Browserbase-as-brian verified both grids still render with 0 console errors (no
-  #200). **⚠️ The round-41/42/49 "dead ends" below were CONFOUNDED — they failed
-  ONLY because `main.ts` STILL eagerly imported ag-grid the whole time; removing
-  THAT was the missing piece.**
-- **✅ FINAL RESOLUTION 2026-08-20 (iters 236-237, commits `98e686f4`+): ag-grid
-  is REMOVED ENTIRELY.** The perf-wave ag-grid→TanStack migration
-  (`docs/perf-wave-ag-grid-to-tanstack.md`, status COMPLETE) migrated `/admin/audit`
-  + the traces grid (`/admin/logs?tab=traces`) to inline TanStack Table — the
-  864 KB lazy ag-grid chunk is GONE from the build, `npm rm ag-grid-community
-  ag-grid-angular`, `_ag-grid-setup.ts` deleted, and the critical
-  `aria-required-children` axe violation is fixed at the root (prod E2E asserts
-  axe-clean WITHOUT the former `.ag-root` exclusion). The historical
-  budget-bug detail below is kept for the record only:
-- **Initial bundle 1.81 MB raw / 436 KB transfer — 205 KB over the 1.6 MB
-  `initial` budget** (`angular.json` `budgets`). **ROOT CAUSE PINPOINTED (round 41
-  via `--stats-json`):** the 800 KB initial `chunk-GGAROBNS.js` is **782 KB of
-  `ag-grid-community`, EAGER** — `main` imports it via a static `import-statement`.
-  (The earlier "ag-grid is ALREADY lazy" note was wrong.) ag-grid is imported at
-  the **module top level** of TWO lazy admin sections — `audit.component.ts`
-  (lines 2-22 + `ModuleRegistry.registerModules` side-effect at :28) and
-  `ai-logs.component.ts` (:14-41) — and esbuild hoists the dep into the initial
-  bundle. That one dep is ~181 KB transfer — fixing it closes the budget.
-  **DIAGNOSTIC (round 49):** it is NOT the 2-route sharing — temporarily orphaning
-  the ai-logs route (ag-grid → single importer = audit only) left the bundle still
-  205.08 KB over (vs 205.13 baseline, unchanged). esbuild promotes the large lazy
-  dep to a `main`-imported chunk even from ONE lazy route. So `@defer` AND the
-  shared-single-component approach are BOTH dead ends — the only fixes are
-  removing ag-grid (TanStack) or ejecting from Angular's builder to configure
-  esbuild chunking (huge). Don't re-attempt lazy-load tricks.
-  **`@defer` approach FAILED (round 42 — tried + reverted):** converting both
-  components to `import type` + async `import('ag-grid-community')` in `ngOnInit`
-  + `@defer (when agReady())` on `<ag-grid-angular>` made the bundle WORSE
-  (1.81 MB → 2.01 MB; the ag-grid initial chunk grew 800 KB → 1.01 MB). Root
-  cause: ag-grid-angular is shared by TWO lazy routes (audit + ai-logs), so
-  esbuild's chunk-splitter hoists it into the initial bundle REGARDLESS of
-  `@defer`, and the added `await import('ag-grid-community')` just duplicated it
-  (ag-grid via the still-eager ag-grid-angular + a new dynamic chunk). `@defer`
-  on a component shared across multiple lazy routes does NOT de-hoist it.
-  **Fixed 2026-08-20 by the TanStack migration above** (no speculative shared
-  abstraction: audit migrated inline first, ai-logs second, and no
-  `pages/admin/data-table/` seam was extracted — the two components deliberately
-  own their small duplicated table plumbing per the inverted-abstraction pyramid;
-  the inline-TanStack `api-tokens.component.ts` pattern remains the copy-source).
-  TanStack is headless (~15 KB vs 782 KB) — removal aligned with doctrine
-  (package-registry: "ag-grid Community ONLY for 100k+ row enterprise grids" —
-  these are admin log tables).
-  Secondary (smaller): (a) command-palette/shortcuts-overlay are `@if`-conditional
-  but eager in `app.component` — `@defer (when …){ @if(…){…} }` trims ~30 KB but
-  risks the SUPREME Cmd+K-focus gate (`e2e/cmdk-focus`, dev-suite, can't gate
-  locally); easter-eggs already deferred (round 40, ~1 KB).
-- **Initial bundle 1.81 MB raw / 436 KB transfer — 205 KB over the 1.6 MB
-  `initial` budget** (`angular.json` `budgets`). **ROOT CAUSE PINPOINTED (round 41
-  via `--stats-json`):** the 800 KB initial `chunk-GGAROBNS.js` is **782 KB of
-  `ag-grid-community`, EAGER** — `main` imports it via a static `import-statement`.
-  (The earlier "ag-grid is ALREADY lazy" note was wrong.) ag-grid is imported at
-  the **module top level** of TWO lazy admin sections — `audit.component.ts`
-  (lines 2-22 + `ModuleRegistry.registerModules` side-effect at :28) and
-  `ai-logs.component.ts` (:14-41) — and esbuild hoists the dep into the initial
-  bundle. That one dep is ~181 KB transfer — fixing it closes the budget.
-  **DIAGNOSTIC (round 49):** it is NOT the 2-route sharing — temporarily orphaning
-  the ai-logs route (ag-grid → single importer = audit only) left the bundle still
-  205.08 KB over (vs 205.13 baseline, unchanged). esbuild promotes the large lazy
-  dep to a `main`-imported chunk even from ONE lazy route. So `@defer` AND the
-  shared-single-component approach are BOTH dead ends — the only fixes are
-  removing ag-grid (TanStack) or ejecting from Angular's builder to configure
-  esbuild chunking (huge). Don't re-attempt lazy-load tricks.
-  **`@defer` approach FAILED (round 42 — tried + reverted):** converting both
-  components to `import type` + async `import('ag-grid-community')` in `ngOnInit`
-  + `@defer (when agReady())` on `<ag-grid-angular>` made the bundle WORSE
-  (1.81 MB → 2.01 MB; the ag-grid initial chunk grew 800 KB → 1.01 MB). Root
-  cause: ag-grid-angular is shared by TWO lazy routes (audit + ai-logs), so
-  esbuild's chunk-splitter hoists it into the initial bundle REGARDLESS of
-  `@defer`, and the added `await import('ag-grid-community')` just duplicated it
-  (ag-grid via the still-eager ag-grid-angular + a new dynamic chunk). `@defer`
-  on a component shared across multiple lazy routes does NOT de-hoist it.
-  **Correct fix (genuinely big — a real wave, NOT a quick win):** migrate both
-  grids from ag-grid to **TanStack Table**. **Executable blueprint:
-  `apps/project-sites/docs/perf-wave-ag-grid-to-tanstack.md`** (feature inventory,
-  TanStack mapping, step-by-step, live-QA checklist, budget-close verification —
-  read it before starting; do NOT re-derive or re-attempt the documented dead
-  ends). (already a project dep;
-  package-registry mandates "ag-grid Community ONLY for 100k+ row enterprise
-  grids" — these are admin log tables, so ag-grid is over-engineered here).
-  TanStack is headless (~15 KB vs 782 KB) → removes ag-grid entirely → closes
-  the budget AND aligns with doctrine. Cost: reimplement the faux master/detail
-  (full-width rows), dark-cyan theme, CSV export, pagination in TanStack for
-  BOTH `audit.component.ts` + `ai-logs.component.ts`, re-verify both grids live
-  (need `E2E_API_KEY`). Until then the 205 KB overage is a build WARNING (not a
-  failure) — admin-only feature weight that also (wrongly) loads on marketing.
-  Secondary (smaller): (a) command-palette/shortcuts-overlay are `@if`-conditional
-  but eager in `app.component` — `@defer (when …){ @if(…){…} }` trims ~30 KB but
-  risks the SUPREME Cmd+K-focus gate (`e2e/cmdk-focus`, dev-suite, can't gate
-  locally); easter-eggs already deferred (round 40, ~1 KB).
-- **`social.component.ts` styles 32.86 KB > 28 KB** `anyComponentStyle` budget
-  (+4.86 KB; verified 2026-08-14 build). The component is now **3267 lines**
-  (grew from 2349); the real CSS block is lines **1064–1697 (~633 lines)**.
-  **INVESTIGATED 2026-08-14 → NOT a blind trim, and NOT a cold quick-win.** The
-  CSS is dense + well-written: zero dead rules, zero duplicate selectors, zero
-  comment bloat (line 1181 documents already-removed classes). The only
-  byte-lever is stripping `var(--ps-accent,#00e5ff)` token fallbacks (~2 KB max
-  — insufficient for 4.86 KB) and that's a visual-adjacent change to a deep
-  authed component (`::ng-deep`/`innerHTML`-styled classes make static dead-CSS
-  detection unsafe). **Correct fix = split the god component** into sub-sections
-  (each under budget), verified live via a Browserbase `/admin/social` sweep at
-  6 breakpoints — a real wave, mirroring the ag-grid→TanStack `perf-wave`
-  handling above. Until then this stays a build WARNING (non-failing).
+- **ag-grid budget — CLOSED (2026-08-20).** ag-grid is removed entirely
+  (`npm rm ag-grid-community ag-grid-angular`); `/admin/audit` + the traces grid
+  (`/admin/logs?tab=traces`) use inline TanStack Table (headless, ~15 KB vs
+  782 KB), which also fixed the `aria-required-children` axe violation at the root.
+  Blueprint: `docs/perf-wave-ag-grid-to-tanstack.md`. Doctrine: ag-grid Community is
+  for 100k+ row grids only — admin log tables use TanStack.
+- **`social.component.ts` styles 32.86 KB > 28 KB `anyComponentStyle` (non-failing
+  WARN).** It's a 3267-line god-component with dense, clean CSS (no single byte-lever
+  is big enough). Fix = split it into sub-sections (each under budget), verified live
+  at 6 breakpoints — a real wave.
 
-Heavy libs stay lazy: never add monaco/echarts/ag-grid/jszip/@codemirror to an
+Heavy libs stay lazy: never add monaco/echarts/jszip/@codemirror to an
 eager `imports:` array — they belong in `@defer` blocks or lazy-routed sections.
 
 ### Two E2E suites + a CI wiring gap (tracked 2026-06-02)
