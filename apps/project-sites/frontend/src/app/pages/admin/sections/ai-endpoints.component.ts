@@ -1,38 +1,6 @@
 /**
  * AI Endpoints — list, inline URL editor, full-row create panel, embedded IDE.
  *
- * STUBBED (frontend renders, backend is partial — "Coming soon" toast):
- *   #13 endpoint-level env vars/secrets
- *   #14 KV/R2/D1/AI/Queue bindings panel (persisted, NOT enforced server-side yet)
- *   #18 rollback to version
- *   #19 A/B-test mode
- *   #20 cron schedule (column persisted, not yet wired to CF cron triggers)
- *   #30 multi-file package.json dep resolution
- *   #31 dependency installer UI
- *   #32 wrangler.toml-style bindings file generator
- *   #33–34 inline test runner + coverage
- *   #35–37 preview URLs / promote / rollback prod
- *   #41–42 public toggle + custom subdomain per endpoint
- *   #44 cost estimator
- *   #46 move endpoint to another site
- *   #50 hot-reload preview is best-effort (iframe only; needs HTML-serving runtime)
- *
- * FULLY WORKING:
- *   create / edit / delete endpoint (slug + method + description + language + files)
- *   inline URL editor (slug + method dropdown + green save)
- *   embedded IDE (file tree / tabs / editor / status bar / side panels)
- *   language switch (ai-prompt / js / ts / python / rust-wasm)
- *   deploy (per-language; Python/Rust persist as runtime-pending)
- *   curl / JS / Python snippet copy
- *   OpenAPI schema export
- *   "send test request" inline tester
- *   live cURL+Fetch+requests generators
- *   duplicate endpoint
- *   tag chips + filter (client-side)
- *   client-side search/filter by method, language, status, tag
- *   AI helper menu (calls stub backend)
- *   rate-limit / auth mode / cache TTL persisted server-side
- *
  * @see ./ai-endpoints/types.ts for wire types
  * @see ./ai-endpoints/ide.component.ts for the IDE shell
  * @see ../../../../src/routes/ai_admin.ts for the matching server routes
@@ -70,7 +38,6 @@ import {
   type IdeLanguage,
 } from './ai-endpoints/types';
 
-/** Per-row inline edit buffer state. */
 interface InlineEdit {
   slug: string;
   method: EndpointMethod;
@@ -877,20 +844,14 @@ export class AdminAiEndpointsComponent implements OnInit {
   private toast = inject(ToastService);
   private confirmSvc = inject(ConfirmService);
 
-  /**
-   * Compact-mode flag. When `true` the component renders inside the editor
-   * overlay (half-screen, right-side) with the `.agents--compact` style
-   * branch — smaller toolbars, narrower IDE columns, hidden tag filter.
-   * When `false` (default) the component renders standalone at
-   * `/admin/ai-endpoints` with full chrome.
-   */
+  /** `true` when rendered inside the editor overlay (half-screen) → `.agents--compact` chrome. */
   readonly compact = input<boolean>(false);
 
   endpoints = signal<EndpointRow[]>([]);
   loading = signal(false);
   /** Persistent endpoint-list load failure — so a fetch error shows a Retry card, not a fake "build your first agent" empty state (which hides agents the user already created). */
   loadError = signal<string | null>(null);
-  /** Worker request_id from a failed endpoint-list load → copyable support reference on the error card. */
+  /** Worker request_id from a failed load → copyable support reference on the error card. */
   readonly loadErrorRef = signal('');
   saving = signal(false);
   wfpConfigured = signal(false);
@@ -904,11 +865,9 @@ export class AdminAiEndpointsComponent implements OnInit {
   filterText = signal('');
   filterMethod = signal<'' | EndpointMethod>('');
   filterLanguage = signal<'' | IdeLanguage>('');
-  /** True when any filter is active — used to render the "Clear filters" link. */
   hasActiveFilters = computed(() =>
     this.filterText().trim().length > 0 || this.filterMethod() !== '' || this.filterLanguage() !== '',
   );
-  /** Reset all three filters. */
   clearFilters(): void {
     this.filterText.set('');
     this.filterMethod.set('');
@@ -922,7 +881,6 @@ export class AdminAiEndpointsComponent implements OnInit {
    */
   filterNoMatch = computed<boolean>(() => this.endpoints().length > 0 && this.filteredEndpoints().length === 0);
 
-  /** Per-row inline editor (slug + method + description). */
   editingId = signal<string | null>(null);
   inlineEdit = signal<InlineEdit>({ slug: '', method: 'POST', description: '' });
 
@@ -938,13 +896,8 @@ export class AdminAiEndpointsComponent implements OnInit {
   /** Set when the per-endpoint logs fetch fails, so the IDE Logs panel shows an error instead of a fake "No invocations yet". */
   logsError = signal<string | null>(null);
   testerResponse = signal<string | null>(null);
-  /** True when the fullscreen IDE takeover is rendered. */
   overlayOpen = computed(() => this.openId() !== null);
-  /**
-   * Map an HTTP method to its badge modifier class so each method is
-   * colour-distinct at a glance (was: only GET/POST styled → PUT/PATCH/DELETE
-   * all looked like POST). Uses the admin's existing semantic palette.
-   */
+  /** Map an HTTP method to its badge modifier class so each method is colour-distinct. */
   methodBadgeClass(method: string | null | undefined): string {
     switch ((method ?? '').toUpperCase()) {
       case 'GET': return 'badge-get';
@@ -956,7 +909,6 @@ export class AdminAiEndpointsComponent implements OnInit {
     }
   }
 
-  /** Resolves the currently-open endpoint row (for overlay title/method badge). */
   overlayEndpoint = computed(() => {
     const id = this.openId();
     if (!id) return null;
@@ -970,7 +922,6 @@ export class AdminAiEndpointsComponent implements OnInit {
    */
   moreOpenId = signal<string | null>(null);
 
-  /** Create flow state. */
   creating = signal(false);
   createDraft = signal<{
     slug: string;
@@ -988,15 +939,12 @@ export class AdminAiEndpointsComponent implements OnInit {
     files: { ...LANGUAGE_STARTERS['ai-prompt'] },
   });
 
-  /** Inline tester drawer. */
   quickTesting = signal<EndpointRow | null>(null);
   running = signal(false);
   testBody = '{}';
   testResult = signal<{ status: number; ms: number; body: string } | null>(null);
 
-  /** AI suggest-endpoint modal state (item #93). */
   aiSuggesting = signal(false);
-  /** In-flight flag for the suggest request. */
   suggesting = signal(false);
   /** Free-form description input fed to the LLM. */
   suggestDescription = '';
@@ -1141,7 +1089,6 @@ export class AdminAiEndpointsComponent implements OnInit {
 
   /* ─────────────── IDE panel ─────────────── */
 
-  /** Open the fullscreen IDE takeover for this endpoint. */
   openOverlay(e: EndpointRow): void {
     this.openId.set(e.id);
     this.testerResponse.set(null);
@@ -1149,7 +1096,6 @@ export class AdminAiEndpointsComponent implements OnInit {
     this.loadLogs(e);
   }
 
-  /** Close the fullscreen IDE overlay (Esc / X / route change). */
   closeOverlay(): void {
     this.openId.set(null);
     this.detail.set(null);
@@ -1165,27 +1111,18 @@ export class AdminAiEndpointsComponent implements OnInit {
     else this.openOverlay(e);
   }
 
-  /** Tester invoked from inside the overlay — uses the open endpoint. */
   runTesterFromOverlay(body: string): void {
     const e = this.overlayEndpoint();
     if (!e) return;
     this.runTester(e, body);
   }
 
-  /**
-   * Toggle the per-row More dropdown. Document-click handler in
-   * {@link onDocumentClick} closes it on outside click.
-   */
   toggleMore(id: string, ev: MouseEvent): void {
     ev.stopPropagation();
     this.moreOpenId.update((curr) => (curr === id ? null : id));
   }
 
-  /**
-   * Close any open per-row "More" dropdown when the user clicks outside.
-   * Mirrors the Snapshots component's pattern. Cheap early-out when
-   * nothing is open.
-   */
+  /** Close any open per-row "More" dropdown on outside click. */
   @HostListener('document:click', ['$event'])
   onDocumentClick(ev: MouseEvent): void {
     if (this.moreOpenId() === null) return;
@@ -1566,10 +1503,8 @@ export class AdminAiEndpointsComponent implements OnInit {
     });
   }
 
-  // (Removed the per-row sparkline + p50/p95/p99 "latency" display — those were
-  // Math.random()/hash-fabricated values shown as real metrics. The list has no
-  // real per-endpoint latency loaded; honest = show nothing rather than fake it.
-  // Real per-endpoint logs/latency live in the detail view via loadLogs().)
+  // No per-row latency display: the list loads no real per-endpoint latency, so
+  // show nothing rather than fabricate it. Real logs/latency live in loadLogs().
 
   openPalette(): void { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true, bubbles: true })); }
 }

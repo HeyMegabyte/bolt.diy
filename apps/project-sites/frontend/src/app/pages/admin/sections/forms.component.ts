@@ -21,10 +21,7 @@ import { RevealDirective } from '../../../directives/reveal.directive';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { ErrorCardComponent } from '../../../components/states';
 
-/**
- * Compare two dates for same-day equality (local timezone).
- * @example sameDay(new Date(), new Date()) // → true
- */
+/** Same-day equality in local timezone. */
 function sameDay(a: Date, b: Date): boolean {
   return (
     a.getFullYear() === b.getFullYear() &&
@@ -33,10 +30,7 @@ function sameDay(a: Date, b: Date): boolean {
   );
 }
 
-/**
- * One row in the form-submissions inbox.
- * @remarks Returned by `GET /sites/:id/form-submissions`.
- */
+/** One row in the form-submissions inbox. Returned by `GET /sites/:id/form-submissions`. */
 interface Submission {
   id: string;
   form_name: string;
@@ -48,10 +42,7 @@ interface Submission {
   created_at: string;
 }
 
-/**
- * AI router trace row attached to a submission.
- * @remarks Returned by `GET /sites/:id/form-submissions/:id` under `ai_logs`.
- */
+/** AI router trace row attached to a submission. Returned by `GET /sites/:id/form-submissions/:id` under `ai_logs`. */
 interface AiLog {
   id: string;
   trace_kind: string;
@@ -90,28 +81,16 @@ interface McpMeta {
 }
 
 /**
- * Local accessor that adapts the shared MCP_PROVIDERS catalogue to the
- * `McpMeta` shape used by the pill row (label + color + desc only).
- *
- * @remarks
- * Previously this file kept a local frozen `MCP_META` copy to avoid a
- * circular import via `settings.component.ts`. The catalogue now lives in
- * `./mcp-providers.ts` (no Angular dependencies → safe to import from any
- * sibling), so we delegate to `mcpProvider(id)` for the data and project
- * down to `McpMeta` here.
- *
- * @example
- * mcpMeta('stripe'); // { label: 'Stripe', color: '#635BFF', desc: '…' }
+ * Adapts the shared MCP_PROVIDERS catalogue to the `McpMeta` shape used by the
+ * pill row. Sourced from `./mcp-providers.ts` (no Angular deps) to avoid a
+ * circular import via `settings.component.ts`.
  */
 function mcpMeta(id: string): McpMeta | undefined {
   const p = mcpProvider(id);
   return p ? { label: p.label, color: p.color, desc: p.desc } : undefined;
 }
 
-/**
- * Decorated MCP connection used by the pill row.
- * @internal
- */
+/** Decorated MCP connection used by the pill row. */
 interface McpPill {
   readonly provider: string;
   readonly label: string;
@@ -1070,8 +1049,6 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
    * is loaded). Set by {@link applyTestScenario}.
    */
   activeScenario = signal<string | null>(null);
-  /** Controls the full-screen Prompt Designer overlay. Hidden by default;
-   *  opens via the "Form Handling Prompt" button in the page header. */
   designerOpen = signal(false);
 
   // Per-prompt MCP allow-list — drives the pill row + is sent to the backend
@@ -1115,17 +1092,11 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
 
   /**
    * Rich, MCP-aware example template inserted by the "Load example" button.
-   *
-   * @remarks
    * Uses Mustache-style `{{ … }}` placeholders that the worker
    * (`services/template.ts → resolveTemplate`) substitutes before the LLM
-   * call. Demonstrates EVERY major variable family (business, form,
-   * submission, mcps, brand) so a new operator gets a copy-paste-ready
-   * baseline that already shows MCP routing, structured JSON output,
+   * call. Demonstrates every major variable family (business, form,
+   * submission, mcps, brand) plus MCP routing, structured JSON output,
    * spam scoring, and human-in-the-loop escalation via task_inbox.
-   *
-   * @example
-   * this.settings.form_router_prompt = this.RICH_EXAMPLE_PROMPT;
    */
   private readonly RICH_EXAMPLE_PROMPT: string = [
     'You are processing a form submission for {{business.business_name}} (a {{business.business_type}} in {{business.city}}, {{business.state}}).',
@@ -1298,7 +1269,6 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     const after = textarea.value.slice(end);
     const next = before + token + after;
     this.settings.form_router_prompt = next;
-    // Restore cursor position just past the inserted token on the next tick.
     queueMicrotask(() => {
       textarea.focus();
       const caret = start + token.length;
@@ -1306,9 +1276,6 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     });
   }
 
-  /**
-   * Lifecycle: kick off initial load + auto-poll loop.
-   */
   private loadedSiteId: string | null = null;
 
   constructor() {
@@ -1334,9 +1301,6 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     }
   }
 
-  /**
-   * Lifecycle: clear timers + listeners to avoid leaks.
-   */
   ngOnDestroy(): void {
     this.stopPolling();
     if (this.visibilityHandler && typeof document !== 'undefined') {
@@ -1391,10 +1355,7 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     this.testOpen.update((v) => !v);
   }
 
-  /**
-   * Return true when an MCP provider is currently enabled for the router.
-   * @example isMcpEnabled('stripe') // → true|false
-   */
+  /** True when an MCP provider is currently enabled for the router. */
   isMcpEnabled(provider: string): boolean {
     return this.promptMcps().includes(provider);
   }
@@ -1425,11 +1386,7 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
       });
   }
 
-  /**
-   * Single-letter monogram used inside the inline SVG logo. Stable, no
-   * external image refs.
-   * @example providerMonogram('mailchimp') // → "M"
-   */
+  /** Single-letter monogram used inside the inline SVG logo (no external image refs). */
   providerMonogram(provider: string): string {
     const meta = mcpMeta(provider);
     return (meta?.label ?? provider).charAt(0).toUpperCase();
@@ -1464,16 +1421,7 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
 
   /**
    * Insert the rich, MCP-aware example prompt template into the editor.
-   *
-   * @remarks
-   * Replaced the previous server round-trip (`POST /sites/improve-prompt`
-   * with empty text) so operators get an INSTANT, deterministic baseline
-   * showing every template variable family + MCP routing + structured
-   * JSON output contract. No AI credits consumed; no network call.
-   *
-   * @example
-   * // Click "Load example" in the Forms designer →
-   * // this.settings.form_router_prompt becomes RICH_EXAMPLE_PROMPT.
+   * Instant + deterministic — no AI credits consumed, no network call.
    */
   loadExamplePrompt(): void {
     if (!this.state.selectedSite()) {
@@ -1575,7 +1523,6 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
    */
   open(s: Submission): void {
     if (this.selected()?.id === s.id) {
-      // Re-click the open row → collapse it (accordion behaviour).
       this.selected.set(null);
       this.logs.set([]);
       return;
@@ -1694,11 +1641,6 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
    * Uses {@link applyingScenario} as a re-entrancy guard so the
    * `ngModelChange` listeners (which clear `activeScenario` on manual
    * edits) don't fire mid-apply and wipe the highlight.
-   *
-   * @example
-   * this.applyTestScenario('newsletter');
-   * // → form_name='newsletter', email='jane@example.com',
-   * //   fields_json is the indented JSON of the newsletter sample.
    */
   applyTestScenario(id: string): void {
     const scenario = this.testScenarios.find((s) => s.id === id);

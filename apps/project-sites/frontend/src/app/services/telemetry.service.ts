@@ -2,10 +2,9 @@
  * @module services/telemetry
  *
  * @description
- * Unified telemetry facade that fans every product event out to PostHog,
- * GA4 / GTM (via the `window.gtag` queue installed in `src/index.html`),
- * and GA4. Two destinations — so capture
- * points stay consistent and the operator can swap providers without
+ * Unified telemetry facade that fans every product event out to PostHog and
+ * GA4 / GTM (via the `window.gtag` queue installed in `src/index.html`) — so
+ * capture points stay consistent and the operator can swap providers without
  * touching call sites.
  *
  * **Bundle discipline:** `posthog-js` is imported lazily via dynamic
@@ -46,7 +45,6 @@
 import { Injectable, inject } from '@angular/core';
 import type { PostHog, PostHogConfig } from 'posthog-js';
 
-/** Free-form property bag attached to every captured event. */
 type Props = Record<string, unknown>;
 
 /** Minimal shape of the `gtag` global installed by `<script>` in index.html. */
@@ -157,11 +155,6 @@ export class TelemetryService {
    * as `<meta name="x-posthog-key">` by the Cloudflare Worker. Safe to
    * call repeatedly — only the first invocation does work.
    *
-   * The PostHog SDK loads via dynamic `import('posthog-js')` so it
-   * splits into its own chunk and stays out of the initial bundle.
-   * gtag config is synchronous; only the PostHog SDK is
-   * deferred.
-   *
    * Persistence is forced to `'memory'` so we don't need a cookie-consent
    * banner. Autocapture is left ON (PostHog's heuristics catch button +
    * link clicks the dot-named events below don't cover).
@@ -173,8 +166,8 @@ export class TelemetryService {
 
     const apiKey = readMeta('x-posthog-key');
     if (!apiKey || apiKey === 'none') {
-      // No key wired — silently disabled. Same restraint as the log path:
-      // dev refreshes shouldn't noise the console when secrets are absent.
+      // No key wired — silently disabled so dev refreshes don't noise the
+      // console when secrets are absent.
       return;
     }
     // PostHog Project API keys start with `phc_`. Any other prefix (e.g. the
@@ -190,7 +183,7 @@ export class TelemetryService {
 
     // On `/admin` the shell ships `COEP: credentialless` (so the embedded bolt.diy
     // editor can cross-origin-isolate for WebContainer's live Preview). A
-    // document-level COEP blocked direct cross-origin PostHog beacons before, so
+    // document-level COEP blocks direct cross-origin PostHog beacons, so
     // admin PostHog routes through the SAME-ORIGIN `/ingest` reverse proxy (worker),
     // which is immune to COEP. Marketing (no COEP) talks to PostHog directly.
     const onAdmin = typeof location !== 'undefined' && location.pathname.startsWith('/admin');
@@ -210,9 +203,6 @@ export class TelemetryService {
       },
     };
 
-    // Lazy-load posthog-js so it ships as its own chunk (~150KB) instead
-    // of bloating the initial bundle. Every PostHog-touching method awaits
-    // this defensively, so calls fired during the import window are queued.
     this.posthogPromise = import('posthog-js')
       .then((m) => {
         const ph = m.default;
@@ -378,8 +368,7 @@ export class TelemetryService {
   /**
    * Attach user identity. Call once after login resolves a real user id.
    * PostHog merges anonymous→identified profiles; GA4 ties events to the
-   * `user_id` dimension; identity is handled by PostHog identify()
-   * elsewhere in the auth flow (don't double-attach here).
+   * `user_id` dimension.
    */
   identify(userId: string, traits?: Props): void {
     if (typeof window === 'undefined' || !userId) return;

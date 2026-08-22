@@ -59,7 +59,7 @@ interface SnapshotMetrics {
   screenshot_r2_key: string | null;
   captured_at: string | null;
   error: string | null;
-  /** S3 — 6-axis Llama-4 Scout visual score blob (already on the wire via SELECT *). */
+  /** 6-axis Llama-4 Scout visual score blob (already on the wire via SELECT *). */
   vision_scores_json?: string | null;
 }
 
@@ -85,7 +85,7 @@ interface Snapshot {
   build_version: string;
   description: string | null;
   created_at: string;
-  /** Optional — set once the backend wires up the GitHub commit timestamp. */
+  /** Set once the backend wires up the GitHub commit timestamp; else falls back to created_at. */
   commit_iso?: string;
   /**
    * GitHub PR metadata — populated by the editor→PR flow (Bundle B finish,
@@ -1436,7 +1436,6 @@ export class AdminSnapshotsComponent implements OnInit, OnDestroy {
     return new Date(iso);
   }
 
-  /** Inline relative time shown on the row ("3 hours ago"). */
   commitRelative(snap: Snapshot): string {
     const date = this.commitDate(snap);
     if (Number.isNaN(date.getTime())) return '';
@@ -1461,7 +1460,6 @@ export class AdminSnapshotsComponent implements OnInit, OnDestroy {
     return this.relativeTimeFormatter.format(seconds, 'second');
   }
 
-  /** ISO-style tooltip for the date chip ("May 23, 2026, 10:14 AM"). */
   commitTooltip(snap: Snapshot): string {
     const date = this.commitDate(snap);
     if (Number.isNaN(date.getTime())) return '';
@@ -1470,7 +1468,6 @@ export class AdminSnapshotsComponent implements OnInit, OnDestroy {
   }
 
 
-  // GitHub mirror (replaces the standalone GitHub Backup nav item).
   ghStatus = signal<GhStatus | null>(null);
   linkingGh = signal(false);
   pushingGh = signal(false);
@@ -1511,16 +1508,10 @@ export class AdminSnapshotsComponent implements OnInit, OnDestroy {
     return null;
   }
 
-  /** Submit enabled only when the site is buildable AND there's a name AND no validation error. */
   canCreate(): boolean {
     return this.siteBuildable() && this.newSnapshotName.trim().length > 0 && this.nameError() === null;
   }
 
-  /**
-   * Close the create-snapshot dialog and reset the draft state. Called from
-   * Cancel, the X close button (via DialogShell's (closed) output), and the
-   * success branch of createSnapshot().
-   */
   closeCreateDialog(): void {
     if (this.creatingSnapshot()) return; // never close mid-request
     this.createOpen.set(false);
@@ -1914,7 +1905,6 @@ export class AdminSnapshotsComponent implements OnInit, OnDestroy {
   }
 
   // ─── Tier classification helpers ──────────────────────────────────────
-  /** Lighthouse 0-100 → green ≥90 / yellow 50-89 / red <50. */
   tierForLh(value: number | null): MetricTier {
     if (value === null || value === undefined) return 'neutral';
     if (value >= 90) return 'green';
@@ -1936,7 +1926,6 @@ export class AdminSnapshotsComponent implements OnInit, OnDestroy {
     return 'red';
   }
 
-  /** Returns the 5 LH pills as render-ready descriptors. */
   lighthousePills(m: SnapshotMetrics): Array<{ key: string; label: string; value: number | null; tier: MetricTier; tooltip: string }> {
     return [
       { key: 'perf', label: 'Perf',  value: m.lh_performance,   tier: this.tierForLh(m.lh_performance),   tooltip: 'Lighthouse Performance score (0-100). Target ≥90.' },
@@ -1947,7 +1936,6 @@ export class AdminSnapshotsComponent implements OnInit, OnDestroy {
     ];
   }
 
-  /** Returns the 4 CWV pills as render-ready descriptors. */
   cwvPills(m: SnapshotMetrics): Array<{ key: string; label: string; rawValue: number | null; formatted: string; tier: MetricTier; tooltip: string; budget: number }> {
     return [
       { key: 'lcp', label: 'LCP', rawValue: m.lcp_ms, formatted: this.formatMs(m.lcp_ms), tier: this.cwvTier(m.lcp_ms, 2500, 4000), budget: 4000, tooltip: 'Largest Contentful Paint. Good ≤2.5s · poor >4.0s.' },
@@ -1989,7 +1977,7 @@ export class AdminSnapshotsComponent implements OnInit, OnDestroy {
     return 'red';
   }
 
-  /** S3 — parse a snapshot's stored 6-axis vision score into radar axes (null = none). */
+  /** Parse a snapshot's stored 6-axis vision score into radar axes (null = none). */
   visionAxes(m: SnapshotMetrics): VisionAxis[] | null {
     return parseVisionScores(m.vision_scores_json);
   }
@@ -2071,7 +2059,7 @@ export class AdminSnapshotsComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Item 41 — rebase the embedded bolt.diy WebContainer to this snapshot.
+   * Rebase the embedded bolt.diy WebContainer to this snapshot.
    * Falls back to opening the snapshot in a new tab when the editor iframe
    * is not yet booted (e.g. user hasn't visited /admin/editor this session).
    */
