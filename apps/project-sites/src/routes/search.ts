@@ -1565,7 +1565,7 @@ search.get('/api/sites/:slug/preview', async (c) => {
     // Inject base tag so relative URLs resolve correctly
     content = content.replace(
       '<head>',
-      `<head><base href="https://${slug}.${DOMAINS.SITES_SUFFIX}/">`,
+      `<head><base href="https://${slug}${DOMAINS.SITES_SUFFIX}/">`,
     );
 
     return new Response(content, {
@@ -3247,8 +3247,8 @@ search.post('/api/conversion/checkout', async (c) => {
     params.set('metadata[org_id]', site.org_id);
     params.set('metadata[domain]', body.domain || '');
     params.set('metadata[source]', 'conversion-flow');
-    params.set('success_url', `https://${site.slug}.${DOMAINS.SITES_SUFFIX}/?upgraded=1`);
-    params.set('cancel_url', `https://${site.slug}.${DOMAINS.SITES_SUFFIX}/`);
+    params.set('success_url', `https://${site.slug}${DOMAINS.SITES_SUFFIX}/?upgraded=1`);
+    params.set('cancel_url', `https://${site.slug}${DOMAINS.SITES_SUFFIX}/`);
     if (body.email) params.set('customer_email', body.email);
 
     const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {

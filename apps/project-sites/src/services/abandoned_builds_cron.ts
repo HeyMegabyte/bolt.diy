@@ -74,7 +74,7 @@ export async function runAbandonedNudgesForEnv(
         nudgedAtMs: r.nudged_at ?? null,
         email: r.email ?? '',
         businessName: r.business_name ?? undefined,
-        previewUrl: `https://${r.slug}.${DOMAINS.SITES_SUFFIX}`,
+        previewUrl: `https://${r.slug}${DOMAINS.SITES_SUFFIX}`,
       }));
     },
     sendRecovery: (to, ctx) =>

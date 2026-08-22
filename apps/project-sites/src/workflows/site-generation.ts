@@ -249,7 +249,7 @@ export function buildPrompt(params: SiteGenerationParams): string {
     `Business: ${safeName}`,
     `Category: ${category}`,
     `Slug: ${slug}`,
-    `Site URL: https://${slug}.${DOMAINS.SITES_SUFFIX}`,
+    `Site URL: https://${slug}${DOMAINS.SITES_SUFFIX}`,
     address ? `Address: ${address}` : '',
     phone ? `Phone: ${phone}` : '',
     website ? `Website: ${website}` : '',
@@ -563,7 +563,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     const contextFiles: Record<string, string> = {};
     if (assetManifest.length > 0) {
       const assetUrls = assetManifest.map(
-        (key) => `https://${params.slug}.${DOMAINS.SITES_SUFFIX}/assets/${key.split('/').pop()}`,
+        (key) => `https://${params.slug}${DOMAINS.SITES_SUFFIX}/assets/${key.split('/').pop()}`,
       );
       contextFiles['assets.json'] = JSON.stringify(
         { keys: assetManifest, urls: assetUrls },
@@ -594,7 +594,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           shortName: tok(safeName.slice(0, 12), 'Used in PWA install + nav.'),
           tagline: tok('', 'Eyebrow line above H1.'),
           description: tok((params.additionalContext || '').slice(0, 156), 'Meta description.'),
-          url: tok(`https://${params.slug}.${DOMAINS.SITES_SUFFIX}`, 'Canonical https URL.'),
+          url: tok(`https://${params.slug}${DOMAINS.SITES_SUFFIX}`, 'Canonical https URL.'),
           businessClass: tok('organization', 'storefront|restaurant|…|organization'),
           email: tok(''),
           phone: tok(params.businessPhone || ''),
@@ -1510,7 +1510,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
               version,
               fileCount,
               uploadCount,
-              url: `https://${params.slug}.${DOMAINS.SITES_SUFFIX}`,
+              url: `https://${params.slug}${DOMAINS.SITES_SUFFIX}`,
             },
           },
           { scope: [params.siteId, version] },
@@ -1518,7 +1518,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
 
         await emitBuildEvent(env, params.siteId, {
           type: 'preview.updated',
-          url: `https://${params.slug}.${DOMAINS.SITES_SUFFIX}`,
+          url: `https://${params.slug}${DOMAINS.SITES_SUFFIX}`,
         });
 
         // Best-effort: accumulate the build's AI spend into the token-burn meter.
@@ -1634,7 +1634,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       async () => {
         if (!env.OPENAI_API_KEY) return JSON.stringify({ skipped: true, reason: 'no_openai_key' });
         try {
-          const ssUrl = `https://api.microlink.io/?url=https://${params.slug}.${DOMAINS.SITES_SUFFIX}&screenshot=true&meta=false&embed=screenshot.url`;
+          const ssUrl = `https://api.microlink.io/?url=https://${params.slug}${DOMAINS.SITES_SUFFIX}&screenshot=true&meta=false&embed=screenshot.url`;
           const ssRes = await fetch(ssUrl);
           if (!ssRes.ok) return JSON.stringify({ skipped: true, reason: 'screenshot_failed' });
           const ssData = (await ssRes.json()) as { data?: { screenshot?: { url?: string } } };
@@ -1721,7 +1721,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             env,
             siteId: params.siteId,
             slug: params.slug,
-            siteUrl: `https://${params.slug}.${DOMAINS.SITES_SUFFIX}`,
+            siteUrl: `https://${params.slug}${DOMAINS.SITES_SUFFIX}`,
             previousMeanScore: prevRow?.mean_score ?? null,
           });
 
@@ -1801,7 +1801,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
                 email: userRow.email,
                 siteName: params.businessName,
                 slug: params.slug,
-                siteUrl: `https://${params.slug}.${DOMAINS.SITES_SUFFIX}`,
+                siteUrl: `https://${params.slug}${DOMAINS.SITES_SUFFIX}`,
                 version: (JSON.parse(filesJson) as { version: string }).version,
               });
             }
@@ -1818,7 +1818,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
 
     await wfLog('workflow.complete', {
       slug: params.slug,
-      url: `https://${params.slug}.${DOMAINS.SITES_SUFFIX}`,
+      url: `https://${params.slug}${DOMAINS.SITES_SUFFIX}`,
       total_seconds: totalSeconds,
       files: result.fileCount,
       version: result.version,
@@ -1842,7 +1842,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             event: 'build.finished',
             tenantId: params.orgId,
             siteId: params.siteId,
-            previewUrl: `https://${params.slug}.${DOMAINS.SITES_SUFFIX}`,
+            previewUrl: `https://${params.slug}${DOMAINS.SITES_SUFFIX}`,
           },
         });
         return r.ok ? 'sent' : `skipped:${r.detail ?? 'unknown'}`;

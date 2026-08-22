@@ -327,8 +327,62 @@ export async function sendEmail(
   );
 }
 
+// ─── Brand palette (matches src/auth/email-templates.ts + brand doctrine) ───
+// #060610 near-black · #00E5FF cyan · #50AAE3 blue · #7C3AED violet.
+const BRAND = {
+  bg: '#060610',
+  ink: '#f4f4ff',
+  muted: '#9aa6c4',
+  faint: '#5b6484',
+  cyan: '#00E5FF',
+  blue: '#50AAE3',
+  violet: '#7C3AED',
+  green: '#34e5b0',
+  line: 'rgba(0,229,255,0.14)',
+} as const;
+const FONT_HEAD =
+  "'Space Grotesk','Sora',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+const FONT_BODY =
+  "'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+const FONT_MONO = "'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace";
+
 /**
- * Email wrapper for HTML template.
+ * A glowing gradient "orb" badge holding an emoji / HTML-entity glyph — the
+ * delightful hero moment at the top of every email. Table-based so Outlook
+ * still renders the gradient fill (the glow shadow degrades gracefully).
+ */
+function emailBadge(glyph: string, from: string = BRAND.cyan, to: string = BRAND.violet): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 22px;"><tr><td align="center" valign="middle" width="66" height="66" style="width:66px;height:66px;border-radius:50%;background:linear-gradient(135deg,${from} 0%,${to} 100%);box-shadow:0 10px 34px rgba(0,229,255,0.34),0 0 0 7px rgba(0,229,255,0.06);text-align:center;font-size:28px;line-height:66px;color:#060610;">${glyph}</td></tr></table>`;
+}
+
+/**
+ * Gorgeous cyan→violet gradient CTA button with a bulletproof VML fallback so
+ * Outlook renders a solid rounded cyan button instead of stripping the gradient.
+ */
+function emailButton(href: string, label: string): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:6px auto 2px;"><tr><td align="center" style="border-radius:12px;background:linear-gradient(135deg,${BRAND.cyan} 0%,${BRAND.violet} 100%);box-shadow:0 12px 30px rgba(124,58,237,0.42);">
+<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:50px;v-text-anchor:middle;width:280px;" arcsize="24%" fillcolor="#00E5FF" stroke="f"><w:anchorlock/><center style="color:#060610;font-family:sans-serif;font-size:15px;font-weight:bold;">${label}</center></v:roundrect><![endif]-->
+<!--[if !mso]><!--><a href="${href}" style="display:inline-block;padding:15px 42px;color:#060610;font-family:${FONT_HEAD};font-size:15px;font-weight:700;letter-spacing:0.2px;text-decoration:none;border-radius:12px;">${label}</a><!--<![endif]-->
+</td></tr></table>`;
+}
+
+/**
+ * Inset "detail card" — a dark panel with a cyan hairline used to present
+ * key/value build metadata, domain lists, etc.
+ */
+function emailCard(inner: string): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:rgba(0,229,255,0.04);border:1px solid ${BRAND.line};border-radius:14px;margin-bottom:18px;"><tr><td style="padding:18px 20px;">${inner}</td></tr></table>`;
+}
+
+/** Small uppercase eyebrow label used inside detail cards. */
+function emailLabel(text: string): string {
+  return `<div style="font-family:${FONT_MONO};font-size:11px;color:${BRAND.cyan};text-transform:uppercase;letter-spacing:1.6px;margin-bottom:12px;">${text}</div>`;
+}
+
+/**
+ * Email wrapper — the gorgeous, on-brand dark shell every transactional email
+ * shares: #060610 canvas with a cyan glow, a cyan→violet accent bar, the logo,
+ * the content slot, and a refined footer.
  */
 function emailWrap(content: string, preheader?: string): string {
   const logoImg = 'https://public.megabyte.space/project-sites-logo.png';
@@ -336,7 +390,7 @@ function emailWrap(content: string, preheader?: string): string {
   const year = new Date().getFullYear();
   return `<!DOCTYPE html><html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">
+<meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark">
 <meta name="x-apple-disable-message-reformatting">
 <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
 <title>Project Sites</title>
@@ -344,48 +398,47 @@ function emailWrap(content: string, preheader?: string): string {
 <style>
   @media only screen and (max-width:600px) {
     .email-container { width:100% !important; }
-    .email-padding { padding:20px 16px !important; }
+    .email-padding { padding:26px 20px !important; }
   }
-  @media (prefers-color-scheme:dark) {
-    body { background:transparent !important; }
-  }
-  a { color:#00d4ff; }
-  a:hover { color:#38bdf8; }
+  a { color:${BRAND.cyan}; }
+  a:hover { color:${BRAND.blue}; }
 </style>
 </head>
-<body style="margin:0;padding:0;background:transparent;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#f0f4f8;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;line-height:1.6;">
-${preheader ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${preheader}${'&nbsp;'.repeat(80)}</div>` : ''}
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:transparent;">
-<tr><td align="center" style="padding:32px 16px;">
-<table role="presentation" class="email-container" width="600" cellpadding="0" cellspacing="0" border="0" style="background:linear-gradient(160deg,#080820 0%,#0d0d2a 50%,#0a0a22 100%);border:1px solid rgba(0,212,255,0.08);border-radius:20px;max-width:600px;width:100%;box-shadow:0 16px 48px rgba(0,0,0,0.5),0 0 0 1px rgba(0,212,255,0.04);">
+<body style="margin:0;padding:0;background:${BRAND.bg};font-family:${FONT_BODY};color:${BRAND.ink};-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;line-height:1.6;">
+${preheader ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${preheader}${'&nbsp;&zwnj;'.repeat(60)}</div>` : ''}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:radial-gradient(900px 520px at 50% -8%,rgba(0,229,255,0.10),transparent 62%),${BRAND.bg};">
+<tr><td align="center" style="padding:36px 16px;">
+<table role="presentation" class="email-container" width="600" cellpadding="0" cellspacing="0" border="0" style="background:linear-gradient(162deg,#0b0b24 0%,#0a0a1c 58%,#08081a 100%);border:1px solid ${BRAND.line};border-radius:22px;max-width:600px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,0.6),0 0 0 1px rgba(0,229,255,0.05);overflow:hidden;">
+<!-- Accent bar -->
+<tr><td style="height:4px;line-height:4px;font-size:0;background:linear-gradient(90deg,${BRAND.cyan} 0%,${BRAND.blue} 46%,${BRAND.violet} 100%);">&nbsp;</td></tr>
 <!-- Logo -->
-<tr><td class="email-padding" style="padding:32px 32px 0;text-align:center;">
+<tr><td class="email-padding" style="padding:34px 32px 0;text-align:center;">
   <a href="${siteUrl}" style="text-decoration:none;">
-    <img src="${logoImg}" alt="Project Sites" width="220" height="54" style="border:0;display:inline-block;max-width:220px;height:auto;" />
+    <img src="${logoImg}" alt="Project Sites" width="216" height="53" style="border:0;display:inline-block;max-width:216px;height:auto;filter:drop-shadow(0 4px 18px rgba(0,229,255,0.25));" />
   </a>
 </td></tr>
 <!-- Gradient divider -->
-<tr><td style="padding:20px 32px 0;"><div style="height:1px;background:linear-gradient(90deg,transparent 0%,rgba(0,212,255,0.2) 30%,rgba(124,58,237,0.15) 70%,transparent 100%);"></div></td></tr>
+<tr><td style="padding:22px 32px 0;"><div style="height:1px;background:linear-gradient(90deg,transparent 0%,rgba(0,229,255,0.28) 30%,rgba(124,58,237,0.20) 70%,transparent 100%);"></div></td></tr>
 <!-- Content -->
-<tr><td class="email-padding" style="padding:28px 32px;">
+<tr><td class="email-padding" style="padding:30px 32px;">
 ${content}
 </td></tr>
 <!-- Footer -->
-<tr><td style="padding:0 32px 28px;">
-  <div style="padding-top:20px;border-top:1px solid rgba(0,212,255,0.06);text-align:center;">
+<tr><td style="padding:0 32px 30px;">
+  <div style="padding-top:22px;border-top:1px solid rgba(0,229,255,0.08);text-align:center;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr><td style="text-align:center;padding-bottom:12px;">
-        <a href="https://x.com/HeyMegabyte" style="text-decoration:none;margin:0 8px;color:#64748b;font-size:12px;">Twitter</a>
-        <span style="color:rgba(100,116,139,0.3);">&middot;</span>
-        <a href="https://github.com/HeyMegabyte" style="text-decoration:none;margin:0 8px;color:#64748b;font-size:12px;">GitHub</a>
-        <span style="color:rgba(100,116,139,0.3);">&middot;</span>
-        <a href="https://linkedin.com/company/megabyte-labs" style="text-decoration:none;margin:0 8px;color:#64748b;font-size:12px;">LinkedIn</a>
+        <a href="https://x.com/HeyMegabyte" style="text-decoration:none;margin:0 9px;color:${BRAND.faint};font-size:12px;font-weight:600;">Twitter</a>
+        <span style="color:rgba(91,100,132,0.4);">&middot;</span>
+        <a href="https://github.com/HeyMegabyte" style="text-decoration:none;margin:0 9px;color:${BRAND.faint};font-size:12px;font-weight:600;">GitHub</a>
+        <span style="color:rgba(91,100,132,0.4);">&middot;</span>
+        <a href="https://linkedin.com/company/megabyte-labs" style="text-decoration:none;margin:0 9px;color:${BRAND.faint};font-size:12px;font-weight:600;">LinkedIn</a>
       </td></tr>
       <tr><td style="text-align:center;">
-        <span style="font-size:11px;color:rgba(148,163,184,0.3);">&copy; ${year} </span>
-        <a href="https://megabyte.space" style="font-size:11px;color:rgba(148,163,184,0.4);text-decoration:none;">Megabyte Labs</a>
-        <span style="font-size:11px;color:rgba(148,163,184,0.3);"> &middot; </span>
-        <a href="${siteUrl}" style="font-size:11px;color:#00d4ff;text-decoration:none;font-weight:600;">projectsites.dev</a>
+        <span style="font-size:11px;color:rgba(154,166,196,0.45);">&copy; ${year} </span>
+        <a href="https://megabyte.space" style="font-size:11px;color:rgba(154,166,196,0.55);text-decoration:none;">Megabyte Labs</a>
+        <span style="font-size:11px;color:rgba(154,166,196,0.4);"> &middot; </span>
+        <a href="${siteUrl}" style="font-size:11px;color:${BRAND.cyan};text-decoration:none;font-weight:700;">projectsites.dev</a>
       </td></tr>
     </table>
   </div>
@@ -407,37 +460,33 @@ export async function notifyDomainVerified(
     siteName: string;
   },
 ): Promise<void> {
-  const html = emailWrap(`
-    <div style="text-align:center;margin-bottom:20px;">
-      <span style="display:inline-block;width:48px;height:48px;background:#22c55e;border-radius:50%;line-height:48px;text-align:center;">
-        <span style="font-size:22px;color:#fff;">&#10003;</span>
-      </span>
-    </div>
-    <h2 style="color:#e2e8f0;font-size:20px;font-weight:700;text-align:center;margin:0 0 8px;">Domain Connected!</h2>
-    <p style="color:#94a3b8;font-size:14px;text-align:center;line-height:1.6;margin:0 0 20px;">
-      Congratulations! Your domain <strong style="color:#22c55e;">${opts.hostname}</strong> is now connected to
-      <strong style="color:#e2e8f0;">${opts.siteName}</strong>.
+  const html = emailWrap(
+    `
+    ${emailBadge('&#10003;', BRAND.green, BRAND.blue)}
+    <h1 style="color:${BRAND.ink};font-family:${FONT_HEAD};font-size:26px;font-weight:700;text-align:center;margin:0 0 10px;letter-spacing:-0.02em;">Your domain is connected</h1>
+    <p style="color:${BRAND.muted};font-size:15px;text-align:center;line-height:1.65;margin:0 0 24px;">
+      <strong style="color:${BRAND.ink};">${opts.siteName}</strong> now answers at
+      <strong style="color:${BRAND.cyan};">${opts.hostname}</strong> &mdash; live and secured with SSL. &#127881;
     </p>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:rgba(0,0,0,0.2);border-radius:10px;margin-bottom:16px;">
-      <tr><td style="padding:14px 16px;">
-        <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Your Domains</div>
-        <div style="margin-bottom:6px;font-size:13px;">
-          <span style="color:#22c55e;">&#9679;</span>
-          <span style="color:#e2e8f0;font-weight:600;"> ${opts.primaryDomain || opts.hostname}</span>
-          <span style="color:#00d4ff;font-size:11px;margin-left:4px;">PRIMARY</span>
-        </div>
-        <div style="font-size:13px;">
-          <span style="color:#94a3b8;">&#9679;</span>
-          <span style="color:#94a3b8;"> ${opts.defaultDomain}</span>
-          <span style="color:#64748b;font-size:11px;margin-left:4px;">DEFAULT</span>
-        </div>
-      </td></tr>
-    </table>
-    <p style="color:#64748b;font-size:12px;line-height:1.5;margin:0;">
-      <strong style="color:#94a3b8;">How it works:</strong> Your <strong>Primary</strong> domain is the main URL visitors see.
-      All other domains (including your free default subdomain) redirect to it. You can manage which domain is primary from your dashboard.
+    ${emailCard(`
+      ${emailLabel('Your domains')}
+      <div style="margin-bottom:10px;font-size:14px;">
+        <span style="color:${BRAND.green};">&#9679;</span>
+        <span style="color:${BRAND.ink};font-weight:600;"> ${opts.primaryDomain || opts.hostname}</span>
+        <span style="color:${BRAND.cyan};font-family:${FONT_MONO};font-size:10px;letter-spacing:1px;margin-left:6px;">PRIMARY</span>
+      </div>
+      <div style="font-size:14px;">
+        <span style="color:${BRAND.faint};">&#9679;</span>
+        <span style="color:${BRAND.muted};"> ${opts.defaultDomain}</span>
+        <span style="color:${BRAND.faint};font-family:${FONT_MONO};font-size:10px;letter-spacing:1px;margin-left:6px;">DEFAULT</span>
+      </div>
+    `)}
+    <p style="color:${BRAND.faint};font-size:12.5px;line-height:1.6;margin:0;">
+      <strong style="color:${BRAND.muted};">How it works:</strong> your <strong>primary</strong> domain is the main URL visitors see &mdash; every other domain (including your free subdomain) redirects to it. Change it anytime from your dashboard.
     </p>
-  `);
+  `,
+    `${opts.hostname} is connected to ${opts.siteName} — live and SSL-secured.`,
+  );
 
   await sendEmail(env, {
     to: opts.email,
@@ -472,28 +521,29 @@ export async function notifySiteBuilt(
     pagesGenerated?: number;
   },
 ): Promise<void> {
-  const html = emailWrap(`
-    <div style="text-align:center;margin-bottom:20px;">
-      <span style="display:inline-block;width:48px;height:48px;background:linear-gradient(135deg,#00d4ff,#7c3aed);border-radius:50%;line-height:48px;text-align:center;">
-        <span style="font-size:22px;color:#fff;">&#9889;</span>
-      </span>
-    </div>
-    <h2 style="color:#e2e8f0;font-size:20px;font-weight:700;text-align:center;margin:0 0 8px;">Your Site Is Live!</h2>
-    <p style="color:#94a3b8;font-size:14px;text-align:center;line-height:1.6;margin:0 0 20px;">
-      <strong style="color:#e2e8f0;">${opts.siteName}</strong> has been built and published successfully.
+  const html = emailWrap(
+    `
+    ${emailBadge('&#9889;')}
+    <h1 style="color:${BRAND.ink};font-family:${FONT_HEAD};font-size:27px;font-weight:700;text-align:center;margin:0 0 10px;letter-spacing:-0.02em;">Your site is live! &#127881;</h1>
+    <p style="color:${BRAND.muted};font-size:15px;text-align:center;line-height:1.65;margin:0 0 24px;">
+      <strong style="color:${BRAND.ink};">${opts.siteName}</strong> has been built and published. Take it for a spin &mdash; it's ready for the world.
     </p>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
-      <tr><td style="padding:14px 16px;background:rgba(0,0,0,0.2);border-radius:10px;">
-        <div style="font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Build Details</div>
-        <div style="font-size:13px;color:#94a3b8;margin-bottom:4px;">URL: <a href="${opts.siteUrl}" style="color:#00d4ff;text-decoration:none;font-weight:600;">${opts.siteUrl}</a></div>
-        <div style="font-size:13px;color:#94a3b8;margin-bottom:4px;">Version: <span style="color:#e2e8f0;font-family:monospace;">${opts.version}</span></div>
-        ${opts.pagesGenerated ? `<div style="font-size:13px;color:#94a3b8;">Pages: <span style="color:#e2e8f0;">${opts.pagesGenerated} generated</span></div>` : ''}
-      </td></tr>
-    </table>
-    <div style="text-align:center;">
-      <a href="${opts.siteUrl}" style="display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#00d4ff,#7c3aed);color:#fff;font-size:14px;font-weight:700;text-decoration:none;border-radius:10px;">Visit Your Site</a>
-    </div>
-  `);
+    ${emailCard(`
+      ${emailLabel('Build details')}
+      <div style="font-size:14px;color:${BRAND.muted};margin-bottom:10px;">
+        <span style="color:${BRAND.faint};">URL</span><br/>
+        <a href="${opts.siteUrl}" style="color:${BRAND.cyan};text-decoration:none;font-weight:600;word-break:break-all;">${opts.siteUrl}</a>
+      </div>
+      <div style="font-size:14px;color:${BRAND.muted};margin-bottom:${opts.pagesGenerated ? '10px' : '0'};">
+        <span style="color:${BRAND.faint};">Version</span>
+        <span style="color:${BRAND.ink};font-family:${FONT_MONO};font-size:12.5px;"> ${opts.version}</span>
+      </div>
+      ${opts.pagesGenerated ? `<div style="font-size:14px;color:${BRAND.muted};"><span style="color:${BRAND.faint};">Pages</span> <span style="color:${BRAND.ink};font-weight:600;">${opts.pagesGenerated} generated</span></div>` : ''}
+    `)}
+    ${emailButton(opts.siteUrl, 'Visit your site &#8594;')}
+  `,
+    `${opts.siteName} is live at ${opts.siteUrl}`,
+  );
 
   await sendEmail(env, {
     to: opts.email,
@@ -537,25 +587,22 @@ export async function sendInviteEmail(
   },
 ): Promise<void> {
   const role = opts.role ?? 'member';
-  const html = emailWrap(`
-    <div style="text-align:center;margin-bottom:20px;">
-      <span style="display:inline-block;width:48px;height:48px;background:linear-gradient(135deg,#00d4ff,#7c3aed);border-radius:50%;line-height:48px;text-align:center;">
-        <span style="font-size:22px;color:#fff;">&#9993;</span>
-      </span>
-    </div>
-    <h2 style="color:#e2e8f0;font-size:20px;font-weight:700;text-align:center;margin:0 0 8px;">You're invited!</h2>
-    <p style="color:#94a3b8;font-size:14px;text-align:center;line-height:1.6;margin:0 0 20px;">
-      <strong style="color:#e2e8f0;">${opts.inviterName}</strong> invited you to join
-      <strong style="color:#00d4ff;">${opts.orgName}</strong> on Project Sites as <strong>${role}</strong>.
+  const html = emailWrap(
+    `
+    ${emailBadge('&#9993;')}
+    <h1 style="color:${BRAND.ink};font-family:${FONT_HEAD};font-size:26px;font-weight:700;text-align:center;margin:0 0 10px;letter-spacing:-0.02em;">You're invited</h1>
+    <p style="color:${BRAND.muted};font-size:15px;text-align:center;line-height:1.65;margin:0 0 24px;">
+      <strong style="color:${BRAND.ink};">${opts.inviterName}</strong> invited you to join
+      <strong style="color:${BRAND.cyan};">${opts.orgName}</strong> on Project Sites as <strong style="color:${BRAND.ink};">${role}</strong>.
     </p>
-    <div style="text-align:center;margin-bottom:16px;">
-      <a href="${opts.acceptUrl}" style="display:inline-block;padding:12px 32px;background:linear-gradient(135deg,#00d4ff,#7c3aed);color:#fff;font-size:14px;font-weight:700;text-decoration:none;border-radius:10px;">Accept Invitation</a>
-    </div>
-    <p style="color:#64748b;font-size:12px;text-align:center;margin:0;">
+    ${emailButton(opts.acceptUrl, 'Accept invitation')}
+    <p style="color:${BRAND.faint};font-size:12.5px;text-align:center;margin:18px 0 0;line-height:1.6;">
       Or paste this link into your browser:<br/>
-      <span style="color:#94a3b8;word-break:break-all;">${opts.acceptUrl}</span>
+      <a href="${opts.acceptUrl}" style="color:${BRAND.muted};word-break:break-all;text-decoration:none;">${opts.acceptUrl}</a>
     </p>
-  `);
+  `,
+    `${opts.inviterName} invited you to ${opts.orgName} on Project Sites.`,
+  );
 
   await sendEmail(env, {
     to: opts.email,
