@@ -1,17 +1,11 @@
 /**
  * @module services/external_llm
- * @description Unified external LLM client for OpenAI and Anthropic APIs.
+ * @description Unified external LLM client for OpenAI + Anthropic (fetch, no SDK in Workers).
+ * GPT-4o is primary for research/vision; Anthropic Claude is the fallback.
  *
- * Calls GPT-4o / Claude directly via fetch (no SDK needed in Workers).
- * GPT-4o is the primary provider for all research/vision calls.
- * Anthropic Claude is the fallback when GPT-4o fails.
- *
- * Features:
- * - Retry with exponential backoff + jitter
- * - Circuit breaker (5 failures in 60s → skip provider for 30s)
- * - Cloudflare AI Gateway routing (logs, caches, rate-limits, falls back)
- * - Anthropic prompt caching (`cache_control: ephemeral`) when system > 1024 chars
- * - Anthropic structured outputs beta (`output_schema`) when responseSchema passed
+ * Features: retry w/ backoff+jitter · circuit breaker (5 fails/60s → skip 30s) ·
+ * Cloudflare AI Gateway routing · Anthropic prompt caching when system > 1024 chars ·
+ * Anthropic structured-outputs beta when responseSchema passed.
  *
  * @packageDocumentation
  */
@@ -39,13 +33,6 @@ const llmLog = log.child('external_llm');
  * flows (research → brand → site-gen → score) roll up as a single trace in
  * PostHog's LLM Observability dashboards. Every field is optional so legacy
  * callers keep working with `'system'` as the distinctId fallback.
- *
- * **Callers that should pass this:**
- * - `workflows/site-generation.ts` (one traceId per workflow instance)
- * - `voice_agent.ts` (one traceId per voice turn — owned by Anthropic agent)
- * - `ai_workflows.ts` `runSiteGenerationWorkflowV2` (traceId per orchestration)
- * - `openai_research.ts` `researchAndFormulatePrompt` (traceId per research run)
- * - Any `/api/sites/improve-prompt` + `/api/sites/generate-prompt` route handler
  *
  * @example
  * ```ts
@@ -75,11 +62,8 @@ export interface TraceContext {
  * https://docs.anthropic.com/en/docs/build-with-claude/citations
  */
 export interface AnthropicCitation {
-  /** Index of the source document the citation refers to. */
   documentIndex: number;
-  /** Optional document title supplied at request time. */
   documentTitle?: string;
-  /** Verbatim text from the source document that was cited. */
   citedText: string;
   /** PDF page (when source is a PDF). */
   startPageNumber?: number;
@@ -93,19 +77,13 @@ export interface AnthropicCitation {
 }
 
 export interface ExternalLLMOptions {
-  /** System prompt */
   system: string;
-  /** User prompt */
   user: string;
-  /** Temperature (0-1) */
   temperature?: number;
-  /** Max tokens for response */
   maxTokens?: number;
-  /** Request JSON output */
   jsonMode?: boolean;
   /** JSON schema for OpenAI structured output (response_format) */
   jsonSchema?: { name: string; schema: Record<string, unknown> };
-  /** Preferred provider: 'openai' | 'anthropic' | 'deepseek' | 'auto' (default: 'auto' uses GPT-4o primary) */
   provider?: 'openai' | 'anthropic' | 'deepseek' | 'auto';
   /**
    * Cost tier for automatic provider selection when `provider` is not explicitly set.
@@ -117,7 +95,6 @@ export interface ExternalLLMOptions {
    * Ignored when `provider` is given explicitly.
    */
   tier?: 'premium' | 'standard' | 'instant';
-  /** Specific model override (e.g. 'gpt-4o-mini', 'claude-sonnet-4-6') */
   model?: string;
   /**
    * Optional JSON Schema for Anthropic structured outputs (beta).
@@ -156,10 +133,7 @@ export interface ExternalLLMOptions {
     /** For `custom` kind only — array of text content blocks. */
     blocks?: Array<{ type: 'text'; text: string }>;
   }>;
-  /**
-   * Tracing context for PostHog LLM Observability rollups.
-   * @see {@link TraceContext}
-   */
+  /** @see {@link TraceContext} */
   traceContext?: TraceContext;
 }
 
@@ -184,15 +158,6 @@ export interface ExternalLLMResult {
 
 /**
  * Cost per 1M tokens (input/output) for current default models.
- *
- * @remarks Sourced from public pricing pages:
- * - Fable 5 — $10 / $50 (the `DEFAULT_MODELS.anthropic` — was MISSING → estimated $0)
- * - Opus 4.7 — $15 / $75
- * - Sonnet 4.6 — $3 / $15
- * - Haiku 4.5 — $1 / $5
- * - GPT-4o (2024-11-20) — $2.50 / $10
- * - GPT-4o-mini — $0.15 / $0.60
- * - deepseek-chat (V3) — $0.27 / $1.10 (the `DEFAULT_MODELS.deepseek` — was MISSING → $0)
  *
  * EVERY `DEFAULT_MODELS` entry MUST have a cost row here — a missing row makes
  * `estimateCostPrecise` silently return $0, undercounting the highest-volume
@@ -239,9 +204,8 @@ export function aiGatewayUrl(env: Env, provider: 'openai' | 'anthropic'): string
  * Run a fetch through the AI Gateway with cache + metadata headers and a
  * single direct-vendor fallback on gateway 5xx.
  *
- * Delegates to {@link services/ai_gateway.gatewayFetch}. Caller supplies
- * `pathSuffix` (the part after the provider base, e.g. `/v1/chat/completions`
- * for OpenAI or `/v1/messages` for Anthropic) and optional cache/metadata opts.
+ * Caller supplies `pathSuffix` (the part after the provider base, e.g.
+ * `/v1/chat/completions` for OpenAI or `/v1/messages` for Anthropic).
  *
  * @returns Tuple of `[response, gatewayUsed]` — `gatewayUsed` is `true` when
  * the successful response came through the AI Gateway, `false` when it came
@@ -265,8 +229,7 @@ async function fetchWithGatewayFallback(
 }
 
 /**
- * Decide the cache TTL + skip-cache for a call. Deterministic, low-temperature
- * calls are cacheable; high-temperature / streaming-style calls skip the cache.
+ * Decide the cache TTL + skip-cache for a call.
  *
  * @remarks
  * Temperature ≥ 0.5 means the caller WANTS variation, so a cached identical
@@ -298,9 +261,6 @@ const circuitState: Record<string, CircuitBreakerState> = {
   deepseek: { failures: 0, lastFailureTime: 0, openUntil: 0 },
 };
 
-/**
- * Check if a provider's circuit is open (should be skipped).
- */
 function isCircuitOpen(provider: 'openai' | 'anthropic' | 'deepseek'): boolean {
   const state = circuitState[provider];
   if (Date.now() < state.openUntil) {
@@ -314,9 +274,6 @@ function isCircuitOpen(provider: 'openai' | 'anthropic' | 'deepseek'): boolean {
   return false;
 }
 
-/**
- * Record a failure for the circuit breaker.
- */
 function recordFailure(provider: 'openai' | 'anthropic' | 'deepseek'): void {
   const state = circuitState[provider];
   const now = Date.now();
@@ -335,9 +292,6 @@ function recordFailure(provider: 'openai' | 'anthropic' | 'deepseek'): void {
   }
 }
 
-/**
- * Record a success — resets the failure counter.
- */
 function recordSuccess(provider: 'openai' | 'anthropic' | 'deepseek'): void {
   const state = circuitState[provider];
   state.failures = 0;
@@ -349,20 +303,14 @@ function recordSuccess(provider: 'openai' | 'anthropic' | 'deepseek'): void {
 /**
  * Choose provider for a given cost tier.
  *
- * PREMIUM ladder (Brian 2026-08-19): Claude Code Fable 5 → ChatGPT (OpenAI)
- * → Kimi K3 → DeepSeek. Each rung is key-gated and skipped when absent —
- * Fable + Kimi currently carry no credits, so premium serves OpenAI today
- * and falls through the ladder automatically when their keys land.
- * `standard`/`instant`: DeepSeek first (the volume generator), OpenAI
+ * PREMIUM ladder: Fable 5 → OpenAI → Kimi K3 → DeepSeek. Each rung is key-gated
+ * and skipped when absent — Fable + Kimi currently carry no credits, so premium
+ * serves OpenAI today and falls through the ladder automatically when their keys
+ * land. `standard`/`instant`: DeepSeek first (the volume generator), OpenAI
  * fallback, Anthropic last resort.
  *
  * @remarks Vision calls MUST NOT use this; pass `provider:'openai'` explicitly
  * to `callExternalLLMWithVision` — DeepSeek has no vision API.
- *
- * @example
- * ```ts
- * const provider = chooseProviderForTier(env, 'standard');
- * ```
  */
 export function chooseProviderForTier(
   env: Env,
@@ -382,15 +330,9 @@ export function chooseProviderForTier(
 }
 
 /**
- * Choose provider. GPT-4o is ALWAYS primary for research/vision calls.
- * Anthropic is the fallback. Explicit preference overrides this.
- *
- * @remarks
- * The old A/B split randomness has been removed. OpenAI is deterministically
- * primary because GPT-4o provides better vision and research results.
- *
- * When `options.tier` is supplied and no explicit provider is given, delegates
- * to {@link chooseProviderForTier}.
+ * Choose provider. GPT-4o is ALWAYS primary for research/vision; Anthropic is
+ * the fallback. Explicit preference overrides this. When `tier` is supplied and
+ * no explicit provider is given, delegates to {@link chooseProviderForTier}.
  */
 function chooseProvider(
   env: Env,
@@ -401,12 +343,10 @@ function chooseProvider(
   if (preference === 'anthropic') return 'anthropic';
   if (preference === 'deepseek') return 'deepseek';
 
-  // Tier-based selection when explicitly requested
   if (tier) {
     return chooseProviderForTier(env, tier);
   }
 
-  // Default: GPT-4o is always primary (no more A/B split)
   const hasOpenAI = !!env.OPENAI_API_KEY;
   const hasAnthropic = !!env.ANTHROPIC_API_KEY;
 
@@ -420,9 +360,7 @@ function chooseProvider(
 // ─── Provider Calls ─────────────────────────────────────────────────────────
 
 /**
- * Call OpenAI Chat Completions API.
- *
- * Routes through `aiGatewayUrl(env, 'openai')` when AI Gateway is enabled;
+ * Call OpenAI Chat Completions API. Routes through the AI Gateway when enabled;
  * falls back to direct vendor URL once on 5xx.
  *
  * @returns Text + token detail + `gatewayUsed` so the orchestrator can flag the
@@ -518,25 +456,6 @@ async function callOpenAI(
 }
 
 /**
- * Call Anthropic Messages API.
- *
- * Features:
- * - Routes through `aiGatewayUrl(env, 'anthropic')` when AI Gateway is enabled;
- *   falls back to direct vendor URL once on 5xx.
- * - When `options.system.length > 1024`, sends the system as an array of
- *   `{type:'text', text, cache_control:{type:'ephemeral'}}` blocks for prompt
- *   caching (Anthropic minimum cacheable prefix is 1024 tokens on Sonnet and
- *   4096 on Opus/Haiku — using char count as a conservative proxy avoids
- *   tokenizing the prompt on the worker).
- * - When `options.responseSchema` is set, attaches structured-outputs beta
- *   header + `output_schema` block.
- *
- * @remarks
- * **Structured outputs is incompatible with the Anthropic Citations API.**
- * Setting both `responseSchema` and citations on the same request returns 400.
- * Pick one per call.
- */
-/**
  * Shape of a single Anthropic response content block — `text` blocks may carry
  * a `citations[]` array when the Citations API is enabled on the request.
  */
@@ -561,6 +480,19 @@ interface AnthropicContentBlock {
   }>;
 }
 
+/**
+ * Call Anthropic Messages API.
+ *
+ * - Routes through the AI Gateway when enabled; falls back to direct vendor URL once on 5xx.
+ * - When `options.system.length > 1024`, sends the system as `cache_control:{type:'ephemeral'}`
+ *   text blocks for prompt caching (char count is a conservative proxy for the token minimum,
+ *   avoiding tokenizing the prompt on the worker).
+ * - When `options.responseSchema` is set, attaches the structured-outputs beta header + `output_schema`.
+ *
+ * @remarks
+ * **Structured outputs is incompatible with the Anthropic Citations API** —
+ * setting both on the same request returns 400. Pick one per call.
+ */
 async function callAnthropic(
   env: Env,
   apiKey: string,
@@ -576,17 +508,15 @@ async function callAnthropic(
   citations: AnthropicCitation[];
   gatewayUsed: boolean;
 }> {
-  // Build system: either a plain string or an array with cache_control on the
-  // last block when the system prompt is long enough to be worth caching.
+  // Plain string, or an array with cache_control when the system prompt is long
+  // enough to be worth caching.
   const systemPayload: string | Array<Record<string, unknown>> =
     options.system.length > 1024
       ? [{ type: 'text', text: options.system, cache_control: { type: 'ephemeral' } }]
       : options.system;
 
-  // When the caller supplies source documents, fold them into the first user
-  // message as `document` content blocks per the Citations API spec.
-  // Mutually exclusive with `responseSchema` — the server returns 400 if both
-  // are set on the same request.
+  // Documents fold into the first user message as `document` blocks per the
+  // Citations API. Mutually exclusive with `responseSchema` (server 400s if both set).
   const hasDocuments = !!options.documents?.length && !options.responseSchema;
 
   let resolvedMessages: Array<Record<string, unknown>>;
@@ -626,7 +556,6 @@ async function callAnthropic(
     max_tokens: options.maxTokens ?? 8192,
   };
 
-  // Optional structured outputs (beta). Mutually exclusive with Citations API.
   if (options.responseSchema) {
     body.output_schema = { type: 'json_schema', schema: options.responseSchema };
   }
@@ -688,9 +617,8 @@ async function callAnthropic(
   const tokens = inputTokens + outputTokens;
   const cacheHit = (data.usage?.cache_read_input_tokens ?? 0) > 0;
 
-  // Flatten citations from every text block into a single array. Anthropic
-  // returns one entry per cited span; downstream consumers can group by
-  // document_index to reconstruct per-source reference lists.
+  // One entry per cited span; downstream consumers group by document_index to
+  // reconstruct per-source reference lists.
   const citations: AnthropicCitation[] = [];
   for (const block of data.content) {
     if (!block.citations) continue;
@@ -771,28 +699,6 @@ async function safeCaptureLLM(
 // ─── Main LLM Call ──────────────────────────────────────────────────────────
 
 /**
- * Call an external LLM (OpenAI or Anthropic) with automatic fallback.
- *
- * Uses GPT-4o as the primary provider with retry + exponential backoff.
- * Falls back to Anthropic Claude if GPT-4o fails after retries.
- * Circuit breaker skips a provider if it fails 5 times within 60 seconds.
- *
- * @param env - Worker environment with API keys
- * @param options - Prompt configuration
- * @returns LLM response with metadata
- *
- * @example
- * ```ts
- * const result = await callExternalLLM(env, {
- *   system: 'You are a web designer.',
- *   user: 'Generate a site plan for a bakery.',
- *   jsonMode: true,
- *   maxTokens: 4000,
- * });
- * ```
- */
-
-/**
  * Thin bridge: meter AI token usage through StripeMetersProvider.
  *
  * Call AFTER a successful LLM response with actual token counts.
@@ -816,6 +722,22 @@ async function meterAiTokensForCall(
   });
 }
 
+/**
+ * Call an external LLM (OpenAI or Anthropic) with automatic fallback.
+ *
+ * GPT-4o primary with retry + exponential backoff; falls back to Anthropic
+ * Claude on failure. Circuit breaker skips a provider that fails 5× within 60s.
+ *
+ * @example
+ * ```ts
+ * const result = await callExternalLLM(env, {
+ *   system: 'You are a web designer.',
+ *   user: 'Generate a site plan for a bakery.',
+ *   jsonMode: true,
+ *   maxTokens: 4000,
+ * });
+ * ```
+ */
 export async function callExternalLLM(
   env: Env,
   options: ExternalLLMOptions,
@@ -850,7 +772,6 @@ export async function callExternalLLM(
     const model =
       provider === primary ? (options.model ?? DEFAULT_MODELS[provider]) : DEFAULT_MODELS[provider];
 
-    // Circuit breaker: skip provider if circuit is open
     if (isCircuitOpen(provider)) {
       llmLog.info('circuit_open_skip', { provider });
       void safeCaptureLLM(env, {
@@ -901,8 +822,8 @@ export async function callExternalLLM(
 
       // Result shape diverges between providers — only Anthropic carries
       // `cacheHit` + `citations` + `inputTokens`/`outputTokens`/`gatewayUsed`.
-      // Use a loose cast for the extended fields rather than threading a
-      // discriminated union through every callsite.
+      // Loose cast for the extended fields rather than threading a discriminated
+      // union through every callsite.
       const r = result as Record<string, unknown> & { text: string; tokens: number };
       const cacheHit = Boolean(r.cacheHit);
       const citations = (Array.isArray(r.citations) ? r.citations : []) as AnthropicCitation[];
@@ -928,7 +849,6 @@ export async function callExternalLLM(
         gatewayUsed,
       });
 
-      // Meter token usage through StripeMetersProvider (per-token billing).
       void meterAiTokensForCall(env, options, inputTokens, outputTokens, model);
 
       return {
@@ -977,12 +897,8 @@ export async function callExternalLLM(
 /**
  * Call an external LLM with vision capability (image analysis).
  *
- * Uses GPT-4o vision as primary, falls back to Anthropic Claude vision.
- * Accepts either an image URL or base64-encoded image data.
- *
- * @param env - Worker environment with API keys
- * @param options - Prompt configuration with optional image data
- * @returns LLM response with metadata
+ * GPT-4o vision primary, falls back to Anthropic Claude vision. Accepts either
+ * an image URL or base64-encoded image data.
  *
  * @example
  * ```ts
@@ -1003,9 +919,9 @@ export async function callExternalLLMWithVision(
     return callExternalLLM(env, options);
   }
 
-  // Vision calls must never use DeepSeek — DeepSeek has no vision API.
-  // Cast to narrow union; vision callers always pass provider 'openai'|'anthropic'|undefined
-  // so chooseProvider won't resolve to 'deepseek' here.
+  // Vision calls must never use DeepSeek — it has no vision API. Cast to narrow
+  // union; vision callers always pass provider 'openai'|'anthropic'|undefined so
+  // chooseProvider won't resolve to 'deepseek' here.
   const primary = chooseProvider(env, options.provider) as 'openai' | 'anthropic';
   const fallback: 'openai' | 'anthropic' = primary === 'openai' ? 'anthropic' : 'openai';
 
@@ -1140,9 +1056,6 @@ export async function callExternalLLMWithVision(
 
 // ─── Vision Provider Implementations ────────────────────────────────────────
 
-/**
- * Call OpenAI with vision (image_url in messages).
- */
 async function callOpenAIWithVision(
   env: Env,
   apiKey: string,
@@ -1167,16 +1080,13 @@ async function callOpenAIWithVision(
   return callOpenAI(env, apiKey, model, options, messages);
 }
 
-/**
- * Call Anthropic with vision (base64 image in messages).
- */
 async function callAnthropicWithVision(
   env: Env,
   apiKey: string,
   model: string,
   options: ExternalLLMOptions & { imageUrl?: string; imageBase64?: string },
 ): Promise<{ text: string; tokens: number }> {
-  // Anthropic requires base64 for images; if we only have a URL, fetch it
+  // Anthropic requires base64 for images; if we only have a URL, fetch it.
   let base64Data = options.imageBase64;
   let mediaType = 'image/png';
 
@@ -1188,7 +1098,6 @@ async function callAnthropicWithVision(
     const contentType = imgRes.headers.get('content-type') ?? 'image/png';
     mediaType = contentType.split(';')[0].trim();
     const buffer = await imgRes.arrayBuffer();
-    // Convert ArrayBuffer to base64
     const bytes = new Uint8Array(buffer);
     let binary = '';
     for (let i = 0; i < bytes.length; i++) {
@@ -1229,9 +1138,9 @@ async function callAnthropicWithVision(
  *   `'fine-tune'` for those specific call paths.
  * - Files persist on OpenAI infrastructure until deleted via
  *   `DELETE /v1/files/{file_id}` — call site is responsible for lifecycle.
- * - This helper is **unwired** by design: no caller in this turn. Reserved for
- *   future Anthropic-Files / OpenAI Assistants research flows where the
- *   uploaded document_id is the source for a Citations or file-search call.
+ * - Unwired by design (no caller in this turn) — reserved for future
+ *   Anthropic-Files / OpenAI Assistants research flows where the uploaded
+ *   document_id is the source for a Citations or file-search call.
  *
  * @throws Error when `OPENAI_API_KEY` is missing or the upload fails (non-2xx).
  *
