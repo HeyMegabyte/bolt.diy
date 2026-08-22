@@ -2,23 +2,9 @@
  * @module routes/search
  * @description Public search and site-creation routes for the homepage SPA.
  *
- * These endpoints power the interactive homepage flow:
- *
- * ```
- * Screen 1 (Search)   → GET  /api/search/businesses   → Google Places proxy
- * Screen 1 (Lookup)   → GET  /api/sites/lookup         → check existing site by place_id/slug
+ * Screen 1 (Search)   → GET  /api/search/businesses      → Google Places proxy
+ * Screen 1 (Lookup)   → GET  /api/sites/lookup            → check existing site by place_id/slug
  * Screen 3 (Create)   → POST /api/sites/create-from-search → create site + enqueue AI workflow
- * ```
- *
- * ## Route Map
- *
- * | Method | Path                           | Auth?  | Description                          |
- * | ------ | ------------------------------ | ------ | ------------------------------------ |
- * | GET    | `/api/search/businesses`       | No     | Proxy Google Places Text Search API  |
- * | GET    | `/api/sites/lookup`            | No     | Look up existing site by place_id    |
- * | POST   | `/api/sites/create-from-search`| Yes    | Create a site and queue generation   |
- *
- * @packageDocumentation
  */
 
 import { Hono } from 'hono';
@@ -36,9 +22,8 @@ import {
   DOMAINS,
 } from '@project-sites/shared';
 
-// Re-exported for callers (and tests) that imported it from this module before
-// it was promoted to @project-sites/shared (2026-06-11). New consumers should
-// import `pickSafeRedirect` directly from the shared package.
+// Re-exported for callers (and tests) that import it from this module rather
+// than from @project-sites/shared.
 export { pickSafeRedirect };
 
 import { dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
@@ -52,12 +37,11 @@ import { runObservedWorkersAI } from '../lib/workers_ai.js';
  * Authorize a build-container request against the shared secret
  * (`x-container-secret` === first 16 chars of `ANTHROPIC_API_KEY`).
  *
- * Hardened 2026-06-09: the old inline check `secret !== env.KEY?.slice(0,16)`
- * had a latent AUTH BYPASS — when `ANTHROPIC_API_KEY` was unset, `?.slice`
- * yielded `undefined` and a header-less request (`undefined`) compared
- * `undefined !== undefined` → false → the 401 was SKIPPED, opening arbitrary
- * R2 writes + SQL execution unauthenticated. This requires BOTH sides present
- * and uses a constant-time compare (no length/timing oracle).
+ * Requires BOTH sides present + a constant-time compare. If `ANTHROPIC_API_KEY`
+ * is unset, `?.slice` yields `undefined`; a header-less request would then
+ * compare `undefined !== undefined` → false → the 401 gets SKIPPED, opening
+ * arbitrary R2 writes + SQL execution unauthenticated. The `!!expected` guard
+ * closes that AUTH BYPASS (no length/timing oracle).
  */
 function containerAuthorized(env: Env, secretHeader: string | undefined): boolean {
   const expected = env.ANTHROPIC_API_KEY?.slice(0, 16);
@@ -89,7 +73,7 @@ search.get('/api/search/businesses', async (c) => {
     throw badRequest('Missing required query parameter: q');
   }
 
-  // Bound query length to prevent abuse
+  // Bound query length to prevent abuse.
   const boundedQ = q.trim().slice(0, 200);
 
   // Honest-empty: if the Places provider isn't configured, say so with a stable
@@ -107,9 +91,9 @@ search.get('/api/search/businesses', async (c) => {
     });
   }
 
-  // Build request body with optional location bias from browser geolocation
   const requestBody: Record<string, unknown> = { textQuery: boundedQ };
 
+  // Optional location bias from browser geolocation.
   const lat = c.req.query('lat');
   const lng = c.req.query('lng');
   if (lat && lng) {
@@ -129,9 +113,8 @@ search.get('/api/search/businesses', async (c) => {
   // SearchTextRequest quota. Popular/repeat queries ("pizza chicago") re-hit the same
   // text search on every 300ms keystroke-debounce otherwise, and exhausting the daily
   // cap degrades the whole business-lookup funnel (it falls back to manual entry, but
-  // live search is gone). Mirrors the domain-availability KV cache below. Only successful
-  // non-empty results are cached (errors/empties stay live so recovery + new listings
-  // surface immediately). 6h TTL — business listings are stable.
+  // live search is gone). Only successful non-empty results are cached (errors/empties
+  // stay live so recovery + new listings surface immediately). 6h TTL — listings are stable.
   const cacheKey = `bizsearch:${boundedQ.toLowerCase()}:${lat ?? ''}:${lng ?? ''}`;
   const cachedRaw = await c.env.CACHE_KV?.get(cacheKey).catch(() => null);
   if (cachedRaw) {
@@ -226,7 +209,6 @@ search.get('/api/search/address', async (c) => {
     return c.json({ data: [] });
   }
 
-  // Build location bias if coordinates are provided
   const lat = c.req.query('lat');
   const lng = c.req.query('lng');
   let locationBias: Record<string, unknown> | undefined;
@@ -243,7 +225,6 @@ search.get('/api/search/address', async (c) => {
     }
   }
 
-  // Try Autocomplete API first (no restrictive type filter)
   const autocompleteBody: Record<string, unknown> = { input: q };
   if (locationBias) {
     autocompleteBody.locationBias = locationBias;
@@ -299,7 +280,7 @@ search.get('/api/search/address', async (c) => {
     );
   }
 
-  // Fallback: use Text Search API (same API that powers business search)
+  // Fallback: Text Search API (same API that powers business search).
   const textSearchBody: Record<string, unknown> = { textQuery: q };
   if (locationBias) {
     textSearchBody.locationBias = locationBias;
@@ -431,8 +412,8 @@ search.get('/api/sites/search', async (c) => {
 // ─── Command-palette search (⌘K smart results) ──────────────
 // Powers the full-screen ⌘K "Smart results" group: static admin-route catalog +
 // the caller's own sites (by name) + best-effort AutoRAG enrichment over indexed
-// content. Returns the palette's command shape. AutoRAG is optional — when the
-// instance isn't configured the handler still returns catalog + site matches.
+// content. AutoRAG is optional — when the instance isn't configured the handler
+// still returns catalog + site matches.
 
 interface CommandResult {
   id: string;
@@ -447,14 +428,13 @@ const ADMIN_COMMAND_CATALOG: ReadonlyArray<CommandResult> = [
   { id: 'cs-dashboard', label: 'Dashboard', icon: 'dashboard', route: '/admin', detail: 'Admin' },
   // 'Sites' → the dashboard IS the sites hub. This is a SINGLE-SITE admin: there
   // is deliberately NO bare `/admin/sites` list route (only `/admin/sites/:id`),
-  // so `/admin/sites` resolves to the admin 404. Point at `/admin` instead. (See
-  // frontend onboarding-checklist.component.ts, which remaps the same stale CTA.)
+  // so `/admin/sites` resolves to the admin 404. Point at `/admin` instead.
   { id: 'cs-sites', label: 'Sites', icon: 'dashboard', route: '/admin', detail: 'Admin' },
   { id: 'cs-editor', label: 'Editor', icon: 'edit', route: '/admin/editor', detail: 'Admin' },
-  // NOTE: no 'Media library' command — there is no `/admin/media` route or media
-  // library UI in this SPA (the `/api/media/*` worker surface has no admin page),
-  // so advertising it dead-ended ⌘K users on the admin 404. Restore this entry
-  // only when a real `/admin/media` route ships.
+  // No 'Media library' command — there is no `/admin/media` route or media library
+  // UI in this SPA (the `/api/media/*` worker surface has no admin page), so
+  // advertising it dead-ended ⌘K users on the admin 404. Restore only when a real
+  // `/admin/media` route ships.
   {
     id: 'cs-analytics',
     label: 'Analytics',
@@ -493,7 +473,7 @@ const ADMIN_COMMAND_CATALOG: ReadonlyArray<CommandResult> = [
   { id: 'cs-status', label: 'System Status', icon: 'status', route: '/status', detail: 'Public' },
 ];
 
-/** Pure catalog matcher — exported for unit tests. Case-insensitive substring on label or route. */
+/** Case-insensitive substring match on label or route. Exported for unit tests. */
 export function matchCommandCatalog(q: string, limit = 6): CommandResult[] {
   const term = q.trim().toLowerCase();
   if (!term) return [];
@@ -612,11 +592,7 @@ search.get('/api/sites/lookup', async (c) => {
 
 // ─── Create Site from Search ────────────────────────────────
 
-/**
- * Nested business object sent by the homepage SPA (v2 payload format).
- *
- * The frontend wraps business details under a `business` key.
- */
+/** Nested business object sent by the homepage SPA (v2 payload format). */
 interface BusinessPayload {
   name: string;
   address?: string;
@@ -627,13 +603,10 @@ interface BusinessPayload {
 }
 
 /**
- * Request body for POST /api/sites/create-from-search.
- *
- * Supports two payload formats for backward compatibility:
- *
- * **v1 (flat):** `{ business_name, business_address, google_place_id, additional_context }`
- *
- * **v2 (nested):** `{ mode, business: { name, address, place_id, phone, website, types }, additional_context }`
+ * Request body for POST /api/sites/create-from-search. Supports two payload
+ * formats for backward compatibility:
+ * - v1 (flat):   `{ business_name, business_address, google_place_id, additional_context }`
+ * - v2 (nested): `{ mode, business: {...}, additional_context }`
  */
 interface CreateFromSearchBody {
   /** @deprecated Use `business.name` instead */
@@ -643,7 +616,6 @@ interface CreateFromSearchBody {
   /** @deprecated Use `business.place_id` instead */
   google_place_id?: string;
   additional_context?: string;
-  /** Nested business object (v2 format from homepage SPA) */
   business?: BusinessPayload;
   /** Creation mode: 'business' or 'custom' */
   mode?: string;
@@ -656,7 +628,7 @@ search.post('/api/sites/create-from-search', async (c) => {
     throw unauthorized('Must be authenticated');
   }
 
-  // Check build limits (1 free, then $50/mo per site)
+  // Check build limits (1 free, then $50/mo per site).
   const { checkBuildLimit, resolveActiveOrgPlan } = await import('../services/build_limits.js');
   const plan = await resolveActiveOrgPlan(c.env.DB, orgId);
   const limitCheck = await checkBuildLimit(c.env.DB, orgId, plan);
@@ -690,7 +662,7 @@ search.post('/api/sites/create-from-search', async (c) => {
 
   const body = (await c.req.json().catch(() => ({}))) as CreateFromSearchBody;
 
-  // Normalize: support both v1 (flat) and v2 (nested business object) payload formats
+  // Normalize both v1 (flat) and v2 (nested business object) payload formats.
   const mode = body.mode ?? null;
   const businessName =
     body.business?.name || body.business_name || (mode === 'custom' ? 'Custom Website' : null);
@@ -702,7 +674,6 @@ search.post('/api/sites/create-from-search', async (c) => {
     throw badRequest('Missing required field: business_name (or business.name)');
   }
 
-  // Validate and sanitize text inputs
   if (businessName.length > 200) {
     throw badRequest('Business name must be 200 characters or fewer');
   }
@@ -715,7 +686,6 @@ search.post('/api/sites/create-from-search', async (c) => {
     throw badRequest('Business address must be 500 characters or fewer');
   }
 
-  // Strip HTML tags from business name
   const sanitizedName = stripHtml(businessName).trim();
   if (!sanitizedName) {
     throw badRequest('Business name cannot be empty after sanitization');
@@ -725,11 +695,9 @@ search.post('/api/sites/create-from-search', async (c) => {
     console.warn(`[create-from-search] mode=${mode}, business=${sanitizedName}`);
   }
 
-  // AI-calculated slug: produce the shortest, most meaningful URL-safe representation
   const baseSlug = await generateSmartSlug(c.env, sanitizedName, businessAddress);
 
-  // Ensure slug uniqueness: check D1 for existing sites with the same slug
-  // and R2 for published content, then append suffix if needed
+  // Ensure slug uniqueness across D1 (sites table) + R2 published content.
   const slug = await ensureUniqueSlug(c.env, baseSlug);
 
   const siteId = crypto.randomUUID();
@@ -757,7 +725,6 @@ search.post('/api/sites/create-from-search', async (c) => {
     throw badRequest(`Failed to create site: ${result.error}`);
   }
 
-  // Trigger AI site generation workflow
   let workflowInstanceId: string | null = null;
   if (c.env.SITE_WORKFLOW) {
     const instance = await c.env.SITE_WORKFLOW.create({
@@ -777,13 +744,13 @@ search.post('/api/sites/create-from-search', async (c) => {
     });
     workflowInstanceId = instance.id;
   } else if (c.env.QUEUE) {
-    // Fallback to queue if workflow binding is unavailable. The message MUST carry
-    // the SAME authoritative fields SITE_WORKFLOW.create receives — most critically
-    // the unique `slug` (from ensureUniqueSlug, may carry a `-N` suffix). The queue
-    // consumer uploads the build to `sites/${slug}/${version}/…`; if `slug` is omitted
-    // it recomputes one from business_name → a DIFFERENT prefix than the serving path
-    // resolves by the D1 `sites.slug` → the "published" site 404s. Address + phone
-    // feed V2 research; dropping them silently degrades the generated site.
+    // Fallback to queue when the workflow binding is unavailable. The message MUST
+    // carry the SAME authoritative fields SITE_WORKFLOW.create receives — most
+    // critically the unique `slug` (from ensureUniqueSlug, may carry a `-N` suffix).
+    // The queue consumer uploads the build to `sites/${slug}/${version}/…`; if `slug`
+    // is omitted it recomputes one from business_name → a DIFFERENT prefix than the
+    // serving path resolves by the D1 `sites.slug` → the "published" site 404s.
+    // Address + phone feed V2 research; dropping them silently degrades the site.
     await c.env.QUEUE.send({
       job_name: 'generate_site',
       site_id: siteId,
@@ -796,7 +763,6 @@ search.post('/api/sites/create-from-search', async (c) => {
     });
   }
 
-  // Log audit — site creation
   await writeAuditLog(c.env.DB, {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
@@ -814,7 +780,6 @@ search.post('/api/sites/create-from-search', async (c) => {
     request_id: c.get('requestId'),
   });
 
-  // Log workflow pipeline start with detailed info
   await writeAuditLog(c.env.DB, {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
@@ -831,7 +796,7 @@ search.post('/api/sites/create-from-search', async (c) => {
     request_id: c.get('requestId'),
   });
 
-  // Log anticipated build phases so the Logs modal shows pipeline stages
+  // Log anticipated build phases so the Logs modal shows pipeline stages.
   const buildPhases = [
     {
       action: 'workflow.phase.research',
@@ -887,12 +852,11 @@ search.post('/api/sites/improve-prompt', async (c) => {
     throw badRequest('Text must not exceed 5000 characters');
   }
 
-  // Build the AI improvement prompt
   let systemPrompt: string;
   let userPrompt: string;
 
   if (!text) {
-    // No text provided — generate a template with placeholders
+    // No text provided — generate a template with placeholders.
     systemPrompt =
       'You are a professional website copywriter and business consultant. ' +
       'Generate a comprehensive business profile template for a small business portfolio website. ' +
@@ -933,7 +897,7 @@ search.post('/api/sites/improve-prompt', async (c) => {
   try {
     const ai = c.env.AI;
     if (!ai) {
-      // Fallback: return a static template if AI binding not available
+      // Fallback: static template if AI binding not available.
       const fallbackText =
         text ||
         (businessName ? businessName + ' — ' : '[Business Name] — ') +
@@ -973,7 +937,7 @@ search.post('/api/sites/improve-prompt', async (c) => {
 
     return c.json({ data: { improved_text: improved || text } });
   } catch {
-    // On AI failure, return original text rather than error
+    // On AI failure, return original text rather than error.
     return c.json({ data: { improved_text: text } });
   }
 });
@@ -1016,7 +980,7 @@ search.post('/api/sites/generate-prompt', async (c) => {
     additionalContext: additionalContext || undefined,
   });
 
-  // If a site ID was provided, store the research data in R2
+  // If a site ID was provided, store the research data in R2.
   if (siteId) {
     const site = await dbQueryOne<{ slug: string; current_build_version: string | null }>(
       c.env.DB,
@@ -1043,7 +1007,6 @@ search.post('/api/sites/generate-prompt', async (c) => {
     }
   }
 
-  // Audit log
   await writeAuditLog(c.env.DB, {
     org_id: orgId,
     actor_id: userId,
@@ -1072,17 +1035,11 @@ search.post('/api/sites/generate-prompt', async (c) => {
 // ─── Slug Uniqueness Helper ──────────────────────────────────
 
 /**
- * Ensure the slug is unique by checking both D1 (sites table) and R2.
- * Appends incrementing suffix (-2, -3, ...) if already taken.
- * Falls back to random suffix after 10 attempts.
- */
-/**
  * Generate a smart, AI-calculated slug that is the shortest meaningful
  * representation of the business name + location differentiator.
  *
  * Examples:
  * - "Trader Joe's" at "3056 NJ-10, Denville, NJ" → "trader-joes-denville"
- * - "Trader Joe's - Hell's Kitchen" → "trader-joes-hells-kitchen"
  * - "When Doody Calls - Pooper Scoopers" → "when-doody-calls"
  * - "Vito's Mens Salon" → "vitos-mens-salon"
  *
@@ -1093,7 +1050,6 @@ async function generateSmartSlug(
   businessName: string,
   address?: string,
 ): Promise<string> {
-  // Simple slugification as fallback
   const simpleSlug =
     businessName
       .toLowerCase()
@@ -1102,7 +1058,6 @@ async function generateSmartSlug(
       .replace(/^-|-$/g, '')
       .substring(0, 63) || `site-${Date.now().toString(36)}`;
 
-  // Try AI-powered slug generation
   try {
     const result = await env.AI.run(
       '@cf/meta/llama-3.1-8b-instruct-fp8' as Parameters<typeof env.AI.run>[0],
@@ -1137,7 +1092,6 @@ Examples:
     );
 
     const response = ((result as { response?: string }).response ?? '').trim();
-    // Clean and validate AI output
     const aiSlug = response
       .toLowerCase()
       .replace(/[^a-z0-9-]/g, '')
@@ -1149,17 +1103,21 @@ Examples:
       return aiSlug;
     }
   } catch {
-    // AI unavailable — fall through to simple slug
+    // AI unavailable — fall through to simple slug.
   }
 
   return simpleSlug;
 }
 
+/**
+ * Ensure the slug is unique across D1 and R2. Appends an incrementing suffix
+ * (-2, -3, …) if taken; falls back to a random suffix after 10 attempts.
+ */
 async function ensureUniqueSlug(env: Env, slug: string): Promise<string> {
   let candidate = slug;
 
   for (let attempt = 0; attempt < 10; attempt++) {
-    // Check D1 for existing site with this slug (include deleted — unique constraint spans all rows)
+    // Include deleted rows — the unique constraint spans all rows.
     const existingInDb = await dbQueryOne<{ id: string }>(
       env.DB,
       'SELECT id FROM sites WHERE slug = ?',
@@ -1167,7 +1125,7 @@ async function ensureUniqueSlug(env: Env, slug: string): Promise<string> {
     );
 
     if (!existingInDb) {
-      // Also check R2 for orphaned content
+      // Also check R2 for orphaned content.
       const manifestInR2 = await env.SITES_BUCKET.get(`sites/${candidate}/_manifest.json`);
       if (!manifestInR2) {
         return candidate;
@@ -1177,14 +1135,10 @@ async function ensureUniqueSlug(env: Env, slug: string): Promise<string> {
     candidate = `${slug}-${attempt + 2}`;
   }
 
-  // All attempts exhausted — use random suffix
   return `${slug}-${Date.now().toString(36).slice(-4)}`;
 }
 
-/**
- * AI-powered business categorization.
- * Uses Workers AI to classify a business into one of the predefined categories.
- */
+/** AI-powered business categorization into one of the predefined categories. */
 search.post('/api/ai/categorize', async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as {
     name: string;
@@ -1237,7 +1191,6 @@ Category:`;
     )) as { response?: string };
 
     const raw = (result.response || '').trim();
-    // Find the best matching category from the response
     const matched =
       categories.find((cat) => raw.includes(cat)) ||
       categories.find((cat) => raw.toLowerCase().includes(cat.toLowerCase().split(' / ')[0])) ||
@@ -1251,8 +1204,8 @@ Category:`;
 });
 
 /**
- * Contact form handler — receives form submissions from generated sites
- * and forwards them via SendGrid/Resend to the business email.
+ * Contact form handler — receives submissions from generated sites and forwards
+ * them via SES/SendGrid/Resend to the business email.
  */
 search.post('/api/contact-form/:slug', async (c) => {
   const slug = c.req.param('slug');
@@ -1293,9 +1246,8 @@ search.post('/api/contact-form/:slug', async (c) => {
     // Persist a durable `contacts` row FIRST — the CRM record the owner sees in
     // /admin analytics (contacts total + bySource). The email + in-app bell below
     // are best-effort DELIVERY on top; a real submission must never be lost to an
-    // email misconfig or provider failure (the same data-loss class as the forms
-    // lying-success bug). Error-checked → never a lying-success; failure logs,
-    // never throws (the submitter's response is unaffected).
+    // email misconfig or provider failure. Error-checked → never a lying-success;
+    // failure logs, never throws (the submitter's response is unaffected).
     if (site.org_id) {
       const { dbInsert } = await import('../services/db.js');
       const { error: contactErr } = await dbInsert(c.env.DB, 'contacts', {
@@ -1322,14 +1274,12 @@ search.post('/api/contact-form/:slug', async (c) => {
       }
     }
 
-    // Resolve the owner's notification address. The admin Settings "Contact
-    // Email" field writes `ai_site_settings.contact_email` (the user-configured,
-    // AUTHORITATIVE value — see ai_admin.ts ai-settings PUT); `sites.contact_email`
-    // is the build/research-populated legacy fallback. Reading ONLY
-    // `sites.contact_email` ignored a configured address → the owner silently
-    // never got emailed their leads even after setting it in admin (a cross-system
-    // source-drift: admin writes ai_site_settings, this read sites). Prefer the
-    // configured value, fall back to the build value.
+    // Resolve the owner's notification address. The admin Settings "Contact Email"
+    // field writes `ai_site_settings.contact_email` (the user-configured, AUTHORITATIVE
+    // value — see ai_admin.ts ai-settings PUT); `sites.contact_email` is the
+    // build/research-populated legacy fallback. Reading ONLY `sites.contact_email`
+    // ignored a configured address → the owner silently never got emailed their leads
+    // even after setting it in admin (admin writes ai_site_settings, this read sites).
     const aiSettings = await dbQueryOne<{ contact_email?: string | null }>(
       c.env.DB,
       'SELECT contact_email FROM ai_site_settings WHERE site_id = ?',
@@ -1409,7 +1359,7 @@ search.post('/api/contact-form/:slug', async (c) => {
       } else {
         // No email provider configured — the owner email is NOT sent (the in-app
         // bell below is the only delivery). Surface it in logs so the operator
-        // isn't blind to silently-undelivered contact emails ("no silent failures").
+        // isn't blind to silently-undelivered contact emails.
         console.warn(
           JSON.stringify({
             level: 'warn',
@@ -1436,9 +1386,8 @@ search.post('/api/contact-form/:slug', async (c) => {
       );
     }
 
-    // In-app bell notification to the site owner (Novu backbone) — a contact
-    // submission is a high-value event the owner wants surfaced in the admin.
-    // Additive + guarded + fire-and-forget; never blocks the form response.
+    // In-app bell notification to the site owner (Novu backbone). Additive +
+    // guarded + fire-and-forget; never blocks the form response.
     if (site.org_id) {
       try {
         const { notifySiteOwner } = await import('../services/notify.js');
@@ -1469,14 +1418,13 @@ search.post('/api/contact-form/:slug', async (c) => {
  * `newsletter_subscribers` table (and the /admin analytics "Newsletter" tile).
  *
  * @remarks
- * Closes a triple-drift gap: the generated-site signup widget
- * (`services/archive_signup.ts`) POSTs here, `services/advanced_features.ts` owns
- * `newsletterSubscribe()`, and the analytics tile READS `newsletter_subscribers`
- * — but the ROUTE joining them was never mounted, so this path 404'd and the tile
- * had no live writer (structurally 0). Distinct from `/api/v1/forms/submit`
- * (generic form → external ESP): this is the double-opt-in native subscriber
- * (`confirmed=0` until the opt-in email is clicked). Persist-first + error-checked
- * (never a lying-success). Public + guest-reachable — validated with Zod.
+ * Closes a triple-drift gap: the generated-site signup widget POSTs here,
+ * `services/advanced_features.ts` owns `newsletterSubscribe()`, and the analytics
+ * tile READS `newsletter_subscribers` — but the ROUTE joining them was never
+ * mounted, so this path 404'd and the tile had no live writer. Distinct from
+ * `/api/v1/forms/submit` (generic form → external ESP): this is the double-opt-in
+ * native subscriber (`confirmed=0` until the opt-in email is clicked). Persist-first
+ * + error-checked (never a lying-success). Public + guest-reachable — Zod-validated.
  */
 const newsletterSubscribeSchema = z.object({
   email: z.string().trim().email('A valid email is required.').max(320),
@@ -1540,15 +1488,14 @@ search.post('/api/newsletter/subscribe', async (c) => {
 });
 
 /**
- * Site preview — serves the site's index.html from R2 directly.
- * Used by the admin panel to show site previews without triggering CF challenges.
+ * Site preview — serves the site's index.html from R2 directly. Used by the admin
+ * panel to show previews without triggering CF challenges.
  */
 search.get('/api/sites/:slug/preview', async (c) => {
   const slug = c.req.param('slug');
   if (!slug) return c.text('Missing slug', 400);
 
   try {
-    // Read manifest to find current version
     const manifest = await c.env.SITES_BUCKET.get(`sites/${slug}/_manifest.json`);
     if (!manifest) {
       return c.text('Site not found', 404);
@@ -1557,12 +1504,11 @@ search.get('/api/sites/:slug/preview', async (c) => {
     const version = manifestData.current_version;
     if (!version) return c.text('No published version', 404);
 
-    // Serve index.html from R2
     const html = await c.env.SITES_BUCKET.get(`sites/${slug}/${version}/index.html`);
     if (!html) return c.text('HTML not found', 404);
 
     let content = await html.text();
-    // Inject base tag so relative URLs resolve correctly
+    // Inject base tag so relative URLs resolve correctly.
     content = content.replace(
       '<head>',
       `<head><base href="https://${slug}${DOMAINS.SITES_SUFFIX}/">`,
@@ -1628,9 +1574,8 @@ export function isProxyableImageUrl(raw: string): boolean {
 }
 
 /**
- * Image proxy — fetches external images and serves with CORS headers.
- * All discovered images route through this so the frontend can display them
- * without CORS issues, and we can later download them for site generation.
+ * Image proxy — fetches external images and serves with CORS headers so the
+ * frontend can display them, and we can later download them for site generation.
  */
 search.get('/api/image-proxy', async (c) => {
   const imageUrl = c.req.query('url');
@@ -1677,7 +1622,7 @@ search.get('/api/image-proxy', async (c) => {
     }
 
     if (!res || !res.ok) {
-      // Return 1x1 transparent PNG instead of 502 so the img element doesn't break
+      // Return 1x1 transparent PNG instead of 502 so the img element doesn't break.
       return new Response(TRANSPARENT_PIXEL, {
         headers: {
           'Content-Type': 'image/png',
@@ -1688,7 +1633,6 @@ search.get('/api/image-proxy', async (c) => {
     }
 
     const ct = res.headers.get('content-type') || 'image/png';
-    // Validate it's actually an image
     if (!ct.startsWith('image/') && !ct.includes('octet-stream')) {
       return new Response(TRANSPARENT_PIXEL, {
         headers: {
@@ -1700,7 +1644,7 @@ search.get('/api/image-proxy', async (c) => {
     }
 
     const body = await res.arrayBuffer();
-    // Reject tiny responses (likely error pages, 1x1 tracking pixels, or loading placeholders)
+    // Reject tiny responses (likely error pages, 1x1 tracking pixels, or placeholders).
     if (body.byteLength < 500) {
       return new Response(TRANSPARENT_PIXEL, {
         headers: {
@@ -1711,21 +1655,19 @@ search.get('/api/image-proxy', async (c) => {
       });
     }
 
-    // Check actual image dimensions from the binary data — reject sub-4px images
+    // Read actual dimensions from the binary header to reject sub-4px images.
     const buf = new Uint8Array(body);
     let imgW = 0;
     let imgH = 0;
-    // PNG check
     if (buf[0] === 0x89 && buf[1] === 0x50 && buf.byteLength >= 24) {
       imgW = (buf[16] << 24) | (buf[17] << 16) | (buf[18] << 8) | buf[19];
       imgH = (buf[20] << 24) | (buf[21] << 16) | (buf[22] << 8) | buf[23];
     }
-    // GIF check
     if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf.byteLength >= 10) {
       imgW = buf[6] | (buf[7] << 8);
       imgH = buf[8] | (buf[9] << 8);
     }
-    // Reject images smaller than 4x4 (tracking pixels, spacers)
+    // Reject images smaller than 4x4 (tracking pixels, spacers).
     if (imgW > 0 && imgH > 0 && (imgW < 4 || imgH < 4)) {
       return new Response(TRANSPARENT_PIXEL, {
         headers: {
@@ -1742,7 +1684,6 @@ search.get('/api/image-proxy', async (c) => {
         'Access-Control-Allow-Origin': '*',
         'Cache-Control': 'public, max-age=86400',
         'X-Proxy-Status': 'ok',
-        // Expose dimensions so frontend can use them
         ...(imgW > 0 ? { 'X-Image-Width': String(imgW), 'X-Image-Height': String(imgH) } : {}),
       },
     });
@@ -1757,7 +1698,7 @@ search.get('/api/image-proxy', async (c) => {
   }
 });
 
-/** Validate that a URL points to a real, loadable image (HEAD check) */
+/** Validate that a URL points to a real, loadable image (HEAD check). */
 async function isImageReachable(url: string): Promise<boolean> {
   try {
     const r = await fetch(url, {
@@ -1773,7 +1714,7 @@ async function isImageReachable(url: string): Promise<boolean> {
 }
 
 /**
- * Fetch actual image dimensions by downloading the first bytes and reading the header.
+ * Fetch image dimensions by downloading the first bytes and reading the header.
  * Returns { width, height, byteLength } or null if unable to determine.
  */
 async function getImageDimensions(
@@ -1791,7 +1732,7 @@ async function getImageDimensions(
     const buf = new Uint8Array(await r.arrayBuffer());
     const cl = parseInt(r.headers.get('content-length') || '0') || buf.byteLength;
 
-    // PNG: dimensions at bytes 16-23 (IHDR chunk)
+    // PNG: dimensions at bytes 16-23 (IHDR chunk).
     if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
       if (buf.byteLength >= 24) {
         const w = (buf[16] << 24) | (buf[17] << 16) | (buf[18] << 8) | buf[19];
@@ -1800,7 +1741,7 @@ async function getImageDimensions(
       }
     }
 
-    // JPEG: scan for SOF0/SOF2 markers
+    // JPEG: scan for SOF0/SOF2 markers.
     if (buf[0] === 0xff && buf[1] === 0xd8) {
       let i = 2;
       while (i < buf.byteLength - 9) {
@@ -1809,19 +1750,18 @@ async function getImageDimensions(
           continue;
         }
         const marker = buf[i + 1];
-        // SOF0 (0xC0) or SOF2 (0xC2) — contains dimensions
+        // SOF0 (0xC0) or SOF2 (0xC2) — contains dimensions.
         if (marker === 0xc0 || marker === 0xc2) {
           const h = (buf[i + 5] << 8) | buf[i + 6];
           const w = (buf[i + 7] << 8) | buf[i + 8];
           return { width: w, height: h, byteLength: cl };
         }
-        // Skip to next marker
         const segLen = (buf[i + 2] << 8) | buf[i + 3];
         i += 2 + segLen;
       }
     }
 
-    // GIF: dimensions at bytes 6-9
+    // GIF: dimensions at bytes 6-9.
     if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) {
       if (buf.byteLength >= 10) {
         const w = buf[6] | (buf[7] << 8);
@@ -1830,7 +1770,7 @@ async function getImageDimensions(
       }
     }
 
-    // WebP: RIFF header, VP8 chunk
+    // WebP: RIFF header, VP8 chunk.
     if (
       buf[0] === 0x52 &&
       buf[1] === 0x49 &&
@@ -1838,7 +1778,7 @@ async function getImageDimensions(
       buf[3] === 0x46 &&
       buf.byteLength >= 30
     ) {
-      // VP8 lossy
+      // VP8 lossy.
       if (buf[12] === 0x56 && buf[13] === 0x50 && buf[14] === 0x38 && buf[15] === 0x20) {
         const w = (buf[26] | (buf[27] << 8)) & 0x3fff;
         const h = (buf[28] | (buf[29] << 8)) & 0x3fff;
@@ -1852,25 +1792,19 @@ async function getImageDimensions(
   }
 }
 
-/**
- * Image quality assessment result from AI vision inspection.
- */
+/** Image quality assessment result from AI vision inspection. */
 interface ImageQualityResult {
   /** 0-100 quality score */
   quality_score: number;
-  /** Whether the image is professional enough for a business website */
   is_professional: boolean;
-  /** Whether the image is safe (no NSFW, no violence, no hate) */
+  /** No NSFW, no violence, no hate */
   is_safe: boolean;
-  /** Brief description of what the image shows */
   description: string;
-  /** Recommendation for how to use this asset */
   recommendation: 'use_as_is' | 'use_as_inspiration' | 'enhance' | 'reject';
-  /** Issues found, if any */
   issues: string[];
-  /** Whether the image has excessive white/blank padding on sides */
+  /** Excessive white/blank padding on sides */
   has_padding?: boolean;
-  /** Whether the image appears to be a generic CAD/architectural rendering (not a real photo) */
+  /** Appears to be a generic CAD/architectural rendering (not a real photo) */
   is_generic_rendering?: boolean;
   /** Confidence that this image is actually of/about the specified business */
   business_relevance?: number;
@@ -1878,7 +1812,7 @@ interface ImageQualityResult {
 
 /**
  * Use GPT-4o vision to assess image quality, professionalism, and safety.
- * Returns null if vision API is unavailable (no OpenAI key).
+ * Returns null if the vision API is unavailable (no OpenAI key).
  */
 async function inspectImageWithVision(
   imageUrl: string,
@@ -1935,13 +1869,12 @@ REJECT if: has_padding is true AND quality is below 60, OR is_generic_rendering 
     if (!res.ok) return null;
     const data = (await res.json()) as { choices: { message: { content: string } }[] };
     const content = data.choices?.[0]?.message?.content || '';
-    // Parse JSON from response (strip any markdown code fences)
+    // Strip any markdown code fences before parsing.
     const jsonStr = content
       .replace(/```json\n?/g, '')
       .replace(/```\n?/g, '')
       .trim();
     const result = JSON.parse(jsonStr) as ImageQualityResult;
-    // Normalize
     result.quality_score = Math.max(0, Math.min(100, result.quality_score));
     result.issues = result.issues || [];
     return result;
@@ -1951,8 +1884,7 @@ REJECT if: has_padding is true AND quality is below 60, OR is_generic_rendering 
 }
 
 /**
- * Scrape large images from a webpage's <img> tags.
- * Returns URLs of images that are likely content images (not icons, trackers, etc.).
+ * Scrape likely content images (not icons/trackers) from a webpage's <img> tags.
  */
 function scrapePageImages(html: string, domain: string): string[] {
   const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
@@ -1964,22 +1896,20 @@ function scrapePageImages(html: string, domain: string): string[] {
     let src = match[1];
     if (!src || src.startsWith('data:')) continue;
 
-    // Resolve relative URLs
+    // Resolve relative URLs.
     if (src.startsWith('/')) src = `https://${domain}${src}`;
     else if (!src.startsWith('http')) src = `https://${domain}/${src}`;
 
-    // Skip tracking pixels, tiny icons, and common non-content images
+    // Skip tracking pixels, tiny icons, and common non-content images.
     if (/1x1|spacer|pixel|tracking|analytics|beacon|sprite|icon-\d|badge/i.test(src)) continue;
-    // Skip common CDN patterns for tiny assets
     if (/gravatar|wp-includes\/images|emoji|smilies/i.test(src)) continue;
 
-    // Check for size hints in the tag (width/height attributes)
+    // Skip if width/height attributes are explicitly tiny.
     const fullTag = match[0];
     const widthMatch = fullTag.match(/width=["']?(\d+)/i);
     const heightMatch = fullTag.match(/height=["']?(\d+)/i);
     const w = widthMatch ? parseInt(widthMatch[1]) : 0;
     const h = heightMatch ? parseInt(heightMatch[1]) : 0;
-    // Skip if explicitly tiny
     if ((w > 0 && w < 100) || (h > 0 && h < 100)) continue;
 
     if (!seen.has(src)) {
@@ -1990,10 +1920,7 @@ function scrapePageImages(html: string, domain: string): string[] {
   return images;
 }
 
-/**
- * Extended image metadata returned by discover-images.
- * Includes quality assessment from AI vision inspection.
- */
+/** Extended image metadata returned by discover-images (incl. AI quality). */
 interface DiscoveredImage {
   url: string;
   name: string;
@@ -2003,27 +1930,17 @@ interface DiscoveredImage {
   originalUrl?: string;
   /** AI vision quality assessment (null if vision unavailable) */
   quality?: ImageQualityResult | null;
-  /** Actual image dimensions if determinable */
   dimensions?: { width: number; height: number } | null;
 }
 
 /**
- * AI image discovery — finds logo, favicon, and images for a business.
- * All URLs are proxied through /api/image-proxy for CORS safety.
- *
- * Enhanced with:
- * - GPT-4o vision quality inspection on ALL discovered images
- * - Homepage <img> tag scraping for large content images
- * - Business domain prioritization in CSE queries
- * - Favicon dimension validation (rejects sub-64px favicons)
- * - Brand quality assessment and asset triage
+ * AI image discovery — finds logo, favicon, and images for a business. All URLs
+ * are proxied through /api/image-proxy for CORS safety.
  *
  * @remarks
- * Every image returned by this endpoint has been:
- * 1. Validated for reachability (HTTP HEAD/GET)
- * 2. Checked for minimum dimensions (>= 64px for icons, >= 400px for photos)
- * 3. Inspected by GPT-4o vision for quality, professionalism, and safety
- * 4. Annotated with a quality score and usage recommendation
+ * Every image returned has been (1) validated for reachability (HTTP HEAD/GET),
+ * (2) checked for minimum dimensions (>= 64px icons, >= 400px photos), (3)
+ * inspected by GPT-4o vision, and (4) annotated with a quality score + usage rec.
  */
 search.post('/api/ai/discover-images', async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as {
@@ -2060,7 +1977,7 @@ search.post('/api/ai/discover-images', async (c) => {
         scrapedHtml = await siteRes.text();
       }
     } catch {
-      // Scraping failed — will use fallbacks
+      // Scraping failed — will use fallbacks.
     }
   }
 
@@ -2068,15 +1985,14 @@ search.post('/api/ai/discover-images', async (c) => {
   let logo: DiscoveredImage | null = null;
   let favicon: DiscoveredImage | null = null;
   if (domain && scrapedHtml) {
-    // Try og:image first (usually highest quality brand image)
+    // og:image is usually the highest-quality brand image.
     const ogMatch =
       scrapedHtml.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) ||
       scrapedHtml.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-    // Try apple-touch-icon (usually the logo at 180px+)
+    // apple-touch-icon is usually the logo at 180px+.
     const appleMatch = scrapedHtml.match(
       /<link[^>]+rel=["']apple-touch-icon["'][^>]+href=["']([^"']+)["']/i,
     );
-    // Try any large favicon
     const iconMatch = scrapedHtml.match(
       /<link[^>]+rel=["']icon["'][^>]+sizes=["'](\d+)x\d+["'][^>]+href=["']([^"']+)["']/i,
     );
@@ -2103,7 +2019,7 @@ search.post('/api/ai/discover-images', async (c) => {
     }
   }
 
-  // Try Logo.dev API for high-res company logo
+  // Try Logo.dev API for high-res company logo.
   if (!logo && domain && c.env.LOGODEV_TOKEN) {
     try {
       const logodevUrl = `https://img.logo.dev/${domain}?token=${c.env.LOGODEV_TOKEN}&size=256&format=png&retina=true`;
@@ -2122,7 +2038,7 @@ search.post('/api/ai/discover-images', async (c) => {
     }
   }
 
-  // Try Brandfetch API for full brand kit
+  // Try Brandfetch API for full brand kit.
   let brandfetchData: {
     logo_url?: string;
     icon_url?: string;
@@ -2141,7 +2057,6 @@ search.post('/api/ai/discover-images', async (c) => {
           colors?: { hex: string; type: string }[];
           fonts?: { name: string; type: string }[];
         };
-        // Extract best logo
         const bfLogos = bfData.logos || [];
         const primaryLogo = bfLogos.find((l) => l.type === 'logo') || bfLogos[0];
         const logoSrc =
@@ -2156,7 +2071,6 @@ search.post('/api/ai/discover-images', async (c) => {
             source: 'website-scrape',
           };
         }
-        // Extract icon for favicon
         const bfIcon = bfData.icons?.[0]?.formats?.[0]?.src;
         if (bfIcon) {
           const iconDims = await getImageDimensions(bfIcon);
@@ -2183,7 +2097,7 @@ search.post('/api/ai/discover-images', async (c) => {
     }
   }
 
-  // Fallback: Google's faviconV2 at max resolution
+  // Fallback: Google's faviconV2 at max resolution.
   if (!logo && domain) {
     const googleFavUrl = `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://${domain}&size=256`;
     logo = {
@@ -2197,7 +2111,7 @@ search.post('/api/ai/discover-images', async (c) => {
 
   // ── Step 3: Extract favicon with dimension validation ──
   if (domain && scrapedHtml) {
-    // Look for large icons: 512px, 384px, 256px, 192px
+    // Look for large icons: 512px, 384px, 256px, 192px.
     const largeIconMatch = scrapedHtml.match(
       /<link[^>]+rel=["'](?:apple-touch-icon|icon)["'][^>]+sizes=["'](\d+)x\d+["'][^>]+href=["']([^"']+)["']/gi,
     );
@@ -2216,7 +2130,7 @@ search.post('/api/ai/discover-images', async (c) => {
         }
       }
     }
-    // Also try apple-touch-icon without sizes (usually 180px)
+    // apple-touch-icon without sizes is usually 180px.
     if (!bestUrl || bestSize < 180) {
       const appleM = scrapedHtml.match(
         /<link[^>]+rel=["']apple-touch-icon["'][^>]+href=["']([^"']+)["']/i,
@@ -2231,7 +2145,7 @@ search.post('/api/ai/discover-images', async (c) => {
       if (bestUrl.startsWith('/')) bestUrl = `https://${domain}${bestUrl}`;
       else if (!bestUrl.startsWith('http')) bestUrl = `https://${domain}/${bestUrl}`;
 
-      // Validate actual dimensions — reject sub-64px favicons
+      // Validate actual dimensions — reject sub-64px favicons.
       const dims = await getImageDimensions(bestUrl);
       if (dims && dims.width >= 64 && dims.height >= 64) {
         favicon = {
@@ -2257,7 +2171,7 @@ search.post('/api/ai/discover-images', async (c) => {
       }
     }
 
-    // If no valid favicon from HTML tags, try the standard /favicon.ico and /favicon.png paths
+    // If no valid favicon from HTML tags, try the standard favicon paths.
     if (!favicon) {
       for (const path of [
         '/apple-touch-icon.png',
@@ -2282,10 +2196,9 @@ search.post('/api/ai/discover-images', async (c) => {
     }
   }
 
-  // Fallback: Google faviconV2 at 256px (only if we have a domain and no valid favicon yet)
+  // Fallback: Google faviconV2 at 256px (only if we have a domain and no favicon yet).
   if (!favicon && domain) {
     const googleFavUrl = `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://${domain}&size=256`;
-    // Validate the Google favicon is not a generic globe/placeholder
     const dims = await getImageDimensions(googleFavUrl);
     if (dims && dims.width >= 64 && dims.height >= 64) {
       favicon = {
@@ -2306,10 +2219,9 @@ search.post('/api/ai/discover-images', async (c) => {
   const bizName = body.name;
   const slug = bizName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
-  // 4a: Scrape <img> tags from the business homepage for large content images
+  // 4a: Scrape <img> tags from the business homepage for large content images.
   if (domain && scrapedHtml) {
     const pageImages = scrapePageImages(scrapedHtml, domain);
-    // Validate dimensions and reachability for scraped images
     const scraped = await Promise.all(
       pageImages.slice(0, 10).map(async (imgUrl) => {
         const dims = await getImageDimensions(imgUrl);
@@ -2320,7 +2232,7 @@ search.post('/api/ai/discover-images', async (c) => {
       }),
     );
     const validScraped = scraped.filter((s): s is NonNullable<typeof s> => s !== null);
-    // Sort by area (largest first) — best content images tend to be large
+    // Largest area first — best content images tend to be large.
     validScraped.sort((a, b) => b.width * b.height - a.width * a.height);
     for (let i = 0; i < Math.min(validScraped.length, 5); i++) {
       images.push({
@@ -2334,7 +2246,7 @@ search.post('/api/ai/discover-images', async (c) => {
     }
   }
 
-  // 4b: Google Custom Search for additional images
+  // 4b: Google Custom Search for additional images.
   if (cseKey && cseCx) {
     try {
       const blocked =
@@ -2343,9 +2255,8 @@ search.post('/api/ai/discover-images', async (c) => {
       const city = addr.split(',').slice(1, 2).join('').trim();
       const locationCtx = city ? ` ${city}` : '';
 
-      // Enhanced queries — include business domain to prioritize their own hosted images
       const queries = [
-        // Prioritize images hosted on the business's own website
+        // Prioritize images hosted on the business's own website.
         ...(domain ? [`site:${domain} -icon -logo -badge -sprite`] : []),
         `"${bizName}"${locationCtx} official photo -watermark -stock -getty -shutterstock -hotel`,
         `"${bizName}"${locationCtx} site:wikipedia.org OR site:flickr.com OR site:commons.wikimedia.org`,
@@ -2386,7 +2297,7 @@ search.post('/api/ai/discover-images', async (c) => {
       });
       await Promise.all(searchPromises);
 
-      // Deduplicate (also dedup against scraped images)
+      // Deduplicate (also against scraped images).
       const seen = new Set<string>(seenFromScrape);
       const unique = allCandidates.filter((item) => {
         if (seen.has(item.url)) return false;
@@ -2394,7 +2305,6 @@ search.post('/api/ai/discover-images', async (c) => {
         return true;
       });
 
-      // Validate reachability + minimum size
       const validated: typeof unique = [];
       await Promise.all(
         unique.slice(0, 20).map(async (item) => {
@@ -2432,7 +2342,7 @@ search.post('/api/ai/discover-images', async (c) => {
     }
   }
 
-  // 4c: Unsplash — high-quality royalty-free photos
+  // 4c: Unsplash — high-quality royalty-free photos.
   const unsplashKey = c.env.UNSPLASH_ACCESS_KEY;
   if (unsplashKey && images.length < 14) {
     try {
@@ -2470,7 +2380,7 @@ search.post('/api/ai/discover-images', async (c) => {
     }
   }
 
-  // 4d: Foursquare — venue photos
+  // 4d: Foursquare — venue photos.
   const foursquareKey = c.env.FOURSQUARE_API_KEY;
   if (foursquareKey && images.length < 14) {
     try {
@@ -2515,7 +2425,7 @@ search.post('/api/ai/discover-images', async (c) => {
     }
   }
 
-  // 4e: Yelp — business photos
+  // 4e: Yelp — business photos.
   const yelpKey = c.env.YELP_API_KEY;
   if (yelpKey && images.length < 14) {
     try {
@@ -2593,7 +2503,7 @@ search.post('/api/ai/discover-images', async (c) => {
       );
     }
 
-    // Inspect all discovered images in parallel (batch of 6 at a time to avoid rate limits)
+    // Inspect discovered images in batches of 6 to avoid rate limits.
     for (let batch = 0; batch < images.length; batch += 6) {
       const batchImages = images.slice(batch, batch + 6);
       const batchTasks = batchImages.map((img) =>
@@ -2609,10 +2519,10 @@ search.post('/api/ai/discover-images', async (c) => {
       inspectionTasks.push(...batchTasks);
     }
 
-    // Wait for all inspections (with a 15s timeout so we don't block forever).
-    // The timer MUST be cleared once allSettled wins the race — otherwise the
-    // dangling 15s setTimeout keeps the runtime alive (a real test force-exit:
-    // "worker failed to exit gracefully", + minor prod resource waste per call).
+    // Wait for all inspections (15s timeout so we don't block forever). The timer
+    // MUST be cleared once allSettled wins the race — otherwise the dangling 15s
+    // setTimeout keeps the runtime alive ("worker failed to exit gracefully" in a
+    // real test force-exit, + minor prod resource waste per call).
     let inspectionTimer: ReturnType<typeof setTimeout> | undefined;
     await Promise.race([
       Promise.allSettled(inspectionTasks),
@@ -2622,7 +2532,6 @@ search.post('/api/ai/discover-images', async (c) => {
     ]);
     clearTimeout(inspectionTimer);
 
-    // Filter out unsafe or rejected images
     if (logo?.quality && (!logo.quality.is_safe || logo.quality.recommendation === 'reject')) {
       console.warn(
         JSON.stringify({
@@ -2651,14 +2560,13 @@ search.post('/api/ai/discover-images', async (c) => {
       favicon = null;
     }
 
-    // Remove unsafe, rejected, padded, or irrelevant images
     const filteredImages = images.filter((img) => {
       if (!img.quality) return true; // Vision unavailable — keep
-      if (!img.quality.is_safe) return false; // Unsafe — remove
-      if (img.quality.recommendation === 'reject') return false; // Explicitly rejected
-      // Reject images with excessive padding and low quality
+      if (!img.quality.is_safe) return false;
+      if (img.quality.recommendation === 'reject') return false;
+      // Excessive padding + low quality.
       if (img.quality.has_padding && img.quality.quality_score < 60) return false;
-      // Reject generic CAD renderings with low business relevance
+      // Generic CAD rendering with low business relevance.
       if (img.quality.is_generic_rendering && (img.quality.business_relevance ?? 0) < 0.5)
         return false;
       return true;
@@ -2666,7 +2574,7 @@ search.post('/api/ai/discover-images', async (c) => {
     images.length = 0;
     images.push(...filteredImages);
 
-    // Sort by quality score (highest first) so best images appear first in UI
+    // Highest quality first so the best images appear first in the UI.
     images.sort((a, b) => (b.quality?.quality_score ?? 50) - (a.quality?.quality_score ?? 50));
   }
 
@@ -2684,7 +2592,6 @@ search.post('/api/ai/discover-images', async (c) => {
     try {
       const titleMatch = scrapedHtml.match(/<title[^>]*>([^<]+)<\/title>/i);
       const pageTitle = titleMatch?.[1]?.trim() || '';
-      // Count quality signals
       const hasOgImage = /<meta[^>]+property=["']og:image/i.test(scrapedHtml);
       const hasAppleTouchIcon = /<link[^>]+rel=["']apple-touch-icon/i.test(scrapedHtml);
       const hasStructuredData = /application\/ld\+json/i.test(scrapedHtml);
@@ -2692,7 +2599,7 @@ search.post('/api/ai/discover-images', async (c) => {
       const hasSsl = website.startsWith('https');
       const imgCount = (scrapedHtml.match(/<img[^>]+>/gi) || []).length;
 
-      // Simple heuristic scoring (0-100) for website quality
+      // Heuristic website-quality score (0-100).
       let siteScore = 20; // base
       if (hasOgImage) siteScore += 15;
       if (hasAppleTouchIcon) siteScore += 10;
@@ -2736,16 +2643,15 @@ search.post('/api/ai/discover-images', async (c) => {
         recommendation,
       };
     } catch {
-      // Brand assessment is non-critical
+      // Brand assessment is non-critical.
     }
   }
 
-  // Enrich brand assessment with Brandfetch data if available
   if (brandAssessment && brandfetchData) {
     (brandAssessment as any).brandfetch = brandfetchData;
   }
 
-  // Clean response — strip internal fields
+  // Strip internal fields from the response.
   const cleanImage = (img: DiscoveredImage) => ({
     url: img.url,
     name: img.name,
@@ -2766,16 +2672,12 @@ search.post('/api/ai/discover-images', async (c) => {
 });
 
 /**
- * Video discovery — finds relevant videos for a business from YouTube, Pexels, and Pixabay.
- * Returns embeddable video URLs with attribution metadata for the legal/attribution page.
+ * Video discovery — finds relevant videos for a business from YouTube, Pexels,
+ * and Pixabay. All videos include attribution data for the `/attribution` page.
  *
  * @remarks
- * Sources (in priority order):
- * 1. YouTube Data API v3 — official business channel videos, location-specific content
- * 2. Pexels Video API — royalty-free stock videos matching business type
- * 3. Pixabay Video API — royalty-free stock videos as fallback
- *
- * All videos include attribution data for the `/attribution` page.
+ * Sources in priority order: (1) YouTube Data API v3 — official channel /
+ * location-specific content, (2) Pexels Video API, (3) Pixabay Video API.
  */
 search.post('/api/ai/discover-videos', async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as {
@@ -2803,7 +2705,7 @@ search.post('/api/ai/discover-videos', async (c) => {
   const addr = body.address || '';
   const city = addr.split(',').slice(1, 2).join('').trim();
 
-  // 1. YouTube Data API — search for business-specific videos
+  // 1. YouTube Data API — search for business-specific videos.
   const youtubeKey = c.env.YOUTUBE_API_KEY;
   if (youtubeKey) {
     try {
@@ -2851,7 +2753,7 @@ search.post('/api/ai/discover-videos', async (c) => {
     }
   }
 
-  // 2. Pexels Video API — royalty-free stock videos
+  // 2. Pexels Video API — royalty-free stock videos.
   const pexelsKey = c.env.PEXELS_API_KEY;
   if (pexelsKey && videos.length < 5) {
     try {
@@ -2898,7 +2800,7 @@ search.post('/api/ai/discover-videos', async (c) => {
     }
   }
 
-  // 3. Pixabay Video API — royalty-free fallback
+  // 3. Pixabay Video API — royalty-free fallback.
   const pixabayKey = c.env.PIXABAY_API_KEY;
   if (pixabayKey && videos.length < 3) {
     try {
@@ -2940,7 +2842,6 @@ search.post('/api/ai/discover-videos', async (c) => {
     }
   }
 
-  // Deduplicate by embed URL
   const seen = new Set<string>();
   const unique = videos.filter((v) => {
     if (seen.has(v.embed_url)) return false;
@@ -2948,7 +2849,7 @@ search.post('/api/ai/discover-videos', async (c) => {
     return true;
   });
 
-  // Sort: business-specific first, then by source priority
+  // Business-specific first, then by source priority.
   unique.sort((a, b) => {
     if (a.relevance !== b.relevance) return a.relevance === 'business_specific' ? -1 : 1;
     const srcOrder = { youtube: 0, pexels: 1, pixabay: 2 };
@@ -2984,7 +2885,7 @@ search.post('/api/ai/edit-image', async (c) => {
   }
 
   try {
-    // If original image URL provided, first describe it with GPT-4o Vision, then edit
+    // If an original image URL is provided, describe it with GPT-4o Vision first, then edit.
     let editPrompt = body.prompt;
     if (body.originalUrl) {
       try {
@@ -3049,7 +2950,7 @@ search.post('/api/ai/edit-image', async (c) => {
       return c.json({ error: { code: 'AI_ERROR', message: 'No image returned' } }, 502);
     }
 
-    // Proxy the generated image through our endpoint for CORS
+    // Proxy the generated image through our endpoint for CORS.
     const baseProxy = `https://${DOMAINS.SITES_BASE}/api/image-proxy?url=`;
     return c.json({
       data: {
@@ -3079,9 +2980,8 @@ search.get('/api/domains/availability', async (c) => {
 
   const apiKey = c.env.WHOISXML_API_KEY;
 
-  // Strip TLD if provided, keep the base name
-  const baseName = name.replace(/\.[a-z]+$/i, '');
-  // Check exact name across popular TLDs + creative variations likely to be available
+  const baseName = name.replace(/\.[a-z]+$/i, ''); // strip TLD if provided
+  // Check the base name across popular TLDs + creative variations likely to be available.
   const exactTlds = ['com', 'net', 'io', 'co', 'dev', 'site'];
   const variations = [
     ...exactTlds.map((tld) => `${baseName}.${tld}`),
@@ -3092,14 +2992,13 @@ search.get('/api/domains/availability', async (c) => {
     `${baseName}.app`,
     `${baseName}.org`,
   ];
-  // Deduplicate
   const domains = [...new Set(variations)];
 
   /**
-   * RDAP fallback for domain availability checks.
-   * Verisign (.com/.net) is queried directly; others go through rdap.org bootstrap.
-   * RDAP returns 404 for unregistered domains and 200 for registered ones.
-   * Used when WhoisXML credits are exhausted or API key is missing.
+   * RDAP fallback for domain availability. Verisign (.com/.net) is queried
+   * directly; others go through rdap.org bootstrap. RDAP returns 404 for
+   * unregistered domains and 200 for registered ones. Used when WhoisXML credits
+   * are exhausted or the API key is missing.
    */
   const rdapServers: Record<string, string> = {
     com: 'https://rdap.verisign.com/com/v1/domain',
@@ -3112,7 +3011,7 @@ search.get('/api/domains/availability', async (c) => {
     const url = server ? `${server}/${domain}` : `https://rdap.org/domain/${domain}`;
     const controller = new AbortController();
     // `clearTimeout` in `finally` so a thrown fetch (catch path) can't leak the
-    // 8s abort-timer (the f86/f87 abort-timer-leak class; sibling sites in
+    // 8s abort-timer (the abort-timer-leak class; sibling sites in
     // external_llm/newsletter_dispatch already clear in finally).
     const timeoutId = setTimeout(() => controller.abort(), 8000);
     try {
@@ -3121,10 +3020,10 @@ search.get('/api/domains/availability', async (c) => {
         redirect: 'follow',
         headers: { Accept: 'application/rdap+json' },
       });
-      // 404 = not registered = available; 200 = registered = unavailable
+      // 404 = not registered = available; 200 = registered = unavailable.
       return { domain, available: rdapRes.status === 404 };
     } catch (err) {
-      // Network error or timeout — conservatively mark as unknown/unavailable
+      // Network error or timeout — conservatively mark as unavailable.
       console.warn(`[domain-availability] RDAP check failed for ${domain}:`, err);
       return { domain, available: false };
     } finally {
@@ -3132,17 +3031,16 @@ search.get('/api/domains/availability', async (c) => {
     }
   }
 
-  // Check all TLDs in parallel via WhoisXML (with RDAP fallback)
+  // Check all TLDs in parallel via WhoisXML (with RDAP fallback).
   const results = await Promise.allSettled(
     domains.map(async (domain) => {
-      // Check KV cache first (5 min TTL)
+      // KV cache first (5 min TTL).
       const cacheKey = `domavail:${domain}`;
       const cached = await c.env.CACHE_KV.get(cacheKey);
       if (cached !== null) {
         return { domain, available: cached === '1' };
       }
 
-      // If no API key, go straight to RDAP fallback
       if (!apiKey) {
         const result = await checkViaRdap(domain);
         await c.env.CACHE_KV.put(cacheKey, result.available ? '1' : '0', {
@@ -3155,14 +3053,14 @@ search.get('/api/domains/availability', async (c) => {
         `https://domain-availability.whoisxmlapi.com/api/v1?apiKey=${apiKey}&domainName=${encodeURIComponent(domain)}&credits=DA`,
       );
 
-      // Parse body regardless of status — WhoisXML may return 200 with error body
+      // Parse body regardless of status — WhoisXML may return 200 with an error body.
       const data = (await res.json().catch(() => ({}))) as {
         DomainInfo?: { domainAvailability?: string };
         code?: number;
         messages?: string;
       };
 
-      // Fall back to RDAP if: non-OK status, error code in body, or credits exhausted message
+      // Fall back to RDAP on non-OK status, error code in body, or credits-exhausted message.
       const isApiError =
         !res.ok ||
         (typeof data.code === 'number' && data.code >= 400) ||
@@ -3181,7 +3079,6 @@ search.get('/api/domains/availability', async (c) => {
 
       const available = data.DomainInfo.domainAvailability === 'AVAILABLE';
 
-      // Cache for 5 minutes
       await c.env.CACHE_KV.put(cacheKey, available ? '1' : '0', { expirationTtl: 300 }).catch(
         () => {},
       );
@@ -3277,12 +3174,9 @@ search.post('/api/conversion/checkout', async (c) => {
 // ── Public Site Data API (read-only, for live polling from generated sites) ──
 
 /**
- * Public read-only endpoint for per-site D1 data tables.
- * Generated websites poll this to stay in sync when clients edit data.
- *
- * Allowed tables (whitelisted to prevent data leaks):
- * services, team_members, business_hours, faq, menu_items, gallery,
- * social_links, specials, products, classes, listings, amenities, reviews
+ * Public read-only endpoint for per-site D1 data tables. Generated websites poll
+ * this to stay in sync when clients edit data. Tables are whitelisted below to
+ * prevent data leaks.
  */
 const ALLOWED_PUBLIC_TABLES = new Set([
   'services',
@@ -3308,7 +3202,7 @@ search.get('/api/public-data/:table', async (c) => {
     return c.json({ error: { code: 'BAD_REQUEST', message: 'Unknown table' } }, 400);
   }
 
-  // Resolve site from hostname (subdomain or custom domain)
+  // Resolve site from hostname (subdomain or custom domain).
   const hostname = c.req.header('host') || '';
   const { resolveSite } = await import('../services/site_serving.js');
   const site = await resolveSite(c.env, c.env.DB, hostname);
@@ -3316,7 +3210,6 @@ search.get('/api/public-data/:table', async (c) => {
     return c.json({ error: { code: 'NOT_FOUND', message: 'Site not found' } }, 404);
   }
 
-  // Query the site's data table (stored in the shared DB with site_id scoping)
   try {
     const result = await c.env.DB.prepare(
       `SELECT * FROM site_data WHERE site_id = ? AND table_name = ? AND deleted_at IS NULL ORDER BY sort_order ASC, created_at ASC`,
@@ -3324,7 +3217,6 @@ search.get('/api/public-data/:table', async (c) => {
       .bind(site.site_id, table)
       .all();
 
-    // Parse the JSON data column for each row
     const rows = (result.results || []).map((row: Record<string, unknown>) => {
       try {
         return { id: row['id'], ...JSON.parse((row['data_json'] as string | undefined) ?? '{}') };
@@ -3349,7 +3241,7 @@ search.get('/api/public-data/:table', async (c) => {
  * IDOR guard for the `/api/sites/:siteId/data/*` family: every handler scopes its
  * query by the `:siteId` PATH param alone, so without verifying that site belongs to
  * the caller's org a user could read/write/delete ANOTHER org's `site_data` by passing
- * a foreign siteId (orgId was only used for the 401 auth check). Returns false → 404. (fire 18)
+ * a foreign siteId (orgId was only used for the 401 auth check). Returns false → 404.
  */
 async function ownsSiteData(db: D1Database, siteId: string, orgId: string): Promise<boolean> {
   const row = await db
@@ -3359,7 +3251,7 @@ async function ownsSiteData(db: D1Database, siteId: string, orgId: string): Prom
   return !!row;
 }
 
-/** Authenticated endpoint for admin to read/write site data */
+/** Authenticated endpoint for admin to read/write site data. */
 search.get('/api/sites/:siteId/data/:table', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId)
@@ -3392,7 +3284,7 @@ search.get('/api/sites/:siteId/data/:table', async (c) => {
   return c.json({ data: rows });
 });
 
-/** Upsert a row in a site data table */
+/** Upsert a row in a site data table. */
 search.put('/api/sites/:siteId/data/:table/:rowId', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId)
@@ -3428,7 +3320,7 @@ search.put('/api/sites/:siteId/data/:table/:rowId', async (c) => {
   return c.json({ data: { id: rowId, updated: true } });
 });
 
-/** Delete a row from a site data table */
+/** Delete a row from a site data table. */
 search.delete('/api/sites/:siteId/data/:table/:rowId', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId)
@@ -3446,7 +3338,7 @@ search.delete('/api/sites/:siteId/data/:table/:rowId', async (c) => {
   return c.json({ data: { id: rowId, deleted: true } });
 });
 
-/** List all tables for a site (for admin AG Grid) */
+/** List all tables for a site (for admin AG Grid). */
 search.get('/api/sites/:siteId/data', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId)
@@ -3506,7 +3398,7 @@ search.post('/api/container-query', async (c) => {
   return c.json({ ok: true, meta: result.meta });
 });
 
-/** Serve the container build server script from R2 (used by container entrypoint bootstrap) */
+/** Serve the container build server script from R2 (used by container entrypoint bootstrap). */
 search.get('/api/container-script', async (c) => {
   const obj = await c.env.SITES_BUCKET.get('container/build-server.js');
   if (!obj) {

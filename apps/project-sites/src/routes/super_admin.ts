@@ -6,15 +6,6 @@
  * Non-super-admin requests get a 403. Sibling customer-facing `billing.component.ts`
  * routes are untouched — this is a separate, privileged surface.
  *
- * | Path                                              | Purpose                                  |
- * | ------------------------------------------------- | ---------------------------------------- |
- * | `GET  /api/super-admin/cost-categories`           | List all cost rows                       |
- * | `PATCH /api/super-admin/cost-categories/:slug`    | Tune markup_factor / base / billable     |
- * | `GET  /api/super-admin/wallets`                   | Search orgs + wallet status              |
- * | `GET  /api/super-admin/wallets/:org_id/transactions` | Drill-down ledger                     |
- * | `GET  /api/super-admin/stats`                     | Margin-calculator data                   |
- * | `POST /api/super-admin/manual-adjustment`         | Credit/debit a wallet manually           |
- *
  * @packageDocumentation
  */
 
@@ -54,13 +45,6 @@ superAdmin.use('/api/super-admin/*', requireSuperAdmin);
 
 // ─── Cost categories ────────────────────────────────────────────────────────
 
-/**
- * `GET /api/super-admin/cost-categories` — List every cost category with its
- * current markup factor, base cost, minimum charge, billable flag and
- * description.
- *
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.get('/api/super-admin/cost-categories', async (c) => {
   const { data } = await dbQuery(
     c.env.DB,
@@ -81,19 +65,6 @@ const patchCategorySchema = z
   })
   .refine((o) => Object.keys(o).length > 0, { message: 'At least one field required' });
 
-/**
- * `PATCH /api/super-admin/cost-categories/:slug` — Tune the markup factor,
- * base cost, minimum charge, billable flag, or description for one cost
- * category.
- *
- * @remarks
- * Body: any subset of {@link patchCategorySchema}. Must include at least
- * one field. Stamps `updated_by` with the caller's user id.
- *
- * @throws 400 BAD_REQUEST when payload validation fails.
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- * @throws 404 NOT_FOUND when the slug doesn't exist.
- */
 superAdmin.patch(
   '/api/super-admin/cost-categories/:slug',
   zValidator('json', patchCategorySchema),
@@ -136,17 +107,6 @@ superAdmin.patch(
 
 // ─── Wallets list + search ──────────────────────────────────────────────────
 
-/**
- * `GET /api/super-admin/wallets?q=&status=&limit=` — Search org wallets with
- * subscription state and balance.
- *
- * @remarks
- * `q` matches org id/name/slug substring (case-insensitive). `status`
- * filters by subscription_status (`active|past_due|canceled|inactive`).
- * `limit` defaults to 100, capped at 500.
- *
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.get('/api/super-admin/wallets', async (c) => {
   const q = (c.req.query('q') ?? '').trim();
   const status = c.req.query('status') ?? '';
@@ -188,16 +148,6 @@ superAdmin.get('/api/super-admin/wallets', async (c) => {
 
 // ─── Per-wallet transaction drill-down ──────────────────────────────────────
 
-/**
- * `GET /api/super-admin/wallets/:org_id/transactions?days=&category=&direction=`
- * — Per-org wallet ledger drill-down.
- *
- * @remarks
- * `days` is 1–365 (default 30). `category` filters by cost slug. `direction`
- * is one of `credit|debit|refund|adjustment`. Hard-capped at 1000 rows.
- *
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.get('/api/super-admin/wallets/:org_id/transactions', async (c) => {
   const orgId = c.req.param('org_id');
   const days = Math.min(parseInt(c.req.query('days') ?? '30', 10) || 30, 365);
@@ -235,17 +185,6 @@ superAdmin.get('/api/super-admin/wallets/:org_id/transactions', async (c) => {
 
 // ─── Margin calculator stats ───────────────────────────────────────────────
 
-/**
- * `GET /api/super-admin/stats?days=` — Margin-calculator aggregates for
- * the super-admin dashboard.
- *
- * @remarks
- * Returns per-category gross charged vs. base cost vs. net margin,
- * daily trend, and top-line counters (total orgs, active subs, monthly
- * revenue, topups today). `days` is 1–365 (default 30).
- *
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.get('/api/super-admin/stats', async (c) => {
   const days = Math.min(parseInt(c.req.query('days') ?? '30', 10) || 30, 365);
 
@@ -279,7 +218,6 @@ superAdmin.get('/api/super-admin/stats', async (c) => {
     [`-${days} days`],
   );
 
-  // Top-line counters.
   const totals = await dbQueryOne<{
     total_orgs: number;
     active_subs: number;
@@ -323,17 +261,6 @@ superAdmin.get('/api/super-admin/stats', async (c) => {
 
 // ─── Recent transactions feed (org-wide) ───────────────────────────────────
 
-/**
- * `GET /api/super-admin/transactions?days=&category=&direction=&limit=` —
- * Org-wide recent transactions feed.
- *
- * @remarks
- * `days` is 1–90 (default 7). `category` filters by cost slug. `direction`
- * is one of `credit|debit|refund|adjustment`. `limit` defaults to 100,
- * capped at 500.
- *
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.get('/api/super-admin/transactions', async (c) => {
   const days = Math.min(parseInt(c.req.query('days') ?? '7', 10) || 7, 90);
   const category = c.req.query('category') ?? '';
@@ -379,18 +306,9 @@ const adjustmentSchema = z.object({
 });
 
 /**
- * `POST /api/super-admin/manual-adjustment` — Credit or debit an org's
- * wallet manually with an auditable reason.
- *
- * @remarks
- * Body: `{ org_id, amount_cents, reason }`. Positive = credit, negative =
- * debit. `reason` is mandatory (3-500 chars) — surfaces in the customer's
- * ledger. Calls {@link manualAdjustment} which writes both the wallet
- * transaction and the audit row atomically.
- *
- * @throws 400 BAD_REQUEST when payload validation fails.
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- * @throws 404 NOT_FOUND when the org has no wallet yet.
+ * Credit or debit an org's wallet manually. `reason` is mandatory (3-500 chars)
+ * — it surfaces in the customer's ledger. {@link manualAdjustment} writes the
+ * wallet transaction and the audit row atomically.
  */
 superAdmin.post(
   '/api/super-admin/manual-adjustment',
@@ -410,29 +328,16 @@ superAdmin.post(
 // ─── Public: am-I-super-admin check (used by frontend guard) ──────────────
 
 /**
- * `GET /api/super-admin/whoami` — Frontend guard probe.
- *
- * @remarks
- * Returns `{ is_super_admin: true, user_id }` because the
- * {@link requireSuperAdmin} middleware already rejected non-admins with
- * 401/403. The frontend hits this to decide whether to render the
- * super-admin nav.
- *
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
+ * Frontend guard probe. Returns `{ is_super_admin: true }` unconditionally
+ * because {@link requireSuperAdmin} already rejected non-admins with 401/403.
  */
 superAdmin.get('/api/super-admin/whoami', async (c) => {
-  // Already passed the requireSuperAdmin middleware, so true by construction.
   return c.json({ is_super_admin: true, user_id: c.get('userId') });
 });
 
 /**
- * `GET /api/super-admin/services` — the platform service catalog (§66). Returns
- * the typed {@link SERVICE_REGISTRY} (every system ProjectSites runs/depends on:
- * edge, data, auth, jobs, billing, the self-hosted subdomain containers, …) so the
- * operator-only `/admin/system-services` view can render status + domain + runtime.
- * Read-only; the registry is the source of truth (kept in lockstep with reality).
- *
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
+ * Read-only platform service catalog (§66). {@link SERVICE_REGISTRY} is the
+ * source of truth kept in lockstep with reality; drives `/admin/system-services`.
  */
 superAdmin.get('/api/super-admin/services', async (c) => {
   return c.json({
@@ -494,16 +399,6 @@ const proGrantSchema = z.object({
   expires_at: z.string().datetime().nullable().optional(),
 });
 
-/**
- * `POST /api/super-admin/pro/grant` — Grant a user the Pro entitlement.
- *
- * @remarks
- * Body: `{ user_id, reason: 'subscription'|'comp'|'lifetime'|'beta',
- * expires_at? }`. Sets `users.is_pro = 1` plus grant metadata. Audit-logged.
- *
- * @throws 400 BAD_REQUEST when payload validation fails.
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.post('/api/super-admin/pro/grant', zValidator('json', proGrantSchema), async (c) => {
   const body = c.req.valid('json');
   const userId = c.get('userId') as string;
@@ -520,16 +415,6 @@ superAdmin.post('/api/super-admin/pro/grant', zValidator('json', proGrantSchema)
   return c.json({ ok: true });
 });
 
-/**
- * `POST /api/super-admin/pro/revoke` — Revoke a user's Pro entitlement.
- *
- * @remarks
- * Body: `{ user_id, reason }`. Sets `users.is_pro = 0` and clears grant
- * metadata. Audit-logged with the supplied reason.
- *
- * @throws 400 BAD_REQUEST when payload validation fails.
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.post(
   '/api/super-admin/pro/revoke',
   zValidator('json', z.object({ user_id: z.string(), reason: z.string() })),
@@ -551,11 +436,6 @@ superAdmin.post(
 
 // ─── Coupons ───────────────────────────────────────────────────────────────
 
-/**
- * `GET /api/super-admin/coupons` — List active and expired coupon codes.
- *
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.get('/api/super-admin/coupons', async (c) => {
   const { data } = await dbQuery(
     c.env.DB,
@@ -575,16 +455,6 @@ const couponSchema = z.object({
   expires_at: z.string().datetime().optional(),
 });
 
-/**
- * `POST /api/super-admin/coupons` — Mint a new coupon code.
- *
- * @remarks
- * Body: {@link couponSchema}. Audit-logged on success.
- *
- * @throws 400 BAD_REQUEST when payload validation fails.
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- * @throws 409 CONFLICT when the code already exists.
- */
 superAdmin.post('/api/super-admin/coupons', zValidator('json', couponSchema), async (c) => {
   const body = c.req.valid('json');
   const userId = c.get('userId') as string;
@@ -606,12 +476,6 @@ superAdmin.post('/api/super-admin/coupons', zValidator('json', couponSchema), as
   return c.json({ code: body.code }, 201);
 });
 
-/**
- * `DELETE /api/super-admin/coupons/:code` — Disable a coupon code.
- *
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- * @throws 404 NOT_FOUND when the code doesn't exist.
- */
 superAdmin.delete('/api/super-admin/coupons/:code', async (c) => {
   const code = c.req.param('code');
   await c.env.DB.prepare('DELETE FROM coupons WHERE code = ?').bind(code).run();
@@ -630,16 +494,8 @@ const refundSchema = z.object({
 });
 
 /**
- * `POST /api/super-admin/refunds` — Issue a Stripe refund + matching
- * wallet adjustment.
- *
- * @remarks
- * Body: {@link refundSchema}. Calls Stripe Refunds API then writes a
- * `direction='refund'` row to `wallet_transactions`. Audit-logged.
- *
- * @throws 400 BAD_REQUEST when payload validation fails.
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- * @throws 502 BAD_GATEWAY when the upstream Stripe call fails.
+ * Issue a Stripe refund + matching wallet adjustment. Calls the Stripe Refunds
+ * API (when a charge id is supplied) then writes a `direction='refund'` row.
  */
 superAdmin.post('/api/super-admin/refunds', zValidator('json', refundSchema), async (c) => {
   const body = c.req.valid('json');
@@ -733,11 +589,6 @@ superAdmin.post('/api/super-admin/refunds', zValidator('json', refundSchema), as
   return c.json({ id, status, stripe_refund_id: stripeRefundId }, 201);
 });
 
-/**
- * `GET /api/super-admin/refunds` — List recent refunds with reason + actor.
- *
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.get('/api/super-admin/refunds', async (c) => {
   const { data } = await dbQuery(
     c.env.DB,
@@ -759,17 +610,6 @@ const broadcastSchema = z.object({
   scheduled_at: z.string().datetime().optional(),
 });
 
-/**
- * `POST /api/super-admin/broadcasts` — Schedule or send a customer email
- * broadcast.
- *
- * @remarks
- * Body: {@link broadcastSchema}. Renders a Resend campaign for the
- * targeted segment. Audit-logged.
- *
- * @throws 400 BAD_REQUEST when payload validation fails.
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.post('/api/super-admin/broadcasts', zValidator('json', broadcastSchema), async (c) => {
   const body = c.req.valid('json');
   const userId = c.get('userId') as string;
@@ -790,11 +630,6 @@ superAdmin.post('/api/super-admin/broadcasts', zValidator('json', broadcastSchem
   return c.json({ id }, 201);
 });
 
-/**
- * `GET /api/super-admin/broadcasts` — List sent + scheduled broadcasts.
- *
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.get('/api/super-admin/broadcasts', async (c) => {
   const { data } = await dbQuery(
     c.env.DB,
@@ -817,11 +652,6 @@ const announcementSchema = z.object({
   active: z.boolean().default(true),
 });
 
-/**
- * `GET /api/super-admin/announcements` — List in-app announcement banners.
- *
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.get('/api/super-admin/announcements', async (c) => {
   const { data } = await dbQuery(
     c.env.DB,
@@ -831,16 +661,6 @@ superAdmin.get('/api/super-admin/announcements', async (c) => {
   return c.json({ announcements: data });
 });
 
-/**
- * `POST /api/super-admin/announcements` — Publish an in-app announcement
- * banner (with optional dismissibility + audience filter).
- *
- * @remarks
- * Body: {@link announcementSchema}. Audit-logged.
- *
- * @throws 400 BAD_REQUEST when payload validation fails.
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.post(
   '/api/super-admin/announcements',
   zValidator('json', announcementSchema),
@@ -871,7 +691,6 @@ superAdmin.post(
 
 // ─── Feature flags + per-org overrides ────────────────────────────────────
 
-/** One row of value_json stored in a `flag_overrides` record. */
 interface FlagOverrideValue {
   enabled?: boolean;
   rollout_percent?: number;
@@ -879,7 +698,6 @@ interface FlagOverrideValue {
   stage?: string;
 }
 
-/** Safe-parse a `flag_overrides.value_json` blob. */
 function parseFlagValue(raw: unknown): FlagOverrideValue {
   if (typeof raw !== 'string') return {};
   try {
@@ -890,17 +708,11 @@ function parseFlagValue(raw: unknown): FlagOverrideValue {
 }
 
 /**
- * `GET /api/super-admin/feature-flags` — List the GLOBAL operator overrides
- * applied on top of the code registry.
- *
- * @remarks
- * Reads the canonical `flag_overrides` table (`scope='global'`, `scope_id='*'`)
- * — the SAME table `resolveFlag`/`isFlagOn` consult at runtime — so what the
- * operator sees here is exactly what the platform evaluates. The admin UI merges
- * these rows onto the `/api/feature-flags` registry. Returns the legacy
+ * List the GLOBAL operator overrides. Reads the canonical `flag_overrides`
+ * table (`scope='global'`, `scope_id='*'`) — the SAME table `resolveFlag`/
+ * `isFlagOn` consult at runtime — so what the operator sees is exactly what the
+ * platform evaluates. Returns the legacy
  * `{ key, enabled_globally, rollout_pct, kill_switch }` shape the frontend reads.
- *
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
  */
 superAdmin.get('/api/super-admin/feature-flags', async (c) => {
   const rows = await c.env.DB.prepare(
@@ -942,16 +754,6 @@ const flagPatchSchema = z.object({
   reason: z.string().max(500).optional(),
 });
 
-/**
- * `POST /api/super-admin/feature-flags` — Toggle a feature flag globally or
- * for a single org.
- *
- * @remarks
- * Body: {@link flagPatchSchema}. Audit-logged with before/after state.
- *
- * @throws 400 BAD_REQUEST when payload validation fails.
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.post(
   '/api/super-admin/feature-flags',
   zValidator('json', flagPatchSchema),
@@ -1015,14 +817,6 @@ superAdmin.post(
   },
 );
 
-/**
- * `GET /api/super-admin/feature-flags/:key/audit` — Per-flag change history for
- * the System-Administrator layer's detail panel. Reads the `super_admin_audit`
- * trail filtered to this flag key. Returns a UI-ready entry list (actor +
- * action + a human summary derived from the persisted before/after + reason).
- *
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.get('/api/super-admin/feature-flags/:key/audit', async (c) => {
   const key = c.req.param('key');
   const { data } = await dbQuery<{
@@ -1082,16 +876,9 @@ const impersonateSchema = z.object({
 });
 
 /**
- * `POST /api/super-admin/impersonate` — Start an impersonation session
- * scoped to a target org or user.
- *
- * @remarks
- * Body: {@link impersonateSchema}. Issues a short-TTL token tagged with
- * the original super-admin id so subsequent audit rows capture both
- * actors. Audit-logged.
- *
- * @throws 400 BAD_REQUEST when payload validation fails.
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
+ * Start an impersonation session scoped to a target user's current org. Issues a
+ * short-TTL token tagged with the original super-admin id so subsequent audit
+ * rows capture both actors.
  */
 superAdmin.post(
   '/api/super-admin/impersonate',
@@ -1156,13 +943,6 @@ superAdmin.post(
   },
 );
 
-/**
- * `POST /api/super-admin/impersonate/:id/end` — End an active impersonation
- * session before its natural expiry.
- *
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- * @throws 404 NOT_FOUND when the session id doesn't exist or has ended.
- */
 superAdmin.post('/api/super-admin/impersonate/:id/end', async (c) => {
   const id = c.req.param('id');
   await c.env.DB.prepare(
@@ -1176,11 +956,6 @@ superAdmin.post('/api/super-admin/impersonate/:id/end', async (c) => {
 
 // ─── Moderation queue ─────────────────────────────────────────────────────
 
-/**
- * `GET /api/super-admin/moderation` — List open moderation reports.
- *
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.get('/api/super-admin/moderation', async (c) => {
   const status = c.req.query('status') ?? 'open';
   const { data } = await dbQuery(
@@ -1200,17 +975,6 @@ const moderationResolveSchema = z.object({
   notes: z.string().max(500).optional(),
 });
 
-/**
- * `POST /api/super-admin/moderation/:id/resolve` — Close a moderation
- * report with an outcome.
- *
- * @remarks
- * Body: {@link moderationResolveSchema}. Audit-logged with outcome + notes.
- *
- * @throws 400 BAD_REQUEST when payload validation fails.
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- * @throws 404 NOT_FOUND when the report id doesn't exist.
- */
 superAdmin.post(
   '/api/super-admin/moderation/:id/resolve',
   zValidator('json', moderationResolveSchema),
@@ -1236,12 +1000,6 @@ superAdmin.post(
 
 // ─── AI prompt blocklist ──────────────────────────────────────────────────
 
-/**
- * `GET /api/super-admin/ai-blocklist` — List terms/regex patterns blocked
- * from AI prompt + output.
- *
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.get('/api/super-admin/ai-blocklist', async (c) => {
   const { data } = await dbQuery(
     c.env.DB,
@@ -1257,16 +1015,6 @@ const blocklistSchema = z.object({
   reason: z.string().max(200).optional(),
 });
 
-/**
- * `POST /api/super-admin/ai-blocklist` — Add or remove an AI-content
- * blocklist entry.
- *
- * @remarks
- * Body: {@link blocklistSchema}. Audit-logged.
- *
- * @throws 400 BAD_REQUEST when payload validation fails.
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.post('/api/super-admin/ai-blocklist', zValidator('json', blocklistSchema), async (c) => {
   const body = c.req.valid('json');
   const userId = c.get('userId') as string;
@@ -1283,16 +1031,6 @@ superAdmin.post('/api/super-admin/ai-blocklist', zValidator('json', blocklistSch
 
 const tagSchema = z.object({ org_id: z.string(), tag: z.string().regex(/^[a-z0-9_-]{2,40}$/) });
 
-/**
- * `POST /api/super-admin/tags` — Add a tag to an org for filtering /
- * cohort analysis (e.g. `vip`, `beta`, `priority-support`).
- *
- * @remarks
- * Body: {@link tagSchema}. Audit-logged.
- *
- * @throws 400 BAD_REQUEST when payload validation fails.
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.post('/api/super-admin/tags', zValidator('json', tagSchema), async (c) => {
   const body = c.req.valid('json');
   const userId = c.get('userId') as string;
@@ -1302,15 +1040,6 @@ superAdmin.post('/api/super-admin/tags', zValidator('json', tagSchema), async (c
   return c.json({ ok: true });
 });
 
-/**
- * `DELETE /api/super-admin/tags` — Remove a tag from an org.
- *
- * @remarks
- * Body: {@link tagSchema}. Audit-logged.
- *
- * @throws 400 BAD_REQUEST when payload validation fails.
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.delete('/api/super-admin/tags', zValidator('json', tagSchema), async (c) => {
   const body = c.req.valid('json');
   await c.env.DB.prepare(`DELETE FROM org_tags WHERE org_id = ? AND tag = ?`)
@@ -1329,16 +1058,6 @@ const rateLimitSchema = z.object({
   expires_at: z.string().datetime().optional(),
 });
 
-/**
- * `POST /api/super-admin/rate-limit-overrides` — Override a per-org rate
- * limit for one route family.
- *
- * @remarks
- * Body: {@link rateLimitSchema}. Audit-logged with before/after limits.
- *
- * @throws 400 BAD_REQUEST when payload validation fails.
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.post(
   '/api/super-admin/rate-limit-overrides',
   zValidator('json', rateLimitSchema),
@@ -1365,12 +1084,6 @@ superAdmin.post(
 
 // ─── Audit log viewer ─────────────────────────────────────────────────────
 
-/**
- * `GET /api/super-admin/audit?days=&actor=&action=&target_kind=&limit=` —
- * Paginated super-admin audit log feed.
- *
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- */
 superAdmin.get('/api/super-admin/audit', async (c) => {
   const action = c.req.query('action') ?? '';
   const actor = c.req.query('actor') ?? '';
@@ -1400,18 +1113,6 @@ superAdmin.get('/api/super-admin/audit', async (c) => {
 
 // ─── Operations: kill switch / maintenance / cache purge ──────────────────
 
-/**
- * `POST /api/super-admin/cache/purge` — Purge the Cloudflare cache for a
- * supplied list of URLs (or everything when `purge_everything=true`).
- *
- * @remarks
- * Body: `{ urls?: string[], purge_everything?: boolean }`. Calls
- * the Zone `/purge_cache` REST API. Audit-logged.
- *
- * @throws 400 BAD_REQUEST when neither `urls` nor `purge_everything` is set.
- * @throws 403 FORBIDDEN when the caller is not a super-admin.
- * @throws 502 BAD_GATEWAY when Cloudflare API returns an error.
- */
 superAdmin.post('/api/super-admin/cache/purge', async (c) => {
   const body = (await c.req.json<{ key?: string; all?: boolean }>().catch(() => ({}))) as {
     key?: string;
@@ -1435,8 +1136,8 @@ superAdmin.post('/api/super-admin/cache/purge', async (c) => {
 // ─── Email deliverability — SES suppression list (§42/ADR-0019) ───────────
 
 /**
- * `GET /api/super-admin/email-suppressions` — addresses suppressed by SES hard
- * bounces / complaints, newest first (capped 1000). Read-only operator view.
+ * Addresses suppressed by SES hard bounces / complaints, newest first (capped
+ * 1000). Read-only operator view.
  */
 superAdmin.get('/api/super-admin/email-suppressions', async (c) => {
   const parsed = Number(c.req.query('limit') ?? '200');
@@ -1445,8 +1146,8 @@ superAdmin.get('/api/super-admin/email-suppressions', async (c) => {
 });
 
 /**
- * `DELETE /api/super-admin/email-suppressions/:email` — manually un-suppress an
- * address (a customer who fixed their mailbox). Idempotent; audited.
+ * Manually un-suppress an address (a customer who fixed their mailbox).
+ * Idempotent; audited.
  */
 superAdmin.delete('/api/super-admin/email-suppressions/:email', async (c) => {
   const email = decodeURIComponent(c.req.param('email')).trim().toLowerCase();

@@ -2,33 +2,11 @@
  * @module routes/ai_admin
  * @description Authenticated admin surface for the AI platform.
  *
- * Mounted by `index.ts`. Every route in this file requires both an
- * `orgId` and a `userId` on the request context — the {@link need}
- * helper throws `HTTPError(401)` when either is missing. Public
- * counterparts (form ingest, `/api/ai/:slug/:endpoint`) live in their
- * own files (`forms.ts`, `ai_endpoints_public.ts`).
- *
- * The surface area covers:
- *
- * - **Form submissions** (`/api/sites/:siteId/form-submissions*`) — list +
- *   single-record reads of webhook-ingested form data.
- * - **AI traces / logs** (`/api/sites/:siteId/ai-logs*`) — every LLM call
- *   recorded by `services/observability.ts`, redacted for tenant view.
- * - **Chat context files** (`/api/sites/:siteId/ai-chat/context-files*`) —
- *   uploaded knowledge-base files persisted to R2 + indexed.
- * - **AI settings** (`/api/sites/:siteId/ai-settings`) — router prompt,
- *   chat persona, contact email per site.
- * - **Endpoint CRUD + deploy** (`/api/sites/:siteId/ai-endpoints*`) —
- *   user-authored AI Workers deployed via WfP dispatch.
- * - **Credits + billing** (`/api/billing/credits*`, `site-costs`) — balance,
- *   ledger, Stripe topup checkout, per-site cost rollup.
- * - **Team** (`/api/team*`) — invites, members, role transfer.
- * - **MCP connections** (`/api/sites/:siteId/mcp/connections*`) — read +
- *   delete per-site OAuth/paste-key connections.
- * - **Org admin** (`/api/admin/org/*`) — export, delete, API-key CRUD,
- *   domains, Cloudflare auto-setup.
- * - **AI helpers** (`/api/admin/{traces,search,forecast,ai/stream}*`) —
- *   `explainTrace`, `aiSearch`, `forecastCost`, streaming chat + palette.
+ * Mounted by `index.ts`. Every route requires both an `orgId` and a
+ * `userId` on the request context — the {@link need} helper throws
+ * `HTTPError(401)` when either is missing. Public counterparts (form
+ * ingest, `/api/ai/:slug/:endpoint`) live in `forms.ts` +
+ * `ai_endpoints_public.ts`.
  *
  * @packageDocumentation
  */
@@ -542,11 +520,9 @@ aiAdmin.put('/api/sites/:siteId/ai-settings', async (c) => {
     throw new HTTPError(400, 'contact_email and reply_email must be valid email addresses');
   }
   const allowed = [
-    // chat_persona + brand_tone/brand_primary/brand_accent + timezone/default_locale
-    // were removed from Settings (2026-08-12): persona is inferred from the system
-    // prompt, and brand + locale are auto-detected from the logo/content — the
-    // Settings UI no longer writes them, so they're dropped from the write path.
-    // The columns remain for existing rows + the build pipeline that READS them.
+    // Write path is deliberately narrow: persona/brand/locale columns are
+    // read-only here (inferred from the system prompt + logo/content). They
+    // stay in the schema for existing rows + the build pipeline that READS them.
     'chat_system_prompt',
     'form_router_prompt',
     'reply_email',
@@ -559,10 +535,9 @@ aiAdmin.put('/api/sites/:siteId/ai-settings', async (c) => {
   }
   if ('search_synonyms' in body)
     fields['search_synonyms_json'] = JSON.stringify(body['search_synonyms']);
-  // The forms-designer MCP selection — an array of connected-provider ids the form
-  // router may use. Was silently dropped before (not allow-listed) → a lying-success:
-  // the pills toasted "Saved" but the selection never persisted + the router ignored
-  // it. Store as JSON; the router filters `loadAvailableTools` by it.
+  // The forms-designer MCP selection — an array of connected-provider ids the
+  // form router may use. MUST stay allow-listed: the router filters
+  // `loadAvailableTools` by it, so an unpersisted selection is a lying-success.
   if ('enabled_mcps' in body) {
     const arr = Array.isArray(body['enabled_mcps'])
       ? (body['enabled_mcps'] as unknown[]).filter((v): v is string => typeof v === 'string')
@@ -831,7 +806,6 @@ aiAdmin.put('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
     }>();
   if (!existing) throw new HTTPError(404, 'Endpoint not found');
 
-  // Slug change: validate, ensure unique on site, allow rename of the WFP script.
   let nextSlug = existing.endpoint_slug;
   if (typeof body['endpoint_slug'] === 'string' || typeof body['slug'] === 'string') {
     const proposed = normaliseSlug((body['endpoint_slug'] ?? body['slug']) as string);
@@ -847,14 +821,12 @@ aiAdmin.put('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
     }
   }
 
-  // Method validation if present.
   if (typeof body['method'] === 'string') {
     const allowed = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'BOTH'];
     if (!allowed.includes(body['method'] as string))
       throw new HTTPError(400, 'method must be one of ' + allowed.join(', '));
   }
 
-  // Re-deploy if files or language changed.
   let wfpScriptName = existing.wfp_script_name;
   let deployStatus: string | null = null;
   let deployedAt: string | null = null;
@@ -1276,13 +1248,8 @@ aiAdmin.post('/api/billing/credits/topup', async (c) => {
   return c.json({ data: { mode: 'stripe', url: json.url, session_id: json.id } });
 });
 
-// NOTE: spend-alerts GET/POST/DELETE moved to `routes/api.ts` (Turn 6 retry).
-// The new surface lives behind `createSpendAlertSchema` and the migration-0024
-// `spend_alerts` schema (`trigger_type` / `email` / `channels_json` / `site_id`).
-// The previous ai_admin.ts handlers referenced columns that no longer exist
-// (`alert_kind`, `notify_email`) and would have errored against the new table —
-// removed in this turn so the only spend-alert surface is the canonical one
-// in `api.ts`. See `apps/project-sites/src/routes/api.ts` § Spend Alerts.
+// The canonical spend-alerts surface lives in `routes/api.ts` § Spend Alerts
+// (behind `createSpendAlertSchema` + the migration-0024 `spend_alerts` schema).
 
 /**
  * `GET /api/billing/site-costs` — Per-site rollup of credit spend over the
@@ -1307,7 +1274,6 @@ aiAdmin.get('/api/billing/site-costs', async (c) => {
   )
     .bind(orgId, sinceDay)
     .all();
-  // Enrich with site names.
   const sites = await c.env.DB.prepare(
     `SELECT id, slug, business_name FROM sites WHERE org_id = ? AND deleted_at IS NULL`,
   )
@@ -1475,9 +1441,9 @@ aiAdmin.post('/api/team/invites', async (c) => {
   )
     .bind(id, orgId, email, role, tokenHash, userId, expires)
     .run();
-  // ADR-0019 Resend→SES: team invites route through SES when configured; Resend
-  // stays the fallback. The seam is html-only so the plain-text invite is wrapped
-  // in an escaped <pre>. Fire-and-forget — the invite row is already persisted.
+  // Invites route through SES when configured, else Resend fallback. The SES
+  // seam is html-only, so the plain-text invite is wrapped in an escaped <pre>.
+  // Fire-and-forget — the invite row is already persisted.
   const inviteSubject = 'You’ve been invited to a Project Sites team';
   const inviteText = `You were invited as ${role}. Accept here: https://projectsites.dev/admin/accept-invite?token=${token}`;
   if (c.env.AWS_ACCESS_KEY_ID && c.env.AWS_SECRET_ACCESS_KEY && c.env.SES_FROM_EMAIL) {
@@ -2349,9 +2315,8 @@ aiAdmin.delete('/api/admin/api-keys/:id', async (c) => {
 });
 
 /* ────────────────────────── Active sessions (account security) ────────────────────────── */
-// The /admin/user "Active sessions" panel showed a synthetic "this device" row
-// because this route was never wired — a stub where real data exists (the D1
-// `sessions` table). These three handlers turn it into the real list + revoke.
+// Backs the /admin/user "Active sessions" panel — real D1 `sessions` rows,
+// list + revoke, scoped to the caller.
 
 /** Extract the caller's raw bearer token (to flag the CURRENT session row). */
 function bearerToken(c: Ctx): string | undefined {
@@ -2588,8 +2553,6 @@ aiAdmin.post('/api/admin/cloudflare/auto-setup', async (c) => {
 });
 
 /* ────────────────────────── Admin AI Chat (bottom-right widget) ────────────────────────── */
-// Streams a single completion using the org's chat persona + system prompt.
-// Used by the floating AI chat widget on every /admin page.
 /**
  * `POST /api/admin/ai-chat` — Dashboard AI assistant single-turn endpoint.
  *
@@ -3532,13 +3495,10 @@ aiAdmin.post('/api/admin/ai/stream/palette', async (c) => {
  *          context: { selected_site_id?: string|null, current_route?: string|null } }`.
  */
 /**
- * Rec 5 — Editor tool surface (Phase 4a).
- *
- * When `context.surface === 'editor'`, the system prompt is augmented with the
- * six editor tools and the model is instructed to emit `<tool_call>` envelopes
- * (paired with `<tool_result>` posted back by the client). This is provider-
- * neutral on the wire — the bolt.diy chat client owns dispatch via
- * `~/lib/tools/dispatcher`.
+ * Editor tool surface. When `context.surface === 'editor'`, the system prompt
+ * is augmented with these six tools and the model emits `<tool_call>` envelopes
+ * (paired with `<tool_result>` posted back by the client). Provider-neutral on
+ * the wire — the bolt.diy chat client owns dispatch via `~/lib/tools/dispatcher`.
  */
 const EDITOR_TOOL_SURFACE: { name: string; description: string }[] = [
   {
