@@ -20,6 +20,7 @@ Canonical documentation for projectsites.dev. The published MkDocs site builds f
 
 - [`OBSERVABILITY.md`](./OBSERVABILITY.md) — logging, OTel, PostHog, Sentry, Axiom, ClickHouse/Tinybird, AI-observability
 - [`SERVICES-AND-SOCIAL.md`](./SERVICES-AND-SOCIAL.md) — native social + Postiz, Chatwoot support
+- [`deployments/`](./deployments/) — per-service deploy runbooks (chatwoot, langflow, onyx, activepieces)
 
 ## Policy (repo-delta; canonical doctrine in `~/.agentskills`)
 
