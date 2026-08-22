@@ -48,7 +48,7 @@ interface CostRow {
   last_invocation_at?: string | null;
 }
 
-/** Cost forecast shape returned by `GET /api/admin/forecast/cost` (item #95). */
+/** Cost forecast shape returned by `GET /api/admin/forecast/cost`. */
 interface CostForecastState {
   current_month_estimate_usd: number;
   next_month_forecast_usd: number;
@@ -1484,24 +1484,20 @@ export class AdminBillingComponent implements OnInit {
   private router = inject(Router);
   credits = signal<CreditState | null>(null);
 
-  /** 30-day forecast loaded from `/admin/forecast/cost` (#95). */
+  /** 30-day forecast loaded from `/admin/forecast/cost`. */
   forecast = signal<CostForecastState | null>(null);
   forecastLoading = signal(false);
 
   /**
-   * Rolling 30-day cost forecast (Bundle B finish, 2026-05-24).
-   * Backed by `GET /api/billing/cost-forecast?days=30`.
+   * Rolling 30-day cost forecast, backed by `GET /api/billing/cost-forecast?days=30`.
    * Loaded in `loadAll()` alongside the legacy `/admin/forecast/cost`.
-   * Drives the new Forecast card sparkline + rolling-counter + 80% warning.
+   * Drives the Forecast card sparkline + rolling-counter + 80% warning.
    */
   forecastV2 = signal<CostForecastV2 | null>(null);
   loadingForecastV2 = signal(false);
   /** Toast-dedup flag — surfaces the 80% warning at most once per session. */
   private forecastWarnedThisSession = false;
 
-  // ─────────────────── BILLING TABS (BILL-01..BILL-17) ───────────────────
-
-  /** Tab descriptor used by the nav. */
   readonly billingTabs: ReadonlyArray<{ id: string; label: string }> = [
     { id: 'subscription', label: 'Subscription' },
     { id: 'addons',       label: 'Add-ons' },
@@ -1511,7 +1507,6 @@ export class AdminBillingComponent implements OnInit {
     { id: 'affiliates',   label: 'Affiliates' },
   ];
 
-  /** Currently active tab id. */
   activeTab = signal<string>('subscription');
 
   setTab(id: string): void {
@@ -1541,11 +1536,9 @@ export class AdminBillingComponent implements OnInit {
   /** Shape returned by GET /api/billing/entitlements. */
   entitlements = signal<{ maxCustomDomains: number; maxTeamSeats: number; analyticsEnabled: boolean } | null>(null);
 
-  /** Whether the cancel confirm dialog is open. */
   cancelConfirmOpen = signal(false);
   cancelingSubscription = signal(false);
 
-  /** Whether the embedded checkout frame is visible. */
   embeddedCheckoutOpen = signal(false);
   /** Sanitized iframe src — a plain string in an iframe[src] is blocked by Angular's
    *  resource-URL sanitizer (console error), so the URL is host-validated then trusted. */
@@ -1919,14 +1912,14 @@ export class AdminBillingComponent implements OnInit {
    * 140-tall viewBox. Colors carry brand semantics.
    *
    * @remarks
-   * CRASH FIX (Turn 4): defensive reads on `f.by_category` and each numeric
-   * sub-field. The worker route `/admin/forecast/cost` was returning a
-   * partial payload (sometimes `{ current_month_estimate_usd, next_month_forecast_usd }`
-   * with NO `by_category` block) on cold accounts. Accessing `cats.workers`
-   * on `undefined` threw `Cannot read properties of undefined (reading 'workers')`
+   * Defensive reads on `f.by_category` and each numeric sub-field: the worker
+   * route `/admin/forecast/cost` can return a partial payload (sometimes
+   * `{ current_month_estimate_usd, next_month_forecast_usd }` with NO
+   * `by_category` block) on cold accounts. Accessing `cats.workers` on
+   * `undefined` threw `Cannot read properties of undefined (reading 'workers')`
    * during render — Angular surfaced this as a blank Billing section because
-   * the computed re-runs on every signal change downstream. Now any missing
-   * piece coerces to 0 via `numOr0()` so the chart degrades gracefully.
+   * the computed re-runs on every signal change downstream. Any missing piece
+   * coerces to 0 via `numOr0()` so the chart degrades gracefully.
    */
   forecastBars = computed<ForecastBar[]>(() => {
     const f = this.forecast();
@@ -2041,7 +2034,7 @@ export class AdminBillingComponent implements OnInit {
     return this.relTimeFormatter.format(diffMonth, 'month');
   }
 
-  /** ─────── Bulk credit-caps modal state (Turn 4) ─────── */
+  /** ─────── Bulk credit-caps modal state ─────── */
   capsModalOpen = signal(false);
   savingCapsBulk = signal(false);
   capsModalError = signal<string | null>(null);
@@ -2059,9 +2052,9 @@ export class AdminBillingComponent implements OnInit {
     notify_via_email: boolean;
     notify_via_slack: boolean;
   } = {
-    // Default threshold = $10,000 (Turn 4) — surfaces a sensible runaway-spend
-    // ceiling out of the box. Field is USD; saveAlert() converts to credits
-    // via the $0.04/credit rate. User can override before submit.
+    // Default threshold = $10,000 — a sensible runaway-spend ceiling out of the
+    // box. Field is USD; saveAlert() converts to credits via the $0.04/credit
+    // rate. User can override before submit.
     name: '', alert_kind: 'balance_below', threshold_credits: 10000, notify_email: '',
     notify_via_email: true, notify_via_slack: false,
   };
@@ -2079,8 +2072,8 @@ export class AdminBillingComponent implements OnInit {
     const v = this.alertDraft.threshold_credits;
     if (v === null || v === undefined) return null;
     if (!Number.isFinite(v) || v <= 0) return 'Threshold must be a positive number.';
-    // Cap at $100,000 (Turn 4) — the default is $10,000 and operators
-    // running large workloads need headroom above the previous 10K ceiling.
+    // Cap at $100,000 — the default is $10,000 and operators running large
+    // workloads need headroom above the previous 10K ceiling.
     if (v > 100000) return 'Threshold must be 100,000 or less.';
     return null;
   }
@@ -2106,8 +2099,8 @@ export class AdminBillingComponent implements OnInit {
   }
 
   openAlertModal(): void {
-    // Threshold defaults to $10,000 (Turn 4) so the modal always opens with a
-    // working number rather than an empty input — most operators want a high
+    // Threshold defaults to $10,000 so the modal always opens with a working
+    // number rather than an empty input — most operators want a high
     // runaway-spend ceiling, not a zero-from-scratch decision.
     this.alertDraft = {
       name: '', alert_kind: 'balance_below', threshold_credits: 10000, notify_email: '',
@@ -2210,7 +2203,7 @@ export class AdminBillingComponent implements OnInit {
     this.api.get<{ data: { rows: CostRow[] } }>('/billing/site-costs').subscribe({
       next: (r) => {
         const rows = r.data?.rows ?? [];
-        // Zero-fill fallback (Turn 7): when the worker returns an empty rows
+        // Zero-fill fallback: when the worker returns an empty rows
         // array (cold account, usage table not yet populated, or the
         // /billing/site-costs route returns 200 with [] before any AI calls
         // have been recorded), surface one row per site from AdminStateService
@@ -2254,7 +2247,7 @@ export class AdminBillingComponent implements OnInit {
         ),
       error: () => this.plan.set('free'),
     });
-    // Rolling 30-day forecast v2 (Bundle B finish — separate route, separate UI).
+    // Rolling 30-day forecast v2 — separate route, separate UI from the legacy forecast.
     this.loadingForecastV2.set(true);
     this.api.getCostForecast(30).subscribe({
       next: (r) => {
@@ -2288,11 +2281,10 @@ export class AdminBillingComponent implements OnInit {
     this.forecastLoading.set(true);
     this.api.get<{ data: CostForecastState }>('/admin/forecast/cost').subscribe({
       next: (r) => {
-        // CRASH FIX (Turn 4): normalize the worker payload BEFORE storing it
-        // so downstream computed signals + template `currency` pipes never
-        // see `undefined`. Earlier crashes traced to `/admin/forecast/cost`
-        // returning partial JSON on cold accounts — the `currency` pipe
-        // throws `InvalidPipeArgument` on undefined, blanking the entire
+        // Normalize the worker payload BEFORE storing it so downstream computed
+        // signals + template `currency` pipes never see `undefined`. Partial
+        // JSON from `/admin/forecast/cost` on cold accounts makes the `currency`
+        // pipe throw `InvalidPipeArgument` on undefined, blanking the entire
         // Billing section because Angular halts the change-detection cycle.
         this.forecast.set(this.sanitizeForecast(r.data));
         this.forecastLoading.set(false);

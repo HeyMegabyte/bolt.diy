@@ -48,7 +48,6 @@ function cleanUrl(raw: string): string {
       urlStr = 'https://' + urlStr;
     }
     const url = new URL(urlStr);
-    // Remove tracking / analytics query params
     const junkParams = [
       'utm_source',
       'utm_medium',
@@ -106,8 +105,6 @@ function cleanUrl(raw: string): string {
  * @remarks
  * Displayed in the address dropdown when the user types 3+ characters.
  * The `place_id` is used for precise geocoding if needed.
- *
- * @see {@link CreateComponent.addressSuggestions}
  */
 interface AddressSuggestion {
   description: string;
@@ -121,15 +118,6 @@ interface AddressSuggestion {
  * Selecting a business from the dropdown auto-populates all form fields:
  * name, address, phone, and website. The `place_id` is passed to the
  * backend for enriched research during AI site generation.
- *
- * @example
- * ```typescript
- * { name: "Vito's Mens Salon", address: "74 N Beverwyck Rd...",
- *   place_id: "ChIJ...", phone: "(973) 123-4567",
- *   website: "https://vitos-salon.com" }
- * ```
- *
- * @see {@link CreateComponent.selectBusiness}
  */
 interface BusinessSuggestion {
   name: string;
@@ -144,26 +132,6 @@ interface BusinessSuggestion {
  * Create/Reset Website page — the primary site creation form.
  *
  * @remarks
- * This component handles the complete site creation flow:
- *
- * ```
- * ┌─────────────────────────────────────────────────┐
- * │  /create                                         │
- * │  ┌──────────┐  ┌──────────┐  ┌───────────────┐  │
- * │  │ Business │  │ Address  │  │ Phone/Website │  │
- * │  │ Name *   │  │ *        │  │ (auto-filled) │  │
- * │  └──────────┘  └──────────┘  └───────────────┘  │
- * │                                                   │
- * │  [Auto-Populate with AI]                          │
- * │                                                   │
- * │  ┌─────────────────────────────────────────────┐  │
- * │  │ Additional Context (optional)               │  │
- * │  └─────────────────────────────────────────────┘  │
- * │                                                   │
- * │  [Build My Website] → /waiting?id=...&slug=...    │
- * └─────────────────────────────────────────────────┘
- * ```
- *
  * **Auto-populate flow:**
  * 1. User types business name → debounced search (300ms, min 2 chars)
  * 2. Dropdown shows Google Places results with name + address
@@ -174,9 +142,6 @@ interface BusinessSuggestion {
  * - Not logged in → store data, redirect to `/signin`
  * - Logged in, new site → `POST /api/sites/create-from-search` → `/waiting`
  * - Logged in, reset mode → `POST /api/sites/:id/reset` → `/admin`
- *
- * @see {@link WaitingComponent} — displays real-time build progress
- * @see {@link AdminComponent} — dashboard where "Reset & Rebuild" originates
  */
 @Component({
   selector: 'app-create',
@@ -238,7 +203,6 @@ export class CreateComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** sessionStorage key for the active step pill. */
   private static readonly STEP_KEY = 'ps_create_step';
 
   /** Attempted-submit flag — gates inline error rendering on required fields. */
@@ -257,7 +221,6 @@ export class CreateComponent implements OnInit, OnDestroy {
       : 'Address is required for local SEO and the contact card.';
   }
 
-  /** Industry categories for the dropdown */
   categories = [
     '',
     'Restaurant / Café',
@@ -279,10 +242,8 @@ export class CreateComponent implements OnInit, OnDestroy {
   // Reset mode: when navigating from admin "Reset & Rebuild"
   resetSiteId: string | null = null;
 
-  // Selected business from search (badge mode)
   selectedBusiness = signal<SelectedBusiness | null>(null);
 
-  // Address autocomplete
   addressSuggestions = signal<AddressSuggestion[]>([]);
   addressDropdownOpen = signal(false);
   /** True when the ADDRESS-search proxy is down (provider `_error`) — surface an
@@ -291,7 +252,6 @@ export class CreateComponent implements OnInit, OnDestroy {
   addressUnavailable = signal(false);
   private addressSubject = new Subject<string>();
 
-  // Business name autocomplete
   businessSuggestions = signal<BusinessSuggestion[]>([]);
   businessDropdownOpen = signal(false);
   /** True when the business-search proxy is down (provider `_error`) — the UI
@@ -299,16 +259,13 @@ export class CreateComponent implements OnInit, OnDestroy {
   searchUnavailable = signal(false);
   private businessSubject = new Subject<string>();
 
-  // Auto-populate AI
   autoPopulating = signal(false);
 
-  // Per-field loading indicators for auto-populate
   loadingPhone = signal(false);
   loadingWebsite = signal(false);
   loadingCategory = signal(false);
   loadingContext = signal(false);
 
-  // ── AI autofill (sidebar → /create?name=...) ──────────────
   /**
    * In-flight AI autofill state. When `true`, every field that hasn't
    * been touched shows a shimmer border. Clears the moment the response
@@ -348,10 +305,8 @@ export class CreateComponent implements OnInit, OnDestroy {
     return this.touchedFields().size === 0;
   }
 
-  // AI image discovery
   discoveringImages = signal(false);
 
-  // Image modal
   modalImage = signal<string | null>(null);
   modalImageName = signal('');
   modalAiPrompt = '';
@@ -374,7 +329,6 @@ export class CreateComponent implements OnInit, OnDestroy {
     recommendation: string;
   } | null = null;
 
-  // File uploads
   logoFile: File | null = null;
   logoPreview: string | null = null;
   faviconFile: File | null = null;
@@ -442,7 +396,6 @@ export class CreateComponent implements OnInit, OnDestroy {
     this.telemetry.track('site.create.opened', {
       reset_mode: !!this.route.snapshot.queryParams['reset'],
     });
-    // Pre-fill from query params if present (e.g., /create?name=Foo&address=Bar)
     const params = this.route.snapshot.queryParams;
     if (params['name']) {
       this.businessName = params['name'];
@@ -467,7 +420,6 @@ export class CreateComponent implements OnInit, OnDestroy {
     // prefill the form (the background build is already running server-side).
     if (params['claim']) this.loadClaimPrefill(params['claim']);
 
-    // Check if coming from search selection
     const shouldAutoCreate = this.auth.getAutoCreate();
     const hasPendingBuild = this.auth.getPendingBuild();
     const biz = this.auth.getSelectedBusiness();
@@ -481,7 +433,6 @@ export class CreateComponent implements OnInit, OnDestroy {
       this.businessAddress = biz.address || this.businessAddress;
       if (biz.phone) this.businessPhone = biz.phone;
       if (biz.website) this.businessWebsite = cleanUrl(biz.website);
-      // Clear pendingBuild if it was set just for navigation (not for auto-submit)
       if (hasPendingBuild && !this.auth.isLoggedIn()) {
         // Keep pendingBuild — user needs to sign in first
       } else if (hasPendingBuild && this.auth.isLoggedIn() && !shouldAutoCreate) {
@@ -523,7 +474,6 @@ export class CreateComponent implements OnInit, OnDestroy {
       setTimeout(() => this.submitBuild(), 500);
     }
 
-    // Business name autocomplete
     this.businessSubject
       .pipe(
         debounceTime(300),
@@ -557,7 +507,6 @@ export class CreateComponent implements OnInit, OnDestroy {
         },
       });
 
-    // Address autocomplete
     this.addressSubject
       .pipe(
         debounceTime(300),
@@ -618,15 +567,8 @@ export class CreateComponent implements OnInit, OnDestroy {
 
   /**
    * Handles business selection from the autocomplete dropdown.
-   *
-   * @remarks
-   * Auto-populates all form fields from the selected business:
-   * - Business name (always)
-   * - Business address (always)
-   * - Phone number (if available from Google Places)
-   * - Existing website URL (if available from Google Places)
-   *
-   * @param biz - The selected business suggestion from Google Places
+   * Auto-populates name + address (always) and phone + website when Google
+   * Places provides them.
    */
   selectBusiness(biz: BusinessSuggestion): void {
     this.searchUnavailable.set(false);
@@ -636,7 +578,6 @@ export class CreateComponent implements OnInit, OnDestroy {
     if (biz.phone && !this.businessPhone.trim()) this.businessPhone = biz.phone;
     if (biz.website && !this.businessWebsite.trim()) this.businessWebsite = cleanUrl(biz.website);
     this.businessDropdownOpen.set(false);
-    // Set the selected business badge
     this.selectedBusiness.set({
       name: biz.name,
       address: biz.address,
@@ -686,12 +627,10 @@ export class CreateComponent implements OnInit, OnDestroy {
           this.businessWebsite = cleanUrl(match.website || '');
           this.loadingWebsite.set(false);
           if (match.address) this.businessAddress = match.address;
-          // Always regenerate context prompt
           this.additionalContext = this.generateContextPrompt(match);
           this.loadingContext.set(false);
           this.cdr.detectChanges();
           this.toast.success('Auto-populated from Google Places');
-          // Discover brand images in the background
           this.discoverBrandImages(match.website);
         } else {
           // No match — generate context from name + inferred category
@@ -722,9 +661,8 @@ export class CreateComponent implements OnInit, OnDestroy {
           this.discoverBrandImages(this.businessWebsite || undefined);
         }
 
-        // ALWAYS set category via AI — with 8s timeout fallback
         const types = match?.types || this.selectedBusiness()?.types;
-        // Set a timeout: if AI doesn't respond in 8s, use local inference
+        // If AI categorization doesn't respond in 8s, fall back to local inference
         const categoryTimeout = setTimeout(() => {
           if (this.loadingCategory()) {
             const inferred =
@@ -777,12 +715,9 @@ export class CreateComponent implements OnInit, OnDestroy {
   /**
    * Run AI autofill for the create form.
    *
-   * Calls `POST /api/sites/autofill` with the business name. While the
-   * call is in-flight, every untouched field shimmers. When the response
-   * arrives, only fields the user has NOT touched are filled — late-
+   * While the call is in-flight, every untouched field shimmers. When the
+   * response arrives, only fields the user has NOT touched are filled — late-
    * arriving inference must never clobber active edits.
-   *
-   * @param name - Business name to research (echoed from `?name=` param)
    */
   runAutofill(name: string): void {
     if (!name.trim()) return;
@@ -946,7 +881,6 @@ export class CreateComponent implements OnInit, OnDestroy {
       }
     }
 
-    // Design recommendations based on category
     const design = this.getDesignRecommendations(category);
     parts.push(`Design style: ${design.style}.`);
     parts.push(`Brand colors: primary ${design.primaryColor}, accent ${design.accentColor}.`);
@@ -1334,8 +1268,6 @@ export class CreateComponent implements OnInit, OnDestroy {
     const rec = map[category];
     return rec ? ({ ...defaults, ...rec } as typeof defaults) : defaults;
   }
-
-  // ── Form draft persistence (localStorage) ──────────────────
 
   private static readonly DRAFT_KEY = 'ps_create_draft';
 

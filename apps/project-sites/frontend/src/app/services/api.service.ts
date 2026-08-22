@@ -64,7 +64,7 @@ export class ApiService {
   private router = inject(Router);
   private telemetry = inject(TelemetryService);
 
-  /** Build common JSON headers — injects `Authorization: Bearer <token>` when signed in. */
+  /** Injects `Authorization: Bearer <token>` when signed in. */
   private headers(): HttpHeaders {
     let headers = new HttpHeaders({ 'Content-Type': 'application/json' });
     const token = this.auth.getToken();
@@ -77,9 +77,8 @@ export class ApiService {
   private static readonly REQUEST_TIMEOUT_MS = 30_000;
 
   /**
-   * Handles HTTP errors with user-friendly toast messages.
-   * Applies a 30s timeout to prevent indefinite hangs.
-   * Re-throws the error so callers can implement additional handling.
+   * 30s timeout to prevent indefinite hangs; user-friendly toast on failure;
+   * re-throws so callers can add their own handling.
    */
   private handleError<T>(silent = false): (source: Observable<T>) => Observable<T> {
     return (source: Observable<T>) =>
@@ -160,7 +159,6 @@ export class ApiService {
     return qIdx === -1 ? url : url.slice(0, qIdx);
   }
 
-  /** Translate an HTTP failure into a user-friendly toast message. */
   private getErrorMessage(error: HttpErrorResponse): string {
     if (error.status === 0 || error.statusText === 'Unknown Error') {
       return "Can't reach the server. Check your connection.";
@@ -263,16 +261,14 @@ export class ApiService {
       .pipe(this.handleError(opts?.silent));
   }
 
-  /** Generic PUT — JSON body, bearer header, 30s timeout. `{ silent: true }`
-   *  suppresses the generic error toast (telemetry + 401-redirect still run). */
+  /** `{ silent: true }` suppresses the generic error toast (telemetry + 401-redirect still run). */
   put<T>(path: string, body?: unknown, opts?: { silent?: boolean }): Observable<T> {
     return this.http
       .put<T>(`/api${path}`, body, { headers: this.headers() })
       .pipe(this.handleError(opts?.silent));
   }
 
-  /** Generic PATCH — JSON body, bearer header, 30s timeout. `{ silent: true }`
-   *  suppresses the generic error toast (telemetry + 401-redirect still run). */
+  /** `{ silent: true }` suppresses the generic error toast (telemetry + 401-redirect still run). */
   patch<T>(path: string, body?: unknown, opts?: { silent?: boolean }): Observable<T> {
     return this.http
       .patch<T>(`/api${path}`, body, { headers: this.headers() })
@@ -308,7 +304,6 @@ export class ApiService {
       .pipe(this.handleError(opts?.silent));
   }
 
-  /** Search businesses via Google Places proxy */
   searchBusinesses(
     query: string,
     lat?: number,
@@ -322,7 +317,6 @@ export class ApiService {
     return this.get('/search/businesses', params);
   }
 
-  /** Search pre-built sites */
   searchSites(query: string): Observable<{ data: PreBuiltSite[] }> {
     return this.get('/sites/search', { q: query });
   }
@@ -332,7 +326,6 @@ export class ApiService {
     return this.get('/sites/lookup', { place_id: placeId });
   }
 
-  /** Send magic link */
   sendMagicLink(
     email: string,
     redirectUrl: string,
@@ -353,12 +346,10 @@ export class ApiService {
     return this.post('/auth/test-login', { email, password }, { silent: true });
   }
 
-  /** Get current user */
   getMe(): Observable<{ data: UserInfo }> {
     return this.get('/auth/me');
   }
 
-  /** Create site from search */
   createSiteFromSearch(body: CreateSitePayload): Observable<{ data: Site }> {
     return this.post('/sites/create-from-search', body);
   }
@@ -385,7 +376,7 @@ export class ApiService {
    * Fetch the 30-day rolling cost forecast for the authenticated org.
    *
    * @remarks
-   * Backed by `GET /api/billing/cost-forecast?days=N` (Bundle B finish, 2026-05-24).
+   * Backed by `GET /api/billing/cost-forecast?days=N`.
    * `days` clamps server-side to `[7, 90]`. Surface used by the Forecast card in
    * `billing.component.ts` — drives the rolling-counter projection, sparkline,
    * percent-of-cap meter, and the 80% threshold toast deduped via KV.
@@ -399,22 +390,18 @@ export class ApiService {
     return this.get(`/billing/cost-forecast?days=${encodeURIComponent(String(days))}`);
   }
 
-  /** List user sites */
   listSites(): Observable<{ data: Site[] }> {
     return this.get('/sites');
   }
 
-  /** Get single site */
   getSite(id: string): Observable<{ data: Site }> {
     return this.get(`/sites/${id}`);
   }
 
-  /** Update site */
   updateSite(id: string, body: Partial<Site>): Observable<{ data: Site }> {
     return this.patch(`/sites/${id}`, body);
   }
 
-  /** Delete site */
   deleteSite(id: string): Observable<void> {
     return this.delete(`/sites/${id}`);
   }
@@ -424,7 +411,6 @@ export class ApiService {
     return this.post(`/sites/${id}/reset`, body);
   }
 
-  /** Get site logs */
   getSiteLogs(id: string, limit = 200): Observable<{ data: LogEntry[] }> {
     return this.get(`/sites/${id}/logs`, { limit: limit.toString() });
   }
@@ -464,7 +450,6 @@ export class ApiService {
     return this.get(`/sites/${siteId}/ai-endpoints/${endpointId}`);
   }
 
-  /** Save edits to an endpoint (files + metadata) */
   updateAiEndpoint(
     siteId: string,
     endpointId: string,
@@ -478,7 +463,6 @@ export class ApiService {
     return this.post(`/sites/${siteId}/ai-endpoints/${endpointId}/deploy`, {});
   }
 
-  /** Create a new AI endpoint (slug + language + starter files) */
   createAiEndpoint(
     siteId: string,
     body: { endpoint_slug: string; display_name?: string; language?: string },
@@ -541,7 +525,6 @@ export class ApiService {
     return this.get(`/voice/conversations`, { siteId });
   }
 
-  /** List the org's connected social accounts */
   getSocialAccounts(): Observable<{ data: SocialAccount[] }> {
     return this.get(`/social/accounts`);
   }
@@ -559,22 +542,18 @@ export class ApiService {
     return this.get(`/social/analytics/aggregate`);
   }
 
-  /** List hostnames */
   getHostnames(siteId: string): Observable<{ data: Hostname[] }> {
     return this.get(`/sites/${siteId}/hostnames`);
   }
 
-  /** Add hostname */
   addHostname(siteId: string, hostname: string): Observable<{ data: Hostname }> {
     return this.post(`/sites/${siteId}/hostnames`, { hostname });
   }
 
-  /** Set primary hostname */
   setPrimaryHostname(siteId: string, hostnameId: string): Observable<void> {
     return this.put(`/sites/${siteId}/hostnames/${hostnameId}/primary`);
   }
 
-  /** Delete hostname */
   deleteHostname(siteId: string, hostnameId: string): Observable<void> {
     return this.delete(`/sites/${siteId}/hostnames/${hostnameId}`);
   }
@@ -604,14 +583,12 @@ export class ApiService {
     return this.post('/domains/register', { domain, site_id: siteId });
   }
 
-  /** Check slug availability */
   checkSlug(slug: string, excludeId?: string): Observable<{ data: { available: boolean } }> {
     const params: Record<string, string> = { slug };
     if (excludeId) params['exclude_id'] = excludeId;
     return this.get('/slug/check', params);
   }
 
-  /** Billing checkout */
   createCheckout(
     orgId: string,
     siteId: string,
@@ -632,22 +609,18 @@ export class ApiService {
     return this.post('/billing/embedded-checkout', payload);
   }
 
-  /** Billing portal */
   getBillingPortal(returnUrl: string): Observable<{ data: { portal_url: string } }> {
     return this.post('/billing/portal', { return_url: returnUrl });
   }
 
-  /** Get subscription */
   getSubscription(): Observable<{ data: SubscriptionInfo }> {
     return this.get('/billing/subscription');
   }
 
-  /** Domain summary */
   getDomainSummary(): Observable<{ data: DomainSummary }> {
     return this.get('/admin/domains/summary');
   }
 
-  /** Search address */
   searchAddress(query: string, lat?: number, lng?: number): Observable<{ data: AddressResult[]; _error?: SearchProviderError }> {
     const params: Record<string, string> = { q: query };
     if (lat != null) params['lat'] = lat.toString();
@@ -655,12 +628,10 @@ export class ApiService {
     return this.get('/search/address', params);
   }
 
-  /** Validate business */
   validateBusiness(body: unknown): Observable<{ data: { valid: boolean; message?: string } }> {
     return this.post('/validate-business', body);
   }
 
-  /** Contact form */
   submitContact(body: {
     name: string;
     email: string;
@@ -690,17 +661,14 @@ export class ApiService {
     return this.post('/sites/improve-prompt', body);
   }
 
-  /** Deploy ZIP to site */
   deploySite(siteId: string, formData: FormData): Observable<{ data: { message: string } }> {
     return this.postFormData(`/sites/${siteId}/deploy`, formData);
   }
 
-  /** Get workflow status */
   getWorkflow(siteId: string): Observable<{ data: WorkflowStatus }> {
     return this.get(`/sites/${siteId}/workflow`);
   }
 
-  /** Delete site with options */
   deleteSiteWithOptions(id: string, cancelSubscription: boolean): Observable<void> {
     return this.http
       .request<void>('DELETE', `/api/sites/${id}`, {
@@ -710,7 +678,6 @@ export class ApiService {
       .pipe(this.handleError());
   }
 
-  /** Get entitlements */
   getEntitlements(): Observable<{ data: Entitlements }> {
     return this.get('/billing/entitlements');
   }
@@ -896,12 +863,10 @@ export class ApiService {
     return this.get('/admin/cloudflare-credentials');
   }
 
-  /** List form submissions for a site */
   listFormSubmissions(siteId: string, limit = 50): Observable<{ data: FormSubmission[] }> {
     return this.get(`/sites/${siteId}/forms`, { limit: limit.toString() });
   }
 
-  /** List newsletter integrations for a site */
   listIntegrations(
     siteId: string,
     opts?: { silent?: boolean },
@@ -909,7 +874,6 @@ export class ApiService {
     return this.get(`/sites/${siteId}/integrations`, undefined, opts);
   }
 
-  /** Connect a newsletter integration to a site */
   createIntegration(
     siteId: string,
     body: {
@@ -932,12 +896,10 @@ export class ApiService {
     return this.patch(`/sites/${siteId}/integrations/${id}`, body);
   }
 
-  /** Delete an integration */
   deleteIntegration(siteId: string, id: string): Observable<void> {
     return this.delete(`/sites/${siteId}/integrations/${id}`);
   }
 
-  /** Get GitHub backup connection status for a site */
   getGithubBackupStatus(siteId: string): Observable<{ data: GithubBackupStatus }> {
     return this.get(`/sites/${siteId}/github/status`);
   }
