@@ -49,8 +49,8 @@ npx wrangler whoami
 
 ## Pre-flight Bindings (one-time per environment)
 
-Run these once before the first deploy of a new environment. They are
-idempotent — re-running on an existing resource is a no-op.
+Run once before the first deploy of a new environment. Idempotent —
+re-running on an existing resource is a no-op.
 
 ### Vectorize index (RAG_INDEX)
 
@@ -83,7 +83,7 @@ Enable Logs + Cache. Then flip `AI_GATEWAY_ENABLED = "true"` in
 
 ### D1 + KV + R2
 
-Already provisioned in production — IDs in the Cloudflare Resource IDs table
+Production is already provisioned — IDs in the Cloudflare Resource IDs table
 below. For a new environment:
 
 ```bash
@@ -113,6 +113,19 @@ done
 
 `MCP_ENCRYPTION_KEY` is data-at-rest (Tier 1.5) — NEVER rotate without a
 re-encryption job. Every other secret can be rotated freely.
+
+Full secret set per environment (set with `wrangler secret put <KEY> --env <env>`):
+
+- **Required** — `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_PLACES_API_KEY`, `POSTHOG_API_KEY`, `CF_API_TOKEN`, `CF_ZONE_ID`
+- **Optional** — `SENDGRID_API_KEY`, `SENTRY_DSN`, `OPENAI_API_KEY`
+
+Verify what's set:
+
+```bash
+npx wrangler secret list --env production
+```
+
+- **NEVER** modify secrets already set in the Cloudflare dashboard (Stripe, SendGrid, Google OAuth). Use `wrangler secret put` only for a NEW secret.
 
 ## Smoke Tests (post-deploy)
 
@@ -158,7 +171,7 @@ Cloudflare keeps the last 10 worker versions. Roll back instantly:
 # List recent versions
 npx wrangler deployments list --env production
 
-# Roll back to a specific version-id
+# Roll back to a specific version-id (or omit for previous)
 npx wrangler rollback <version-id> --env production
 
 # Verify
@@ -173,11 +186,22 @@ npx wrangler d1 time-travel restore project-sites-db-production \
 ```
 
 For R2 incidents, the marketing path is the only mutable surface in normal
-ops — just re-upload from `public/`:
+ops — re-upload from `public/`:
 
 ```bash
 cd apps/project-sites
 ./scripts/upload-marketing.sh production   # idempotent overwrite
+```
+
+### Site Version Rollback
+
+Sites are versioned; previous version files remain in R2 (never deleted).
+Changing the version pointer immediately serves the old version:
+
+```sql
+-- In D1, point the site at a previous build version
+UPDATE sites SET current_build_version = '2025-01-15T10-30-00-000Z'
+WHERE id = '<site-id>';
 ```
 
 ---
@@ -209,15 +233,6 @@ cd apps/project-sites
 | D1 production | `ea3e839a-c641-4861-ae30-dfc63bff8032` |
 | KV CACHE (dev) | `dc6e00fd0de94cc3afc2c6c774347312` |
 | KV PROMPT_STORE (dev) | `c74012c6439e403487ece3f66b6f1362` |
-
-## Authentication
-
-Wrangler uses Global API Key + email (not an API token):
-
-```bash
-export CLOUDFLARE_API_KEY=<your-global-api-key>
-export CLOUDFLARE_EMAIL=blzalewski@gmail.com
-```
 
 ## Deploy Commands
 
@@ -273,7 +288,7 @@ npx wrangler r2 object put project-sites-production/marketing/terms.html \
 
 ### D1 Migrations
 
-D1 doesn't have a built-in migration runner. Apply SQL manually:
+D1 has no built-in migration runner. Apply SQL manually:
 
 ```bash
 # Against remote staging
@@ -281,64 +296,35 @@ npx wrangler d1 execute project-sites-db-staging --remote --file supabase/migrat
 
 # Against remote production
 npx wrangler d1 execute project-sites-db-production --remote --file supabase/migrations/00001_initial_schema.sql
-
-# NOTE: The migration SQL uses Postgres syntax (gen_random_uuid, TIMESTAMPTZ, etc.)
-# You may need to adapt for D1 SQLite syntax:
-# - UUID → TEXT, TIMESTAMPTZ → TEXT, BOOLEAN → INTEGER, JSONB → TEXT
-# - Remove triggers, RLS policies, and Postgres-specific functions
 ```
 
-### Secrets Management
-
-Set secrets via wrangler (stored encrypted, not in wrangler.toml):
-
-```bash
-cd apps/project-sites
-
-# Required secrets
-npx wrangler secret put STRIPE_SECRET_KEY --env staging
-npx wrangler secret put STRIPE_PUBLISHABLE_KEY --env staging
-npx wrangler secret put STRIPE_WEBHOOK_SECRET --env staging
-npx wrangler secret put GOOGLE_CLIENT_ID --env staging
-npx wrangler secret put GOOGLE_CLIENT_SECRET --env staging
-npx wrangler secret put GOOGLE_PLACES_API_KEY --env staging
-npx wrangler secret put POSTHOG_API_KEY --env staging
-npx wrangler secret put CF_API_TOKEN --env staging
-npx wrangler secret put CF_ZONE_ID --env staging
-
-# Optional secrets
-npx wrangler secret put SENDGRID_API_KEY --env staging
-npx wrangler secret put SENTRY_DSN --env staging
-npx wrangler secret put OPENAI_API_KEY --env staging
-npx wrangler secret put TWILIO_ACCOUNT_SID --env staging
-npx wrangler secret put TWILIO_AUTH_TOKEN --env staging
-npx wrangler secret put TWILIO_PHONE_NUMBER --env staging
-```
+The migration SQL uses Postgres syntax (`gen_random_uuid`, `TIMESTAMPTZ`, etc.).
+Adapt for D1 SQLite: `UUID→TEXT`, `TIMESTAMPTZ→TEXT`, `BOOLEAN→INTEGER`,
+`JSONB→TEXT`; remove triggers, RLS policies, and Postgres-specific functions.
 
 ## Workers Routes
 
-Configured in Cloudflare dashboard (not wrangler.toml):
+Configured in the Cloudflare dashboard (not `wrangler.toml`). Capture
+subdomain traffic like `vitos-salon-sites.megabyte.space`:
 
 ```
 *-sites.megabyte.space/*           → project-sites (production)
 *-sites-staging.megabyte.space/*   → project-sites-staging (staging)
 ```
 
-These route patterns capture subdomain traffic like `vitos-salon-sites.megabyte.space`.
-
 ## Cloudflare Access
 
-Bypass apps are configured for these domains to allow public access:
+Bypass apps allow public access on these domains (without them, Access gates
+all traffic):
+
 - `sites.megabyte.space`
 - `sites-staging.megabyte.space`
 - `bolt.megabyte.space`
 - `bolt-staging.megabyte.space`
 
-Without these bypass rules, Cloudflare Access would gate all traffic.
-
 ## CI/CD Pipeline
 
-### GitHub Actions (`.github/workflows/project-sites.yaml`)
+GitHub Actions (`.github/workflows/project-sites.yaml`):
 
 ```yaml
 Triggers:
@@ -347,26 +333,11 @@ Triggers:
   - PR to main (lint + test only)
 
 Jobs:
-  1. lint
-     - cd apps/project-sites && npm run lint
-     - cd packages/shared && npm run lint
-
-  2. typecheck
-     - cd packages/shared && npx tsc --noEmit
-     - cd apps/project-sites && npx tsc --noEmit
-
-  3. unit-tests
-     - cd packages/shared && npm test
-     - cd apps/project-sites && npm test
-
-  4. e2e-tests (on PR only)
-     - Install Playwright browsers
-     - Start local server
-     - cd apps/project-sites && npx playwright test
-
-  5. deploy (on push to main/staging)
-     - Deploy worker: npx wrangler deploy --env {env}
-     - Upload homepage: wrangler r2 object put ...
+  1. lint       — apps/project-sites + packages/shared: npm run lint
+  2. typecheck  — packages/shared + apps/project-sites: npx tsc --noEmit
+  3. unit-tests — packages/shared + apps/project-sites: npm test
+  4. e2e-tests  — (PR only) Playwright browsers + local server + npx playwright test
+  5. deploy     — (push to main/staging) wrangler deploy --env {env} + R2 homepage upload
 ```
 
 ## Local Development
@@ -392,34 +363,8 @@ cd apps/project-sites && npm run check
 cd apps/project-sites && npx wrangler dev
 ```
 
-### Local Dev Server
-- Runs on `http://localhost:8787`
-- Auto-provisions local D1 database
-- KV and R2 are local (not remote)
-- No Queue binding (Queue not enabled on account)
-
-## Rollback Procedure
-
-### Worker Rollback
-```bash
-# List recent deployments
-npx wrangler deployments list --env production
-
-# Rollback to previous deployment
-npx wrangler rollback --env production
-```
-
-### Site Version Rollback
-
-Sites are versioned. To rollback a specific site:
-```sql
--- In D1, update the current_build_version to a previous version
-UPDATE sites SET current_build_version = '2025-01-15T10-30-00-000Z'
-WHERE id = '<site-id>';
-```
-
-The previous version's files remain in R2 (never deleted), so changing
-the version pointer immediately serves the old version.
+Local dev server: `http://localhost:8787`. Auto-provisions local D1. KV + R2
+are local (not remote). No Queue binding (Queues not enabled on the account).
 
 ## Monitoring & Observability
 
@@ -431,9 +376,14 @@ the version pointer immediately serves the old version.
 - R2 → project-sites-* → Objects (file browser)
 - KV → (namespace) → Keys (cache inspection)
 
-### External Services
-- **Sentry**: Exception tracking with request_id correlation
-- **PostHog**: Funnel analytics, user identification, event tracking
+### External Stack
+- **PostHog Cloud** — product analytics, behavior, funnels, feature flags, session replay.
+- **Axiom** (`logs.projectsites.dev`) — structured operational + service + error logs.
+- **OpenTelemetry** — trace/log/metric correlation via the `telemetry-router` Fly app (`infra/fly/telemetry-router`).
+- **ClickHouse on Fly.io** — high-volume warehouse + customer analytics.
+- **Sentry** (`@sentry/cloudflare`) — exception + release tracking via `SENTRY_RELEASE`; source maps uploaded by `scripts/upload-sentry-sourcemaps.mjs`.
+
+See [OBSERVABILITY.md](./OBSERVABILITY.md).
 
 ### Structured Log Format
 ```json
@@ -446,65 +396,25 @@ the version pointer immediately serves the old version.
 }
 ```
 
-All logs use `console.warn` (not `console.log` — blocked by ESLint).
+All logs use `console.warn` (`console.log` is blocked by ESLint).
 
 ## Troubleshooting
 
-### Common Issues
-
-1. **"Cannot find module @project-sites/shared"**
-   - Run `npm install --legacy-peer-deps` in `apps/project-sites/`
-
-2. **Wrangler auth errors**
-   - Ensure `CLOUDFLARE_API_KEY` and `CLOUDFLARE_EMAIL` are set
-   - Do NOT use `CLOUDFLARE_API_TOKEN` (not configured)
-
-3. **D1 migration errors**
-   - Postgres SQL needs manual adaptation for SQLite
-   - Remove: triggers, RLS policies, gen_random_uuid()
-   - Change: UUID→TEXT, TIMESTAMPTZ→TEXT, BOOLEAN→INTEGER
-
-4. **Queue binding errors**
-   - Queues are NOT yet enabled on the account
-   - `QUEUE` binding is optional in Env type
-   - Queue sections are commented out in wrangler.toml
-
-5. **Homepage shows JSON instead of HTML**
-   - Marketing homepage must be uploaded to R2 separately
-   - Use the R2 upload commands above
-
-6. **CSP blocking scripts on homepage**
-   - CSP must include `'unsafe-inline'` in script-src
-   - Check `src/middleware/security_headers.ts`
-
-## Error Tracking & Observability
-
-Sentry has been fully removed. Error tracking and observability now run on:
-
-- **PostHog Cloud** — product analytics, behavior, funnels, feature flags,
-  session replay where appropriate.
-- **Axiom** (`logs.projectsites.dev`) — structured operational logs, service
-  logs, error logs.
-- **OpenTelemetry** — trace/log/metric correlation + transport via the
-  `telemetry-router` Fly app (`infra/fly/telemetry-router`).
-- **ClickHouse on Fly.io** — high-volume warehouse + customer analytics.
-
-- **Sentry** (`@sentry/cloudflare`) — exception tracking + release tracking via
-  `SENTRY_RELEASE`; source maps uploaded by `scripts/upload-sentry-sourcemaps.mjs`.
-
-See [`observability/axiom.md`](./OBSERVABILITY.md) and
-[`observability/otel.md`](./OBSERVABILITY.md).
-
+1. **"Cannot find module @project-sites/shared"** — run `npm install --legacy-peer-deps` in `apps/project-sites/`.
+2. **Wrangler auth errors** — ensure `CLOUDFLARE_API_KEY` + `CLOUDFLARE_EMAIL` are set (see Auth Fallback Chain).
+3. **D1 migration errors** — Postgres SQL needs manual SQLite adaptation: remove triggers/RLS/`gen_random_uuid()`; change `UUID→TEXT`, `TIMESTAMPTZ→TEXT`, `BOOLEAN→INTEGER`.
+4. **Queue binding errors** — Queues NOT enabled on the account; `QUEUE` binding is optional in the Env type; Queue sections commented out in `wrangler.toml`.
+5. **Homepage shows JSON instead of HTML** — upload the marketing homepage to R2 separately (see Marketing Homepage Upload).
+6. **CSP blocking scripts on homepage** — CSP must include `'unsafe-inline'` in `script-src`; check `src/middleware/security_headers.ts`.
 
 ---
 
-<!-- folded from deployment/fly.md (2026-06-27) -->
+<!-- folded from deployment/fly.md -->
 
 # Fly.io Deployment Guide
 
-This guide covers deploying and operating ClickHouse and Chatwoot on Fly.io. For the rationale behind using Fly.io for these services, see [fly-cloudflare-split.md](./ARCHITECTURE.md).
-
----
+Deploys and operates ClickHouse and Chatwoot on Fly.io. For the CF-vs-Fly split
+rationale see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ## Prerequisites
 
@@ -512,22 +422,17 @@ This guide covers deploying and operating ClickHouse and Chatwoot on Fly.io. For
 # Install fly CLI
 curl -L https://fly.io/install.sh | sh
 
-# Authenticate
+# Authenticate + verify
 fly auth login
-
-# Verify
 fly version
 fly auth whoami
 ```
 
-### Required Secrets
+Required secret (local env or CI):
 
 ```bash
-# Set in your local environment or CI
 export FLY_API_TOKEN="..."
 ```
-
----
 
 ## ClickHouse
 
@@ -553,16 +458,15 @@ fly deploy --app projectsites-clickhouse \
   --config apps/clickhouse/fly.toml
 ```
 
-### Update/Redeploy
+### Redeploy
 
 ```bash
 fly deploy --app projectsites-clickhouse --config apps/clickhouse/fly.toml
 ```
 
-### Environment Secrets Setup
+### Worker-side Secrets
 
 ```bash
-# ClickHouse credentials for Worker consumption
 wrangler secret put CLICKHOUSE_HOST --env production
 # value: https://projectsites-clickhouse.fly.dev
 
@@ -590,12 +494,9 @@ fly scale vm performance-2x --app projectsites-clickhouse
 
 ```bash
 fly releases list --app projectsites-clickhouse
-# Find the previous release version
 fly deploy --image registry.fly.io/projectsites-clickhouse:<previous-version> \
   --app projectsites-clickhouse
 ```
-
----
 
 ## Chatwoot
 
@@ -630,7 +531,7 @@ fly ssh console --app projectsites-chatwoot -C \
   "bundle exec rails c <<< \"SuperAdmin.create!(name: 'Brian', email: 'brian@megabyte.space', password: '<password>')\""
 ```
 
-### Update/Redeploy
+### Redeploy
 
 ```bash
 fly deploy --app projectsites-chatwoot --config apps/chatwoot/fly.toml
@@ -639,10 +540,8 @@ fly deploy --app projectsites-chatwoot --config apps/chatwoot/fly.toml
 ### Custom Domain
 
 ```bash
-# Add the custom domain
+# Add the custom domain + verify certificate issued
 fly certs add support.projectsites.dev --app projectsites-chatwoot
-
-# Verify certificate issued
 fly certs show support.projectsites.dev --app projectsites-chatwoot
 
 # In Cloudflare DNS: add CNAME support.projectsites.dev -> projectsites-chatwoot.fly.dev
@@ -664,57 +563,40 @@ fly deploy --image registry.fly.io/projectsites-chatwoot:<previous-version> \
   --app projectsites-chatwoot
 ```
 
----
-
 ## Monitoring
 
-### Live Logs
-
 ```bash
-# ClickHouse
+# Live logs
 fly logs --app projectsites-clickhouse
-
-# Chatwoot (all processes)
 fly logs --app projectsites-chatwoot
+fly logs --app projectsites-chatwoot | grep ERROR   # tail with filter
 
-# Tail with filter
-fly logs --app projectsites-chatwoot | grep ERROR
-```
-
-### Machine Status
-
-```bash
+# Machine status
 fly status --app projectsites-clickhouse
 fly status --app projectsites-chatwoot
-```
 
-### SSH Into a Machine
-
-```bash
+# SSH into a machine
 fly ssh console --app projectsites-clickhouse
 fly ssh console --app projectsites-chatwoot
 ```
 
----
-
 ## CF Access Protection for Admin Panels
 
-Both Chatwoot and ClickHouse admin interfaces are protected by Cloudflare Access using the `projectsites-infra` service token.
-
-### Service Token Usage
+Chatwoot and ClickHouse admin interfaces are protected by Cloudflare Access via
+the `projectsites-infra` service token. Worker-to-service calls include the
+token headers:
 
 ```bash
-# Worker-to-service calls include the CF Access service token headers
 curl -H "CF-Access-Client-Id: <SERVICE_TOKEN_ID>" \
      -H "CF-Access-Client-Secret: <SERVICE_TOKEN_SECRET>" \
      https://support.projectsites.dev/auth/sign_in
 ```
 
-> Note: CF Access login pages return HTTP 200 with a login HTML body — not 401/403.
-> Always verify access by checking the response body, not just the status code.
-> A successful authenticated response has the application content, not the CF Access login form.
+> CF Access login pages return HTTP 200 with a login HTML body — not 401/403.
+> Verify access by the response BODY, not the status code: a successful
+> authenticated response has application content, not the CF Access login form.
 
-### Verifying CF Access Is Active
+Verify CF Access is active:
 
 ```bash
 # Without token — should see CF Access login page HTML
@@ -727,11 +609,9 @@ curl -s \
   https://support.projectsites.dev/auth/sign_in | grep -i "chatwoot"
 ```
 
----
-
 ## FLY_API_TOKEN in CI
 
-For CI deployments, set `FLY_API_TOKEN` as a repository secret. The deploy step:
+Set `FLY_API_TOKEN` as a repository secret. Deploy step:
 
 ```yaml
 # .github/workflows/deploy-fly.yml
@@ -744,26 +624,11 @@ For CI deployments, set `FLY_API_TOKEN` as a repository secret. The deploy step:
       --auto-confirm
 ```
 
----
-
-## Related Docs
-
-- [Architecture: CF vs Fly split](./ARCHITECTURE.md)
-- [ClickHouse warehouse](./OBSERVABILITY.md)
-- [Chatwoot service](./SERVICES-AND-SOCIAL.md)
-
-
----
-
-<!-- folded from deployment/verification.md (2026-06-27) -->
-
 # Post-Deploy Verification Playbook
 
-Run these checks after every deployment. Do not declare a deploy complete until all checks pass.
-
-The script `scripts/verify-all-services.sh` automates the curl-based checks (marked with "automated" below). Playwright-based checks require a running browser session.
-
----
+Run these checks after every deployment. Do not declare a deploy complete until
+all pass. `scripts/verify-all-services.sh` automates the curl-based checks
+(marked "automated"). Playwright-based checks need a running browser session.
 
 ## Verification Checklist
 
@@ -785,8 +650,6 @@ The script `scripts/verify-all-services.sh` automates the curl-based checks (mar
 | Site serving (test site) | `curl -sf https://megabytespace.projectsites.dev/` | HTTP 200, site HTML | Yes |
 | Security headers | See headers section below | CSP, HSTS, X-Frame-Options present | Yes |
 
----
-
 ## Detailed Checks
 
 ### Worker Health
@@ -799,7 +662,7 @@ curl -sf https://projectsites.dev/health
 
 ### PostHog Ingestion
 
-Send a test event and verify it appears in PostHog within 30 seconds.
+Send a test event; verify it appears in PostHog within 30 seconds.
 
 ```bash
 curl -X POST https://us.i.posthog.com/capture \
@@ -816,7 +679,7 @@ curl -X POST https://us.i.posthog.com/capture \
   }'
 # Expected: HTTP 200, {"status":1}
 
-# Then query in PostHog UI: Events → filter by event = "deploy.verification" (last 5 min)
+# Then query in PostHog UI: Events → filter event = "deploy.verification" (last 5 min)
 # Or via PostHog MCP: posthog exec "SELECT count() FROM events WHERE event = 'deploy.verification' AND timestamp > now() - INTERVAL 5 MINUTE"
 ```
 
@@ -841,8 +704,6 @@ curl -X POST "https://api.axiom.co/v1/datasets/${AXIOM_DATASET}/ingest" \
 ```
 
 ### OTel Spans Visible
-
-Trigger a real request and check spans appear in Axiom.
 
 ```bash
 # Make a real request that creates OTel spans
@@ -898,19 +759,15 @@ curl -sf https://megabytespace.projectsites.dev/
 curl -s https://megabytespace.projectsites.dev/ | grep -v "projectsites.dev" | head -5
 ```
 
----
-
 ## Automated Script
 
-`scripts/verify-all-services.sh` runs all curl-based checks above and exits non-zero if any fail.
+`scripts/verify-all-services.sh` runs all curl-based checks above and exits
+non-zero if any fail. It sources `get-secret` for credentials: `POSTHOG_API_KEY`,
+`AXIOM_API_KEY`, `AXIOM_DATASET`, `CLICKHOUSE_PASSWORD`, `CF_SERVICE_TOKEN_ID`,
+`CF_SERVICE_TOKEN_SECRET`.
 
 ```bash
-# Run all automated checks
 ./scripts/verify-all-services.sh
-
-# The script sources get-secret for credentials:
-# POSTHOG_API_KEY, AXIOM_API_KEY, AXIOM_DATASET, CLICKHOUSE_PASSWORD,
-# CF_SERVICE_TOKEN_ID, CF_SERVICE_TOKEN_SECRET
 ```
 
 Expected output:
@@ -929,23 +786,20 @@ Expected output:
 All checks passed.
 ```
 
----
-
 ## When a Check Fails
 
 | Failure | First step |
 |---|---|
 | Worker health 500/503 | `wrangler tail --env production` — look for unhandled exception |
-| PostHog ingestion fails | Check `POSTHOG_API_KEY` secret is set: `wrangler secret list --env production` |
+| PostHog ingestion fails | Check `POSTHOG_API_KEY` secret: `wrangler secret list --env production` |
 | Axiom ingestion fails | Check `AXIOM_API_KEY` and `AXIOM_DATASET` secrets |
 | ClickHouse unreachable | `fly status --app projectsites-clickhouse` |
 | Chatwoot unreachable | `fly status --app projectsites-chatwoot` + check CF Access policy |
 | Site serving 404/500 | Check R2 object exists: `wrangler r2 object get project-sites-production/sites/{slug}/...` |
 | Security headers missing | Check `apps/project-sites/src/middleware/security_headers.ts` deployed correctly |
 
----
-
 ## Related Docs
 
-- [Observability overview](./OBSERVABILITY.md)
-- [Architecture overview](./ARCHITECTURE.md)
+- [Architecture — CF vs Fly split](./ARCHITECTURE.md)
+- [Observability + ClickHouse warehouse](./OBSERVABILITY.md)
+- [Chatwoot service](./SERVICES-AND-SOCIAL.md)
