@@ -1,49 +1,21 @@
 /**
  * @module services/webhook_dlq
  * @description Dead-letter queue management for outbound webhook deliveries.
- *
- * Pure functions — no I/O, no side-effects. Operates on in-memory
- * {@link DeadLetterEntry} records to track which deliveries have been
- * permanently failed, allow selective replay, and provide aggregate
- * visibility into the depth and health of the dead-letter queue.
- *
- * ## Entry lifecycle
- *
- * ```
- * delivery fails → deadLetter(entry, reason) → DeadLetterEntry
- *                                                    │
- *                     replayDead(entry) ←────────────┤
- *                     (resets for a fresh retry cycle)
- *
- * dlqStats(entries) → { total, replayable, dead }
- * ```
- *
+ * Pure functions — no I/O, no side-effects.
  * @packageDocumentation
  */
 
-/**
- * A permanently-failed webhook delivery stored in the dead-letter queue.
- *
- * Every entry carries the original delivery context (which endpoint+event
- * failed) plus a reason-based classification — "why this can't proceed".
- */
 export interface DeadLetterEntry {
-  /** Stable identifier of the outbound webhook endpoint. */
   readonly webhookId: string;
-  /** The target URL that rejected the delivery. */
   readonly url: string;
-  /** The event type that triggered this delivery attempt. */
   readonly eventType: string;
-  /** Number of delivery attempts made before dead-lettering. */
   readonly attempts: number;
   /** HTTP status code from the last attempt (`0` for a network-level failure). */
   readonly lastStatusCode: number;
-  /** Error message from the last failed attempt, or `null` if none. */
   readonly lastError: string | null;
-  /** ISO 8601 UTC timestamp of when this entry was dead-lettered. */
   readonly deadLetterTs: string;
   /**
-   * Classification of why the delivery was dead-lettered.
+   * Why the delivery was dead-lettered.
    *
    * - `exhausted_retries` — hit the max-attempt ceiling with transient failures
    * - `permanent_4xx` — endpoint returned a non-429 client error (bad URL, auth)
@@ -54,7 +26,6 @@ export interface DeadLetterEntry {
   readonly deadLetterReason: DeadLetterReason;
 }
 
-/** Known reasons a webhook enters the dead-letter queue. */
 export type DeadLetterReason =
   | 'exhausted_retries'
   | 'permanent_4xx'
@@ -62,7 +33,7 @@ export type DeadLetterReason =
   | 'sign_error'
   | 'manual';
 
-/** All recognised dead-letter reasons. Frozen — safe for iteration and inclusion checks. */
+/** Frozen — safe for iteration and inclusion checks. */
 export const DEAD_LETTER_REASONS: readonly DeadLetterReason[] = Object.freeze([
   'exhausted_retries',
   'permanent_4xx',
@@ -71,29 +42,15 @@ export const DEAD_LETTER_REASONS: readonly DeadLetterReason[] = Object.freeze([
   'manual',
 ]);
 
-/**
- * Aggregate statistics across a set of dead-letter entries.
- */
 export interface DlqStats {
-  /** Total number of entries in the set. */
   readonly total: number;
-  /**
-   * Entries whose `deadLetterReason` indicates a transient or operator-reversible
-   * failure — the endpoint or network may have recovered. These are eligible for
-   * {@link replayDead}.
-   */
   readonly replayable: number;
-  /**
-   * Entries whose `deadLetterReason` indicates a permanent, non-recoverable failure
-   * (bad URL, auth, unsafe host) — replaying would produce the same outcome.
-   */
   readonly dead: number;
 }
 
 /**
- * Reasons that are considered **replayable** — the underlying issue MAY have
- * resolved (network restored, endpoint fixed, secrets rotated). Entries with
- * these reasons are counted in `dlqStats.replayable`.
+ * Reasons that are **replayable** — the underlying issue MAY have resolved
+ * (network restored, endpoint fixed, secrets rotated). Counted in `dlqStats.replayable`.
  */
 export const REPLAYABLE_REASONS: ReadonlySet<DeadLetterReason> = new Set<DeadLetterReason>([
   'exhausted_retries',
@@ -102,8 +59,8 @@ export const REPLAYABLE_REASONS: ReadonlySet<DeadLetterReason> = new Set<DeadLet
 ]);
 
 /**
- * Reasons that are considered **permanently dead** — replaying will produce the
- * same outcome. Entries with these reasons are counted in `dlqStats.dead`.
+ * Reasons that are **permanently dead** — replaying produces the same outcome.
+ * Counted in `dlqStats.dead`.
  */
 export const DEAD_REASONS: ReadonlySet<DeadLetterReason> = new Set<DeadLetterReason>([
   'permanent_4xx',
@@ -111,20 +68,10 @@ export const DEAD_REASONS: ReadonlySet<DeadLetterReason> = new Set<DeadLetterRea
 ]);
 
 /**
- * Promote a failed webhook delivery to the dead-letter queue.
+ * Promote a failed webhook delivery to the dead-letter queue. The original entry
+ * is never mutated.
  *
- * Wraps the delivery context with a reason and a timestamp, producing an
- * immutable {@link DeadLetterEntry}. The original entry is never mutated.
- *
- * @param webhookId - Stable identifier of the webhook endpoint that failed.
- * @param url - The target URL.
- * @param eventType - The event type that triggered this delivery.
- * @param attempts - Number of prior delivery attempts.
- * @param lastStatusCode - HTTP status from the last attempt (`0` for network error).
- * @param lastError - Error message from the last attempt, or `null`.
- * @param deadLetterReason - Classification of why the entry is dead-lettered.
  * @param nowIso - ISO 8601 timestamp override (defaults to `new Date().toISOString()`).
- * @returns A new dead-letter entry.
  *
  * @example
  * ```ts
@@ -138,7 +85,6 @@ export const DEAD_REASONS: ReadonlySet<DeadLetterReason> = new Set<DeadLetterRea
  *   'exhausted_retries',
  *   '2026-06-29T12:00:00.000Z',
  * );
- * // → { webhookId: 'ep_abc123', url: 'https://…', deadLetterTs: '2026-06-29T12:00:00.000Z', … }
  * ```
  *
  * @example
@@ -148,7 +94,6 @@ export const DEAD_REASONS: ReadonlySet<DeadLetterReason> = new Set<DeadLetterRea
  *   'ep_def', 'http://169.254.169.254/latest/meta-data', 'build.failed',
  *   1, 0, null, 'unsafe_url',
  * );
- * // blocked.deadLetterReason === 'unsafe_url'
  * // dlqStats([blocked]).dead === 1
  * ```
  */
@@ -177,22 +122,14 @@ export function deadLetter(
 }
 
 /**
- * Prepare a dead-letter entry for replay.
+ * Prepare a dead-letter entry for replay — resets delivery state (fresh attempt
+ * counter, `manual` reason) while carrying the original endpoint coordinates so
+ * the orchestrator can re-insert it into the delivery pipeline.
  *
- * Resets the delivery state so the entry can be retried with a fresh attempt
- * counter and a `manual` reason. The returned object carries the original
- * endpoint coordinates (`webhookId`, `url`, `eventType`) so the orchestrator
- * can re-insert it into the delivery pipeline.
+ * Returns `null` for a **permanent** reason (`permanent_4xx` / `unsafe_url`) —
+ * replaying would produce the same failure and is not supported.
  *
- * When the entry has a **permanent** dead-letter reason (`permanent_4xx` or
- * `unsafe_url`), the function returns `null` — replaying would produce the
- * same failure outcome and is not supported.
- *
- * @param entry - The dead-letter entry to replay.
- * @param nowIso - ISO 8601 timestamp override for the new dead-letter entry
- *   (defaults to `new Date().toISOString()`).
- * @returns A new dead-letter entry with reset delivery state and reason set
- *   to `manual`, or `null` when the entry is not replayable.
+ * @param nowIso - ISO 8601 timestamp override (defaults to `new Date().toISOString()`).
  *
  * @example
  * ```ts
@@ -235,12 +172,6 @@ export function replayDead(entry: DeadLetterEntry, nowIso?: string): DeadLetterE
 
 /**
  * Compute aggregate statistics over a set of dead-letter entries.
- *
- * Counts total, replayable, and permanently-dead entries. Handles empty,
- * single-entry, and mixed-reason collections.
- *
- * @param entries - The dead-letter entries to summarise.
- * @returns Aggregate statistics.
  *
  * @example
  * ```ts

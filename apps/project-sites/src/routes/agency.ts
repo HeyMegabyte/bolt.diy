@@ -6,16 +6,6 @@
  * gates max sub-accounts + agency-only features (branded admin, Stripe
  * Connect Express payouts, snapshot library).
  *
- * | Path                                            | Purpose                                       |
- * | ----------------------------------------------- | --------------------------------------------- |
- * | `GET  /api/agency/whoami`                       | Resolve agency context for current user       |
- * | `GET  /api/agency/clients`                      | List child orgs the agency owns               |
- * | `POST /api/agency/clients`                      | Invite a new client (creates child org stub)  |
- * | `GET  /api/agency/brand`                        | Read brand overrides JSON                     |
- * | `PUT  /api/agency/brand`                        | Update brand overrides (logo, color, email)   |
- * | `POST /api/agency/upgrade`                      | Convert current org → agency (tier select)    |
- * | `GET  /api/agency/snapshots`                    | List clonable site snapshots                  |
- *
  * @packageDocumentation
  */
 
@@ -32,13 +22,6 @@ const agency = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 agency.use('/api/agency/*', requirePro);
 
-/**
- * `GET /api/agency/whoami` — Resolve the agency org context for the
- * current user (tier, custom admin hostname, markup, brand overrides).
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
- */
 agency.get('/api/agency/whoami', async (c) => {
   const userId = c.get('userId');
   const orgId = c.get('orgId');
@@ -61,13 +44,6 @@ agency.get('/api/agency/whoami', async (c) => {
   return c.json({ org, user_id: userId });
 });
 
-/**
- * `GET /api/agency/clients` — List the child orgs owned by the agency
- * (caller's org) with site counts.
- *
- * @throws 401 UNAUTHORIZED when org context is missing.
- * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
- */
 agency.get('/api/agency/clients', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized();
@@ -84,15 +60,10 @@ agency.get('/api/agency/clients', async (c) => {
 });
 
 /**
- * `GET /api/agency/invitations` — List the caller agency's PENDING invitations
- * (the management view behind the revoke action).
+ * `GET /api/agency/invitations` — list the caller agency's PENDING invitations.
  *
- * @remarks
  * Pro-gated + org-scoped. Returns only ACTIONABLE invites — unclaimed AND
- * unexpired (a claimed one became a child org in `GET /api/agency/clients`; an
- * expired one is dead). Never returns `token_hash` (the secret stays server-side).
- *
- * @throws 401 UNAUTHORIZED when org context is missing.
+ * unexpired. Never returns `token_hash` (the secret stays server-side).
  */
 agency.get('/api/agency/invitations', async (c) => {
   const orgId = c.get('orgId');
@@ -115,21 +86,9 @@ const inviteSchema = z.object({
 });
 
 /**
- * `POST /api/agency/clients` — Invite a new client (creates a child-org
- * invitation token with 7-day expiry).
- *
- * @remarks
- * Body: {@link inviteSchema}. Returns `{ invitation_id, token, expires_at }`.
- *
- * @remarks
- * The caller (agency) relays the returned `token` to the client; the client
- * redeems it at `POST /api/invitations/agency/accept` (see below) which creates
- * their child org + membership. Wiring an invite EMAIL here (via `sendEmail` /
- * Novu, never a new Resend call) is the remaining enhancement.
- *
- * @throws 400 BAD_REQUEST when payload validation fails.
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
+ * `POST /api/agency/clients` — invite a new client (7-day token). Returns
+ * `{ invitation_id, token, expires_at }`; the caller relays `token` to the
+ * client, who redeems it at `POST /api/invitations/agency/accept`.
  */
 agency.post('/api/agency/clients', zValidator('json', inviteSchema), async (c) => {
   const body = c.req.valid('json');
@@ -165,7 +124,6 @@ agency.post('/api/agency/clients', zValidator('json', inviteSchema), async (c) =
       [existing.id],
     );
     if (reinviteErr) throw internalError(`Failed to refresh invitation: ${reinviteErr}`);
-    // Email delivery (sendEmail/Novu) is the remaining enhancement.
     return c.json({ invitation_id: existing.id, token, expires_at: expiresAt });
   }
 
@@ -180,23 +138,16 @@ agency.post('/api/agency/clients', zValidator('json', inviteSchema), async (c) =
     expires_at: expiresAt,
   });
   if (inviteErr) throw internalError(`Failed to create agency invitation: ${inviteErr}`);
-  // Email delivery (sendEmail/Novu) is the remaining enhancement — the caller
-  // relays the token meanwhile; the client redeems at the accept route below.
   return c.json({ invitation_id: id, token, expires_at: expiresAt });
 });
 
 /**
- * `GET /api/invitations/agency/:token` — Read-only preview of an agency client
- * invitation by its raw token (the link a client clicks before signing in).
+ * `GET /api/invitations/agency/:token` — read-only preview of an invitation.
  *
- * @remarks
  * Mounted OUTSIDE the `/api/agency/*` `requirePro` guard (the invitee is a client,
- * not Pro) and needs no session — the secret token IS the auth. Returns just
- * enough to render an accept screen (agency name, role, validity) WITHOUT
- * mutating anything. `status` is `valid | expired | claimed`; only `valid`
- * invitations can be redeemed at the accept route. Never echoes the token back.
- *
- * @throws 404 NOT_FOUND when no invitation matches the token.
+ * not Pro) and needs no session — the secret token IS the auth. Read-only, never
+ * echoes the token back. `status` is `valid | expired | claimed`; only `valid`
+ * can be redeemed at the accept route.
  */
 agency.get('/api/invitations/agency/:token', async (c) => {
   const token = c.req.param('token');
@@ -239,16 +190,12 @@ agency.get('/api/invitations/agency/:token', async (c) => {
 });
 
 /**
- * `DELETE /api/agency/clients/invitations/:id` — Revoke a PENDING invitation.
+ * `DELETE /api/agency/clients/invitations/:id` — revoke a PENDING invitation.
  *
- * @remarks
- * Pro-gated (under `/api/agency/*`) + org-scoped: an agency can revoke ONLY its
- * own unclaimed invitations. A claimed invite already created a child org —
- * deleting the row wouldn't undo that — so claimed/foreign/unknown ids all return
- * 404 (the `claimed_at IS NULL` + `agency_org_id` guards are the boundary).
- *
- * @throws 401 UNAUTHORIZED when org context is missing.
- * @throws 404 NOT_FOUND when there is no pending invitation with that id to revoke.
+ * Pro-gated + org-scoped: an agency can revoke ONLY its own unclaimed
+ * invitations. A claimed invite already created a child org (deleting the row
+ * wouldn't undo that), so claimed/foreign/unknown ids all return 404 — the
+ * `claimed_at IS NULL` + `agency_org_id` guards are the boundary.
  */
 agency.delete('/api/agency/clients/invitations/:id', async (c) => {
   const orgId = c.get('orgId');
@@ -271,17 +218,14 @@ agency.delete('/api/agency/clients/invitations/:id', async (c) => {
 /**
  * Map an agency-invitation role to the constrained `memberships.role` enum.
  *
- * @remarks
  * Invitation roles (`client_owner|client_editor|client_viewer`) are NOT valid
  * `memberships.role` values — that column has `CHECK (role IN
  * ('owner','admin','member','viewer'))`, so a `client_*` value would 500 the
- * INSERT. This is the single mapping point: owner→owner, editor→member (standard
- * non-admin write role), viewer→viewer. Any unknown role falls back to the
- * least-privilege `viewer`.
+ * INSERT. Single mapping point: owner→owner, editor→member, viewer→viewer;
+ * any unknown role falls back to least-privilege `viewer`.
  *
  * @param inviteRole - The `agency_invitations.role` value.
  * @returns A membership role that satisfies the CHECK constraint.
- * @example membershipRoleForInvite('client_editor') // 'member'
  */
 export function membershipRoleForInvite(inviteRole: string): 'owner' | 'member' | 'viewer' {
   if (inviteRole === 'client_owner') return 'owner';
@@ -292,9 +236,8 @@ export function membershipRoleForInvite(inviteRole: string): 'owner' | 'member' 
 const acceptSchema = z.object({ token: z.string().min(1).max(200) });
 
 /**
- * `POST /api/invitations/agency/accept` — Redeem an agency client invitation.
+ * `POST /api/invitations/agency/accept` — redeem an agency client invitation.
  *
- * @remarks
  * Mounted OUTSIDE the `/api/agency/*` `requirePro` guard on purpose: the invitee
  * is a CLIENT, not a Pro agency, so requiring Pro would make every invite
  * un-acceptable. The bearer of the secret `token` (+ a signed-in user) is the
@@ -302,11 +245,6 @@ const acceptSchema = z.object({ token: z.string().min(1).max(200) });
  * so a concurrent or replayed accept sees `changes:0` and is rejected (no
  * duplicate child org). On success: a child org (`parent_org_id = agency_org_id`)
  * + the caller's membership with the {@link membershipRoleForInvite} role.
- *
- * Body: `{ token }`. Returns `{ data: { org_id, slug, role, preselected_template_id? } }`.
- *
- * @throws 401 UNAUTHORIZED when no user is signed in.
- * @throws 404 NOT_FOUND when the token is unknown, expired, or already claimed.
  */
 agency.post('/api/invitations/agency/accept', zValidator('json', acceptSchema), async (c) => {
   const userId = c.get('userId');
@@ -380,9 +318,8 @@ agency.post('/api/invitations/agency/accept', zValidator('json', acceptSchema), 
   });
   if (memErr) throw internalError(`Failed to create client membership: ${memErr}`);
 
-  // Close the feedback loop: tell the agency owner their client accepted. Fire-
-  // and-forget — notifySiteOwner never throws; waitUntil'd so it never delays the
-  // 200. Resolves the agency org's owner email + triggers the Novu bell/channels.
+  // Tell the agency owner their client accepted. Fire-and-forget — notifySiteOwner
+  // never throws; waitUntil'd so it never delays the 200.
   const notify = notifySiteOwner(c.env, c.env.DB, {
     orgId: invite.agency_org_id,
     subject: 'A client accepted your invitation',
@@ -427,13 +364,6 @@ const brandSchema = z.object({
   hideBranding: z.boolean().optional(),
 });
 
-/**
- * `GET /api/agency/brand` — Read white-label brand overrides JSON for
- * the caller's agency org.
- *
- * @throws 401 UNAUTHORIZED when org context is missing.
- * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
- */
 agency.get('/api/agency/brand', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized();
@@ -461,17 +391,10 @@ agency.get('/api/agency/brand', async (c) => {
 });
 
 /**
- * `PUT /api/agency/brand` — Update white-label brand overrides (logo,
- * favicon, palette, sender email, hide-branding toggle).
+ * `PUT /api/agency/brand` — update white-label brand overrides.
  *
- * @remarks
- * Body: {@link brandSchema} — merged onto existing JSON. Invalidates the
- * KV cache key `brand:{orgId}` so the next request to the agency's
- * hostnames picks up the new brand.
- *
- * @throws 400 BAD_REQUEST when payload validation fails.
- * @throws 401 UNAUTHORIZED when org context is missing.
- * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
+ * Body {@link brandSchema} is MERGED onto existing JSON. Invalidates KV cache
+ * key `brand:{orgId}` so the agency's hostnames pick up the new brand.
  */
 agency.put('/api/agency/brand', zValidator('json', brandSchema), async (c) => {
   const orgId = c.get('orgId');
@@ -494,7 +417,6 @@ agency.put('/api/agency/brand', zValidator('json', brandSchema), async (c) => {
     [orgId],
   );
   if (brandErr) throw internalError(`Failed to save brand overrides: ${brandErr}`);
-  // Invalidate brand KV cache for this org's hostnames.
   try {
     await c.env.CACHE_KV.delete(`brand:${orgId}`);
   } catch {
@@ -509,17 +431,10 @@ const upgradeSchema = z.object({
 });
 
 /**
- * `POST /api/agency/upgrade` — Convert the caller's org into an agency
- * with the selected tier + markup percentage.
+ * `POST /api/agency/upgrade` — convert the caller's org into an agency.
  *
- * @remarks
- * Body: {@link upgradeSchema}. Idempotent — re-running just updates the
- * tier/markup. Does NOT charge anything; pricing is handled separately
- * via Stripe checkout.
- *
- * @throws 400 BAD_REQUEST when payload validation fails.
- * @throws 401 UNAUTHORIZED when org context is missing.
- * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
+ * Idempotent — re-running just updates tier/markup. Does NOT charge; pricing
+ * is handled separately via Stripe checkout.
  */
 agency.post('/api/agency/upgrade', zValidator('json', upgradeSchema), async (c) => {
   const orgId = c.get('orgId');
@@ -537,13 +452,6 @@ agency.post('/api/agency/upgrade', zValidator('json', upgradeSchema), async (c) 
   return c.json({ ok: true, tier: body.tier, markup_pct: body.markup_pct });
 });
 
-/**
- * `GET /api/agency/snapshots` — List clonable site snapshots (templates)
- * available to the agency — both its own and global public templates.
- *
- * @throws 401 UNAUTHORIZED when org context is missing.
- * @throws 402 PAYMENT_REQUIRED when the caller isn't on Pro.
- */
 agency.get('/api/agency/snapshots', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized();

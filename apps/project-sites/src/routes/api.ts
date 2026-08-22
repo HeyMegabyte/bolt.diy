@@ -1392,7 +1392,7 @@ api.get('/api/sites/:id', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const siteId = c.req.param('id');
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<Record<string, unknown>>(c.env, orgId, siteId, '*');
 
   return c.json({ data: site });
@@ -2057,7 +2057,7 @@ api.get('/api/sites/:siteId/hostnames', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized('Must be authenticated');
 
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<Record<string, unknown>>(c.env, orgId, siteId);
 
   const hostnames = await domainService.getSiteHostnames(c.env.DB, siteId);
@@ -2230,7 +2230,7 @@ api.delete('/api/sites/:id', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const siteId = c.req.param('id');
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<Record<string, unknown>>(
     c.env,
     orgId,
@@ -2330,8 +2330,7 @@ api.put('/api/sites/:siteId/hostnames/:hostnameId/primary', async (c) => {
   const siteId = c.req.param('siteId');
   const hostnameId = c.req.param('hostnameId');
 
-  // Verify ownership
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<Record<string, unknown>>(c.env, orgId, siteId);
 
   await domainService.setPrimaryHostname(c.env.DB, siteId, hostnameId);
@@ -2376,8 +2375,7 @@ api.post('/api/sites/:siteId/hostnames/reset-primary', async (c) => {
 
   const siteId = c.req.param('siteId');
 
-  // Verify ownership
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<Record<string, unknown>>(c.env, orgId, siteId);
 
   await c.env.DB.prepare('UPDATE hostnames SET is_primary = 0 WHERE site_id = ?')
@@ -2424,8 +2422,7 @@ api.delete('/api/sites/:siteId/hostnames/:hostnameId', async (c) => {
   const siteId = c.req.param('siteId');
   const hostnameId = c.req.param('hostnameId');
 
-  // Verify ownership
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<Record<string, unknown>>(c.env, orgId, siteId);
 
   const hostname = await dbQueryOne<{ id: string; hostname: string }>(
@@ -2437,7 +2434,6 @@ api.delete('/api/sites/:siteId/hostnames/:hostnameId', async (c) => {
 
   await c.env.DB.prepare('DELETE FROM hostnames WHERE id = ?').bind(hostnameId).run();
 
-  // Invalidate KV cache
   await c.env.CACHE_KV.delete(`host:${hostname.hostname}`).catch(() => {});
 
   await auditService.writeAuditLog(c.env.DB, {
@@ -2488,8 +2484,7 @@ api.post('/api/sites/:siteId/hostnames/:hostnameId/unsubscribe', async (c) => {
   const siteId = c.req.param('siteId');
   const hostnameId = c.req.param('hostnameId');
 
-  // Verify ownership
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<Record<string, unknown>>(c.env, orgId, siteId);
 
   const hostname = await dbQueryOne<{ id: string; hostname: string; type: string }>(
@@ -2503,7 +2498,6 @@ api.post('/api/sites/:siteId/hostnames/:hostnameId/unsubscribe', async (c) => {
     .bind(hostnameId)
     .run();
 
-  // Invalidate KV cache
   await c.env.CACHE_KV.delete(`host:${hostname.hostname}`).catch(() => {});
 
   await auditService.writeAuditLog(c.env.DB, {
@@ -3837,8 +3831,7 @@ api.patch('/api/sites/:id', async (c) => {
     throw badRequest('Request body must be a JSON object');
   }
 
-  // Verify ownership
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<{ id: string; slug: string; org_id: string }>(
     c.env,
     orgId,
@@ -4201,7 +4194,7 @@ api.post('/api/sites/:id/reset', async (c) => {
   const siteId = c.req.param('id');
 
   // Verify ownership + load existing fields (used as fallback when body is empty).
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<{
     id: string;
     slug: string;
@@ -4554,8 +4547,7 @@ api.post('/api/sites/:id/deploy', async (c) => {
 
   const siteId = c.req.param('id');
 
-  // Verify ownership
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<{ id: string; slug: string; org_id: string }>(
     c.env,
     orgId,
@@ -5427,7 +5419,6 @@ api.delete('/api/admin/domains/:hostnameId', async (c) => {
   );
   if (delUpd.error) throw internalError(`Hostname deprovision failed: ${delUpd.error}`);
 
-  // Invalidate KV cache
   await c.env.CACHE_KV.delete(`host:${hostname.hostname}`).catch(() => {});
 
   // Audit log
@@ -5694,7 +5685,7 @@ api.get('/api/sites/:id/files', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const siteId = c.req.param('id');
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<{ slug: string; current_build_version: string | null }>(
     c.env,
     orgId,
@@ -5757,7 +5748,7 @@ api.get('/api/sites/:id/files-export', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const siteId = c.req.param('id');
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<{ slug: string; current_build_version: string | null }>(
     c.env,
     orgId,
@@ -5845,7 +5836,7 @@ api.get('/api/sites/:id/files/:path{.+}', async (c) => {
   const filePath = sanitizeFilePath(rawPath);
   if (!filePath) throw forbidden('Invalid file path');
 
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<{ slug: string }>(c.env, orgId, siteId, 'slug');
 
   // Build scoped key and validate it stays within the site's R2 scope
@@ -5925,7 +5916,7 @@ api.put('/api/sites/:id/files/:path{.+}', async (c) => {
   const filePath = sanitizeFilePath(rawPath);
   if (!filePath) throw forbidden('Invalid file path');
 
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<{ slug: string }>(c.env, orgId, siteId, 'slug');
 
   const fullKey = filePath.startsWith('sites/') ? filePath : `sites/${site.slug}/${filePath}`;
@@ -6023,7 +6014,7 @@ api.delete('/api/sites/:id/files/:path{.+}', async (c) => {
   const filePath = sanitizeFilePath(rawPath);
   if (!filePath) throw forbidden('Invalid file path');
 
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<{ slug: string }>(c.env, orgId, siteId, 'slug');
 
   const fullKey = filePath.startsWith('sites/') ? filePath : `sites/${site.slug}/${filePath}`;
@@ -6169,7 +6160,7 @@ api.get('/api/sites/:siteId/snapshots/diff', async (c) => {
   if (!fromId || !toId) throw badRequest('Both `from` and `to` snapshot ids are required');
   if (fromId === toId) throw badRequest('`from` and `to` must be different snapshots');
 
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<{ slug: string }>(c.env, orgId, siteId, 'slug');
 
   const { dbQueryOne: dbq1 } = await import('../services/db.js');
@@ -6849,7 +6840,7 @@ api.get('/api/sites/:siteId/git/history', async (c) => {
   const siteId = c.req.param('siteId');
   const depth = parseInt(c.req.query('depth') ?? '20', 10);
 
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<{ slug: string }>(c.env, orgId, siteId, 'slug');
 
   const { getHistory } = await import('../services/git.js');
@@ -6906,7 +6897,7 @@ api.get('/api/sites/:siteId/git/diff', async (c) => {
     throw badRequest('Both "base" and "target" query params are required');
   }
 
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<{ slug: string }>(c.env, orgId, siteId, 'slug');
 
   const { diffSnapshots } = await import('../services/git.js');
@@ -6958,7 +6949,7 @@ api.get('/api/sites/:siteId/git/commits/:commitId', async (c) => {
   const siteId = c.req.param('siteId');
   const commitId = c.req.param('commitId');
 
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<{ slug: string }>(c.env, orgId, siteId, 'slug');
 
   const { getCommit } = await import('../services/git.js');
@@ -8142,7 +8133,7 @@ async function loadAuthorizedSite(
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized('Must be authenticated');
   const siteId = c.req.param('id');
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<Record<string, unknown>>(c.env, orgId, siteId, '*');
   return site;
 }
@@ -8911,7 +8902,7 @@ api.post('/api/sites/:siteId/domains/ai-search', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const siteId = c.req.param('siteId');
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   // ⚠️ Select ONLY real `sites` columns. `business_type` does NOT exist (the
   // columns are business_name/phone/email/address/website) — selecting it threw
   // `no such column`, which dbQueryOne SWALLOWS → null → requireOwnedSite 404'd
@@ -9093,7 +9084,7 @@ api.get('/api/sites/:siteId/domains/availability', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const siteId = c.req.param('siteId');
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<{ id: string }>(c.env, orgId, siteId);
 
   const name = (c.req.query('name') ?? '').toLowerCase().trim();
@@ -9132,7 +9123,7 @@ api.post('/api/sites/:siteId/domains/register', async (c) => {
   if (!orgId) throw unauthorized('Must be authenticated');
 
   const siteId = c.req.param('siteId');
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<{ id: string; slug: string }>(
     c.env,
     orgId,
@@ -9244,7 +9235,7 @@ api.post('/api/sites/:siteId/domains/:domain/transfer-out', async (c) => {
     throw badRequest('Invalid domain in path');
   }
 
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<{ id: string }>(c.env, orgId, siteId);
 
   // Verify the domain belongs to this site (and is not already deleted).
@@ -9824,7 +9815,7 @@ api.get('/api/sites/:id/snapshots/:snapId/download', async (c) => {
   const siteId = c.req.param('id');
   const snapId = c.req.param('snapId');
 
-  // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
   const site = await requireOwnedSite<{ slug: string }>(c.env, orgId, siteId, 'slug');
 
   const snap = await dbQueryOne<{
