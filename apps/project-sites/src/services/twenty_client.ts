@@ -6,9 +6,8 @@
  * LOCALLY here — no `@twenty/*` package, no shared SDK, no imported types.
  * HTTP-bound calls live in {@link ../services/crm_leads.ts}.
  *
- * Six core entity schemas (Company, Person, Opportunity) plus create-input
- * variants and a stage enum — pure Zod, zero I/O, never throws. Use safeParse
- * at every boundary per {@link fail-fast-build-fail-soft-prod}.
+ * Pure Zod, zero I/O, never throws. Use safeParse at every boundary per
+ * {@link fail-fast-build-fail-soft-prod}.
  *
  * @packageDocumentation
  */
@@ -45,7 +44,6 @@ export const AddressSchema = z
   })
   .strict();
 
-/** Inferred type for a Twenty composite address. */
 export type Address = z.infer<typeof AddressSchema>;
 
 // ---------------------------------------------------------------------------
@@ -85,7 +83,6 @@ export const CompanySchema = z
   })
   .strict();
 
-/** Inferred type for a full Twenty Company record. */
 export type Company = z.infer<typeof CompanySchema>;
 
 /**
@@ -99,7 +96,6 @@ export type Company = z.infer<typeof CompanySchema>;
  */
 export const CompanyCreateSchema = CompanySchema.omit({ createdAt: true, id: true });
 
-/** Inferred type for creating a Twenty Company. */
 export type CompanyCreateInput = z.infer<typeof CompanyCreateSchema>;
 
 // ---------------------------------------------------------------------------
@@ -136,7 +132,6 @@ export const PersonSchema = z
   })
   .strict();
 
-/** Inferred type for a full Twenty Person record. */
 export type Person = z.infer<typeof PersonSchema>;
 
 /**
@@ -144,7 +139,6 @@ export type Person = z.infer<typeof PersonSchema>;
  */
 export const PersonCreateSchema = PersonSchema.omit({ createdAt: true, id: true });
 
-/** Inferred type for creating a Twenty Person. */
 export type PersonCreateInput = z.infer<typeof PersonCreateSchema>;
 
 // ---------------------------------------------------------------------------
@@ -171,10 +165,8 @@ export const TWENTY_STAGES = [
   'CLOSED_LOST',
 ] as const;
 
-/** One of the standard Twenty opportunity stages. */
 export type TwentyStage = (typeof TWENTY_STAGES)[number];
 
-/** Zod enum for Twenty opportunity stages. */
 export const TwentyStageSchema = z.enum(TWENTY_STAGES);
 
 /**
@@ -211,7 +203,6 @@ export const OpportunitySchema = z
   })
   .strict();
 
-/** Inferred type for a full Twenty Opportunity record. */
 export type Opportunity = z.infer<typeof OpportunitySchema>;
 
 /**
@@ -219,7 +210,6 @@ export type Opportunity = z.infer<typeof OpportunitySchema>;
  */
 export const OpportunityCreateSchema = OpportunitySchema.omit({ createdAt: true, id: true });
 
-/** Inferred type for creating a Twenty Opportunity. */
 export type OpportunityCreateInput = z.infer<typeof OpportunityCreateSchema>;
 
 // ---------------------------------------------------------------------------
@@ -247,7 +237,6 @@ export const SingleRecordResponseSchema = z
   })
   .strict();
 
-/** Inferred type for a Twenty single-record REST response. */
 export type SingleRecordResponse = z.infer<typeof SingleRecordResponseSchema>;
 
 /**
@@ -268,7 +257,6 @@ export const ListResponseSchema = z
   })
   .strict();
 
-/** Inferred type for a Twenty list REST response. */
 export type ListResponse = z.infer<typeof ListResponseSchema>;
 
 // ---------------------------------------------------------------------------
@@ -283,15 +271,12 @@ export interface TwentyConfig {
   apiKey: string;
 }
 
-/** Result of a company lookup by domain. */
 export type TwentyFindCompanyResult =
   | { ok: true; company: Company | null }
   | { ok: false; reason: string };
 
-/** Result of a contact (person) creation. */
 export type TwentyCreateContactResult = { ok: true; id: string } | { ok: false; reason: string };
 
-/** Input for upserting a lead/opportunity. */
 export interface TwentyUpsertLeadInput {
   name: string;
   amount?: number;
@@ -300,7 +285,6 @@ export interface TwentyUpsertLeadInput {
   personId?: string;
 }
 
-/** Result of a lead/opportunity upsert. */
 export type TwentyUpsertLeadResult = { ok: true; id: string } | { ok: false; reason: string };
 
 // ---------------------------------------------------------------------------

@@ -1,25 +1,8 @@
 /**
  * @module routes/apps
  *
- * @description
- * Worker routes powering the `/admin/apps` tab. Surfaces the curated
- * `APPS_CATALOG` of self-hostable open-source apps and the per-org
- * `app_instances` CRUD lifecycle.
- *
- * ## Routes
- *
- * | Method | Path                                     | Purpose                                |
- * | ------ | ---------------------------------------- | -------------------------------------- |
- * | GET    | /api/apps/catalog                        | List all catalog apps (public, cached) |
- * | GET    | /api/apps/catalog/:id                    | Detail for one catalog app             |
- * | GET    | /api/apps/instances                      | List the current org's instances       |
- * | POST   | /api/apps/instances                      | Provision aux infra + create instance  |
- * | GET    | /api/apps/instances/:id                  | Fetch one instance (incl. decrypted env) |
- * | POST   | /api/apps/instances/:id/restart          | Bounce container                       |
- * | POST   | /api/apps/instances/:id/stop             | Graceful shutdown                      |
- * | PATCH  | /api/apps/instances/:id/env              | Update env vars + schedule restart     |
- * | DELETE | /api/apps/instances/:id                  | Destroy + deprovision aux infra        |
- * | GET    | /api/apps/instances/:id/logs?tail=N      | SSE stream of container logs           |
+ * Worker routes powering the `/admin/apps` tab: the curated `APPS_CATALOG` of
+ * self-hostable open-source apps + the per-org `app_instances` CRUD lifecycle.
  *
  * @packageDocumentation
  */
@@ -121,10 +104,9 @@ function sanitizeInstance(row: AppInstanceRow): Omit<AppInstanceRow, 'env_encryp
   env: null;
   costEstimate: InstanceCostEstimate;
 } {
-  // Default list/get does NOT include the decrypted env — separate detail
-  // route requires admin role. A2: every instance carries a metered monthly-cost
-  // ESTIMATE (running-state compute + provisioned-infra), replacing the static
-  // catalog `estCostMonthly` on the list + detail surfaces.
+  // env is NEVER included on list/get — the decrypted-env detail route requires
+  // admin role. costEstimate is a live metered monthly estimate (running-state
+  // compute + provisioned infra), replacing the static catalog `estCostMonthly`.
   const { env_encrypted: _ee, env_iv: _ev, ...rest } = row;
   return { ...rest, env: null, costEstimate: estimateInstanceCost(row) };
 }
@@ -157,10 +139,9 @@ async function decryptEnv(env: Env, row: AppInstanceRow): Promise<Record<string,
  * No auth — the catalog drives signup conversion. Cached at the edge.
  */
 apps.get('/api/apps/catalog', (c) => {
-  // `?supported=true` filters to apps whose per-image DO subclass is wired
-  // up in wrangler.toml (the live-bootable top-10). Used by the catalog UI
-  // to surface a "Live" pill on supported cards + a "Coming soon" pill on
-  // the rest. Default (no flag) returns the full curated set.
+  // `?supported=true` filters to apps whose per-image DO subclass is wired up
+  // in wrangler.toml (the live-bootable top-10) — drives the "Live" vs
+  // "Coming soon" pill in the catalog UI. No flag returns the full curated set.
   const supportedFilter = c.req.query('supported');
   const items =
     supportedFilter === 'true' ? APPS_CATALOG.filter((a) => isSupportedSlug(a.id)) : APPS_CATALOG;
@@ -176,8 +157,7 @@ apps.get('/api/apps/catalog', (c) => {
 });
 
 /**
- * `GET /api/apps/catalog/:id` — Detail page for one catalog app
- * (description, ports, env requirements, screenshots).
+ * `GET /api/apps/catalog/:id` — Detail page for one catalog app.
  *
  * @throws 404 NOT_FOUND when the id isn't in {@link APPS_CATALOG}.
  */
@@ -190,12 +170,12 @@ apps.get('/api/apps/catalog/:id', (c) => {
 });
 
 /**
- * `GET /api/apps/install-counts` — install counts per catalog app (A5).
+ * `GET /api/apps/install-counts` — DISTINCT-org install count per catalog app.
  *
- * `{ counts: { [appSlug]: orgCount } }` — the number of DISTINCT orgs running
- * each app, the marketplace's #1 discovery signal ("X orgs running this").
- * No auth (drives discovery); short-cached. Soft-degrades to `{}` on any DB
- * error so the catalog never breaks over a missing count.
+ * @remarks
+ * The marketplace's #1 discovery signal ("X orgs running this"). No auth (drives
+ * discovery); short-cached. Soft-degrades to `{}` on any DB error so the catalog
+ * never breaks over a missing count.
  */
 apps.get('/api/apps/install-counts', async (c) => {
   const { data, error } = await dbQuery<{ app_slug: string; n: number }>(
@@ -233,14 +213,13 @@ apps.get('/api/apps/instances', async (c) => {
 // ─── Instance create ─────────────────────────────────────────
 
 /**
- * `POST /api/apps/instances` — Provision aux infra (Neon DB, Upstash KV,
- * etc.) and create a new container instance.
+ * `POST /api/apps/instances` — Provision aux infra (Neon DB, Upstash KV, …) and
+ * create a new container instance.
  *
  * @remarks
- * Body: {@link createInstanceBody}. Calls {@link provisionInfra} to
- * mint any required cloud resources, encrypts the resulting credentials,
- * persists them on the `app_instances` row, then schedules the container
- * boot. Audit-logged. The hostname follows `{subdomain}.app.projectsites.dev`.
+ * Calls {@link provisionInfra} to mint required cloud resources, encrypts the
+ * resulting credentials, persists them on the `app_instances` row, then schedules
+ * the container boot. Audit-logged. Hostname is `{subdomain}.app.projectsites.dev`.
  *
  * @throws 400 BAD_REQUEST when payload validation fails, subdomain is
  *   malformed, or app slug isn't supported.
@@ -254,11 +233,10 @@ apps.post('/api/apps/instances', async (c) => {
   const app = catalogById(body.app_id);
   if (!app) throw badRequest(`Unknown app id '${body.app_id}'`);
 
-  // Preflight: only the apps with a per-image DO subclass + matching
-  // `[[containers]]` block in wrangler.toml can actually boot. Everything
-  // else 424s with a "coming soon" message so the UI can surface it as a
-  // queued catalog entry rather than provisioning Neon/Upstash + leaving a
-  // useless "coming soon" container running.
+  // Preflight: only apps with a per-image DO subclass + matching `[[containers]]`
+  // block in wrangler.toml can boot. Everything else 424s so the UI surfaces a
+  // queued catalog entry instead of provisioning Neon/Upstash + leaving a useless
+  // "coming soon" container running.
   if (!isSupportedSlug(app.id)) {
     return c.json(
       {
@@ -280,8 +258,8 @@ apps.post('/api/apps/instances', async (c) => {
 
   const instanceId = crypto.randomUUID();
 
-  // Provision aux infra. The provisioner rolls back already-created resources
-  // if any step fails, so callers either get fully provisioned or fully clean.
+  // Provisioner rolls back already-created resources if any step fails, so callers
+  // either get fully provisioned or fully clean.
   let infra;
   try {
     infra = await provisionInfra(c.env, app.infra, { instanceId, slug: app.id });
@@ -305,7 +283,7 @@ apps.post('/api/apps/instances', async (c) => {
   try {
     envMap = resolveAppEnv(app, infra, body.subdomain, body.env_overrides ?? {});
   } catch (err) {
-    // Roll back the infra we just provisioned so we don't strand resources.
+    // Roll back the just-provisioned infra so we don't strand resources.
     await deprovisionInfra(c.env, {
       neonProjectId: infra.postgres?.projectId,
       upstashDatabaseId: infra.redis?.databaseId,
@@ -350,10 +328,10 @@ apps.post('/api/apps/instances', async (c) => {
     throw badRequest(insertErr);
   }
 
-  // Phase 1 (scale-to-zero routing, docs/architecture/scale-to-zero-apps-routing.md):
-  // register the default app hostname in the KV host-map so the Worker can
-  // resolve it (and future custom CNAMEs) without a per-request D1 query. A KV
-  // failure must NOT fail instance creation — the suffix path still serves it.
+  // Scale-to-zero routing (docs/architecture/scale-to-zero-apps-routing.md):
+  // register the default hostname in the KV host-map so the Worker resolves it
+  // (and future custom CNAMEs) without a per-request D1 query. A KV failure must
+  // NOT fail instance creation — the suffix path still serves it.
   try {
     await setAppHost(c.env, defaultAppHostname(body.subdomain), {
       instanceId,
@@ -368,8 +346,7 @@ apps.post('/api/apps/instances', async (c) => {
   }
 
   // Fire-and-forget the container start so the API call returns fast. The
-  // dispatcher writes a final `status` via the build-status callback (out of
-  // scope here — sibling agent owns the DO).
+  // dispatcher writes a final `status` via the build-status callback.
   c.executionCtx.waitUntil(
     (async () => {
       const start = await dispatcher.startContainer(c.env, {
@@ -391,7 +368,7 @@ apps.post('/api/apps/instances', async (c) => {
         [instanceId],
       );
       // Background task — the response already returned, so a throw is useless.
-      // Surface the dropped status-write to logs so a stale row is observable.
+      // Log the dropped status-write so a stale row is observable.
       if (startWriteErr) {
         console.warn(
           JSON.stringify({
@@ -424,8 +401,7 @@ apps.post('/api/apps/instances', async (c) => {
 // ─── Instance detail (decrypted env, admin only) ────────────
 
 /**
- * `GET /api/apps/instances/:id` — Fetch one instance with decrypted env
- * vars for display in the admin UI.
+ * `GET /api/apps/instances/:id` — Fetch one instance with decrypted env vars.
  *
  * @throws 401 UNAUTHORIZED when org context is missing.
  * @throws 403 FORBIDDEN when the instance isn't owned by the caller's org.
@@ -446,13 +422,12 @@ apps.get('/api/apps/instances/:id', async (c) => {
 // ─── Instance lifecycle ─────────────────────────────────────
 
 /**
- * `POST /api/apps/instances/:id/restart` — Bounce the container without
- * dropping its persistent state.
+ * `POST /api/apps/instances/:id/restart` — Bounce the container without dropping
+ * its persistent state.
  *
  * @remarks
- * Calls {@link dispatcher.restartInstance}. Capped at 3 restarts per
- * rolling minute (enforced inside the container DO) to prevent crash
- * loops. Audit-logged.
+ * Capped at 3 restarts per rolling minute (enforced inside the container DO) to
+ * prevent crash loops. Audit-logged.
  *
  * @throws 401 UNAUTHORIZED when org context is missing.
  * @throws 403 FORBIDDEN when the instance isn't owned by the caller's org.
@@ -486,8 +461,8 @@ apps.post('/api/apps/instances/:id/restart', async (c) => {
 });
 
 /**
- * `POST /api/apps/instances/:id/stop` — Graceful container shutdown
- * (does not deprovision aux infra; `DELETE` for that).
+ * `POST /api/apps/instances/:id/stop` — Graceful container shutdown (does NOT
+ * deprovision aux infra; use `DELETE` for that).
  *
  * @throws 401 UNAUTHORIZED when org context is missing.
  * @throws 403 FORBIDDEN when the instance isn't owned by the caller's org.
@@ -518,12 +493,12 @@ apps.post('/api/apps/instances/:id/stop', async (c) => {
 });
 
 /**
- * `PATCH /api/apps/instances/:id/env` — Update encrypted env vars and
- * schedule a restart for the new values to take effect.
+ * `PATCH /api/apps/instances/:id/env` — Update encrypted env vars and schedule a
+ * restart for the new values to take effect.
  *
  * @remarks
- * Body: `{ env: Record<string, string> }`. Values are re-encrypted via
- * {@link encrypt} (AES-GCM per-record IV) before persisting. Audit-logged.
+ * Values are re-encrypted via {@link encrypt} (AES-GCM per-record IV) before
+ * persisting. Audit-logged.
  *
  * @throws 400 BAD_REQUEST when payload validation fails.
  * @throws 401 UNAUTHORIZED when org context is missing.
@@ -591,12 +566,12 @@ apps.patch('/api/apps/instances/:id/env', async (c) => {
 });
 
 /**
- * `DELETE /api/apps/instances/:id` — Destroy the instance and deprovision
- * its aux infra (Neon DB, Upstash KV, R2 bucket, …).
+ * `DELETE /api/apps/instances/:id` — Destroy the instance and deprovision its aux
+ * infra (Neon DB, Upstash KV, R2 bucket, …).
  *
  * @remarks
- * Calls {@link deprovisionInfra} which is best-effort — partial failures
- * are logged but never block the row deletion. Audit-logged.
+ * {@link deprovisionInfra} is best-effort — partial failures are logged but never
+ * block the row deletion. Audit-logged.
  *
  * @throws 401 UNAUTHORIZED when org context is missing.
  * @throws 403 FORBIDDEN when the instance isn't owned by the caller's org.
@@ -607,7 +582,7 @@ apps.delete('/api/apps/instances/:id', async (c) => {
   const row = await loadInstance(c.env, orgId, c.req.param('id'));
   if (!row) throw notFound('app_instance not found');
 
-  // Best-effort destroy in the container layer first so volume + DO state are freed.
+  // Destroy the container layer first so volume + DO state are freed.
   await dispatcher.destroyContainer(c.env, row.id, row.app_slug);
 
   const cleanup = await deprovisionInfra(c.env, {
@@ -621,13 +596,13 @@ apps.delete('/api/apps/instances/:id', async (c) => {
     `UPDATE app_instances SET status = 'destroyed', deleted_at = ?, updated_at = ? WHERE id = ?`,
     [new Date().toISOString(), new Date().toISOString(), row.id],
   );
-  // The container + aux infra are ALREADY torn down above — the record MUST reflect
+  // Container + aux infra are ALREADY torn down above — the record MUST reflect
   // that. A silent write failure would leave a live-looking row for a destroyed
   // instance (a lying "destroyed"); surface it so the inconsistency is visible.
   if (destroyErr) throw internalError(`Failed to record instance destroy: ${destroyErr}`);
 
-  // Phase 1 (scale-to-zero routing): drop the host-map entry so the hostname
-  // stops resolving. Best-effort — a KV failure must not fail the destroy.
+  // Scale-to-zero routing: drop the host-map entry so the hostname stops
+  // resolving. Best-effort — a KV failure must not fail the destroy.
   try {
     await clearAppHost(c.env, defaultAppHostname(row.subdomain));
   } catch (err) {
@@ -661,8 +636,8 @@ apps.delete('/api/apps/instances/:id', async (c) => {
 // ─── Logs (SSE proxy) ───────────────────────────────────────
 
 /**
- * `GET /api/apps/instances/:id/logs?tail=N` — Tail the last N log lines
- * from the container's SQLite ring buffer (max 1000).
+ * `GET /api/apps/instances/:id/logs?tail=N` — Tail the last N log lines from the
+ * container's SQLite ring buffer (max 1000).
  *
  * @throws 401 UNAUTHORIZED when org context is missing.
  * @throws 403 FORBIDDEN when the instance isn't owned by the caller's org.
@@ -678,15 +653,14 @@ apps.get('/api/apps/instances/:id/logs', async (c) => {
 });
 
 // ─── SSE log stream ─────────────────────────────────────────
-//
-// EventSource clients connect here for a live tail. The dispatcher returns
-// a streamed Response sourced from the DO's own SSE pump. When the
-// APP_RUNTIME binding is missing we emit a single `info` event so the
-// client gets a deterministic message instead of hanging.
 
 /**
- * `GET /api/apps/instances/:id/logs/stream` — SSE stream of live container
- * logs (newline-delimited).
+ * `GET /api/apps/instances/:id/logs/stream` — SSE stream of live container logs.
+ *
+ * @remarks
+ * The dispatcher returns a streamed Response sourced from the DO's own SSE pump.
+ * When the APP_RUNTIME binding is missing it emits a single `info` event so the
+ * client gets a deterministic message instead of hanging.
  *
  * @throws 401 UNAUTHORIZED when org context is missing.
  * @throws 403 FORBIDDEN when the instance isn't owned by the caller's org.
@@ -701,14 +675,14 @@ apps.get('/api/apps/instances/:id/logs/stream', async (c) => {
 });
 
 // ─── Health (admin polling) ─────────────────────────────────
-//
-// Returns `{db_status, runtime: {state, uptime_seconds, memory_mb_used,
-// last_error, restart_count, image}}`. Used by the admin UI to poll every
-// 5-10s while a container is booting / recovering from a crash.
 
 /**
- * `GET /api/apps/instances/:id/health` — Probe the container's `/health`
- * endpoint and return its response + latency.
+ * `GET /api/apps/instances/:id/health` — Probe the container's `/health` endpoint
+ * and return its response + latency.
+ *
+ * @remarks
+ * Polled every 5-10s by the admin UI while a container is booting / recovering
+ * from a crash.
  *
  * @throws 401 UNAUTHORIZED when org context is missing.
  * @throws 403 FORBIDDEN when the instance isn't owned by the caller's org.

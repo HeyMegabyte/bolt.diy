@@ -2,13 +2,9 @@
  * @module routes/voice
  * @description Authenticated `/api/voice/*` routes for the AI Voice + SMS feature.
  *
- * Every route enforces:
- *  - bearer auth → `userId` + `orgId` populated by authMiddleware
- *  - org membership of the target site
- *  - 3-numbers-per-site cap on purchase
- *  - graceful 501 when `TWILIO_AUTH_TOKEN` is missing
- *
- * @packageDocumentation
+ * Every route enforces: bearer auth (`userId`/`orgId`), org membership of the
+ * target site, a 3-numbers-per-site purchase cap, and a graceful 501 when
+ * `TWILIO_AUTH_TOKEN` is missing.
  */
 
 import { Hono } from 'hono';
@@ -39,18 +35,14 @@ import {
 export const voiceRoutes = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 /**
- * `GET /api/voice/meta-prompt` — The immutable voice-agent safety meta-prompt
+ * `GET /api/voice/meta-prompt` — the immutable voice-agent safety meta-prompt
  * (the 10 non-negotiable rules every agent obeys). Read-only; the admin agent-
- * settings panel renders it as the "immutable safety meta-prompt". Was 404
- * (never registered) → the panel showed a STALE hardcoded fallback that no
- * longer matched the real rules; now it serves the genuine {@link PROMPT_META}.
+ * settings panel renders it as the "immutable safety meta-prompt".
  *
  * @returns `{ data: { text: string } }` — the meta-prompt template (with
  *   `{{BUSINESS_NAME}}` / `{{BUSINESS_LOCATION}}` placeholders, as stored).
  */
 voiceRoutes.get('/api/voice/meta-prompt', (c) => c.json({ data: { text: PROMPT_META } }));
-
-// ─── small helpers ───────────────────────────────────────────────
 
 function publicHost(env: Env): string {
   return env.ENVIRONMENT === 'production'
@@ -70,10 +62,8 @@ function notConfigured(): AppError {
  * Resolve a site the caller's org owns.
  *
  * @remarks Multi-tenant isolation — a missing site AND a foreign-org site both
- * throw `notFound()` (404). Previously a foreign-org site threw `forbidden()`
- * (403) while a missing one threw 404, letting a prober distinguish "this site
- * exists but isn't yours" from "no such site" — an existence oracle. Collapsing
- * to a single 404 closes it.
+ * throw `notFound()` (404), never `forbidden()` (403), so a prober can't use the
+ * status code as an existence oracle ("this site exists but isn't yours").
  * @param env    - Worker env (D1 binding).
  * @param siteId - the site id from the request.
  * @param orgId  - the caller's org (from the authenticated context).
@@ -116,8 +106,6 @@ function requireAuth(c: { get: (k: string) => string | undefined }): {
   return { userId, orgId };
 }
 
-// ─── number search ──────────────────────────────────────────────
-
 const searchQuery = z.object({
   contains: z.string().min(1).max(20).optional(),
   areaCode: z
@@ -130,11 +118,7 @@ const searchQuery = z.object({
 
 /**
  * `GET /api/voice/numbers/search?contains=&areaCode=&country=&limit=` —
- * Search available Twilio phone numbers.
- *
- * @remarks
- * Proxies {@link searchAvailableNumbers}. Inputs validated against
- * {@link searchQuery}.
+ * search available Twilio phone numbers.
  *
  * @throws 400 BAD_REQUEST when query validation fails.
  * @throws 401 UNAUTHORIZED when auth context is missing.
@@ -150,7 +134,7 @@ voiceRoutes.get('/api/voice/numbers/search', async (c) => {
     contains: q.contains,
     limit: q.limit ?? 20,
   });
-  // Annotate each with the vanity-rendered display IF a `contains` word was provided
+  // Annotate each with the vanity-rendered display IF a `contains` word was provided.
   const annotated = numbers.map((n) => ({
     ...n,
     vanity_display:
@@ -162,14 +146,9 @@ voiceRoutes.get('/api/voice/numbers/search', async (c) => {
   return c.json({ numbers: annotated, total: annotated.length });
 });
 
-// ─── vanity suggestions ─────────────────────────────────────────
-
 /**
  * `GET /api/voice/vanity-suggestions?site_id=` — AI-suggested vanity-number
  * dial words for a site (e.g., 1-800-FLOWERS).
- *
- * @remarks
- * Calls {@link suggestVanityWords} with the site's business profile.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
  * @throws 404 NOT_FOUND when site isn't in the caller's org (never 403 — don't leak existence).
@@ -189,8 +168,6 @@ voiceRoutes.get('/api/voice/vanity-suggestions', async (c) => {
   return c.json(result);
 });
 
-// ─── purchase ───────────────────────────────────────────────────
-
 const purchaseBody = z.object({
   siteId: z.string().min(1),
   phoneNumber: z.string().regex(/^\+\d{8,15}$/, 'Must be E.164'),
@@ -202,12 +179,9 @@ const purchaseBody = z.object({
 });
 
 /**
- * `POST /api/voice/numbers/purchase` — Buy a Twilio phone number for a site.
- *
- * @remarks
- * Body: `{ site_id, phone_number, vanity_word? }`. Enforces the
- * 3-numbers-per-site cap. Wires Twilio webhooks to `/webhooks/voice/*`
- * + `/webhooks/sms/*` on the public host. Audit-logged.
+ * `POST /api/voice/numbers/purchase` — buy a Twilio phone number for a site.
+ * Enforces the 3-numbers-per-site cap and wires Twilio webhooks to
+ * `/webhooks/sms/*` on the public host. Audit-logged.
  *
  * @throws 400 BAD_REQUEST when payload missing required fields.
  * @throws 401 UNAUTHORIZED when auth context is missing.
@@ -222,7 +196,6 @@ voiceRoutes.post('/api/voice/numbers/purchase', async (c) => {
   const body = purchaseBody.parse(await c.req.json().catch(() => ({})));
   await requireSiteMembership(c.env, body.siteId, orgId);
 
-  // 3-number cap per site
   const existing = await dbQuery<{ id: string }>(
     c.env.DB,
     `SELECT id FROM voice_numbers
@@ -315,10 +288,8 @@ voiceRoutes.post('/api/voice/numbers/purchase', async (c) => {
   });
 });
 
-// ─── list numbers ───────────────────────────────────────────────
-
 /**
- * `GET /api/voice/numbers?site_id=` — List phone numbers owned by a site.
+ * `GET /api/voice/numbers?site_id=` — list phone numbers owned by a site.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
  * @throws 404 NOT_FOUND when site isn't in the caller's org (never 403 — don't leak existence).
@@ -343,8 +314,7 @@ voiceRoutes.get('/api/voice/numbers', async (c) => {
   // (or NULL for numbers purchased before capture) and cost lives in cents — but
   // the numbers list expects a {voice,sms,mms} OBJECT + `monthly_cost_usd`.
   // Returning the raw row meant `capabilities: null` → the template's `.voice`
-  // read did `null.voice` → TypeError that crashed the ENTIRE Voice section
-  // (caught by the section error boundary; the visual sweep flagged it). Normalize.
+  // read did `null.voice` → TypeError that crashed the ENTIRE Voice section. Normalize.
   const numbers = (rows.data ?? []).map((r) => {
     // Default for a purchased US local number (voice + SMS; MMS carrier-varies).
     let caps = { voice: true, sms: true, mms: false };
@@ -354,7 +324,7 @@ voiceRoutes.get('/api/voice/numbers', async (c) => {
         const p = (typeof raw === 'string' ? JSON.parse(raw) : raw) as Record<string, unknown>;
         caps = { voice: !!p?.['voice'], sms: !!p?.['sms'], mms: !!p?.['mms'] };
       } catch {
-        /* malformed JSON → keep the sane default */
+        // malformed JSON → keep the sane default
       }
     }
     return {
@@ -371,14 +341,9 @@ voiceRoutes.get('/api/voice/numbers', async (c) => {
   return c.json({ numbers });
 });
 
-// ─── release ────────────────────────────────────────────────────
-
 /**
- * `DELETE /api/voice/numbers/:id` — Release a phone number back to Twilio
- * and remove it from the site.
- *
- * @remarks
- * Calls {@link releaseNumber} then deletes the row. Audit-logged.
+ * `DELETE /api/voice/numbers/:id` — release a phone number back to Twilio and
+ * remove it from the site. Audit-logged.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
  * @throws 404 NOT_FOUND when the number is missing OR isn't in the caller's org (never 403 — don't leak existence).
@@ -431,9 +396,9 @@ voiceRoutes.delete('/api/voice/numbers/:id', async (c) => {
     'id = ?',
     [id],
   );
-  // The Twilio release already happened above (idempotent on retry) — but if the
-  // local soft-delete failed, surface it rather than showing a "released" number
-  // that D1 still marks active. Row + org were 404-guarded, so this is a real error.
+  // Twilio release already happened above (idempotent on retry) — but if the local
+  // soft-delete failed, surface it rather than showing a "released" number that D1
+  // still marks active. Row + org were 404-guarded, so this is a real error.
   if (relErr) throw internalError(`Failed to record number release: ${relErr}`);
 
   await auditService.writeAuditLog(c.env.DB, {
@@ -449,10 +414,8 @@ voiceRoutes.delete('/api/voice/numbers/:id', async (c) => {
   return c.json({ ok: true, id });
 });
 
-// ─── unified conversation timeline ──────────────────────────────
-
 /**
- * `GET /api/voice/conversations?site_id=&kind=&limit=` — List recent
+ * `GET /api/voice/conversations?site_id=&kind=&limit=` — list recent
  * conversations (calls + SMS threads) for a site.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
@@ -500,8 +463,6 @@ voiceRoutes.get('/api/voice/conversations', async (c) => {
   return c.json({ items: merged.slice(0, 300) });
 });
 
-// ─── conversation detail (call transcript OR sms) ────────────────
-
 /**
  * Map `voice_calls.transcript_json` (`[{role,text,ts_ms}]`, role ∈ user|assistant|system)
  * to the Conversations UI's `TranscriptTurn` shape (`[{speaker,text,t_ms}]`): the human
@@ -531,13 +492,11 @@ function parseTranscript(
 
 /**
  * `GET /api/voice/conversations/:id` — full detail for ONE conversation: a voice CALL
- * with its parsed transcript, or an SMS. The list route (`GET /api/voice/conversations`)
- * serves only summary-level items with NO transcript, so the admin detail pane fetches
- * this route on open to load the transcript. It was MISSING — the FE `openDetail` 404'd
- * and fell back to the transcript-less list row, so opening a conversation NEVER showed
- * the transcript. Org-scoped (`id` + `org_id` + not-deleted → both missing AND foreign-org
- * collapse to 404, no existence leak). Returns `{ data: Conversation }` in the shape the
- * detail view consumes directly.
+ * with its parsed transcript, or an SMS. The list route serves only summary-level items
+ * with NO transcript, so the admin detail pane fetches this route on open to load it.
+ * Org-scoped (`id` + `org_id` + not-deleted → both missing AND foreign-org collapse to
+ * 404, no existence leak). Returns `{ data: Conversation }` in the shape the detail view
+ * consumes directly.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
  * @throws 404 NOT_FOUND when no owned call/message matches the id.
@@ -587,8 +546,7 @@ voiceRoutes.get('/api/voice/conversations/:id', async (c) => {
         sentiment: call.sentiment ?? undefined,
         summary: call.summary ?? undefined,
         transcript: parseTranscript(call.transcript_json),
-        // `has_recording` = an audio recording exists (the FE's existing vocabulary +
-        // "Recording" player); `has_video` = a browse-session video exists.
+        // `has_recording` = an audio recording exists; `has_video` = a browse-session video exists.
         has_recording: kinds.has('audio'),
         has_video: kinds.has('video'),
       },
@@ -639,11 +597,9 @@ function vttTime(ms: number): string {
 /**
  * `GET /api/voice/conversations/:id/download.:kind` — download a conversation's
  * transcript (`txt`/`vtt`, generated from `transcript_json`) or its recording
- * (`mp3` audio / `mp4` video, streamed from R2 via the recordings route). Backs the
- * detail-view download buttons, which were UNWIRED (route missing → every button 404'd).
+ * (`mp3` audio / `mp4` video, streamed from R2 via the recordings route).
  * Registered as `:id/:file` because Hono treats `download.mp3` as one segment; the kind
- * is parsed + allow-listed off `:file` (anything else → 404). Org-scoped via the owning
- * call. Sibling of the `/api/voice/conversations/:id` detail route.
+ * is parsed + allow-listed off `:file` (anything else → 404). Org-scoped via the owning call.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
  * @throws 404 NOT_FOUND for an unknown kind, a foreign/missing call, or an absent recording.
@@ -693,10 +649,8 @@ voiceRoutes.get('/api/voice/conversations/:id/:file', async (c) => {
   return c.redirect(`/api/voice/recordings/${rec.id}/stream`, 302);
 });
 
-// ─── call detail ────────────────────────────────────────────────
-
 /**
- * `GET /api/voice/calls/:id` — Fetch a single call with transcript +
+ * `GET /api/voice/calls/:id` — fetch a single call with transcript +
  * sentiment + intent breakdown.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
@@ -722,16 +676,12 @@ voiceRoutes.get('/api/voice/calls/:id', async (c) => {
   return c.json({ call, recordings: recordings.data });
 });
 
-// ─── recording stream (range-aware R2 proxy) ────────────────────
-
 /**
- * `GET /api/voice/recordings/:id/stream` — Stream the audio recording
- * (MP3) for playback in the admin UI.
+ * `GET /api/voice/recordings/:id/stream` — stream the audio recording (MP3)
+ * for playback in the admin UI.
  *
- * @remarks
- * Reads from R2 (`recordings/{call_sid}/{recording_sid}.mp3`) or falls
- * back to Twilio if not yet mirrored. Sets `Content-Type: audio/mpeg`
- * and `Cache-Control: private, max-age=3600`.
+ * @remarks Reads from R2 (`recordings/{call_sid}/{recording_sid}.mp3`) or falls
+ * back to Twilio if not yet mirrored. Range-aware.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
  * @throws 404 NOT_FOUND when the recording is missing OR isn't in the caller's org (never 403 — don't leak existence).
@@ -753,7 +703,7 @@ voiceRoutes.get('/api/voice/recordings/:id/stream', async (c) => {
     [id],
   );
   if (!rec) throw notFound('Recording not found');
-  // Ensure ownership through the call
+  // Ensure ownership through the call.
   const ownCheck = await dbQueryOne<{ org_id: string }>(
     c.env.DB,
     `SELECT org_id FROM voice_calls WHERE id = ? LIMIT 1`,
@@ -790,8 +740,6 @@ voiceRoutes.get('/api/voice/recordings/:id/stream', async (c) => {
   });
 });
 
-// ─── agent settings GET/PUT ────────────────────────────────────
-
 const agentSettingsBody = z.object({
   siteId: z.string().min(1),
   voice_system_prompt: z.string().max(8000).nullable().optional(),
@@ -825,9 +773,8 @@ function parseIdList(v: string | null | undefined): string[] {
 
 /**
  * Body for `PUT /api/voice/mcp-attachments` — which MCP connections each channel
- * (voice, sms) may use. Each id ≤64 chars, ≤20 per channel (mirrors the Agent
- * tab's `mcp_connection_ids` cap). Note the FE sends `site_id` (snake), unlike
- * agent-settings' `siteId`.
+ * (voice, sms) may use. Each id ≤64 chars, ≤20 per channel. Note the FE sends
+ * `site_id` (snake), unlike agent-settings' `siteId`.
  */
 const mcpAttachmentsBody = z.object({
   site_id: z.string().min(1),
@@ -921,7 +868,7 @@ voiceRoutes.put('/api/voice/mcp-attachments', async (c) => {
 });
 
 /**
- * `GET /api/voice/agent-settings?site_id=` — Read the AI voice agent's
+ * `GET /api/voice/agent-settings?site_id=` — read the AI voice agent's
  * per-site settings (greeting, voice, escalation rules, hours).
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
@@ -941,12 +888,8 @@ voiceRoutes.get('/api/voice/agent-settings', async (c) => {
 });
 
 /**
- * `PUT /api/voice/agent-settings` — Update the AI voice agent settings
- * for a site.
- *
- * @remarks
- * Body: `{ site_id, greeting?, voice?, escalation_phone?, hours? }` —
- * note: not yet Zod-validated (loose JSON parse). Audit-logged.
+ * `PUT /api/voice/agent-settings` — update the AI voice agent settings for a site.
+ * Audit-logged.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
  * @throws 404 NOT_FOUND when site isn't in the caller's org (never 403 — don't leak existence).
@@ -1010,20 +953,15 @@ voiceRoutes.put('/api/voice/agent-settings', async (c) => {
   return c.json({ ok: true });
 });
 
-// ─── /test/sms — simulate inbound without going through Twilio ──
-
 const testSmsBody = z.object({
   siteId: z.string().min(1),
   body: z.string().min(1).max(2000),
 });
 
 /**
- * `POST /api/voice/test/sms` — Test-mode SMS agent simulator (does not
- * send a real SMS; runs the inbound message through {@link simulateInbound}).
- *
- * @remarks
- * Body: `{ site_id, from, body }`. Returns the agent's reply + intent +
- * sentiment for debugging the persona.
+ * `POST /api/voice/test/sms` — test-mode SMS agent simulator (does not send a
+ * real SMS; runs the inbound message through {@link simulateInbound}). Returns
+ * the agent's reply + intent + sentiment for debugging the persona.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
  * @throws 404 NOT_FOUND when site isn't in the caller's org (never 403 — don't leak existence).
@@ -1052,12 +990,10 @@ voiceRoutes.post('/api/voice/test/sms', async (c) => {
   return c.json(result);
 });
 
-// ─── /test/call-token — short-lived Twilio Client JWT ───────────
-
 /**
- * `POST /api/voice/test/call-token` — Mint a short-lived Twilio JWT for
- * the admin "test call" widget so the admin's browser can place a call
- * directly to the AI voice agent through the Twilio Voice SDK.
+ * `POST /api/voice/test/call-token` — mint a short-lived Twilio JWT for the
+ * admin "test call" widget so the admin's browser can place a call directly to
+ * the AI voice agent through the Twilio Voice SDK.
  *
  * @throws 401 UNAUTHORIZED when auth context is missing.
  * @throws 404 NOT_FOUND when site isn't in the caller's org (never 403 — don't leak existence).
@@ -1091,8 +1027,6 @@ voiceRoutes.post('/api/voice/test/call-token', async (c) => {
   });
   return c.json({ token, identity, edge_url: 'wss://chunderw-vpc-gll.twilio.com/signal' });
 });
-
-// ─── Twilio Access Token (Voice grant) — JWT mint ───────────────
 
 /**
  * Mint a Twilio Access Token with a Voice grant. Pure Web-Crypto, no twilio SDK.
