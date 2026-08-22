@@ -21,7 +21,7 @@
 // _cockpit.scss — Admin Cockpit v2 token layer. Opt-in via
 // :root[data-cockpit="v2"] so the live admin is UNCHANGED until Wave 1 flips
 // it on after visual verification. Re-skins all 54 sections via shared --ps-*
-// tokens with zero per-section edits. See apps/project-sites/_ideas-100.md.
+// tokens with zero per-section edits.
 @use "./styles/_cockpit.scss" as *;
 
 // ═══════════════════════════════════════════

@@ -106,8 +106,7 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
    * Resolved from PostHog flag `homepage_hero_v2` with deterministic seed-
    * based fallback so SSR + first paint render the same variant the user
    * will see post-hydration. `?debug=ab` query param forces a variant for
-   * dev tooling. See `AB-TEST.md` next to this file for the full decision
-   * flow + event taxonomy.
+   * dev tooling.
    */
   heroVariant = signal<'A' | 'B' | 'C'>('A');
 

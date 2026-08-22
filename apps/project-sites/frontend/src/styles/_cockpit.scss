@@ -1,8 +1,8 @@
 // =============================================================================
 // _cockpit.scss — Admin Cockpit v2 design-token layer
 // =============================================================================
-// Black + cyan compact dev-cockpit token system. Implements _ideas-100.md
-// dimension 1 (Visual System), 2 (Density), 13 (dark-viz hierarchy), 14 (motion).
+// Black + cyan compact dev-cockpit token system — visual system, density,
+// dark-viz hierarchy, motion.
 //
 // SCOPE: every token is scoped to `[data-cockpit="v2"]`, set statically on the
 // AdminComponent host (`<app-admin data-cockpit="v2">`). ACTIVE. Re-skins all 54
