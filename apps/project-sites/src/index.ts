@@ -852,7 +852,7 @@ app.all('*', async (c, next) => {
   return binding.get(binding.idFromName('gotenberg-singleton')).fetch(c.req.raw);
 });
 
-// ── 40-list build wave (Brian-selected, 2026-06-17) — all flag-gated → 404 when off ──
+// ── Feature-module routes — all flag-gated → 404 when off ──
 app.route('/', paymentsRail); // /api/payments/* (flag: payments_rail)
 app.route('/', creditWalletRollover); // /api/credits/* (flag: credit_wallet_rollover)
 app.route('/', referralLoop); // /api/referrals/* (flag: referral_loop)
