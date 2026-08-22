@@ -843,8 +843,6 @@ Tables: `mcp_oauth_states` (one-shot state + code_verifier per pending auth),
 8. **MCP OAuth fallback** — `/api/mcp/:provider/connect` returns `501 oauth_not_configured`
    when the provider's `{PROVIDER}_OAUTH_CLIENT_ID` is missing — surface a paste-key toast,
    never open a broken popup.
-9. **(resolved)** The former `ai_admin_features.ts.bak` backup has been removed; the live
-   module is `src/services/ai_admin_features.ts`. No `.bak` files remain in `src/`.
 10. **Zod-validation drift in `src/routes/features.ts`** (tracked 2026-06-02): the ~33
     POST handlers in the "50 experimental features" grab-bag read bodies as
     `(await c.req.json().catch(() => ({}))) as { … }` — a TypeScript `as`-cast with NO
@@ -890,71 +888,6 @@ Tables: `mcp_oauth_states` (one-shot state + code_verifier per pending auth),
 
 ---
 
-## Post-Launch Feature Module Rule (SUPREME)
+## Feature Modules, Flags & Drift
 
-After the initial Worker foundation is complete, every meaningful new product capability MUST be implemented as a **feature module** under `libs/features/<slug>/`.
-
-**Every feature module must include:**
-- `manifest.ts` with 7 required fields: `slug`, `name`, `description`, `flagKey`, `owner`, `stage`, `createdAt`
-- Typed feature flag row in D1 `feature_flags` migration + KV cache binding
-- Colocated `schemas.ts` (Zod), `handlers.ts` (Hono routes), `service.ts`, `__tests__/` (Jest), `e2e/` pointer
-- Playwright E2E specs under `apps/project-sites/e2e/<slug>/`
-- Sentry breadcrumbs on every critical path — all events carry `{ featureSlug }` tag
-- Structured log lines carry `feature_slug` field so Axiom/Workers Tracing can filter per feature
-- A **section in `libs/features/CATALOG.md`** (NOT a per-folder `README.md`) with: what it does, flag key, rollout defaults, safe disabled behavior. Project override of the global per-module-README doctrine — one catalog file keeps the tree minimal; `validate:features` gates `manifest.ts`, not READMEs.
-
-**Canonical example:** `libs/features/donations_engine/` (docs in `libs/features/CATALOG.md`)
-
-**Reference docs:** `docs/architecture/feature-modules.md` · `docs/architecture/feature-flags.md`
-
-See also: root `CLAUDE.md` § PART 23 + [[feature-flags]] rule
-
----
-
-## Feature Flag Requirement
-
-Every post-launch feature is dark-launched behind a typed flag. Ship `enabled=0, rollout_percent=0, stage='experimental'` always.
-
-**Required fields on every flag:**
-- `key` — snake_case ≤32 chars matching `manifest.slug`
-- `description` — one-sentence human explanation
-- `enabled` / `rollout_percent` — 0 at launch
-- `stage` — `experimental | beta | stable | deprecated | killswitch`
-- `owner_email` — promotion gatekeeper
-- `risk_notes` — what breaks when disabled
-
-Server guard: `if (!await isFlagOn(...)) return 404` — never 403, never leak feature existence.
-UI guard: `if (!useFeatureFlag('key')) return null`.
-
-Flag auto-appears in `/admin/feature-flags` via migration seed. Admin UI at `apps/project-sites/frontend/src/app/pages/admin/feature-flags.component.ts`.
-
-Reference impl: `apps/project-sites/src/services/feature_flags.ts` + `libs/core/feature-flags/`
-
----
-
-## Whole-App Feature Architecture Scan
-
-Before adding a new major feature to the Worker:
-1. `npm run validate:features` — surfaces existing drift
-2. Grep `src/routes/` for partial implementations that should be colocated in a module
-3. Check `libs/features/*/manifest.ts` — does the capability extend an existing module?
-4. New module: `npm run gen:feature -- --slug <name>` scaffolds the skeleton
-5. Route handlers for the feature live in `libs/features/<slug>/handlers.ts`, registered in `src/index.ts` via `app.route()`
-
-Avoid: API handlers scattered directly in `src/routes/` without a `libs/features/` home.
-
----
-
-## Feature Drift Prevention
-
-CI runs `npm run validate:features` (`.github/workflows/feature-architecture.yml`) on every push. Drift = merge blocked.
-
-Drift conditions:
-- `libs/features/<slug>/` exists but `manifest.ts` is missing or has <7 fields
-- API handler in `src/routes/` references a feature with no flag in D1 seed migrations
-- Feature flag in D1 seeds has no corresponding `e2e/<slug>/` directory
-- Sentry/PostHog events fired without `featureSlug` context tag
-- Zod schemas for a feature duplicated in `src/services/` instead of colocated in `libs/features/<slug>/schemas.ts`
-- `e2e/FEATURES.md` row missing for any module with a `manifest.ts`
-
-Fix drift immediately — never defer to a follow-up PR.
+Every post-launch capability is a feature module behind a typed flag; drift is a merge-blocker. Full rules: global `feature-module-architecture.md` + `feature-flags.md` + `drift-detection.md` (and root `CLAUDE.md` PART 23). Reference impl: `libs/features/donations_engine/` + `libs/core/feature-flags/`. Validate with `npm run validate:features`.
