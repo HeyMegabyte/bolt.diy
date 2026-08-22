@@ -133,7 +133,7 @@ Status legend: ✅ covered + green · ⚠️ covered, known-blocked dependency �
 | Full coverage | `full-coverage.spec.ts` | 41 |
 | Full feature coverage | `full-feature-coverage.spec.ts` | 35 |
 | Full user simulation | `full-user-simulation.spec.ts` | 19 |
-| Ultimate feature chains | `ultimate-feature-chains.spec.ts` | 15 |
+| Feature chains | `feature-chains.spec.ts` | 15 |
 | Quality features | `quality-features.spec.ts` | 18 |
 | Requirements | `requirements.spec.ts` | 14 |
 | Comprehensive | `comprehensive.spec.ts` | 10 |

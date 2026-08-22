@@ -93,7 +93,7 @@ regression_suites:
   full_coverage:     { status: covered, specs: [full-coverage.spec.ts] }
   full_feature:      { status: covered, specs: [full-feature-coverage.spec.ts] }
   full_simulation:   { status: covered, specs: [full-user-simulation.spec.ts] }
-  ultimate_chains:   { status: covered, specs: [ultimate-feature-chains.spec.ts] }
+  feature_chains:   { status: covered, specs: [feature-chains.spec.ts] }
   quality:           { status: covered, specs: [quality-features.spec.ts] }
   requirements:      { status: covered, specs: [requirements.spec.ts] }
   comprehensive:     { status: covered, specs: [comprehensive.spec.ts] }

@@ -1,5 +1,5 @@
 /**
- * 15 Ultimate Feature Chain E2E Tests
+ * 15 Feature Chain E2E Tests
  *
  * Each test chains multiple features into a complete user story,
  * testing state transitions, API interactions, and UI behavior.
