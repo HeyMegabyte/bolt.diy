@@ -386,6 +386,13 @@ aside::before {
   font-weight: 500; font-family: inherit; cursor: pointer; transition: all 0.2s;
   &:hover { border-color: rgba(0, 229, 255, 0.25); color: #00E5FF; background: rgba(0, 229, 255, 0.05); }
 }
+// Full-width / Show-sidebar toggle only applies in expanded (>=1297px) sidebar mode;
+// below 1297px the sidebar is already an icon rail so the toggle is meaningless.
+// Component-scoped .top-btn sets display:flex at higher specificity than a global
+// Tailwind max-[1296px]:hidden utility, so the hide must live here (2-class selector) to win.
+@media (max-width: 1296px) {
+  .top-btn.fullwidth-toggle { display: none; }
+}
 .top-btn-accent {
   @extend .top-btn;
   background: rgba(0, 229, 255, 0.1); border-color: rgba(0, 229, 255, 0.2); color: #00E5FF;
