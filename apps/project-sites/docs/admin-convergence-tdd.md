@@ -92,7 +92,7 @@ Both **SKIP clean (exit 0)** without creds — CI/forks stay green.
 Skip step 2 and the drift gate fails the build (UNCOVERED) — that's the point: no
 section can ship untested.
 
-## Wiring TODO (next fire)
+## Wiring TODO
 
 - Add `validate-admin-contract.mjs` to `.github/workflows/feature-architecture.yml` +
   `lefthook.yml` alongside `validate-feature-drift.mjs` (hard gate).
