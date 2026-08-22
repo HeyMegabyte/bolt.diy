@@ -1,10 +1,10 @@
 import { planLaunch, listApps } from '../service.js';
 
 describe('planLaunch', () => {
-  test('plane launch plan is valid with postgres + redis', () => {
-    const r = planLaunch({ appSlug: 'plane', siteId: 'site-123', orgId: 'org-1' });
+  test('twenty launch plan is valid with postgres + redis', () => {
+    const r = planLaunch({ appSlug: 'twenty', siteId: 'site-123', orgId: 'org-1' });
     expect(r.valid).toBe(true);
-    expect(r.plan!.instanceId).toContain('inst_plane');
+    expect(r.plan!.instanceId).toContain('inst_twenty');
     expect(r.plan!.hostname).toContain('app.projectsites.dev');
     expect(r.plan!.provisionedSecrets!.length).toBeGreaterThan(0);
     expect(r.plan!.estimatedMonthlyCost).toContain('$');

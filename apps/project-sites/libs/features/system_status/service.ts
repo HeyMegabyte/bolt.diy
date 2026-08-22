@@ -13,7 +13,6 @@ import type { IntegrationStatus, SystemStatusResponse, HealthTarget } from './sc
 export const INTEGRATION_TARGETS: HealthTarget[] = [
   { name: 'Listmonk', url: 'https://mail.projectsites.dev/api/health', category: 'email' },
   { name: 'LiteLLM', url: 'https://llm.megabyte.space/health', category: 'ai' },
-  { name: 'Plane', url: 'https://pm.projectsites.dev/api/instances/', category: 'collab' },
   { name: 'Twenty CRM', url: 'https://crm.projectsites.dev/health', category: 'collab' },
   { name: 'Payload CMS', url: 'https://cms.projectsites.dev/api/health', category: 'infra' },
   { name: 'Chatwoot', url: 'https://chat.projectsites.dev/health', category: 'collab' },

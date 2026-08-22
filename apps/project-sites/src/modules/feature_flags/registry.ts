@@ -105,7 +105,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     default_enabled: true,
     default_rollout_percent: 100,
     description:
-      "Account-level app catalog and launch planner over the companion-app catalog (Plane, Twenty, Listmonk, Chatwoot, Payload, and more); planner only, hands a provisioning plan to the operator.\n\n• Worker routes GET /api/apps/catalog (lists apps) and POST /api/apps/launch (returns a structured launch plan), both gated by isFlagOn('app_launcher') at src/index.ts.\n• The /admin/apps section renders the catalog with search, lifecycle filters, and category menu.\n• Off → both /api/apps/* routes 404 (no existence leak).\n• Off-vision relative to the core site builder — it is the Apps expansion surface.",
+      "Account-level app catalog and launch planner over the companion-app catalog (Twenty, Listmonk, Chatwoot, Payload, and more); planner only, hands a provisioning plan to the operator.\n\n• Worker routes GET /api/apps/catalog (lists apps) and POST /api/apps/launch (returns a structured launch plan), both gated by isFlagOn('app_launcher') at src/index.ts.\n• The /admin/apps section renders the catalog with search, lifecycle filters, and category menu.\n• Off → both /api/apps/* routes 404 (no existence leak).\n• Off-vision relative to the core site builder — it is the Apps expansion surface.",
     key: 'app_launcher',
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',
@@ -396,7 +396,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     default_enabled: false,
     default_rollout_percent: 0,
     description:
-      'Aggregated integration-health strip for the admin top bar, probing every platform service in parallel.\n\n• GET /api/system/status runs 6 probes (Listmonk, LiteLLM, Plane, Twenty, Payload, Chatwoot), 5s timeout each.\n• Each probe returns healthy/degraded/down/unknown + latencyMs; overall is healthy only when all pass.\n• Never cached — real-time. Handler in libs/features/system_status.\n• Backend-only: no frontend status-strip consumes it yet.',
+      'Aggregated integration-health strip for the admin top bar, probing every platform service in parallel.\n\n• GET /api/system/status runs 5 probes (Listmonk, LiteLLM, Twenty, Payload, Chatwoot), 5s timeout each.\n• Each probe returns healthy/degraded/down/unknown + latencyMs; overall is healthy only when all pass.\n• Never cached — real-time. Handler in libs/features/system_status.\n• Backend-only: no frontend status-strip consumes it yet.',
     key: 'system_status',
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',

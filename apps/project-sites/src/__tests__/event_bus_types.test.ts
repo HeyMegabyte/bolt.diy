@@ -1,7 +1,7 @@
 import { createEnvelope, EVENT_PRODUCERS, EVENT_TYPES } from '../services/event_bus_types.js';
 describe('event_bus_types', () => {
-  it('PRODUCERS has >=6 entries (inngest + unkey removed 2026-08-20)', () => {
-    expect(EVENT_PRODUCERS.length).toBeGreaterThanOrEqual(6);
+  it('PRODUCERS has >=5 entries (inngest + unkey removed 2026-08-20; plane removed 2026-08-22)', () => {
+    expect(EVENT_PRODUCERS.length).toBeGreaterThanOrEqual(5);
   });
   it('TYPES has >=8 entries', () => {
     expect(EVENT_TYPES.length).toBeGreaterThanOrEqual(8);

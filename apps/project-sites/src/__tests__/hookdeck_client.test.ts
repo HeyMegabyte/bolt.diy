@@ -6,21 +6,21 @@ import {
 
 describe('buildConnection (LOOP-GLOBAL-004 webhook routing)', () => {
   it('builds a connection with source, destination, and no rules', () => {
-    const c = buildConnection('src_github', 'dest_plane');
-    expect(c.id).toBe('conn_src_github_dest_plane');
+    const c = buildConnection('src_github', 'dest_twenty');
+    expect(c.id).toBe('conn_src_github_dest_twenty');
     expect(c.source).toBe('src_github');
-    expect(c.destination).toBe('dest_plane');
+    expect(c.destination).toBe('dest_twenty');
     expect(c.rules).toEqual([]);
   });
 
   it('builds a connection with filter rules', () => {
     const rules = [
-      { field: 'source', operator: 'IS' as const, value: 'github:plane' },
+      { field: 'source', operator: 'IS' as const, value: 'crm:twenty' },
       { field: 'headers.x-event', operator: 'CONTAINS' as const, value: 'issue' },
     ];
-    const c = buildConnection('src_github', 'dest_plane', rules);
+    const c = buildConnection('src_github', 'dest_twenty', rules);
     expect(c.rules).toHaveLength(2);
-    expect(c.rules[0].value).toBe('github:plane');
+    expect(c.rules[0].value).toBe('crm:twenty');
     expect(c.rules[1].field).toBe('headers.x-event');
   });
 
@@ -38,10 +38,10 @@ describe('buildConnection (LOOP-GLOBAL-004 webhook routing)', () => {
 
 describe('buildDestination (LOOP-GLOBAL-004 webhook routing)', () => {
   it('builds a destination with defaults (POST + bearer)', () => {
-    const d = buildDestination('Plane PM', 'https://plane.megabyte.space/api/webhooks');
-    expect(d.id).toBe('dest_plane_pm');
-    expect(d.name).toBe('Plane PM');
-    expect(d.url).toBe('https://plane.megabyte.space/api/webhooks');
+    const d = buildDestination('Twenty CRM', 'https://crm.projectsites.dev/api/webhooks');
+    expect(d.id).toBe('dest_twenty_crm');
+    expect(d.name).toBe('Twenty CRM');
+    expect(d.url).toBe('https://crm.projectsites.dev/api/webhooks');
     expect(d.method).toBe('POST');
     expect(d.authType).toBe('bearer');
   });
@@ -65,27 +65,8 @@ describe('buildDestination (LOOP-GLOBAL-004 webhook routing)', () => {
 });
 
 describe('DESTINATION_TEMPLATES (LOOP-GLOBAL-004 webhook routing)', () => {
-  it('contains all four expected service keys', () => {
-    expect(Object.keys(DESTINATION_TEMPLATES).sort()).toEqual([
-      'listmonk',
-      'plane',
-      'psnotify',
-      'twenty',
-    ]);
-  });
-
-  describe('plane', () => {
-    const d = DESTINATION_TEMPLATES.plane;
-    it('has the correct URL', () => {
-      expect(d.url).toBe('https://plane.megabyte.space/api/webhooks');
-    });
-    it('is POST + bearer', () => {
-      expect(d.method).toBe('POST');
-      expect(d.authType).toBe('bearer');
-    });
-    it('has the correct name', () => {
-      expect(d.name).toBe('Plane PM');
-    });
+  it('contains all three expected service keys (plane removed 2026-08-22)', () => {
+    expect(Object.keys(DESTINATION_TEMPLATES).sort()).toEqual(['listmonk', 'psnotify', 'twenty']);
   });
 
   describe('twenty', () => {
@@ -126,9 +107,9 @@ describe('DESTINATION_TEMPLATES (LOOP-GLOBAL-004 webhook routing)', () => {
     // returns false. This test verifies the shape is stable — mutations to
     // one entry do NOT affect others because each call to buildDestination
     // creates a fresh object.
-    const original = DESTINATION_TEMPLATES.plane.url;
-    const copy = { ...DESTINATION_TEMPLATES.plane, url: 'http://evil.example.com' };
+    const original = DESTINATION_TEMPLATES.twenty.url;
+    const copy = { ...DESTINATION_TEMPLATES.twenty, url: 'http://evil.example.com' };
     expect(copy.url).toBe('http://evil.example.com');
-    expect(DESTINATION_TEMPLATES.plane.url).toBe(original);
+    expect(DESTINATION_TEMPLATES.twenty.url).toBe(original);
   });
 });

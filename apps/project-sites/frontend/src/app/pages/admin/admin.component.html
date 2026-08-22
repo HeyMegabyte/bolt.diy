@@ -474,7 +474,7 @@
           </button>
           <!-- Tier 1 #10: Full-width mode toggle — collapses sidebar to icon rail -->
           <button
-            class="top-btn cmdk-btn"
+            class="top-btn cmdk-btn max-[1296px]:hidden"
             (click)="toggleFullWidth()"
             [brnTooltip]="fullWidth() ? 'Exit full-width mode (g w)' : 'Full-width mode — hide sidebar (g w)'"
             [attr.aria-label]="fullWidth() ? 'Exit full-width mode' : 'Enter full-width mode'"
@@ -494,7 +494,7 @@
                 <path d="M3 8V3m0 0h5M3 3l7 7m11 6v5m0 0h-5m5 0-7-7" />
               }
             </svg>
-            <span class="cmdk-label max-[1000px]:hidden">{{ fullWidth() ? 'Show sidebar' : 'Full width' }}</span>
+            <span class="cmdk-label">{{ fullWidth() ? 'Show sidebar' : 'Full width' }}</span>
           </button>
           <!-- Site actions — Preview · Save & Deploy · Review links collapsed into one
              dropdown so the navbar stays compact and has room for more commands. -->

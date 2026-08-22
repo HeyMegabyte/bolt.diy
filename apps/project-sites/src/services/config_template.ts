@@ -54,7 +54,7 @@ function lineForFormat(key: string, value: string, format: ConfigFormat): string
 /**
  * Build a typed {@link ConfigTemplate} from name, format, and field definitions.
  *
- * @param name - Human-readable template name (e.g. `"Plane"`).
+ * @param name - Human-readable template name (e.g. `"Listmonk"`).
  * @param format - Output format key.
  * @param fields - Ordered field definitions.
  * @returns A frozen {@link ConfigTemplate}.
@@ -80,9 +80,9 @@ export function buildTemplate(
  * @returns Rendered config string.
  *
  * @example
- * const tpl = APP_TEMPLATES.plane;
+ * const tpl = APP_TEMPLATES.listmonk;
  * const out = renderTemplate(tpl);
- * // => 'PLANE_HOST=https://plane.projectsites.dev\n...'
+ * // => 'LISTMONK_DB_URL=postgresql://...\n...'
  */
 export function renderTemplate(template: ConfigTemplate): string {
   const lines: string[] = [];
@@ -120,8 +120,8 @@ export function renderTemplate(template: ConfigTemplate): string {
  * @returns Array of `key` strings where `sensitive === true`.
  *
  * @example
- * extractSecrets(APP_TEMPLATES.plane.fields)
- * // => ['PLANE_DB_URL', 'PLANE_SECRET_KEY', 'PLANE_ENCRYPTION_KEY', ...]
+ * extractSecrets(APP_TEMPLATES.listmonk.fields)
+ * // => ['LISTMONK_DB_URL', 'LISTMONK_SECRET', 'LISTMONK_SMTP_USER', ...]
  */
 export function extractSecrets(fields: readonly ConfigField[]): string[] {
   const out: string[] = [];

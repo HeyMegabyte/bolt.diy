@@ -459,19 +459,6 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
       'CF-NATIVE — NOT self-hosted Svix. A complete Svix/Stripe-style webhook delivery engine on D1/Workers: signed payloads (t=,v1= HMAC over timestamp+body, replay-safe), exponential backoff + bounded retries (6 attempts), SSRF guard (isSafeWebhookUrl), customer endpoint CRUD (/api/sites/:siteId/webhooks, flag-gated outbound_webhooks), admin UI (/admin/webhooks), D1 tables 0534/0535. A self-hosted Svix Rust container (Neon+Upstash) would be redundant infra — REJECTED per cloudflare-lock-in-is-leverage (same call as Better-Auth-on-D1). webhooks.projectsites.dev is an optional future public-ingress alias over the main worker.',
   },
   {
-    id: 'projects-plane',
-    name: 'Plane — self-hosted project management (OPTIONAL — doctrine prefers in-repo)',
-    domain: 'projects.projectsites.dev',
-    category: 'internal',
-    runtime: 'cloudflare-container',
-    datastore: ['Neon:plane', 'Upstash:plane'],
-    secretsNamespace: '/plane',
-    status: 'planned',
-    access: 'internal-access',
-    notes:
-      'OPTIONAL / lowest priority. Self-hosted Plane (Jira/Linear alternative). Django multi-service (api/worker/web/beat) — the heaviest container deploy (genuinely NOT CF-native-able). But code-style doctrine prefers in-repo issue tracking (.claude/issues / GitHub Issues) over external PM tools, so Plane is a convenience operator tool, not load-bearing. Deploy only on explicit want; otherwise track work in-repo. If deployed: CF Container topology + Neon DB + Upstash Redis + verify 200 at projects.projectsites.dev.',
-  },
-  {
     id: 'crm-twenty',
     name: 'Twenty — self-hosted CRM',
     domain: 'crm.projectsites.dev',

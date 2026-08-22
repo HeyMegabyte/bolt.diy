@@ -31,7 +31,7 @@ export type ComponentStatus = z.infer<typeof ComponentStatus>;
 
 /** One subsystem's health snapshot, normalized from its raw `/health` response. */
 export const ComponentStateSchema = z.object({
-  /** Stable slug matching the subsystem registry key (e.g. `d1`, `r2`, `plane`). */
+  /** Stable slug matching the subsystem registry key (e.g. `d1`, `r2`, `mail`). */
   slug: z.string().min(1).max(64),
   /** Normalized status derived from the health response (or timeout/error). */
   status: ComponentStatus,
@@ -71,7 +71,7 @@ export type HealthCheckPayload = z.infer<typeof HealthCheckPayload>;
  * Maps a raw `/health` HTTP response (or absence thereof) to a normalized
  * `ComponentState`. Never throws — every input path returns a valid state.
  *
- * @param slug - Subsystem identifier (e.g. `"d1"`, `"plane"`).
+ * @param slug - Subsystem identifier (e.g. `"d1"`, `"mail"`).
  * @param response - The fetch `Response` object, or `null` when the fetch
  *   threw (DNS/timeout/network error).
  * @param latencyMs - Wall-clock latency of the health check fetch.
@@ -90,8 +90,8 @@ export type HealthCheckPayload = z.infer<typeof HealthCheckPayload>;
  * @example
  * ```ts
  * // Timeout / network error
- * const state = normalizeComponentState('plane', null, 5001, '2026-06-30T00:00:00Z');
- * // { slug: 'plane', status: 'major_outage', latencyMs: 5001, ... }
+ * const state = normalizeComponentState('mail', null, 5001, '2026-06-30T00:00:00Z');
+ * // { slug: 'mail', status: 'major_outage', latencyMs: 5001, ... }
  * ```
  */
 export async function normalizeComponentState(
@@ -212,7 +212,7 @@ async function parseHealthBody(response: Response): Promise<HealthCheckPayload> 
 
 /** Descriptor for one subsystem in the health registry. */
 export interface SubsystemEntry {
-  /** Stable identifier (e.g. `"d1"`, `"plane"`, `"mail"`). */
+  /** Stable identifier (e.g. `"d1"`, `"r2"`, `"mail"`). */
   readonly slug: string;
   /** Human-readable label for dashboards. */
   readonly label: string;

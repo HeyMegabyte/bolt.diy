@@ -543,11 +543,14 @@ const POLL_INTERVAL_MS = 10_000;
             <tbody>
               @for (s of filteredSubmissions(); track s.id) {
                 <tr class="submission-row border-b border-white/[0.04] hover:bg-white/[0.03] cursor-pointer transition-colors"
+                    [class.expanded]="selected()?.id === s.id"
                     role="button"
                     tabindex="0"
-                    [attr.aria-label]="'Open submission from ' + (s.form_name) + (s.email ? ' by ' + s.email : '')"
+                    [attr.aria-expanded]="selected()?.id === s.id"
+                    [attr.data-testid]="'forms-row-' + s.id"
+                    [attr.aria-label]="(selected()?.id === s.id ? 'Collapse' : 'Expand') + ' submission from ' + (s.form_name) + (s.email ? ' by ' + s.email : '')"
                     (click)="open(s)"
-                    (keydown.enter)="open(s)"
+                    (keydown.enter)="$event.preventDefault(); open(s)"
                     (keydown.space)="$event.preventDefault(); open(s)">
                   <td class="p-3 w-8" (click)="$event.stopPropagation()">
                     <input type="checkbox" class="accent-[#00E5FF] cursor-pointer align-middle"
@@ -565,54 +568,55 @@ const POLL_INTERVAL_MS = 10_000;
                     }
                   </td>
                   <td class="p-3 text-text-secondary/70 truncate max-w-[240px]" [title]="s.origin_url">{{ s.origin_url || '—' }}</td>
-                  <td class="p-3 text-right text-primary text-[0.7rem] font-semibold">Open ›</td>
+                  <td class="p-3 text-right text-primary text-[0.7rem] font-semibold whitespace-nowrap">
+                    <span class="expand-caret" [class.open]="selected()?.id === s.id" aria-hidden="true">›</span>
+                    <span class="ml-1">{{ selected()?.id === s.id ? 'Close' : 'Open' }}</span>
+                  </td>
                 </tr>
+                @if (selected()?.id === s.id) {
+                  <tr class="detail-row" [attr.data-testid]="'forms-detail-' + s.id">
+                    <td [attr.colspan]="6" class="p-0">
+                      <div class="detail-panel" appReveal role="region"
+                           [attr.aria-label]="'Details for submission from ' + s.form_name">
+                        <div class="grid md:grid-cols-2 gap-3">
+                          <div>
+                            <h4 class="muted-h">Fields</h4>
+                            <pre class="bg-black/30 border border-white/5 rounded-lg p-3 text-[0.7rem] overflow-auto max-h-72">{{ s.fields | json }}</pre>
+                          </div>
+                          <div>
+                            <h4 class="muted-h">AI Trace</h4>
+                            @if (logs().length === 0) {
+                              <p class="text-text-secondary/70 italic text-[0.78rem]">No AI trace yet — the router may still be running or credits exhausted.</p>
+                            } @else {
+                              @for (l of logs(); track l.id) {
+                                <div class="bg-black/30 border border-white/5 rounded-lg p-3 mb-2 text-[0.7rem]">
+                                  <div class="flex justify-between text-[0.6rem] mb-1">
+                                    <span class="font-mono opacity-70">{{ l.model }}</span>
+                                    <span class="font-bold uppercase" [class.text-emerald-400]="l.status === 'ok'" [class.text-red-400]="l.status === 'error'">{{ l.status }} · {{ l.latency_ms }}ms</span>
+                                  </div>
+                                  @if (l.tool_name) {
+                                    <div class="text-primary font-mono mb-1">{{ l.tool_name }} · {{ l.tool_status }}</div>
+                                  }
+                                  @if (l.error_message) {
+                                    <div class="text-red-300">{{ l.error_message }}</div>
+                                  } @else {
+                                    <pre class="whitespace-pre-wrap break-words">{{ l.output_text }}</pre>
+                                  }
+                                </div>
+                              }
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                }
               }
             </tbody>
           </table>
           </div>
         }
       </section>
-
-      @if (selected(); as s) {
-        <section class="card border border-primary/40" appReveal>
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="section-h m-0 text-base font-semibold text-white">{{ s.form_name }} · {{ s.created_at | date:'medium' }}</h3>
-            <button class="icon-close" type="button" (click)="selected.set(null)" aria-label="Close form submission detail" [brnTooltip]="'Close detail panel'">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </div>
-          <div class="grid md:grid-cols-2 gap-3">
-            <div>
-              <h4 class="muted-h">Fields</h4>
-              <pre class="bg-black/30 border border-white/5 rounded-lg p-3 text-[0.7rem] overflow-auto max-h-72">{{ s.fields | json }}</pre>
-            </div>
-            <div>
-              <h4 class="muted-h">AI Trace</h4>
-              @if (logs().length === 0) {
-                <p class="text-text-secondary/70 italic text-[0.78rem]">No AI trace yet — the router may still be running or credits exhausted.</p>
-              } @else {
-                @for (l of logs(); track l.id) {
-                  <div class="bg-black/30 border border-white/5 rounded-lg p-3 mb-2 text-[0.7rem]">
-                    <div class="flex justify-between text-[0.6rem] mb-1">
-                      <span class="font-mono opacity-70">{{ l.model }}</span>
-                      <span class="font-bold uppercase" [class.text-emerald-400]="l.status === 'ok'" [class.text-red-400]="l.status === 'error'">{{ l.status }} · {{ l.latency_ms }}ms</span>
-                    </div>
-                    @if (l.tool_name) {
-                      <div class="text-primary font-mono mb-1">{{ l.tool_name }} · {{ l.tool_status }}</div>
-                    }
-                    @if (l.error_message) {
-                      <div class="text-red-300">{{ l.error_message }}</div>
-                    } @else {
-                      <pre class="whitespace-pre-wrap break-words">{{ l.output_text }}</pre>
-                    }
-                  </div>
-                }
-              }
-            </div>
-          </div>
-        </section>
-      }
     </div>
   `,
   styles: [`
@@ -839,6 +843,29 @@ const POLL_INTERVAL_MS = 10_000;
       outline: none;
       box-shadow: inset 0 0 0 2px var(--ps-accent, #00E5FF);
       background: color-mix(in oklch, var(--ps-accent, #00E5FF) 7%, transparent);
+    }
+    /* Expanded master row: cyan-tinted, no bottom border so it fuses with the
+       detail row beneath it into one visual accordion unit. */
+    .submission-row.expanded {
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 9%, transparent);
+      border-bottom-color: transparent;
+    }
+    /* Rotating caret cues expand/collapse (matches the "Open"/"Close" label). */
+    .expand-caret {
+      display: inline-block;
+      transition: transform 0.18s ease;
+      transform: rotate(0deg);
+    }
+    .expand-caret.open { transform: rotate(90deg); }
+    @media (prefers-reduced-motion: reduce) { .expand-caret { transition: none; } }
+    /* Full-width inline detail row rendered directly under its master row. */
+    .detail-row > td {
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 4%, rgba(0,0,0,0.25));
+    }
+    .detail-panel {
+      padding: 1rem 1.1rem 1.2rem;
+      border-left: 2px solid var(--ps-accent, #00E5FF);
     }
     .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2.8rem 1.4rem; gap: 0.6rem; }
     .empty-icon { color: color-mix(in oklch, var(--ps-accent, #00E5FF) 65%, transparent); }
@@ -1540,8 +1567,21 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     return ((e as { error?: { error?: { request_id?: string } } } | undefined)?.error?.error?.request_id) ?? '';
   }
 
+  /**
+   * Toggle the inline master-detail row for a submission. Clicking (or
+   * Enter/Space on) the same row again collapses it; clicking a different row
+   * moves the expansion to that row. When expanding, the AI router trace is
+   * (re)fetched so the accordion body is always fresh.
+   */
   open(s: Submission): void {
+    if (this.selected()?.id === s.id) {
+      // Re-click the open row → collapse it (accordion behaviour).
+      this.selected.set(null);
+      this.logs.set([]);
+      return;
+    }
     this.selected.set(s);
+    this.logs.set([]);
     const site = this.state.selectedSite();
     if (!site) return;
     this.api

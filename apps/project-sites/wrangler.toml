@@ -771,17 +771,6 @@ class_name = "SiteBuilderContainer"
 #name = "APP_RUNTIME_PHOENIX"
 #class_name = "ArizePhoenixContainer"
 #
-# plane — Plane (makeplane/plane-frontend:latest, port 3000, 768 MiB)
-#[[env.production.containers]]
-#class_name = "PlaneContainer"
-#image = "makeplane/plane-frontend:latest"
-#max_instances = 20
-#instance_type = "basic"
-#
-#[[env.production.durable_objects.bindings]]
-#name = "APP_RUNTIME_PLANE"
-#class_name = "PlaneContainer"
-#
 # plausible — Plausible (plausible/community-edition:latest, port 8000, 512 MiB)
 #[[env.production.containers]]
 #class_name = "PlausibleContainer"
@@ -990,7 +979,6 @@ class_name = "SiteBuilderContainer"
 #"OutlineContainer",
 #"PerplexicaContainer",
 #"ArizePhoenixContainer",
-#"PlaneContainer",
 #"PlausibleContainer",
 #"PocketbaseContainer",
 #"QdrantContainer",

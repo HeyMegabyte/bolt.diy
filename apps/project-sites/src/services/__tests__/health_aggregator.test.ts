@@ -148,7 +148,7 @@ describe('normalizeComponentState', () => {
   });
 
   it('returns major_outage for HTTP 5xx', async () => {
-    const state = await normalizeComponentState('plane', mockResponse(500, {}), 200, CHECKED_AT);
+    const state = await normalizeComponentState('twenty', mockResponse(500, {}), 200, CHECKED_AT);
     expect(state.status).toBe('major_outage');
     expect(state.detail).toContain('500');
   });

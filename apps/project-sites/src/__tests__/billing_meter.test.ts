@@ -105,7 +105,7 @@ describe('aggregateMeter', () => {
   it('produces separate lines for different apps with the same metric', () => {
     const counters = [
       makeCounter({ app: 'projectsites', metric: 'builds', count: 5 }),
-      makeCounter({ app: 'plane', metric: 'builds', count: 3 }),
+      makeCounter({ app: 'chatwoot', metric: 'builds', count: 3 }),
     ];
 
     const result = aggregateMeter(counters);
@@ -113,9 +113,9 @@ describe('aggregateMeter', () => {
     expect(result.lines).toHaveLength(2);
 
     const psBuilds = result.lines.find((l) => l.app === 'projectsites');
-    const planeBuilds = result.lines.find((l) => l.app === 'plane');
+    const chatwootBuilds = result.lines.find((l) => l.app === 'chatwoot');
     expect(psBuilds!.count).toBe(5);
-    expect(planeBuilds!.count).toBe(3);
+    expect(chatwootBuilds!.count).toBe(3);
   });
 
   it('produces separate lines for different metrics in the same app', () => {

@@ -379,7 +379,8 @@ aside::before {
 
 // Buttons
 .top-btn {
-  display: flex; align-items: center; gap: 6px; padding: 7px 14px;
+  display: flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 14px;
+  min-height: 34px; box-sizing: border-box; line-height: 1;
   border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.06);
   background: transparent; color: #94a3b8; font-size: 0.78rem;
   font-weight: 500; font-family: inherit; cursor: pointer; transition: all 0.2s;

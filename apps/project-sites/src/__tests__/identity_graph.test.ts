@@ -1,10 +1,10 @@
 import { buildIdentityGraph } from '../services/identity_graph.js';
 
 const rows = [
-  { userId: 'u1', email: 'alice@x.com', app: 'plane', externalId: 'mem_a', role: 'admin' },
+  { userId: 'u1', email: 'alice@x.com', app: 'chatwoot', externalId: 'mem_a', role: 'admin' },
   { userId: 'u1', email: 'alice@x.com', app: 'twenty', externalId: 'p_a', label: 'Alice' },
   { userId: 'u2', email: '', app: 'listmonk', externalId: 'sub_b' },
-  { userId: 'u1', email: 'alice@x.com', app: 'plane', externalId: 'mem_a', role: 'admin' }, // dupe
+  { userId: 'u1', email: 'alice@x.com', app: 'chatwoot', externalId: 'mem_a', role: 'admin' }, // dupe
 ];
 
 describe('buildIdentityGraph (AP13)', () => {
@@ -12,7 +12,7 @@ describe('buildIdentityGraph (AP13)', () => {
     const g = buildIdentityGraph(rows);
     expect(g.totalUsers).toBe(2);
     const u1 = g.nodes.find((n) => n.userId === 'u1')!;
-    expect(u1.apps.map((a) => a.app)).toEqual(['plane', 'twenty']);
+    expect(u1.apps.map((a) => a.app)).toEqual(['chatwoot', 'twenty']);
     expect(u1.appCount).toBe(2);
     expect(u1.isCrossApp).toBe(true);
   });
@@ -20,13 +20,13 @@ describe('buildIdentityGraph (AP13)', () => {
   it('tallies crossAppUsers + per-app counts', () => {
     const g = buildIdentityGraph(rows);
     expect(g.crossAppUsers).toBe(1);
-    expect(g.appCounts.plane).toBe(1);
+    expect(g.appCounts.chatwoot).toBe(1);
     expect(g.appCounts.listmonk).toBe(1);
     expect(g.appCounts.twenty).toBe(1);
   });
 
   it('fills unknown for a missing email (first non-empty wins)', () => {
-    const g = buildIdentityGraph([{ userId: 'u2', email: '', app: 'plane', externalId: 'm2' }]);
+    const g = buildIdentityGraph([{ userId: 'u2', email: '', app: 'chatwoot', externalId: 'm2' }]);
     expect(g.nodes[0].email).toBe('unknown');
   });
 

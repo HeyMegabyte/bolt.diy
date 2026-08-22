@@ -1,7 +1,7 @@
 /**
  * @module services/r2_post_shim
- * @description AP6 — reusable R2 S3-POST-object shim. Generalizes the Plane S3
- * pattern: given an R2 custom domain + access-key pair, builds the base64
+ * @description AP6 — reusable R2 S3-POST-object shim. Given an R2 custom
+ * domain + access-key pair, builds the base64
  * policy, HMAC-SHA256 signature, and form fields any S3-POST client needs.
  * Pure + zero-I/O: the caller provides the credentials; this layer is a
  * deterministic crypto builder. The actual POST executes client-side against
@@ -19,7 +19,7 @@ export interface R2PostConfig {
   readonly secretAccessKey: string;
   /** Bucket name. */
   readonly bucket: string;
-  /** Key prefix, e.g. `plane-media` or `app-uploads`. */
+  /** Key prefix, e.g. `app-media` or `app-uploads`. */
   readonly keyPrefix?: string;
   /** Max file size in bytes (default 25 MB). */
   readonly maxContentLength?: number;

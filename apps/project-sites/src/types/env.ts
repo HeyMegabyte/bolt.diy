@@ -811,7 +811,6 @@ export interface Env {
   APP_RUNTIME_PERPLEXICA?: DurableObjectNamespace;
   /** Arize Phoenix — `arizephoenix/phoenix:latest` */
   APP_RUNTIME_PHOENIX?: DurableObjectNamespace;
-  /** Plane — `makeplane/plane-frontend:latest` */
   /** Plausible — `plausible/community-edition:latest` */
   APP_RUNTIME_PLAUSIBLE?: DurableObjectNamespace;
   /** PocketBase — `spectado/pocketbase:latest` */

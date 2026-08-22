@@ -42,8 +42,17 @@ interface WorkspaceProps {
   mobileChatPanel?: ReactNode;
 }
 
+type TopTab = { value: WorkbenchViewType; text: string; icon: string };
+
+/**
+ * The Chat tab — LEFTMOST, tablet/mobile only (<1024px). On desktop the chat is
+ * the docked left column so this tab is hidden; on narrow screens it joins the
+ * strip as an equal sibling of Code/Preview/Functions/Data. (Brian 2026-08-22)
+ */
+const CHAT_TAB: TopTab = { value: 'chat', text: 'Chat', icon: 'i-ph:chat-circle-dots-duotone' };
+
 /** Top editor tabs — order drives the tab strip left-to-right. */
-const TOP_TABS: { value: WorkbenchViewType; text: string; icon: string }[] = [
+const TOP_TABS: TopTab[] = [
   { value: 'code', text: 'Code', icon: 'i-ph:code-duotone' },
   { value: 'preview', text: 'Preview', icon: 'i-ph:eye-duotone' },
   { value: 'functions', text: 'Functions', icon: 'i-ph:lightning-duotone' },
@@ -89,7 +98,7 @@ export const Workbench = memo(
     const unsavedFiles = useStore(workbenchStore.unsavedFiles);
     const files = useStore(workbenchStore.files);
     const selectedView = useStore(workbenchStore.currentView);
-    const { showChat, mobileChatOpen } = useStore(chatStore);
+    const { showChat } = useStore(chatStore);
     const canHideChat = showWorkbench || !showChat;
 
     const isSmallViewport = useViewport(1024);
@@ -112,11 +121,26 @@ export const Workbench = memo(
       workbenchStore.currentView.set(view);
     };
 
+    // Chat tab is prepended ONLY on tablet/mobile; on desktop the chat docks left.
+    const visibleTabs = isSmallViewport ? [CHAT_TAB, ...TOP_TABS] : TOP_TABS;
+
     useEffect(() => {
       if (hasPreview) {
         setSelectedView('preview');
       }
     }, [hasPreview]);
+
+    /*
+     * The "Chat" view only exists as a TAB on tablet/mobile (<1024px). On desktop
+     * the chat lives in its own docked left column, so if the viewport grows while
+     * the Chat tab is active, snap back to the Code panel — the chat reappears in
+     * the dock and the workbench keeps showing a real editor panel. (Brian 2026-08-22)
+     */
+    useEffect(() => {
+      if (!isSmallViewport && selectedView === 'chat') {
+        setSelectedView('code');
+      }
+    }, [isSmallViewport, selectedView]);
 
     useEffect(() => {
       workbenchStore.setDocuments(files);
@@ -292,41 +316,21 @@ export const Workbench = memo(
                         }
                       }}
                     />
-                    {/* Top tab strip — Code | Preview | Functions | Data (+ Chat on mobile) */}
+                    {/* Top tab strip — Code | Preview | Functions | Data, plus a
+                        LEFTMOST "Chat" tab on tablet/mobile (<1024px). The Chat tab
+                        is just another tab: same styling, same active-state, same
+                        selectedView slot as its siblings — it simply selects the
+                        chat panel instead of an editor panel. (Brian 2026-08-22) */}
                     <div className="flex items-center gap-0.5 flex-1 overflow-x-auto">
-                      {/* Chat tab — LEFTMOST tab (Brian 2026-08-21). Below 1024px
-                          the chat panel NESTS under this tab strip; tapping opens
-                          it, tapping any sibling tab closes it + shows that panel. */}
-                      {isSmallViewport && (
-                        <button
-                          type="button"
-                          onClick={() => chatStore.setKey('mobileChatOpen', !chatStore.get().mobileChatOpen)}
-                          aria-pressed={chatStore.get().mobileChatOpen}
-                          data-testid="workbench-chat-tab"
-                          className={classNames(
-                            'ps-tab relative flex items-center gap-1.5 text-sm cursor-pointer px-2.5 py-1 h-7 whitespace-nowrap rounded-md transition-colors',
-                            chatStore.get().mobileChatOpen
-                              ? 'ps-tab-active bg-bolt-elements-terminals-buttonBackground text-bolt-elements-textPrimary'
-                              : 'bg-transparent text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3',
-                          )}
-                        >
-                          <div className="i-ph:chat-circle-dots text-base" />
-                          Chat
-                        </button>
-                      )}
-                      {TOP_TABS.map((tab) => {
+                      {visibleTabs.map((tab) => {
                         const active = selectedView === tab.value;
                         return (
                           <button
                             key={tab.value}
                             type="button"
-                            onClick={() => {
-                              setSelectedView(tab.value);
-                              // Selecting a real panel closes the mobile chat so the
-                              // tabs behave like one mutually-exclusive tab strip.
-                              chatStore.setKey('mobileChatOpen', false);
-                            }}
+                            onClick={() => setSelectedView(tab.value)}
                             aria-pressed={active}
+                            data-testid={tab.value === 'chat' ? 'workbench-chat-tab' : undefined}
                             className={classNames(
                               'ps-tab relative flex items-center gap-1.5 text-sm cursor-pointer px-2.5 py-1 h-7 whitespace-nowrap rounded-md transition-colors',
                               active
@@ -473,12 +477,14 @@ export const Workbench = memo(
                     <PanelLayer active={selectedView === 'data'}>
                       <DataPanel />
                     </PanelLayer>
-                    {/* Chat as a nested tab panel — tablet/mobile only (<1024px).
-                        The SAME chat instance BaseChat docks on desktop (passed via
-                        mobileChatPanel), so it stays in sync. Active when the
-                        leftmost "Chat" tab is open; no separate full-screen chat. */}
+                    {/* Chat panel — a first-class tab panel, tablet/mobile only.
+                        It cross-fades via the SAME PanelLayer mechanism as Code /
+                        Preview / Functions / Data, driven by selectedView === 'chat'.
+                        The node is the SAME chat instance BaseChat docks on desktop
+                        (passed via mobileChatPanel), so it stays perfectly in sync —
+                        one data-bound chat, two render slots. (Brian 2026-08-22) */}
                     {mobileChatPanel && (
-                      <PanelLayer active={isSmallViewport && mobileChatOpen}>
+                      <PanelLayer active={isSmallViewport && selectedView === 'chat'}>
                         <div className="h-full w-full overflow-hidden">{mobileChatPanel}</div>
                       </PanelLayer>
                     )}

@@ -130,8 +130,8 @@ describe('verifyWebhook', () => {
     });
   });
 
-  describe('generic providers (listmonk / ses / plane / generic)', () => {
-    it.each(['listmonk', 'ses', 'plane', 'generic'] as const)(
+  describe('generic providers (listmonk / ses / generic)', () => {
+    it.each(['listmonk', 'ses', 'generic'] as const)(
       'passes a valid %s HMAC signature',
       async (provider) => {
         const body = '{"email":"test@example.com","event":"bounce"}';
@@ -148,7 +148,7 @@ describe('verifyWebhook', () => {
       },
     );
 
-    it.each(['listmonk', 'ses', 'plane', 'generic'] as const)(
+    it.each(['listmonk', 'ses', 'generic'] as const)(
       'rejects a wrong %s signature',
       async (provider) => {
         const body = '{"email":"test@example.com"}';

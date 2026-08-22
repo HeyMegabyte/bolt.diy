@@ -3,18 +3,18 @@
  *
  * @remarks
  * Pure data-transform functions with zero I/O. Build connections and destinations
- * for routing inbound webhooks through Hookdeck to internal services (Plane,
- * Twenty, Listmonk, psnotify, etc.). No fetchImpl needed — all operations are
+ * for routing inbound webhooks through Hookdeck to internal services (Twenty,
+ * Listmonk, psnotify, etc.). No fetchImpl needed — all operations are
  * synchronous and side-effect-free.
  *
  * @example
  * ```ts
  * const conn = buildConnection(
- *   'src_plane_webhook',
- *   'dest_plane',
- *   [{ field: 'source', operator: 'IS', value: 'github:plane' }],
+ *   'src_twenty_webhook',
+ *   'dest_twenty',
+ *   [{ field: 'source', operator: 'IS', value: 'crm:twenty' }],
  * );
- * // => { id: '…', source: 'src_plane_webhook', destination: 'dest_plane', rules: […] }
+ * // => { id: '…', source: 'src_twenty_webhook', destination: 'dest_twenty', rules: […] }
  * ```
  */
 
@@ -35,9 +35,9 @@
  * ```ts
  * HookdeckConnection = {
  *   id: 'conn_abc123',
- *   source: 'src_plane_webhook',
- *   destination: 'dest_plane',
- *   rules: [{ field: 'source', operator: 'IS', value: 'github:plane' }],
+ *   source: 'src_twenty_webhook',
+ *   destination: 'dest_twenty',
+ *   rules: [{ field: 'source', operator: 'IS', value: 'crm:twenty' }],
  * }
  * ```
  */
@@ -79,9 +79,9 @@ export interface HookdeckConnectionRule {
  * @example
  * ```ts
  * HookdeckDestination = {
- *   id: 'dest_plane',
- *   name: 'Plane Project Management',
- *   url: 'https://plane.megabyte.space/api/webhooks',
+ *   id: 'dest_twenty',
+ *   name: 'Twenty CRM',
+ *   url: 'https://crm.projectsites.dev/api/webhooks',
  *   method: 'POST',
  *   authType: 'bearer',
  * }
@@ -119,9 +119,9 @@ export interface HookdeckDestination {
  *
  * @example
  * ```ts
- * const c = buildConnection('src_github', 'dest_plane');
- * // => { id: 'conn_src_github_dest_plane', source: 'src_github',
- * //      destination: 'dest_plane', rules: [] }
+ * const c = buildConnection('src_github', 'dest_twenty');
+ * // => { id: 'conn_src_github_dest_twenty', source: 'src_github',
+ * //      destination: 'dest_twenty', rules: [] }
  *
  * const c2 = buildConnection('src_stripe', 'dest_twenty', [
  *   { field: 'type', operator: 'IS', value: 'invoice.paid' },
@@ -157,9 +157,9 @@ export function buildConnection(
  *
  * @example
  * ```ts
- * const d = buildDestination('Plane PM', 'https://plane.megabyte.space/api/webhooks');
- * // => { id: 'dest_plane_pm', name: 'Plane PM',
- * //      url: 'https://plane.megabyte.space/api/webhooks',
+ * const d = buildDestination('Twenty CRM', 'https://crm.projectsites.dev/api/webhooks');
+ * // => { id: 'dest_twenty_crm', name: 'Twenty CRM',
+ * //      url: 'https://crm.projectsites.dev/api/webhooks',
  * //      method: 'POST', authType: 'bearer' }
  *
  * const d2 = buildDestination('Public Webhook', 'https://example.com/hook', 'PUT', 'none');
@@ -196,12 +196,12 @@ export function buildDestination(
  * production URLs and the correct auth/method defaults. Consumers override
  * fields as needed (e.g. swapping the URL for a staging instance).
  *
- * Supported keys: `plane`, `twenty`, `listmonk`, `psnotify`.
+ * Supported keys: `twenty`, `listmonk`, `psnotify`.
  *
  * @example
  * ```ts
- * DESTINATION_TEMPLATES.plane.url
- * // => 'https://plane.megabyte.space/api/webhooks'
+ * DESTINATION_TEMPLATES.twenty.url
+ * // => 'https://crm.projectsites.dev/api/webhooks'
  *
  * DESTINATION_TEMPLATES.psnotify.authType
  * // => 'bearer'
@@ -210,8 +210,6 @@ export function buildDestination(
 export const DESTINATION_TEMPLATES: Record<string, HookdeckDestination> = {
   /** Listmonk mailing list webhook target. */
   listmonk: buildDestination('Listmonk', 'https://mail.projectsites.dev/api/webhooks'),
-  /** Plane project management webhook target. */
-  plane: buildDestination('Plane PM', 'https://plane.megabyte.space/api/webhooks'),
   /** psnotify notification service webhook target. */
   psnotify: buildDestination('psnotify', 'https://notify.projectsites.dev/api/webhooks'),
   /** Twenty CRM webhook target. */

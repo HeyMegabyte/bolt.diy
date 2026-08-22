@@ -6,13 +6,13 @@
  * This is the "Workers for Platforms" glue — every App in the Apps section
  * launches through this controller. The flow:
  *
- *   1. Customer sets CNAME (pm.customer.com → pm.projectsites.dev)
+ *   1. Customer sets CNAME (crm.customer.com → crm.projectsites.dev)
  *   2. Controller provisions per-tenant infra (Neon DB, Upstash, R2)
  *   3. Credentials encrypted + injected into app_runtime DO env
- *   4. CNAME registered in KV (apphost:pm.customer.com → instanceId)
+ *   4. CNAME registered in KV (apphost:crm.customer.com → instanceId)
  *   5. DO boots → reads env → connects to own DB → serves on CNAME
  */
-export type AppSlug = 'plane' | 'twenty' | 'listmonk' | 'chatwoot' | 'payload' | 'litellm';
+export type AppSlug = 'twenty' | 'listmonk' | 'chatwoot' | 'payload' | 'litellm';
 
 export interface AppCatalogEntry {
   slug: AppSlug; name: string; description: string;
@@ -39,11 +39,6 @@ export interface LaunchResult {
 
 /** Per-app catalog — what each app needs to launch. */
 export const APP_CATALOG: Record<AppSlug, AppCatalogEntry> = {
-  plane: {
-    slug: 'plane', name: 'Plane PM', description: 'Project management',
-    image: 'ghcr.io/makeplane/plane:latest', infra: ['postgres', 'redis', 's3'],
-    defaultPort: 8080, envTemplate: { PLANE_DB_TYPE: 'postgres', PLANE_REDIS_URL: '${REDIS_URL}', PLANE_DB_URL: '${DATABASE_URL}', PLANE_SECRET_KEY: '${SECRET_KEY}' },
-  },
   twenty: {
     slug: 'twenty', name: 'Twenty CRM', description: 'Customer relationship management',
     image: 'ghcr.io/twentyhq/twenty:latest', infra: ['postgres', 'redis'],

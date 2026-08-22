@@ -12,7 +12,7 @@ describe('aggregateCosts (AP10)', () => {
   const items: CostLineItem[] = [
     { vendor: 'cloudflare', cents: 1200, app: 'projectsites' },
     { vendor: 'neon', cents: 800, app: 'projectsites' },
-    { vendor: 'cloudflare', cents: 300, app: 'plane' },
+    { vendor: 'cloudflare', cents: 300, app: 'chatwoot' },
     { vendor: 'ses', cents: 100 },
   ];
 

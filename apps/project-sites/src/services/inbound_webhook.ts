@@ -7,14 +7,14 @@
  * Supported providers:
  * - `stripe` — format `t={ts},v1={hex}` HMAC-SHA256(`{ts}.{rawBody}`)
  * - `github` — format `sha256={hex}` HMAC-SHA256(rawBody)
- * - `listmonk` / `ses` / `plane` — plain HMAC-SHA256 (generic path)
+ * - `listmonk` / `ses` — plain HMAC-SHA256 (generic path)
  * - `generic` — plain HMAC-SHA256 convenience alias
  *
  * @packageDocumentation
  */
 
 /** Supported webhook providers and their signature schemes. */
-export type WebhookProvider = 'stripe' | 'listmonk' | 'ses' | 'github' | 'plane' | 'generic';
+export type WebhookProvider = 'stripe' | 'listmonk' | 'ses' | 'github' | 'generic';
 
 /**
  * Inbound webhook signature header — the raw request material for verification.
@@ -106,7 +106,7 @@ async function hmacSha256(secret: string, data: string): Promise<string> {
  *   `v1` entry.
  * - **github**: parses `sha256={hex}` from the header, computes
  *   HMAC-SHA256(rawBody), constant-time compares.
- * - **listmonk / ses / plane / generic**: plain HMAC-SHA256(rawBody)
+ * - **listmonk / ses / generic**: plain HMAC-SHA256(rawBody)
  *   against the secret, constant-time compares.
  *
  * @param input - Webhook header + body material.
@@ -161,7 +161,6 @@ export async function verifyWebhook(input: WebhookHeader): Promise<VerifyResult>
 
     case 'listmonk':
     case 'ses':
-    case 'plane':
     case 'generic': {
       const expectedSig = await hmacSha256(secret, rawBody);
       if (!timingSafeEqual(signature, expectedSig)) {

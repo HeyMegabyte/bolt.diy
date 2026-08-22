@@ -57,8 +57,8 @@ const STATUS_ORDER: Record<string, number> = {
 /**
  * System Services — operator-only catalog of every platform service the worker's
  * SERVICE_REGISTRY (§66) declares: the edge API, data stores, auth (Better Auth),
- * billing, the AI gateway, and every self-hosted subdomain container (mail, jobs,
- * webhooks/Svix, projects/Plane, integrations/Nango, …). Read-only
+ * billing, the AI gateway, and every self-hosted subdomain container (mail, CRM,
+ * webhooks, …). Read-only
  * — the registry is the source of truth. Surfaces what previously had NO admin view.
  *
  * Backed by `GET /api/super-admin/services` (super-admin gated; 403 to non-operators).

@@ -1,7 +1,7 @@
 /**
  * @module services/service_registry
  *
- * Typed service registry — one entry per self-hosted app (Plane, Twenty,
+ * Typed service registry — one entry per self-hosted app (Twenty,
  * Listmonk, CMS, LLM, CRM). The admin dashboard,
  * health probes, and secret-rotation calendar all read from this single SSOT.
  * Pure + deterministic: zero I/O, zero side-effects.
@@ -9,7 +9,7 @@
  * @example
  * ```ts
  * const reg = createRegistry(DEFAULT_SERVICES);
- * reg.get('plane');                    // ServiceEntry for Plane
+ * reg.get('twenty');                   // ServiceEntry for Twenty
  * reg.byCategory('email');             // [Listmonk]
  * reg.allSecrets();                    // deduped, sorted
  * reg.containers();                    // CF Container services only
@@ -17,13 +17,13 @@
  */
 
 export interface ServiceEntry {
-  /** URL-safe identifier, e.g. 'plane', 'twenty'. */
+  /** URL-safe identifier, e.g. 'twenty', 'listmonk'. */
   readonly slug: string;
-  /** Human display name, e.g. 'Plane'. */
+  /** Human display name, e.g. 'Twenty'. */
   readonly name: string;
   /** One-sentence description of what this service does. */
   readonly description: string;
-  /** Live URL, e.g. 'https://pm.projectsites.dev'. */
+  /** Live URL, e.g. 'https://mail.projectsites.dev'. */
   readonly url: string;
   /** Relative path for the health endpoint, e.g. '/health'. */
   readonly healthPath: string;
@@ -70,7 +70,7 @@ const KNOWN_CATEGORIES = new Set<ServiceEntry['category']>([
  *
  * @example
  * const reg = createRegistry([
- *   { slug: 'plane', name: 'Plane', url: 'https://pm.pd.dev', … },
+ *   { slug: 'twenty', name: 'Twenty', url: 'https://crm.pd.dev', … },
  * ]);
  */
 export function createRegistry(entries: readonly ServiceEntry[]): ServiceRegistry {

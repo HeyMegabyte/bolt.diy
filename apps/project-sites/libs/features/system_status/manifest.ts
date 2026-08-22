@@ -3,7 +3,7 @@
  *
  * @remarks
  * Aggregates health checks from all platform integrations (Listmonk, LiteLLM,
- * Plane, Twenty, Payload, Chatwoot) and returns a unified status strip
+ * Twenty, Payload, Chatwoot) and returns a unified status strip
  * for the admin top bar. Each integration gets an independent health probe
  * with a 5s timeout; the endpoint returns degraded when any probe fails.
  */

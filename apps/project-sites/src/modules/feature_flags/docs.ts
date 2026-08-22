@@ -601,7 +601,7 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Returns overall + per-integration status',
     ],
     explanation:
-      'Aggregated health checks for all platform integrations (Listmonk, LiteLLM, Plane, Twenty, Payload, Chatwoot). Each probe runs independently with a 5-second timeout. Results are never cached — real-time status strip for the admin top bar.',
+      'Aggregated health checks for all platform integrations (Listmonk, LiteLLM, Twenty, Payload, Chatwoot). Each probe runs independently with a 5-second timeout. Results are never cached — real-time status strip for the admin top bar.',
     smoke_test: [
       'Enable flag → GET /api/system/status → 200 with overall+integrations array',
       'Each integration has status (healthy/degraded/down/unknown) + latencyMs',

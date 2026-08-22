@@ -1,7 +1,6 @@
 /** Event bus typed envelope for outbox->Tinybird. Pure, never throws. */
 export const EVENT_PRODUCERS = [
   'projectsites',
-  'plane',
   'twenty',
   'listmonk',
   'social_native',
