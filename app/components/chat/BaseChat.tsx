@@ -44,6 +44,7 @@ import { chatId } from '~/lib/persistence/useChatHistory';
 import { chatStore } from '~/lib/stores/chat';
 import { describeImage } from '~/lib/chat/voice-vision';
 import { isEmbedded } from '~/lib/embed/embedded-mode';
+import { workbenchStore } from '~/lib/stores/workbench';
 
 /*
  * Single-line default for the cinematic-persona input redesign (2026-05-24);
@@ -165,6 +166,28 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     // Mobile slide-over state — the Workbench's "Chat" tab flips this; the
     // panel slides in/out via the max-lg transform classes below.
     const mobileChatOpen = useStore(chatStore).mobileChatOpen;
+
+    // First-load reveal gate (embedded /admin editor, Brian 2026-08-21): keep the
+    // whole surface blank until BOTH the chat and the z-workbench are up, then
+    // fade them in together — no flash of a half-built (chat-only) layout.
+    // Non-embedded reveals immediately (its pre-chat landing IS the intended first
+    // view). Failsafe reveal after 7s so a no-project landing never stays blank.
+    const workbenchVisible = useStore(workbenchStore.showWorkbench);
+    const [editorRevealed, setEditorRevealed] = useState(!isEmbedded);
+    useEffect(() => {
+      if (editorRevealed) {
+        return;
+      }
+
+      if (chatStarted && workbenchVisible) {
+        setEditorRevealed(true);
+        return;
+      }
+
+      const failsafe = setTimeout(() => setEditorRevealed(true), 7000);
+
+      return () => clearTimeout(failsafe);
+    }, [editorRevealed, chatStarted, workbenchVisible]);
 
     // Start IDB→D1 mirror (item 12)
     useEffect(() => {
@@ -510,6 +533,7 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
         ref={ref}
         className={classNames(styles.BaseChat, 'relative flex h-full w-full overflow-hidden')}
         data-chat-visible={showChat}
+        style={{ opacity: editorRevealed ? 1 : 0, transition: 'opacity 260ms ease' }}
       >
         {/* Workbench — flex child to the RIGHT of the persistent chat panel */}
         <div className="flex-1 h-full min-w-0">

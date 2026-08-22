@@ -261,11 +261,25 @@ export const ShortcutsOverlay = memo(({ open, onClose }: ShortcutsProps) => {
         <div className="flex items-center justify-between px-5 py-3 border-b border-bolt-elements-borderColor">
           <h2 className="text-sm font-semibold text-bolt-elements-textPrimary">Keyboard shortcuts</h2>
           <button
-            className="text-xs text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary"
+            className="flex items-center justify-center w-7 h-7 -mr-1.5 rounded-md text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-3 transition-colors"
             onClick={onClose}
             aria-label="Close shortcuts"
           >
-            Esc
+            {/* Inline SVG (not a masked i-ph icon) so it never renders as a
+                white square in the dark theme — currentColor tints it correctly. */}
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
           </button>
         </div>
         <ul className="divide-y divide-bolt-elements-borderColor">
