@@ -1,17 +1,11 @@
 /**
  * Build validators — programmatic enforcement of post-build quality gates.
  *
- * @remarks
  * Runs after the container uploads to R2 and before D1 status flips to `published`.
- * Each gate maps 1:1 to a BUILD-BREAKING entry in skill 15 quality-gates.md and the
- * audit recommendations (megabyte-labs + nyfb retro).
+ * Each gate maps 1:1 to a BUILD-BREAKING entry in skill 15 quality-gates.md.
  *
- * Modes:
- * - `strict` — any error-severity violation throws → site stays in `error` status
- * - `report` — collect violations, log to D1 audit, never throw
- *
- * @see ~/.agentskills/15-site-generation/quality-gates.md
- * @see ~/.agentskills/06-build-and-slice-loop/web-manifest-system.md
+ * Modes: `strict` throws on any error-severity violation (site stays `error`);
+ * `report` collects violations to the D1 audit and never throws.
  */
 
 export type Severity = 'error' | 'warn' | 'info';
@@ -29,7 +23,6 @@ export interface BuildFile {
   path: string;
   /** Decoded text content for HTML/JS/CSS/JSON/XML/SVG/TXT, undefined for binary */
   text?: string;
-  /** Byte length of the original file. */
   size: number;
 }
 
@@ -148,7 +141,7 @@ const collectRefs = (html: string): string[] => {
   return refs;
 };
 
-/** Asset existence — every internal ref MUST have a matching file. */
+/** Asset existence — every internal ref MUST resolve to a file, else the page ships broken images/links. */
 export const validateAssetExistence = (files: BuildFile[]): Violation[] => {
   const out: Violation[] = [];
   const fileSet = new Set(files.map((f) => f.path));
@@ -186,11 +179,9 @@ export const validateAssetExistence = (files: BuildFile[]): Violation[] => {
   return out;
 };
 
-/** Image format vs size — PNG > 200KB must be re-encoded WebP/JPEG. */
+/** Image format vs size — PNG > 200KB ships slow (high LCP) and must be re-encoded WebP/JPEG. */
 export const validateImageFormat = (files: BuildFile[]): Violation[] => {
-  // Build a lookup of paths that have AVIF or WebP siblings — those PNGs are
-  // intentional fallbacks emitted by the image_optimization pipeline and not
-  // a violation even when large.
+  // A PNG with an AVIF/WebP sibling is an intentional fallback from the image pipeline — not a violation even when large.
   const pathSet = new Set(files.map((f) => f.path));
   const hasOptimizedSibling = (pngPath: string): boolean => {
     const base = pngPath.replace(/\.png$/i, '');
@@ -209,7 +200,7 @@ export const validateImageFormat = (files: BuildFile[]): Violation[] => {
     }));
 };
 
-/** OG image — must exist, ≤100KB, branded card (not raw photo). */
+/** OG image — must exist, ≤100KB (fast social unfurl), branded 1200×630 card (not a raw photo). */
 export const validateOgImage = (files: BuildFile[]): Violation[] => {
   const out: Violation[] = [];
   const og = files.find((f) => isOgImage(f.path));
@@ -232,7 +223,7 @@ export const validateOgImage = (files: BuildFile[]): Violation[] => {
   return out;
 };
 
-/** apple-touch-icon — 180×180 mandatory at root. */
+/** apple-touch-icon — 180×180 mandatory at root (iOS home-screen add). */
 export const validateAppleTouchIcon = (files: BuildFile[]): Violation[] => {
   const has = files.some((f) => f.path === 'apple-touch-icon.png');
   return has
@@ -253,12 +244,9 @@ const titleText = (html: string): string => {
 const titleLength = (html: string): number => titleText(html).length;
 
 const metaDescText = (html: string): string => {
-  // Find the description meta tag (any attribute order), then extract its
-  // `content` value respecting the value's OWN delimiter via a backreference.
-  // The old /content=["']([^"']*)["']/ stopped the capture at the first
-  // apostrophe OR quote — not the actual delimiter — so a valid double-quoted
-  // value like content="Vito's Salon…" truncated to "Vito" (len 4) and produced
-  // a FALSE meta.description_length violation on every possessive/contraction.
+  // Match the description tag (any attribute order), then extract `content` using a backreference
+  // so the capture respects the value's OWN delimiter — a plain [^"'] class truncates a valid
+  // double-quoted value at the first apostrophe (content="Vito's Salon…" → "Vito").
   const tag = html.match(/<meta\s+[^>]*\bname=["']description["'][^>]*>/i);
   if (!tag) return '';
   const c = tag[0].match(/\bcontent=(["'])([\s\S]*?)\1/i);
@@ -266,7 +254,7 @@ const metaDescText = (html: string): string => {
 };
 const metaDescLength = (html: string): number => metaDescText(html).length;
 
-/** Title 50-60, description 120-156. */
+/** Title 50-60 chars, description 120-156 chars — the SEO-optimal lengths Google shows un-truncated. */
 export const validateMetaLengths = (files: BuildFile[]): Violation[] => {
   const out: Violation[] = [];
   for (const file of files) {
@@ -296,23 +284,18 @@ export const validateMetaLengths = (files: BuildFile[]): Violation[] => {
 /**
  * Per-page `<title>` + `<meta description>` UNIQUENESS across a multi-page build.
  *
- * `validateMetaLengths` checks LENGTH (50-60 / 120-156 chars) but NOT uniqueness,
- * so a build where every route ships the HOMEPAGE's title/description passes every
- * gate while being an SEO duplicate-content failure — search engines collapse
- * duplicate `<title>`s, so sub-pages never rank for their OWN keywords, and browser
- * tabs / share cards all read the homepage label. This is a REAL generation defect:
- * megabytespace `/about`, `/services`, `/pricing`, `/maker-lab`, `/contact` all
- * shipped the identical homepage `<title>` (the canonical/og:url were per-route via
- * the worker rewrite, but title/description are baked at generation).
+ * `validateMetaLengths` checks length but NOT uniqueness — a build where every route ships
+ * the homepage's title/description passes every gate while being an SEO duplicate-content
+ * failure: search engines collapse duplicate `<title>`s, so sub-pages never rank for their
+ * OWN keywords, and browser tabs / share cards all read the homepage label.
  *
- * Flags a title (error) or description (warn) shared by ≥2 DISTINCT HTML pages.
- * Comparison collapses whitespace + lowercases so trivial formatting differences
- * don't mask a real duplicate. Single-page sites can't collide → no-op.
+ * Flags a title (error) or description (warn) shared by ≥2 distinct HTML pages. Comparison
+ * collapses whitespace + lowercases so trivial formatting differences don't mask a duplicate.
  */
 export const validateUniquePageTitles = (files: BuildFile[]): Violation[] => {
   const out: Violation[] = [];
   const htmlFiles = files.filter((f) => isHtml(f.path) && f.text);
-  if (htmlFiles.length < 2) return out; // no cross-page collision possible
+  if (htmlFiles.length < 2) return out; // single-page site can't collide
 
   const norm = (s: string): string => s.replace(/\s+/g, ' ').trim().toLowerCase();
   const push = (map: Map<string, string[]>, key: string, path: string): void => {
@@ -354,13 +337,10 @@ export const validateUniquePageTitles = (files: BuildFile[]): Violation[] => {
 };
 
 /**
- * JSON-LD structural integrity (build-artifact drift guard per
- * `drift-detection.md § Build-artifact drift guards`). `validateJsonLdCount`
- * only counts the `application/ld+json` string — a site can ship 4 EMPTY or
- * MALFORMED blocks and pass, then fail Google Rich Results (no rich snippets →
- * less SEO traffic → fewer leads for the owner → lower ROI). This parses each
- * block and asserts it is valid JSON carrying `@context` + `@type` (handling a
- * top-level array and `@graph` containers). Warn (report mode), per block.
+ * JSON-LD structural integrity. `validateJsonLdCount` only counts the block string, so a site
+ * can ship 4 EMPTY or MALFORMED blocks and pass, then fail Google Rich Results (no rich snippets
+ * → less SEO traffic → fewer leads). This parses each block and asserts valid JSON carrying
+ * `@context` + `@type` (handling a top-level array and `@graph` containers). Warn, per block.
  */
 const JSONLD_BLOCK = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
 const jsonLdNodeOk = (node: unknown): boolean =>
@@ -422,7 +402,7 @@ export const validateJsonLdStructure = (files: BuildFile[]): Violation[] => {
   return out;
 };
 
-/** JSON-LD — at least 4 blocks per HTML page. */
+/** JSON-LD — ≥4 blocks per HTML page (WebSite + Organization + WebPage + BreadcrumbList minimum). */
 export const validateJsonLdCount = (files: BuildFile[]): Violation[] => {
   const out: Violation[] = [];
   for (const file of files) {
@@ -440,7 +420,7 @@ export const validateJsonLdCount = (files: BuildFile[]): Violation[] => {
   return out;
 };
 
-/** Exactly one <h1> in HTML shell (prerender). */
+/** Exactly one <h1> in the prerendered HTML shell — the single-topic signal crawlers key on. */
 export const validateH1InShell = (files: BuildFile[]): Violation[] => {
   const out: Violation[] = [];
   for (const file of files) {
@@ -459,14 +439,13 @@ export const validateH1InShell = (files: BuildFile[]): Violation[] => {
   return out;
 };
 
-/** color-scheme meta required for dark sites. */
+/** color-scheme meta required so the browser paints the right chrome/scrollbars on dark sites. */
 export const validateColorScheme = (files: BuildFile[]): Violation[] => {
   const out: Violation[] = [];
   for (const file of files) {
     if (!isHtml(file.path) || !file.text) continue;
-    // Attribute-order-robust: `<meta content="dark" name="color-scheme">` is valid
-    // + present. The old /<meta\s+name=.../ required name to be the FIRST attribute
-    // (same class as the metaDescLength apostrophe bug, iter 53).
+    // Attribute-order-robust: `<meta content="dark" name="color-scheme">` is valid — the meta
+    // name must not be forced to the FIRST attribute (same class as the metaDescLength bug).
     if (!/<meta\s+[^>]*\bname=["']color-scheme["']/i.test(file.text)) {
       out.push({
         code: 'meta.color_scheme_missing',
@@ -480,13 +459,11 @@ export const validateColorScheme = (files: BuildFile[]): Violation[] => {
 };
 
 /**
- * Canonical integrity. Every indexable route HTML file must carry a
- * `<link rel="canonical">` (warn when absent), AND distinct routes must NOT
- * share one canonical href — the site-wide `canonical=/` collapse that de-dupes
- * every page to a single indexable URL (per `always.md` § Every page; reference
- * incident: njsk.org shipped `canonical=/` on all 32 routes). Non-route HTML
- * (offline / 404 / 500 / error shells) is excluded — those legitimately share
- * or omit a canonical and are not indexable targets.
+ * Canonical integrity. Every indexable route HTML file must carry a `<link rel="canonical">`
+ * (warn when absent), AND distinct routes must NOT share one canonical href — a site-wide
+ * `canonical=/` collapse de-dupes every page to a single indexable URL, so sub-pages drop out
+ * of the index. Non-route HTML (offline / 404 / 500 / error shells) is excluded — those
+ * legitimately share or omit a canonical and are not indexable targets.
  */
 const NON_ROUTE_HTML = /(?:^|\/)(?:offline|404|500|error)\.html$/i;
 const canonicalHref = (html: string): string | undefined => {
@@ -513,9 +490,8 @@ export const validateCanonical = (files: BuildFile[]): Violation[] => {
     }
     byHref.set(href, [...(byHref.get(href) ?? []), file.path]);
   }
-  // Collapse signature: ≥2 distinct route files sharing one canonical href.
-  // Only meaningful for multi-route sites (a single page legitimately points
-  // its lone canonical at itself).
+  // Collapse signature: ≥2 distinct route files sharing one canonical href. Only meaningful for
+  // multi-route sites (a single page legitimately points its lone canonical at itself).
   const routeCount = [...byHref.values()].reduce((n, list) => n + list.length, 0);
   if (routeCount > 1) {
     for (const [href, list] of byHref) {
@@ -534,14 +510,11 @@ export const validateCanonical = (files: BuildFile[]): Violation[] => {
 };
 
 /**
- * Conversion-path integrity. A generated BUSINESS site must give visitors at
- * least ONE way to act on / contact the business somewhere across its routes —
- * a `tel:` / `mailto:` link, a `<form>`, or a contact / booking link
- * (`/contact`, `/book`, `/appointment`, `/schedule`, `/quote`, calendly,
- * cal.com, wa.me). A site with NO reachable contact affordance anywhere
- * converts $0 for the owner → the owner sees no ROI → churns (Retention).
- * Site-level warn (report mode): emit ONE violation only when the ENTIRE site
- * lacks any affordance — per-page would false-positive on `/about` etc.
+ * Conversion-path integrity. A generated BUSINESS site must give visitors at least ONE way to
+ * act on / contact the business somewhere across its routes — a `tel:` / `mailto:` link, a
+ * `<form>`, or a contact / booking link. A site with NO reachable contact affordance converts
+ * $0 for the owner → the owner sees no ROI → churns. Site-level warn: emit ONE violation only
+ * when the ENTIRE site lacks any affordance (per-page would false-positive on `/about` etc.).
  * Non-route shells (404 / 500 / offline) are excluded from the judgement.
  */
 const CONTACT_AFFORDANCE =
@@ -562,14 +535,11 @@ export const validateContactPath = (files: BuildFile[]): Violation[] => {
 };
 
 /**
- * Per-route image-weight budget (CWV / LCP → conversion). A route whose total
- * referenced internal image bytes exceed the budget ships slow — high LCP, poor
- * mobile CWV — which measurably depresses conversion (a slow generated site
- * earns the owner fewer leads → lower ROI → churn). `validateImageFormat`
- * already flags a single oversized PNG; this catches the OTHER failure mode:
- * many individually-OK images that sum to a heavy page. Warn (report mode), per
- * route; non-route shells (404/500/offline) excluded. Budget per
- * `quality-metrics.md` (images ≤ 500KB total/route).
+ * Per-route image-weight budget (CWV / LCP → conversion). A route whose total referenced internal
+ * image bytes exceed the budget ships slow — high LCP, poor mobile CWV — which depresses conversion
+ * (fewer leads → lower ROI → churn). `validateImageFormat` flags a single oversized PNG; this
+ * catches the OTHER failure mode: many individually-OK images summing to a heavy page. Warn, per
+ * route; non-route shells excluded. Budget per quality-metrics.md (images ≤ 500KB total/route).
  */
 const IMAGE_WEIGHT_BUDGET = 500 * 1024;
 const isImageRef = (p: string) => /\.(png|jpe?g|webp|avif|gif|svg)$/i.test(p);
@@ -599,7 +569,7 @@ export const validateImageWeightBudget = (files: BuildFile[]): Violation[] => {
   return out;
 };
 
-/** Sitemap — every <url> must have <lastmod>. */
+/** Sitemap — every <url> must carry <lastmod> so crawlers know what changed. */
 export const validateSitemapLastmod = (files: BuildFile[]): Violation[] => {
   const sitemap = files.find((f) => f.path === 'sitemap.xml');
   if (!sitemap?.text)
@@ -627,16 +597,13 @@ export const validateSitemapLastmod = (files: BuildFile[]): Violation[] => {
 };
 
 /**
- * Sitemap ↔ build-routes drift guard (per `drift-detection.md § Build-artifact
- * drift guards`). `validateSitemapLastmod` proves the sitemap EXISTS + every
- * `<url>` has a `<lastmod>` — but NOT that each `<loc>` route actually has a page
- * in the build. A sitemap that lists `/services` when the build shipped no
- * `services.html` / `services/index.html` is worse than a plain 404: the SPA
- * fallback in `serveSiteFromR2` returns the HOMEPAGE shell with a **200** for any
- * sitemap-listed extensionless route (see the soft-404 guard there) → crawlers
- * follow the sitemap, get 200, and index DUPLICATE homepage content under that
- * URL (self-competing, crawl-budget waste). This flags every sitemap route with
- * no dedicated HTML file, mirroring `serveSiteFromR2`'s resolution order exactly
+ * Sitemap ↔ build-routes drift guard. `validateSitemapLastmod` proves the sitemap EXISTS + every
+ * `<url>` has a `<lastmod>` — but NOT that each `<loc>` route actually has a page in the build. A
+ * sitemap that lists `/services` when the build shipped no `services.html` is worse than a plain
+ * 404: the SPA fallback in `serveSiteFromR2` returns the HOMEPAGE shell with a 200 for any
+ * sitemap-listed extensionless route → crawlers follow the sitemap, get 200, and index DUPLICATE
+ * homepage content under that URL (self-competing, crawl-budget waste). This flags every sitemap
+ * route with no dedicated HTML file, mirroring `serveSiteFromR2`'s resolution order exactly
  * (`X/index.html` → `X.html` → flat `a-b.html` for `/a/b`).
  */
 export const validateSitemapRoutesExist = (files: BuildFile[]): Violation[] => {
@@ -675,7 +642,7 @@ export const validateSitemapRoutesExist = (files: BuildFile[]): Violation[] => {
   return out;
 };
 
-/** Banned slop words anywhere in HTML body text. */
+/** Banned slop words anywhere in HTML body text — enforces concrete copy over AI filler. */
 export const validateBannedWords = (files: BuildFile[]): Violation[] => {
   const out: Violation[] = [];
   for (const file of files) {
@@ -697,14 +664,12 @@ export const validateBannedWords = (files: BuildFile[]): Violation[] => {
   return out;
 };
 
-/** JS code-splitting — no single chunk > 250KB gzipped (we proxy via raw size). */
-/** Brand-placeholder leak — the template's shipped `{BUSINESS_NAME}` tokens
- * reached production twice (2026-08-19). LLM instructions cannot be trusted
- * for this; a hard BUILD-BREAKING gate is the only enforcement that works. */
-/** Brand-name mismatch — the LLM has invented names in EVERY journey build
- * ("Hearth & Crumb", "Artisan Sourdough Bakery") despite the materialized
- * _brand.json. The title must CONTAIN the real business name (verbatim or
- * as a prefix). Only enforced when the caller passes `expectedBusinessName`. */
+/**
+ * Brand-name match — the LLM invents business names ("Hearth & Crumb") despite the materialized
+ * _brand.json, so the title MUST contain the real name. Only enforced when the caller passes
+ * `expectedBusinessName`. Also catches the `..projectsites.dev` double-dot canonical (a template
+ * token replaced with an already-suffixed slug).
+ */
 export const validateBrandNameMatch = (
   files: BuildFile[],
   expectedBusinessName?: string,
@@ -726,18 +691,14 @@ export const validateBrandNameMatch = (
         .trim();
     const tNorm = norm(t);
     const eNorm = norm(expected);
-    // The FULL name is required on the homepage (the invented-name guard's
-    // hard surface). Sub-pages must stay inside the 50-60 char SEO title cap,
-    // so they legitimately use the brand SHORT name (the first word of the
-    // expected name) — "Cedar Ridge FAQ | …" is CORRECT for a sub-page of
-    // "Cedar Ridge Bakeshop"; the journey's brand gate false-positived it
-    // (2026-08-19: three valid sub-page titles flipped the site to error).
+    // The FULL name is required on the homepage. Sub-pages must stay inside the 50-60 char SEO
+    // title cap, so they legitimately use the brand SHORT name (first word of the expected name):
+    // "Cedar Ridge FAQ | …" is CORRECT for a sub-page of "Cedar Ridge Bakeshop".
     const firstWord = eNorm.split(' ')[0] ?? '';
     const pageKind = file.path.toLowerCase();
     const isHome = pageKind === 'index.html' || pageKind.endsWith('/index.html');
     const expectedForPage = isHome ? eNorm : firstWord;
-    // Accept verbatim containment OR the title STARTS with the expected form
-    // (page titles like "Cedar Ridge Bakeshop — Menu").
+    // Accept verbatim containment OR title STARTS with the expected form ("Cedar Ridge Bakeshop — Menu").
     if (!tNorm.includes(expectedForPage) && !tNorm.startsWith(expectedForPage)) {
       out.push({
         code: 'brand.name_mismatch',
@@ -747,9 +708,7 @@ export const validateBrandNameMatch = (
       });
     }
 
-    // Canonical URL sanity — the journey shipped
-    // https://urban-fitness..projectsites.dev/ (double dot from a template
-    // token replaced with an already-suffixed slug).
+    // Canonical URL sanity — guard the double-dot / unresolved-token hostname.
     const canonical = stripped.match(/<link\s+rel="canonical"\s+href="([^"]*)"/i);
     if (canonical) {
       const href = canonical[1];
@@ -766,6 +725,9 @@ export const validateBrandNameMatch = (
   return out;
 };
 
+/** Brand-placeholder leak — an unreplaced `{BUSINESS_*}` token or the generic "Business" fallback
+ * means _brand.json never materialized; a hard gate is the only reliable enforcement (LLM
+ * instructions alone let these reach production). */
 export const validateNoBrandPlaceholders = (files: BuildFile[]): Violation[] => {
   const out: Violation[] = [];
   for (const file of files) {
@@ -786,8 +748,7 @@ export const validateNoBrandPlaceholders = (files: BuildFile[]): Violation[] => 
         });
       }
     }
-    // Also catch the generic fallback in the title: the template defaults to
-    // "Business" when _brand.json is missing/invalid.
+    // The template defaults the title to "Business" when _brand.json is missing/invalid.
     const title = stripped.match(/<title>([^<]*)<\/title>/i);
     if (title && /^Business\b/.test(title[1].trim())) {
       out.push({
@@ -802,6 +763,7 @@ export const validateNoBrandPlaceholders = (files: BuildFile[]): Violation[] => 
   return out;
 };
 
+/** JS chunk size — no single chunk > 750KB raw (~250KB gzipped), else the route ships too much JS. */
 export const validateJsBundleSize = (files: BuildFile[]): Violation[] => {
   const out: Violation[] = [];
   for (const file of files) {
@@ -818,7 +780,8 @@ export const validateJsBundleSize = (files: BuildFile[]): Violation[] => {
   return out;
 };
 
-/** Lightbox presence — bundle must contain data-zoomable AND data-gallery markers. */
+/** Lightbox presence — JS bundle must contain data-zoomable AND data-gallery markers, else the
+ * gallery/lightbox component isn't shipping. */
 export const validateLightboxPresence = (files: BuildFile[]): Violation[] => {
   const jsFiles = files.filter((f) => f.path.toLowerCase().endsWith('.js') && f.text);
   if (!jsFiles.length) return [];
@@ -843,7 +806,7 @@ export const validateLightboxPresence = (files: BuildFile[]): Violation[] => {
   return out;
 };
 
-/** Required well-known files. */
+/** Required well-known files — the PWA/SEO/crawler baseline every site must ship. */
 export const validateRequiredFiles = (files: BuildFile[]): Violation[] => {
   const required = [
     'site.webmanifest',
@@ -868,15 +831,12 @@ export const validateRequiredFiles = (files: BuildFile[]): Violation[] => {
 };
 
 /**
- * Fail builds that under-recreate the source sitemap.
- *
- * @remarks
- * Skill 15 mandates 1:N route mapping (max 1000) — never cap a 200-page source at 4–8.
- * `sourceRouteCount` comes from `_scraped_content.json.routes[].length` (priority chain:
- * sitemap.xml → wp-sitemap.xml → robots.txt Sitemap: → Wayback CDX → BFS depth ≤ 6).
+ * Fail builds that under-recreate the source sitemap. Skill 15 mandates 1:N route mapping —
+ * never cap a 200-page source at 4–8. `sourceRouteCount` comes from
+ * `_scraped_content.json.routes[].length`.
  *
  * Floor: thin sources (< 4 routes) skip the check — the 4-page floor handles those.
- * Ceiling: sourceRouteCount > 1000 is clamped to 1000 (sanity cap).
+ * Ceiling: sourceRouteCount is clamped to 1000 (sanity cap against runaway crawls).
  */
 export const validateRouteCount = (files: BuildFile[], sourceRouteCount: number): Violation[] => {
   if (sourceRouteCount < 4) return [];
@@ -899,10 +859,10 @@ export const validateRouteCount = (files: BuildFile[], sourceRouteCount: number)
 };
 
 /**
- * High-confidence, SERVER-ONLY secret patterns. Deliberately conservative
- * (false-negative over false-positive per validator-precision-discipline):
- * publishable/browser keys that are MEANT to be client-side — Stripe `pk_*`,
- * Google Maps/browser `AIza*` (referrer-restricted) — are intentionally absent.
+ * High-confidence, SERVER-ONLY secret patterns. Deliberately conservative (false-negative over
+ * false-positive per validator-precision-discipline): publishable/browser keys MEANT to be
+ * client-side — Stripe `pk_*`, Google Maps/browser `AIza*` (referrer-restricted) — are
+ * intentionally absent.
  */
 const CLIENT_SECRET_PATTERNS: ReadonlyArray<{ name: string; re: RegExp }> = [
   { name: 'Stripe secret key', re: /sk_live_[A-Za-z0-9]{16,}/ },
@@ -917,15 +877,10 @@ const CLIENT_SECRET_PATTERNS: ReadonlyArray<{ name: string; re: RegExp }> = [
 ];
 
 /**
- * Scan client-served files (HTML / JS) for embedded server-only secrets — the
- * #1 vibe-coded-app vulnerability class (keys hardcoded in the bundle). Every
- * hit is an `error`: secrets belong in Workers Secrets, never the client bundle.
- * The detail is masked (first 8 + last 3 chars) so the validator never logs the
- * full secret.
- *
- * @param files - The build's files.
- * @returns One `security.client_secret_exposed` violation per offending file.
- * @example validateNoClientSecrets([{ path: 'app.js', text: 'const k="sk_live_abc…"', size: 30 }])
+ * Scan client-served files (HTML / JS) for embedded server-only secrets — the #1 vibe-coded-app
+ * vulnerability class (keys hardcoded in the bundle). Every hit is an `error`: secrets belong in
+ * Workers Secrets, never the client bundle. The detail is masked (first 8 + last 3 chars) so the
+ * validator never logs the full secret.
  */
 export const validateNoClientSecrets = (files: BuildFile[]): Violation[] => {
   const out: Violation[] = [];
@@ -996,8 +951,6 @@ export const validateBuild = (
 /**
  * Read every file under `prefix` from R2 into memory as BuildFile[].
  *
- * @remarks
- * Used by site-generation workflow after the container's HMAC callback confirms upload.
  * Decodes text-ish files (HTML/JS/CSS/JSON/XML/SVG/TXT) with TextDecoder; binary files
  * (PNG/JPG/WebP/etc.) are returned with `text: undefined` and only their byte size.
  */
@@ -1030,22 +983,15 @@ export const loadBuildFromR2 = async (bucket: R2Bucket, prefix: string): Promise
 };
 
 /**
- * Deterministically repair the `..projectsites.dev` double-dot hostname in a
- * build's text files, returning the repaired copies.
+ * Deterministically repair the `..projectsites.dev` double-dot hostname in a build's text files,
+ * returning the repaired copies.
  *
- * @remarks
- * The container's pre-build token pass substitutes raw {BUSINESS_*} tokens, but
- * the build LLM writes the canonical as `https://<slug>..projectsites.dev`
- * (slug already dot-suffixed in its model) DURING the build — after that pass
- * ran. This repair runs in finalize-build AFTER the container uploads, so the
- * gate sees the corrected text. Pure — does NOT mutate the input array.
+ * The build LLM writes the canonical as `https://<slug>..projectsites.dev` (slug already
+ * dot-suffixed in its model) DURING the build — after the container's token pass ran. This repair
+ * runs in finalize-build AFTER upload, so the gate sees corrected text. Pure — does NOT mutate the
+ * input array.
  *
- * @param files - Build files loaded via {@link loadBuildFromR2}
  * @returns [repairedFiles, repairedCount]
- *
- * @example
- * const [fixed, n] = repairDoubleDotCanonical(await loadBuildFromR2(bucket, prefix));
- * if (n > 0) await bucket.put(`${prefix}index.html`, fixed.find(f => f.path === 'index.html')?.text ?? '');
  */
 export const repairDoubleDotCanonical = (files: BuildFile[]): [BuildFile[], number] => {
   const BAD = '..projectsites.dev';
@@ -1061,13 +1007,9 @@ export const repairDoubleDotCanonical = (files: BuildFile[]): [BuildFile[], numb
 /**
  * Collapse the dangling 'NAME — ' the LLM writes when the tagline is empty.
  *
- * The seed tagline is '' and the LLM composes '<title>{NAME} — {TAGLINE}'
- * during the build (same mid-build authorship as the double-dot class), so
- * the pre-build token pass cannot catch it. Runs in finalize-build AFTER
- * upload, before the brand gate. Pure — no input mutation.
- *
- * @example
- * repairDanglingEmDash([{ path: 'index.html', size: 50, text: '<title>Cedar Ridge Bakeshop — </title>' }])
+ * The seed tagline is '' and the LLM composes '<title>{NAME} — {TAGLINE}' during the build (same
+ * mid-build authorship as the double-dot class), so the pre-build token pass cannot catch it. Runs
+ * in finalize-build AFTER upload, before the brand gate. Pure — no input mutation.
  */
 export const repairDanglingEmDash = (files: BuildFile[]): [BuildFile[], number] => {
   let repaired = 0;
@@ -1086,8 +1028,7 @@ export const repairDanglingEmDash = (files: BuildFile[]): [BuildFile[], number] 
     }
     return repaired > 0 && t !== f.text ? { ...f, text: t } : f;
   });
-  // recount precisely — map above mutates `repaired` per file, but only the
-  // final changed set counts.
+  // Recount precisely — the map mutates `repaired` per file, but only the final changed set counts.
   const changed = fixed.filter((f, i) => f.text !== files[i]?.text).length;
   return [fixed, changed];
 };

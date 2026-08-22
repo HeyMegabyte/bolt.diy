@@ -1,47 +1,11 @@
 /**
  * @module webhook
- * @description Generic webhook ingestion framework for Cloudflare D1 (SQLite).
+ * @description Generic webhook ingestion for Cloudflare D1: signature verification,
+ * idempotency, event storage, and status tracking for inbound provider webhooks
+ * (Stripe, Dub, Chatwoot, Novu).
  *
- * Provides signature verification, idempotency checking, event storage, and
- * status tracking for inbound webhooks from multiple providers (Stripe, Dub,
- * Chatwoot, Novu).
- *
- * ## Processing pipeline
- *
- * 1. **Verify signature** - cryptographic proof the payload is authentic
- * 2. **Check idempotency** - prevent duplicate processing via `provider + event_id`
- * 3. **Store event** - persist raw metadata for replay / debugging
- * 4. **Process** - execute business logic (handled by the caller)
- * 5. **Mark processed** - update status to `processed` or `failed`
- *
- * ## Usage
- *
- * ```ts
- * import {
- *   verifyStripeSignature,
- *   checkWebhookIdempotency,
- *   storeWebhookEvent,
- *   markWebhookProcessed,
- * } from '../services/webhook.js';
- *
- * const verification = await verifyStripeSignature(rawBody, sigHeader, secret);
- * if (!verification.valid) return c.json({ error: verification.reason }, 401);
- *
- * const { isDuplicate } = await checkWebhookIdempotency(env.DB, 'stripe', eventId);
- * if (isDuplicate) return c.json({ status: 'duplicate' }, 200);
- *
- * const { id, error } = await storeWebhookEvent(env.DB, {
- *   provider: 'stripe',
- *   event_id: eventId,
- *   event_type: 'invoice.paid',
- * });
- *
- * // ... process event ...
- *
- * await markWebhookProcessed(env.DB, id!, 'processed');
- * ```
- *
- * @packageDocumentation
+ * Pipeline: verify signature → check idempotency (`provider + event_id`) → store raw
+ * event → caller processes → mark `processed`/`failed`.
  */
 
 import { type WebhookProvider, hmacSha256, timingSafeEqual } from '@project-sites/shared';
@@ -60,11 +24,6 @@ const TERMINAL_WEBHOOK_STATUSES = new Set(['processed', 'quarantined']);
  *
  * @property valid  - `true` when the cryptographic signature matches.
  * @property reason - Human-readable explanation when `valid` is `false`.
- *
- * @example
- * ```ts
- * const result: WebhookVerificationResult = { valid: false, reason: 'Signature mismatch' };
- * ```
  */
 export interface WebhookVerificationResult {
   valid: boolean;
@@ -125,17 +84,19 @@ export async function verifyStripeSignature(
     return { valid: false, reason: 'Invalid signature format' };
   }
 
-  // Check timestamp tolerance
+  // Replay-window guard: reject payloads whose signed timestamp is outside tolerance,
+  // so a captured request can't be replayed indefinitely.
   const now = Math.floor(Date.now() / 1000);
   const ts = Number(timestamp);
   if (Number.isNaN(ts) || Math.abs(now - ts) > toleranceSeconds) {
     return { valid: false, reason: 'Timestamp outside tolerance' };
   }
 
-  // Compute expected signature
+  // Recompute the expected v1 signature over `timestamp.rawBody` (Stripe's signed payload).
   const payload = `${timestamp}.${rawBody}`;
   const expectedSignature = await hmacSha256(secret, payload);
 
+  // Timing-safe compare — never use `===` on signatures (leaks match length via timing).
   if (!timingSafeEqual(v1Signature, expectedSignature)) {
     return { valid: false, reason: 'Signature mismatch' };
   }
@@ -177,6 +138,7 @@ export async function verifyHmacSignature(
 
   const expected = await hmacSha256(secret, rawBody);
 
+  // Timing-safe compare — never use `===` on signatures (leaks match length via timing).
   if (!timingSafeEqual(signature, expected)) {
     return { valid: false, reason: 'Signature mismatch' };
   }

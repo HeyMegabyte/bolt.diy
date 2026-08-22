@@ -203,8 +203,6 @@ const importFromUrlSchema = z.object({
     .optional(),
 });
 
-// ─── Auth Routes ─────────────────────────────────────────────
-
 /**
  * Request a magic-link email — primary passwordless auth path.
  *
@@ -355,7 +353,6 @@ api.get('/api/auth/magic-link/verify', async (c) => {
       return c.redirect(redirectTarget.toString());
     }
 
-    // Default: redirect to homepage with auth params
     const baseUrl = `https://${DOMAINS.SITES_BASE}`;
     posthog.trackAuth(c.env, c.executionCtx, 'magic_link', 'verified', result.email);
     return c.redirect(
@@ -602,7 +599,6 @@ api.get('/api/auth/google', async (c) => {
   const redirectUrl = c.req.query('redirect_url');
   const result = await authService.createGoogleOAuthState(c.env.DB, c.env, redirectUrl);
 
-  // Audit: Google OAuth initiated
   auditService
     .writeAuditLog(c.env.DB, {
       org_id: 'system',
@@ -694,7 +690,6 @@ api.get('/api/auth/google/callback', async (c) => {
     request_id: c.get('requestId'),
   });
 
-  // Redirect to the original redirect_url (or homepage) with token and email
   const baseUrl = `https://${DOMAINS.SITES_BASE}`;
 
   const rawRedirect = result.redirect_url ?? baseUrl;
@@ -717,8 +712,6 @@ api.get('/api/auth/google/callback', async (c) => {
   posthog.trackAuth(c.env, c.executionCtx, 'google_oauth', 'verified', result.email);
   return c.redirect(redirectTarget.toString());
 });
-
-// ─── GitHub OAuth ──────────────────────────────────────────
 
 /**
  * @route GET /api/auth/github
@@ -830,8 +823,6 @@ api.get('/api/auth/github/callback', async (c) => {
   posthog.trackAuth(c.env, c.executionCtx, 'github_oauth', 'verified', result.email);
   return c.redirect(redirectTarget.toString());
 });
-
-// ─── Session Validation ─────────────────────────────────────
 
 /**
  * @route GET /api/auth/me
@@ -951,8 +942,6 @@ api.patch('/api/admin/profile', async (c) => {
   return c.json({ data: { display_name: name } });
 });
 
-// ─── Sites Routes ────────────────────────────────────────────
-
 /**
  * @route POST /api/sites
  * @auth Bearer token required — `orgId` MUST resolve. 401 on anonymous callers.
@@ -1047,7 +1036,6 @@ api.post('/api/sites', async (c) => {
     );
   }
 
-  // AI-powered smart slug or user-provided slug
   let slug: string;
   if (validated.slug) {
     slug = validated.slug;
@@ -1116,8 +1104,6 @@ api.post('/api/sites', async (c) => {
 
   return c.json({ data: site }, 201);
 });
-
-// ─── Check Slug Availability (must be before /api/sites/:id) ──
 
 /**
  * @route GET /api/slug/check
@@ -1189,8 +1175,6 @@ api.get('/api/slug/check', async (c) => {
   });
 });
 
-// ─── List Sites ─────────────────────────────────────────────
-
 /**
  * @route GET /api/sites
  * @auth Bearer token required — `orgId` MUST resolve. Anonymous = 401.
@@ -1219,11 +1203,9 @@ api.get('/api/sites', async (c) => {
     [orgId],
   );
 
-  // Enrich each site with its primary hostname + custom domain info
   const enriched = await Promise.all(
     data.map(async (site) => {
       const primaryHostname = await domainService.getPrimaryHostname(c.env.DB, site.id as string);
-      // Check if site has a custom/premium domain
       const customDomain = await dbQueryOne<{ hostname: string; type: string }>(
         c.env.DB,
         "SELECT hostname, type FROM hostnames WHERE site_id = ? AND type = 'custom_cname' AND deleted_at IS NULL LIMIT 1",
@@ -1416,8 +1398,6 @@ api.get('/api/sites/:id', async (c) => {
   return c.json({ data: site });
 });
 
-// ─── Workflow Status ─────────────────────────────────────────
-
 /**
  * @route GET /api/sites/:id/workflow
  * @auth Bearer token required — `orgId` MUST resolve. Anonymous = 401.
@@ -1463,7 +1443,6 @@ api.get('/api/sites/:id/workflow', async (c) => {
     });
   }
 
-  // Fetch recent audit logs for this site's workflow (best-effort)
   let recentLogs: Array<{
     action: string;
     metadata: Record<string, unknown> | null;
@@ -1557,8 +1536,6 @@ api.get('/api/sites/:id/workflow', async (c) => {
   }
 });
 
-// ─── Billing Routes ──────────────────────────────────────────
-
 /**
  * Create a Stripe Checkout Session (redirect flow) for plan upgrade.
  *
@@ -1619,7 +1596,6 @@ api.post('/api/billing/checkout', async (c) => {
     budgetTier: validated.budget_tier,
   });
 
-  // Audit: billing checkout session created
   auditService
     .writeAuditLog(c.env.DB, {
       org_id: orgId,
@@ -2063,8 +2039,6 @@ api.get('/api/billing/cost-forecast', async (c) => {
   });
 });
 
-// ─── Hostname Routes ─────────────────────────────────────────
-
 /**
  * List all hostnames (free subdomain + custom domains) attached to a site.
  *
@@ -2136,7 +2110,6 @@ api.post('/api/sites/:siteId/hostnames', async (c) => {
 
   let result;
   if (validated.type === 'free_subdomain') {
-    // Extract slug from hostname
     const slug = validated.hostname.split('.')[0]!;
     result = await domainService.provisionFreeDomain(c.env.DB, c.env, {
       org_id: orgId,
@@ -2144,13 +2117,11 @@ api.post('/api/sites/:siteId/hostnames', async (c) => {
       slug,
     });
   } else {
-    // Check entitlements for custom domains
     const entitlements = await billingService.getOrgEntitlements(c.env.DB, orgId);
     if (!entitlements.topBarHidden) {
       throw forbidden('Custom domains require a paid plan');
     }
 
-    // Validate CNAME points to projectsites.dev
     const cnameTarget = await domainService.checkCnameTarget(validated.hostname);
     if (!cnameTarget || cnameTarget !== DOMAINS.SITES_BASE) {
       throw badRequest(
@@ -2166,7 +2137,6 @@ api.post('/api/sites/:siteId/hostnames', async (c) => {
     });
   }
 
-  // Log audit
   await auditService.writeAuditLog(c.env.DB, {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
@@ -2227,8 +2197,6 @@ api.post('/api/sites/:siteId/hostnames', async (c) => {
   return c.json({ data: result }, 201);
 });
 
-// ─── Delete Site ────────────────────────────────────────────
-
 /**
  * Soft-delete a site (and optionally cancel its Stripe subscription at period end).
  *
@@ -2270,24 +2238,20 @@ api.delete('/api/sites/:id', async (c) => {
     'id, slug, plan',
   );
 
-  // Check if user wants to also cancel their subscription
   const body = await c.req.json().catch(() => ({}));
   const cancelSubscription = body && (body as Record<string, unknown>).cancel_subscription === true;
 
-  // Soft-delete
   await c.env.DB.prepare(
     "UPDATE sites SET deleted_at = datetime('now'), status = 'archived' WHERE id = ?",
   )
     .bind(siteId)
     .run();
 
-  // Invalidate KV cache for the site's subdomain
   const slug = site.slug as string;
   if (slug) {
     await c.env.CACHE_KV.delete(`host:${slug}${DOMAINS.SITES_SUFFIX}`).catch(() => {});
   }
 
-  // Optionally cancel the Stripe subscription
   let subscriptionCanceled = false;
   if (cancelSubscription && site.plan === 'paid') {
     const sub = await dbQueryOne<{ stripe_subscription_id: string | null }>(
@@ -2341,8 +2305,6 @@ api.delete('/api/sites/:id', async (c) => {
   return c.json({ data: { deleted: true, subscription_canceled: subscriptionCanceled } });
 });
 
-// ─── Set Primary Hostname ────────────────────────────────────
-
 /**
  * Mark a hostname as the site's primary (canonical) hostname for SEO + share-link UX.
  *
@@ -2391,8 +2353,6 @@ api.put('/api/sites/:siteId/hostnames/:hostnameId/primary', async (c) => {
   return c.json({ data: { primary: true } });
 });
 
-// ─── Reset Primary to Default Subdomain ─────────────────────
-
 /**
  * Clear `is_primary` on ALL hostnames for a site — falls back to the default
  * `{slug}.projectsites.dev` subdomain as the canonical URL.
@@ -2420,7 +2380,6 @@ api.post('/api/sites/:siteId/hostnames/reset-primary', async (c) => {
   // Canonical org-ownership guard (404 never 403 — fires 30-36 protocol).
   const site = await requireOwnedSite<Record<string, unknown>>(c.env, orgId, siteId);
 
-  // Clear is_primary on all hostnames for this site
   await c.env.DB.prepare('UPDATE hostnames SET is_primary = 0 WHERE site_id = ?')
     .bind(siteId)
     .run();
@@ -2438,8 +2397,6 @@ api.post('/api/sites/:siteId/hostnames/reset-primary', async (c) => {
 
   return c.json({ data: { primary_reset: true } });
 });
-
-// ─── Delete Hostname ────────────────────────────────────────
 
 /**
  * Hard-delete a hostname row (and de-register from CF4SaaS if custom).
@@ -2500,8 +2457,6 @@ api.delete('/api/sites/:siteId/hostnames/:hostnameId', async (c) => {
   return c.json({ data: { deleted: true } });
 });
 
-// ─── Unsubscribe Domain (cancel premium domain subscription + delete) ──
-
 /**
  * Soft-delete a premium domain hostname (cancels the customer's domain-specific
  * subscription line item but preserves audit history for billing reconciliation).
@@ -2544,7 +2499,6 @@ api.post('/api/sites/:siteId/hostnames/:hostnameId/unsubscribe', async (c) => {
   );
   if (!hostname) throw notFound('Hostname not found');
 
-  // Soft-delete the hostname
   await c.env.DB.prepare("UPDATE hostnames SET deleted_at = datetime('now') WHERE id = ?")
     .bind(hostnameId)
     .run();
@@ -2552,7 +2506,6 @@ api.post('/api/sites/:siteId/hostnames/:hostnameId/unsubscribe', async (c) => {
   // Invalidate KV cache
   await c.env.CACHE_KV.delete(`host:${hostname.hostname}`).catch(() => {});
 
-  // Log the unsubscribe action
   await auditService.writeAuditLog(c.env.DB, {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
@@ -2570,8 +2523,6 @@ api.post('/api/sites/:siteId/hostnames/:hostnameId/unsubscribe', async (c) => {
 
   return c.json({ data: { unsubscribed: true, hostname: hostname.hostname } });
 });
-
-// ─── Billing Portal ─────────────────────────────────────────
 
 /**
  * Create a Stripe Customer Billing Portal session — lets the customer self-manage
@@ -2603,7 +2554,6 @@ api.post('/api/billing/portal', async (c) => {
   const body = await c.req.json();
   const returnUrl = (body as { return_url?: string }).return_url || `https://${DOMAINS.SITES_BASE}`;
 
-  // Look up Stripe customer ID for this org
   const sub = await dbQueryOne<{ stripe_customer_id: string | null }>(
     c.env.DB,
     'SELECT stripe_customer_id FROM subscriptions WHERE org_id = ? AND deleted_at IS NULL',
@@ -2637,8 +2587,6 @@ api.post('/api/billing/portal', async (c) => {
 
   return c.json({ data: result });
 });
-
-// ─── Audit Routes ────────────────────────────────────────────
 
 /**
  * List recent audit log entries scoped to the caller's org. Powers the
@@ -2812,8 +2760,6 @@ api.get('/api/audit-logs', async (c) => {
   });
 });
 
-// ─── Site-Specific Logs ─────────────────────────────────────
-
 /**
  * List audit log entries for a single site. Powers the build-progress
  * streaming UI and the per-site history view.
@@ -2932,8 +2878,6 @@ api.get('/api/readiness', async (c) => {
   return c.json({ data: out });
 });
 
-// ─── AI Task Inbox Routes ───────────────────────────────────
-//
 // Companion to `services/task_inbox.ts`. Workflows post elicitation rows;
 // the admin task tray polls `GET /api/inbox/tasks` and resolves a chosen
 // option via `POST /api/inbox/tasks/:id/resolve`. Resolution fans the
@@ -2985,8 +2929,6 @@ api.post('/api/inbox/tasks/:id/resolve', async (c) => {
   const ok = await resolveTask(c.env, id, { choice, by: userId ?? undefined });
   return c.json({ ok });
 });
-
-// ─── Bolt Publish Route ─────────────────────────────────────
 
 /**
  * Publish a bolt.diy project's compiled `dist/` output to projectsites.dev R2.
@@ -3060,7 +3002,6 @@ api.post('/api/publish/bolt', async (c) => {
     throw badRequest('No files provided');
   }
 
-  // Determine slug
   let slug: string;
 
   if (existingSlug) {
@@ -3086,10 +3027,8 @@ api.post('/api/publish/bolt', async (c) => {
     slug = await ensureUniqueSlug(c.env, slug);
   }
 
-  // Generate version
   const version = new Date().toISOString().replace(/[:.]/g, '-');
 
-  // MIME type map for content-type headers
   const mimeTypes: Record<string, string> = {
     html: 'text/html',
     css: 'text/css',
@@ -3111,7 +3050,6 @@ api.post('/api/publish/bolt', async (c) => {
     webmanifest: 'application/manifest+json',
   };
 
-  // Upload all dist files to R2
   const uploads: Promise<R2Object>[] = files.map((f) => {
     const ext = f.path.split('.').pop()?.toLowerCase() ?? '';
     const contentType = mimeTypes[ext] ?? 'application/octet-stream';
@@ -3157,7 +3095,6 @@ api.post('/api/publish/bolt', async (c) => {
 
   await Promise.all(uploads);
 
-  // Invalidate KV cache for this slug's hostname
   const cacheKey = `host:${slug}${DOMAINS.SITES_SUFFIX}`;
   await c.env.CACHE_KV.delete(cacheKey);
 
@@ -3282,8 +3219,6 @@ async function ensureUniqueSlug(env: Env, slug: string): Promise<string> {
   // All attempts exhausted — use random suffix
   return `${slug}-${Date.now().toString(36).slice(-4)}`;
 }
-
-// ─── Chat Export Retrieval Route ─────────────────────────────
 
 /**
  * Retrieve the AI build-context JSON for a published site slug. Used by
@@ -3513,7 +3448,6 @@ api.get('/api/sites/by-slug/:slug/chat', async (c) => {
     return TEXT_EXTENSIONS.has(filePath.slice(lastDot).toLowerCase());
   };
 
-  // Determine which files to include — from manifest or R2 listing
   // For Vite projects, prefer source_files (editor needs source, not built output)
   // Normalize v1 (string[]) + v2 ({name,size,type}[]) manifest shapes —
   // the container manifest writer emits objects, the legacy writers strings.
@@ -3526,21 +3460,18 @@ api.get('/api/sites/by-slug/:slug/chat', async (c) => {
     isVite ? manifestData.source_files : manifestData.files,
   );
 
-  // If manifest doesn't list files, list the R2 prefix
   if (filePaths.length === 0) {
     const listed = await c.env.SITES_BUCKET.list({ prefix, limit: 100 });
     filePaths = listed.objects
       .map((obj) => obj.key.replace(prefix, ''))
       .filter((p) => !p.startsWith('_meta/') && p !== 'research.json');
   } else {
-    // Filter out non-site files
     filePaths = filePaths.filter((p) => !p.startsWith('_meta/') && p !== 'research.json');
   }
 
   // Filter out binary files — reading them as .text() corrupts the content
   filePaths = filePaths.filter(isTextFile);
 
-  // Read all file contents in parallel
   const fileReads = filePaths.map(async (filePath) => {
     const obj = await c.env.SITES_BUCKET.get(`${prefix}${filePath}`);
     if (!obj) return null;
@@ -3577,7 +3508,6 @@ api.get('/api/sites/by-slug/:slug/chat', async (c) => {
     return emptyBoltChatResponse(slug);
   }
 
-  // Look up business name from D1
   let businessName = slug.replace(/-/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
   try {
     const site = await c.env.DB.prepare(
@@ -3590,7 +3520,6 @@ api.get('/api/sites/by-slug/:slug/chat', async (c) => {
     // Use slug-derived name as fallback
   }
 
-  // Build bolt.diy-compatible boltArtifact content
   // Sort files: package.json first (triggers auto-install in bolt.diy)
   const sortedFiles = [...files].sort((a, b) => {
     if (a.path === 'package.json') return -1;
@@ -3658,8 +3587,6 @@ api.get('/api/sites/by-slug/:slug/chat', async (c) => {
   });
 });
 
-// ─── File listing (metadata only, no content) ──────────────
-
 /**
  * List file metadata for a published site without returning file
  * content. Used by the bolt.diy editor sidebar to render the file tree
@@ -3714,7 +3641,6 @@ api.get('/api/sites/by-slug/:slug/files', async (c) => {
   // For legacy static sites, list the serving files directly
   const prefix = isVite ? `sites/${slug}/${version}/_src/` : `sites/${slug}/${version}/`;
 
-  // List all files from R2
   const listed = await c.env.SITES_BUCKET.list({ prefix, limit: 500 });
   const files = listed.objects
     .filter((obj) => {
@@ -3741,8 +3667,6 @@ api.get('/api/sites/by-slug/:slug/files', async (c) => {
     is_vite_project: isVite,
   });
 });
-
-// ─── Research JSON (public or gated by env var) ──────────────
 
 /**
  * Retrieve the AI-generated research JSON for a published site slug.
@@ -3795,20 +3719,17 @@ api.get('/api/sites/by-slug/:slug/research.json', async (c) => {
     if (!site) throw notFound('Site not found');
   }
 
-  // Read manifest to get current version
   const manifest = await c.env.SITES_BUCKET.get(`sites/${slug}/_manifest.json`);
   if (!manifest) throw notFound('Site not found or no version published');
 
   const manifestData = (await manifest.json()) as { current_version: string };
   if (!manifestData.current_version) throw notFound('No published version found');
 
-  // Try versioned path first, then direct research.json
   let researchObj = await c.env.SITES_BUCKET.get(
     `sites/${slug}/${manifestData.current_version}/research.json`,
   );
 
   if (!researchObj) {
-    // Fallback: check if research.json exists at the root of the site
     researchObj = await c.env.SITES_BUCKET.get(`sites/${slug}/research.json`);
   }
 
@@ -3825,8 +3746,6 @@ api.get('/api/sites/by-slug/:slug/research.json', async (c) => {
     },
   });
 });
-
-// ─── Update Site (Title / Slug) ──────────────────────────────
 
 /**
  * @route PATCH /api/sites/:id
@@ -4012,7 +3931,6 @@ api.patch('/api/sites/:id', async (c) => {
       // Set migration lock (auto-expires in 120s)
       await c.env.CACHE_KV.put(migrationLockKey, 'locked', { expirationTtl: 120 });
 
-      // Check uniqueness
       const existing = await dbQueryOne<{ id: string }>(
         c.env.DB,
         'SELECT id FROM sites WHERE slug = ? AND id != ? AND deleted_at IS NULL',
@@ -4027,7 +3945,6 @@ api.patch('/api/sites/:id', async (c) => {
       if (site.slug) {
         await c.env.CACHE_KV.delete(`host:${site.slug}${DOMAINS.SITES_SUFFIX}`).catch(() => {});
 
-        // Audit: KV cache invalidated for old hostname
         auditService
           .writeAuditLog(c.env.DB, {
             org_id: orgId,
@@ -4045,12 +3962,10 @@ api.patch('/api/sites/:id', async (c) => {
           .catch(() => {});
       }
 
-      // Copy R2 files from old slug to new slug
       try {
         const oldPrefix = `sites/${site.slug}/`;
         const listed = await c.env.SITES_BUCKET.list({ prefix: oldPrefix, limit: 500 });
 
-        // Audit: R2 migration started
         auditService
           .writeAuditLog(c.env.DB, {
             org_id: orgId,
@@ -4080,7 +3995,6 @@ api.patch('/api/sites/:id', async (c) => {
           }
         }
 
-        // Audit: R2 migration completed
         auditService
           .writeAuditLog(c.env.DB, {
             org_id: orgId,
@@ -4106,7 +4020,6 @@ api.patch('/api/sites/:id', async (c) => {
           `Failed to migrate R2 files from sites/${site.slug}/ to sites/${newSlug}/: ${migErrMsg}`,
         );
 
-        // Audit: R2 migration failed
         auditService
           .writeAuditLog(c.env.DB, {
             org_id: orgId,
@@ -4140,7 +4053,6 @@ api.patch('/api/sites/:id', async (c) => {
     .bind(...params)
     .run();
 
-  // Write specific audit logs for slug and name changes
   if (body.slug && body.slug.trim()) {
     const newSlug = body.slug
       .trim()
@@ -4208,8 +4120,6 @@ api.patch('/api/sites/:id', async (c) => {
 
   return c.json({ data: { updated: true } });
 });
-
-// ─── Reset Site (Re-crawl & Rebuild) ─────────────────────────
 
 /**
  * @route POST /api/sites/:id/reset
@@ -4381,7 +4291,6 @@ api.post('/api/sites/:id/reset', async (c) => {
         .slice(0, 50)
     : undefined;
 
-  // Update business info if provided
   const updates: string[] = ["status = 'building'", "updated_at = datetime('now')"];
   const params: unknown[] = [];
 
@@ -4403,7 +4312,6 @@ api.post('/api/sites/:id/reset', async (c) => {
     .bind(...params)
     .run();
 
-  // Trigger rebuild workflow
   let workflowInstanceId: string | null = null;
   if (c.env.SITE_WORKFLOW) {
     try {
@@ -4448,7 +4356,6 @@ api.post('/api/sites/:id/reset', async (c) => {
         });
         workflowInstanceId = instance.id;
 
-        // Log that we had to use a retry ID
         auditService
           .writeAuditLog(c.env.DB, {
             org_id: orgId,
@@ -4537,7 +4444,6 @@ api.post('/api/sites/:id/reset', async (c) => {
     request_id: c.get('requestId'),
   });
 
-  // Log anticipated build phases
   const resetPhases = [
     {
       action: 'workflow.phase.research',
@@ -4580,8 +4486,6 @@ api.post('/api/sites/:id/reset', async (c) => {
     },
   });
 });
-
-// ─── Deploy to Site (ZIP + JSON upload) ──────────────────────
 
 /**
  * @route POST /api/sites/:id/deploy
@@ -4683,7 +4587,6 @@ api.post('/api/sites/:id/deploy', async (c) => {
     request_id: c.get('requestId'),
   });
 
-  // Read ZIP file
   const JSZip = (await import('jszip')).default;
   const zipBuffer = await zipFile.arrayBuffer();
   const zip = await JSZip.loadAsync(zipBuffer);
@@ -4692,7 +4595,6 @@ api.post('/api/sites/:id/deploy', async (c) => {
   const version = `v${Date.now()}`;
   const uploadedFiles: string[] = [];
 
-  // Upload files from the dist directory within the ZIP
   const entries = Object.entries(zip.files);
   for (const [path, file] of entries) {
     if (file.dir) continue;
@@ -4713,7 +4615,6 @@ api.post('/api/sites/:id/deploy', async (c) => {
     uploadedFiles.push(relativePath);
   }
 
-  // Upload chat JSON if provided
   if (chatFile) {
     const chatContent = await chatFile.arrayBuffer();
     await c.env.SITES_BUCKET.put(`sites/${slug}/${version}/_meta/chat.json`, chatContent, {
@@ -4721,7 +4622,6 @@ api.post('/api/sites/:id/deploy', async (c) => {
     });
   }
 
-  // Update manifest
   const manifest = {
     current_version: version,
     updated_at: new Date().toISOString(),
@@ -4731,7 +4631,6 @@ api.post('/api/sites/:id/deploy', async (c) => {
     httpMetadata: { contentType: 'application/json' },
   });
 
-  // Update site status to published
   await c.env.DB.prepare(
     "UPDATE sites SET status = 'published', current_build_version = ?, updated_at = datetime('now') WHERE id = ?",
   )
@@ -4809,7 +4708,6 @@ api.post('/api/sites/:id/deploy', async (c) => {
       /* fall back to edit-N */
     }
 
-    // Ensure uniqueness
     const existing = existingSnaps.data.find((s) => s.snapshot_name === snapshotName);
     if (existing) snapshotName = `${snapshotName}-${Date.now().toString(36).slice(-4)}`;
 
@@ -4986,7 +4884,6 @@ api.post('/api/sites/:id/publish-bolt', async (c) => {
     webmanifest: 'application/manifest+json',
   };
 
-  // Upload all files to R2
   const uploads: Promise<R2Object>[] = files.map((f) => {
     const ext = f.path.split('.').pop()?.toLowerCase() ?? '';
     const contentType = mimeTypes[ext] ?? 'application/octet-stream';
@@ -4995,7 +4892,6 @@ api.post('/api/sites/:id/publish-bolt', async (c) => {
     });
   });
 
-  // Store chat export if provided
   if (chat && chat.messages) {
     uploads.push(
       c.env.SITES_BUCKET.put(
@@ -5022,7 +4918,6 @@ api.post('/api/sites/:id/publish-bolt', async (c) => {
 
   await Promise.all(uploads);
 
-  // Update site status in D1
   await c.env.DB.prepare(
     "UPDATE sites SET status = 'published', current_build_version = ?, updated_at = datetime('now') WHERE id = ?",
   )
@@ -5086,8 +4981,6 @@ api.post('/api/sites/:id/publish-bolt', async (c) => {
     },
   });
 });
-
-// ─── Admin Domain Management Routes ─────────────────────────
 
 // NOTE: `GET /api/admin/domains` (org-wide hostname list) is served by aiAdmin
 // (routes/ai_admin.ts:~2329), which mounts BEFORE this `api` router and returns
@@ -5233,7 +5126,6 @@ api.post('/api/admin/domains/:hostnameId/verify', async (c) => {
     });
   }
 
-  // Check status with Cloudflare
   const cfStatus = await domainService.checkHostnameStatus(c.env, hostname.cf_custom_hostname_id);
 
   const newStatus =
@@ -5243,7 +5135,6 @@ api.post('/api/admin/domains/:hostnameId/verify', async (c) => {
         ? 'verification_failed'
         : 'pending';
 
-  // Update DB
   const { dbUpdate: dbUpdateFn } = await import('../services/db.js');
   const verifyUpd = await dbUpdateFn(
     c.env.DB,
@@ -5509,7 +5400,6 @@ api.delete('/api/admin/domains/:hostnameId', async (c) => {
     throw notFound('Hostname not found');
   }
 
-  // Delete from Cloudflare if we have a CF ID
   if (hostname.cf_custom_hostname_id) {
     try {
       await domainService.deleteCustomHostname(c.env, hostname.cf_custom_hostname_id);
@@ -5527,7 +5417,6 @@ api.delete('/api/admin/domains/:hostnameId', async (c) => {
     }
   }
 
-  // Soft-delete in DB
   const { dbUpdate: dbUpdateFn } = await import('../services/db.js');
   const delUpd = await dbUpdateFn(
     c.env.DB,
@@ -5560,8 +5449,6 @@ api.delete('/api/admin/domains/:hostnameId', async (c) => {
 
   return c.json({ data: { deprovisioned: true, hostname: hostname.hostname } });
 });
-
-// ─── Contact Form Route ─────────────────────────────────────
 
 /**
  * Receive a contact-form submission from any generated site and forward
@@ -5612,8 +5499,6 @@ api.post('/api/contact', async (c) => {
 
   return c.json({ data: { success: true } });
 });
-
-// ─── AI Business Validation ─────────────────────────────────
 
 /**
  * Pre-flight validate a business-search submission with Workers AI
@@ -5708,7 +5593,6 @@ Response:`;
 
     const text =
       typeof aiResult === 'string' ? aiResult : (aiResult as { response?: string }).response || '';
-    // Extract JSON from AI response
     const jsonMatch = text.match(/\{[^}]+\}/);
     if (jsonMatch) {
       try {
@@ -5726,8 +5610,6 @@ Response:`;
     return c.json({ data: { valid: true } });
   }
 });
-
-// ─── R2 File Browser ──────────────────────────────────────────
 
 /**
  * Validate an R2 file path and reject path-traversal attempts before
@@ -5776,7 +5658,6 @@ function sanitizeFilePath(raw: string): string | null {
   const decoded = raw.replace(/%2e/gi, '.').replace(/%2f/gi, '/').replace(/\\/g, '/');
   // Reject any path containing dot-dot traversal sequences
   if (decoded.includes('..')) return null;
-  // Remove leading slashes and return
   const cleaned = decoded.replace(/^\/+/, '');
   if (!cleaned) return null;
   return cleaned;
@@ -6174,8 +6055,6 @@ api.delete('/api/sites/:id/files/:path{.+}', async (c) => {
   return c.json({ data: { key: fullKey, deleted: true } });
 });
 
-// ── Site Snapshots ─────────────────────────────────────────────────
-
 /**
  * List the named-snapshot rollback points for a site, paired with the
  * underlying git-style commit history pulled from R2. Snapshots are
@@ -6528,7 +6407,6 @@ api.post('/api/sites/:siteId/snapshots', async (c) => {
     throw badRequest('Invalid snapshot name');
   }
 
-  // Get the site's current build version if none specified
   // Canonical org-ownership guard — 404 (was badRequest 400, the wrong status for a
   // missing/foreign site; 404 never 403 per the fires 30-36 protocol).
   const site = await requireOwnedSite<{ current_build_version: string | null; slug: string }>(
@@ -6717,8 +6595,6 @@ api.delete('/api/sites/:siteId/snapshots/:snapshotId', async (c) => {
   return c.json({ data: { deleted: true } });
 });
 
-// ── Git-based Snapshot System ─────────────────────────────────────
-
 /**
  * Revert a site to an earlier R2 git snapshot, creating a forward-rolling
  * "revert commit" rather than rewriting history. The original commits
@@ -6834,7 +6710,6 @@ api.post('/api/sites/:siteId/snapshots/revert', async (c) => {
     httpMetadata: { contentType: 'application/json' },
   });
 
-  // Update D1 site record
   await c.env.DB.prepare(
     "UPDATE sites SET current_build_version = ?, status = 'published', updated_at = datetime('now') WHERE id = ?",
   )
@@ -7093,8 +6968,6 @@ api.get('/api/sites/:siteId/git/commits/:commitId', async (c) => {
   return c.json({ data: commit });
 });
 
-// ─── Google Sheets Data Routes ──────────────────────────────
-
 /**
  * Read tabular data from a public Google Sheet, returning rows as
  * key-value records keyed by the header row. Powers menu/listing/price
@@ -7187,8 +7060,6 @@ api.get('/api/sheets/:sheetId/meta', async (c) => {
   const tabs = await fetchSheetMeta(sheetId, apiKey);
   return c.json({ tabs });
 });
-
-// ─── Feedback Routes ────────────────────────────────────────
 
 /**
  * Submit a 1-5 star rating plus optional comment + page URL. Powers the
@@ -7396,8 +7267,6 @@ api.get('/api/feedback', async (c) => {
     );
   }
 });
-
-// ─── Notification Routes ────────────────────────────────────
 
 /**
  * GET /api/notifications — List notifications for the authenticated user.
@@ -7611,8 +7480,6 @@ api.post('/api/notifications/read-all', async (c) => {
   }
 });
 
-// ─── Changelog Route ────────────────────────────────────────
-
 /**
  * GET /api/changelog — Returns hardcoded version history entries for the
  * marketing changelog page.
@@ -7678,8 +7545,6 @@ api.get('/api/changelog', async (c) => {
     );
   }
 });
-
-// ─── Analytics (GA4 Data API) ────────────────────────────────────────────────
 
 /**
  * GET /api/analytics/:siteId — Per-site analytics dashboard data.
@@ -7749,7 +7614,6 @@ api.get('/api/analytics/:siteId', async (c) => {
   const siteId = c.req.param('siteId');
   const period = c.req.query('period') || '7'; // days
 
-  // Look up the site to get slug
   const site = await dbQueryOne<{ slug: string; org_id: string }>(
     c.env.DB,
     'SELECT slug, org_id FROM sites WHERE id = ? AND deleted_at IS NULL',
@@ -8061,7 +7925,6 @@ async function queryGa4DataApi(
     rows?: { dimensionValues: { value: string }[]; metricValues: { value: string }[] }[];
   };
 
-  // Aggregate the report data
   let totalPageViews = 0;
   let totalUsers = 0;
   let totalDuration = 0;
@@ -8096,7 +7959,6 @@ async function queryGa4DataApi(
   const mins = Math.floor(avgDuration / 60);
   const secs = Math.floor(avgDuration % 60);
 
-  // Sort and format results
   const chartData = Array.from(dailyViews.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, views]) => ({ date, views }));
@@ -8264,8 +8126,6 @@ api.post('/api/admin/sites/:slug/migrate-assets', async (c) => {
   });
 });
 
-// ─── GitHub Backup ─────────────────────────────────────────────
-//
 // Per-site GitHub OAuth backup. No token paste, no repo name — owner taps
 // "Connect GitHub", consents on github.com, comes back to /admin/github.
 // Repo name auto-derives from slug: `{slug}-projectsites-dev`. Triggering
@@ -8681,7 +8541,6 @@ api.post('/api/sites/:id/github/backup', async (c) => {
     }),
   );
 
-  // Create tree.
   const treeRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees`, {
     method: 'POST',
     headers: { ...githubHeaders(token), 'Content-Type': 'application/json' },
@@ -8690,7 +8549,6 @@ api.post('/api/sites/:id/github/backup', async (c) => {
   if (!treeRes.ok) throw badRequest('GitHub tree create failed');
   const tree = (await treeRes.json()) as { sha: string };
 
-  // Create commit.
   const commitRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/commits`, {
     method: 'POST',
     headers: { ...githubHeaders(token), 'Content-Type': 'application/json' },
@@ -8925,8 +8783,6 @@ function guessContentTypeForRevert(filename: string): string {
   };
   return types[ext ?? ''] ?? 'application/octet-stream';
 }
-
-// ─── AI Domain Search + Registrar (per-site) ─────────────────
 
 /**
  * Creative-strategy seed used by the AI domain-search fan-out. Each strategy
@@ -9572,7 +9428,6 @@ api.post('/api/internal/client-error', async (c) => {
   }
 });
 
-// ─── #97 Stripe Connect ──────────────────────────────────────
 // Customer-side payments: each org connects their own Stripe account through
 // our platform and we keep a 1.5% platform fee. See services/stripe_connect.ts.
 
@@ -9667,8 +9522,6 @@ api.post('/api/billing/connect/disconnect', async (c) => {
   return c.json({ data: result });
 });
 
-// ─── #99 Usage metering ──────────────────────────────────────
-
 /**
  * @route POST /api/billing/usage
  * @description Internal record-a-usage-event endpoint. Used by middleware on
@@ -9713,8 +9566,6 @@ api.get('/api/billing/usage/this-month', async (c) => {
   const payload = await usageMetering.getUsagePanelPayload(c.env.DB, orgId);
   return c.json({ data: payload });
 });
-
-// ─── #96 Weekly digest opt-out ───────────────────────────────
 
 /**
  * @route GET /api/email/unsubscribe?token=<signed>
@@ -9763,8 +9614,6 @@ api.post('/api/email/digest/trigger', async (c) => {
   const result = await sendWeeklyDigestsForAllOrgs(c.env);
   return c.json({ data: result });
 });
-
-// ─── Spend Alerts (migration 0024) ───────────────────────────
 
 /**
  * Create a new spend alert rule for the caller's org.
@@ -9928,8 +9777,6 @@ api.delete('/api/billing/spend-alerts/:id', async (c) => {
   return c.json({ data: { deleted: true } });
 });
 
-// ─── Snapshot Download (pre-signed R2 manifest) ──────────────
-
 /**
  * Generate a downloadable JSON manifest of a snapshot's R2 files.
  *
@@ -10055,8 +9902,6 @@ api.get('/api/sites/:id/snapshots/:snapId/download', async (c) => {
     },
   });
 });
-
-// ─── Multi-URL Analytics (Cloudflare GraphQL) ────────────────────────────────
 
 /**
  * Helper — load a site row + verify the caller has membership in its org.
@@ -10340,8 +10185,6 @@ api.get('/api/sites/:id/multi-url-analytics', async (c) => {
   return c.json({ data: envelope });
 });
 
-// ─── Cloudflare Credentials (per-org) ────────────────────────────────────────
-
 /**
  * GET /api/admin/cloudflare-credentials — Whether the signed-in org has its
  * own Cloudflare credentials configured. NEVER returns the secret itself.
@@ -10567,8 +10410,6 @@ api.delete('/api/admin/account', async (c) => {
 
   return c.json({ data: { deleted: true, subscription_canceled: subscriptionCanceled } });
 });
-
-// ─── Editor error stream (item 46) ───────────────────────────────────
 
 /**
  * POST /api/audit-logs/editor-error — record a runtime error surfaced
