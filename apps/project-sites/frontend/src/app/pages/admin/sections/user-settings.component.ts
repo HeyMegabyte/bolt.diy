@@ -12,7 +12,6 @@ import { RevealDirective } from '../../../directives/reveal.directive';
 import { MiniEmptyComponent } from '../../../components/mini-empty/mini-empty.component';
 import { ErrorCardComponent } from '../../../components/states';
 
-/** Row shape returned by `GET /admin/api-keys` and rendered in the keys table. */
 interface ApiKeyRow {
   id: string;
   name: string;
@@ -34,7 +33,6 @@ interface ApiKeyCreateResponse {
   expires_at: string | null;
 }
 
-/** Row shape for the active sessions table. */
 interface SessionRow {
   id: string;
   device?: string;
@@ -47,7 +45,6 @@ interface SessionRow {
   current?: boolean;
 }
 
-/** Grouped notification preferences. */
 interface NotificationPref {
   id: string;
   label: string;
@@ -936,7 +933,6 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
   private confirmSvc = inject(ConfirmService);
 
   // ── Profile derived signals ──
-  /** Two-letter initials for the avatar bubble. Falls back to "PS" if no email. */
   initials = computed<string>(() => {
     const e = this.auth.email();
     if (!e) return 'PS';
@@ -970,7 +966,6 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
    * local override (freshest, this device) still wins over it.
    */
   serverDisplayName = signal<string>('');
-  /** Template-driven draft bound to the profile input (mirrors newKey pattern). */
   profileNameDraft = '';
   savingDisplayName = signal(false);
   /** Brief "Saved" confirmation after a successful save — no silent save. */
@@ -1106,7 +1101,6 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
 
   /** Live counter for the name field — caps at 40 per spec. */
   nameLen = computed(() => this.newKey.name.length);
-  /** Active (non-revoked) keys for the header pill. */
   activeKeyCount = computed<number>(() => this.apiKeys().filter((k) => k.active).length);
 
   // ── Sessions ──
@@ -1282,7 +1276,6 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Toggle reveal/hide of the prefix segment for a single row. */
   toggleReveal(id: string): void {
     this.revealed.update((set) => {
       const next = new Set(set);

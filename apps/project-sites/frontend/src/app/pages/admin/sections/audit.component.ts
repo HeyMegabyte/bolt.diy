@@ -19,12 +19,9 @@ import { ErrorCardComponent } from '../../../components/states';
 /**
  * Shape of an audit row as returned by `GET /api/audit-logs`. The `site`
  * field is populated server-side via a LEFT JOIN against `sites` (or a
- * metadata-JSON fallback) so the `site` column always has data.
- *
- * Turn-6 added `message` — a human-readable English summary written at the
- * audit-write boundary (with `actionToFallbackMessage` synthesis when older
- * callers omit it). Always populated server-side; nullable here as a belt-
- * and-suspenders for any in-flight rows mid-migration.
+ * metadata-JSON fallback) so the `site` column always has data. `message` is
+ * a human-readable summary written at the audit-write boundary; nullable here
+ * as a belt-and-suspenders for any in-flight rows that lack one.
  */
 interface AuditRow {
   id: string;

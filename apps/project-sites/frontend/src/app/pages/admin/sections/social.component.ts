@@ -53,10 +53,6 @@ import { SocialCalendarComponent } from './social-calendar.component';
 import { SocialAutoPilotDialogComponent } from './social-auto-pilot-dialog.component';
 import { SocialPasteConnectDialogComponent, isValidPublicHttpsUrl } from './social-paste-connect-dialog.component';
 
-/* ──────────────────────────────────────────────────────────────────── */
-/*  Types                                                               */
-/* ──────────────────────────────────────────────────────────────────── */
-
 type PlatformId =
   | 'twitter'
   | 'linkedin'
@@ -135,10 +131,6 @@ interface OgData {
 type Tab = 'compose' | 'drafts' | 'queue' | 'sent' | 'calendar';
 /** Valid `?tab=` deep-link values. */
 const SOCIAL_TABS: readonly Tab[] = ['compose', 'drafts', 'queue', 'sent', 'calendar'];
-
-/* ──────────────────────────────────────────────────────────────────── */
-/*  Platform registry — single source of truth                          */
-/* ──────────────────────────────────────────────────────────────────── */
 
 const PLATFORMS: readonly PlatformDef[] = [
   {

@@ -144,7 +144,6 @@ function latencyBand(ms: number | null | undefined): 'good' | 'mid' | 'bad' {
   return 'good';
 }
 
-/** Compact relative-time formatter — "3 min ago", "12 sec ago", "yesterday". */
 function relativeTime(iso: string | null | undefined): string {
   if (!iso) return '—';
   const t = Date.parse(iso);
