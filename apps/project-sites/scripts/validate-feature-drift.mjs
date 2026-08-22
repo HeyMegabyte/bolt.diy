@@ -274,6 +274,10 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     //   logsRoutes  — /api/logs/{search,cost-by-route} (Log Explorer, was log_explorer)
     //   domainStack — /api/domains/:hostname/stack[-status] (was domain_stack_wizard)
     'logsRoutes', 'domainStack',
+    // domains — /api/domains/* feature module (domain search/purchase + custom-hostname
+    // CRUD), extracted to its own module (e2cf9f67). Core custom-hostname capability,
+    // entitlement-gated (paid plans) not flag-gated — same class as 'domainPurchase'/'domainStack'.
+    'domains',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;
