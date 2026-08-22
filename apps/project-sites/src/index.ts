@@ -136,7 +136,7 @@ import { onboardingCopilot } from '../libs/features/onboarding_copilot/handlers.
 import { auditTrailExport } from '../libs/features/audit_trail_export/handlers.js'; // GET /api/audit/export — filterable audit-log JSON/CSV export (flag: audit_trail_export)
 import { modelRegistry } from '../libs/features/model_registry/handlers.js'; // GET /v1/models — OpenAI-compatible model/provider alias catalog (flag: model_registry)
 // Drift-fix (2026-08-07): 3 complete, flag-REGISTERED feature modules that were built but never mounted — their routes were unreachable (404 even with the flag on). Mounting behind their dark flags resolves the drift-detection "dead feature folder" class + makes them reachable on flag promotion. Prod-unchanged: flags are experimental → isFlagOn false → 404, exactly as now.
-// ── 40-list build wave (Brian-selected, 2026-06-17) — see apps/project-sites/TODO.md ──
+// ── Feature modules ──
 import { paymentsRail } from '../libs/features/payments_rail/handlers.js'; // unified Square+Stripe seam (flag: payments_rail)
 import { creditWalletRollover } from '../libs/features/credit_wallet_rollover/handlers.js'; // wallet rollover+promo (flag: credit_wallet_rollover)
 import { referralLoop } from '../libs/features/referral_loop/handlers.js'; // refer-a-friend (flag: referral_loop)

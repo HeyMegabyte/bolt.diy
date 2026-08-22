@@ -147,7 +147,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     stage: 'experimental',
   },
 
-  // ── 40-list build wave (Brian-selected, 2026-06-17) — see apps/project-sites/TODO.md ──
+  // ── Feature modules ──
   // Commerce & money rail (payments_rail is foundational — unblocks the rest)
 
   // Visitor-facing AI + platform AI UX
