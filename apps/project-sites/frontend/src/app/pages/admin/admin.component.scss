@@ -702,9 +702,11 @@ aside::before {
   min-width: var(--admin-rail-w);
 }
 
-// Compact visuals — AT REST only. On hover / focus the `:not()` guard drops
-// these overrides so the base labelled-sidebar styles show through.
-.admin-sidebar--rail:not(:hover):not(:focus-within) {
+// Compact visuals — AT REST only. On mouse hover or KEYBOARD focus the `:not()`
+// guard drops these overrides so the base labelled-sidebar styles show through.
+// Uses `:has(:focus-visible)` — NOT `:focus-within` — so a mouse CLICK on a nav
+// item does not pin the rail open; it collapses the moment the pointer leaves.
+.admin-sidebar--rail:not(:hover):not(:has(:focus-visible)) {
   // Hide only the item LABELS + the site-selector detail. The icon keeps its
   // exact expanded position (same nav + item padding — NOT re-centered), so it
   // never moves left or right when the rail expands; only the label appears.
@@ -770,8 +772,10 @@ aside::before {
 // margin-right: (72 − 272) = −200px keeps the flex footprint at 72px, so the
 // page content never shifts; the panel overlaps the content with a lift shadow
 // (its z-index:100 already sits above the content column). Pointer-hover is gated
-// to fine pointers so a tap on touch can't leave the rail stuck-open; keyboard
-// focus-within expands on every device.
+// to fine pointers so a tap on touch can't leave the rail stuck-open. Keyboard
+// focus uses `:has(:focus-visible)` (NOT `:focus-within`) so a MOUSE click on a
+// nav item never pins the rail open — it collapses the instant the pointer leaves,
+// while genuine keyboard navigation still expands it on every device.
 @mixin admin-rail-expanded {
   width: var(--admin-sidebar-w);
   min-width: var(--admin-sidebar-w);
@@ -779,7 +783,7 @@ aside::before {
   box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.72);
   border-right-color: var(--ck-border-strong, rgba(0, 229, 255, 0.4));
 }
-.admin-sidebar--rail:focus-within {
+.admin-sidebar--rail:has(:focus-visible) {
   @include admin-rail-expanded;
 }
 @media (hover: hover) and (pointer: fine) {
