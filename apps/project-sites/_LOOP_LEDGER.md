@@ -1,5 +1,7 @@
 # ProjectSites.dev — THE Single TODO
 
+> **Human-manageable scope → [`SCOPE.md`](../../SCOPE.md)** (mission · hard constraints · AI-buildable backlog · Brian-gated decisions). This file is the detailed task tracker + completion history behind it.
+>
 > **⚑ THE ONE running TODO list.** Every backlog/requirement file was folded here (brainstorm ideas stay ephemeral, NOT persisted) + deleted
 > (git history holds the rest). **Sorted strictly by importance — top = do first.** Value-tiered
 > (P0 → Tier 1 → Tier 4 → Dedicated → Needs-Brian); within each tier, most important first.
