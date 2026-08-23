@@ -29,8 +29,8 @@ not the engineering aesthetic.
 - **Frontend.** Angular 22 (admin/large apps) · React 19 + Vite (small marketing sites). Spartan UI
   only (no PrimeNG/Material). SSR/SSG mandatory for marketing.
 - **Auth.** Better Auth (app IdP + enterprise SSO/SAML) · OpenFGA (authz) · WorkOS (enterprise SSO/SCIM only) ·
-  CF Access (internal) · Unkey (tenant API keys). `orgId` is server-derived (`c.get('orgId')`), **never** a client header (IDOR).
-- **Payments.** Square-class for accept-money; Stripe for SaaS billing/payouts. Lago = billing control plane; Stripe = collection rail.
+  CF Access (internal) · native tenant API tokens (`api_tokens.ts`). `orgId` is server-derived (`c.get('orgId')`), **never** a client header (IDOR).
+- **Payments.** Square-class for accept-money; Stripe for SaaS billing/payouts. Usage metering = Stripe Meter Events (`StripeMetersProvider`) over ProjectSites' canonical D1 ledger; Stripe = collection rail; billing-provider abstraction defaults to noop.
 - **Observability.** Sentry (errors, platform-only — never on customer sites) · Langfuse (AI traces) ·
   PostHog Cloud (product analytics) · Tinybird (high-volume events) · OTel (traces/metrics/logs).
 - **AI.** Every model call through AI Gateway. Provider tiers: CF/edge model → DeepSeek (volume) →
@@ -40,7 +40,8 @@ not the engineering aesthetic.
   homepage 6bp · axe 0 · Lighthouse ≥95 a11y / ≥75 perf · LCP ≤2.0s / INP ≤200ms / CLS ≤0.05 ·
   JSON-LD per route (accurate only) · CSP L3 + Trusted Types · no stubs/TODO in shipped strings.
 - **Removed — never reintroduce:** Novu (→ psnotify) · Resend/Postmark (→ SES + Listmonk) · Supabase ·
-  OpenMeter/Metronome/Stripe-Meters (→ Lago) · Trigger.dev (→ Inngest + Hatchet) · Firecrawl/Crawlee (→ Deepcrawl) ·
+  Lago/OpenMeter/Metronome (→ Stripe Meter Events) · Unkey (→ native `api_tokens`) · Nango (→ native MCP OAuth) ·
+  Inngest/Trigger.dev (→ CF Workflows/Queues + Hatchet) · Postiz (→ native social) · Firecrawl/Crawlee (→ Deepcrawl) ·
   Astro/Nitro/MJML · Skyvern-as-product (internal-only). CI gates block some of these.
 
 ---
@@ -69,7 +70,7 @@ not the engineering aesthetic.
 ### Deepcrawl integration (10 specced services, all flag-gated experimental)
 - Competitor-research automation (Phase -1) · post-deploy SEO audit gate · source-site deep-crawl (replace scraper,
   30-day parallel run) · agent-ready site-context MCP + per-site `llms.txt` · competitor-monitor dashboard (paid,
-  Lago-metered) · broken-link/content-rot daily monitor · pre-flight research agent · content-inventory/IA generator ·
+  usage-metered) · broken-link/content-rot daily monitor · pre-flight research agent · content-inventory/IA generator ·
   bulk-migration validator · image discovery/augmentation. Each behind `deepcrawl_*` flag, `DEEPCRAWL_API_URL`-gated.
 
 ### Tier 2-4 (high → low value, buildable cores)
@@ -82,7 +83,7 @@ not the engineering aesthetic.
 
 ### Monumental initiatives (1–3 dev-months each — scope as dedicated arcs, not loop passes)
 1. Workers-for-Platforms CF-native full-stack hosting substrate.
-2. Public Developer API platform (Unkey + Scalar + Stainless SDKs).
+2. Public Developer API platform (native `api_tokens` + Scalar + Stainless SDKs).
 3. AI-powered visual site builder (Puck + React Flow).
 4. Site Analytics Suite (CF Analytics Engine-first).
 5. Instant preview environments.
@@ -97,7 +98,7 @@ not the engineering aesthetic.
 > business/infra call. It never blocks autonomous work — it advances a buildable item and surfaces the gate.
 
 - **`E2E_TEST_PASSWORD` secret** (`wrangler secret put`) — smallest unblock, highest leverage: authed prod-E2E across the money path.
-- **Pricing one-way doors** — free/Pro split, snapshot-retention tiers, AI-credit metering, 3rd-party app tier, Lago usage prices. Loop wires; Brian sets prices.
+- **Pricing one-way doors** — free/Pro split, snapshot-retention tiers, AI-credit metering, 3rd-party app tier, Stripe usage-metering prices. Loop wires; Brian sets prices.
 - **Container/Docker-gated build quality** — Lighthouse + axe + AI-vision logo/font/color extraction + quality auto-reroll run *inside the build container*; each needs a Docker-access session.
 - **Conversion frontend + infra** — visitor auth-bypass build (pre-wall), inline Stripe checkout + claim flow, upgrade-moment cards, PostHog funnel wiring, build-streaming (SSE), outbox→DLQ→retry (enable CF Queues).
 - **Custom-hostname paid lever** — CF-for-SaaS hostname provisioning + per-instance resource sizing/upsizing.
