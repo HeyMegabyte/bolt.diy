@@ -400,6 +400,42 @@ function applyVerticalPreset(dir, preset, templateDir) {
 }
 
 /**
+ * Merge the per-vertical DEFAULT content pack (examples/_content.<vertical>.json)
+ * into _content.json so section tokens (HERO, FEATURE, SERVICE, STAT, PROCESS,
+ * FAQ, CTA, ABOUT groups) fill with strong generic per-vertical copy even when the
+ * orchestrator crashes/under-fills — turning a self-hiding stub into a full,
+ * on-vertical site. Existing _content.json values (real orchestrator/research
+ * content) WIN token-by-token; the pack only fills gaps + blanks. No-op when the
+ * vertical has no pack. Pairs with applyVerticalPreset (theme) — same crash-proof
+ * "determinism lives in the container, not the orchestrator" pattern.
+ * @returns a short status string for the log.
+ */
+function applyVerticalContentPack(dir, preset, templateDir) {
+  if (!preset) return 'no-vertical';
+  const packName = preset.replace('_brand.', '_content.');
+  let packPath = path.join(dir, 'examples', packName);
+  if (!fs.existsSync(packPath) && templateDir) packPath = path.join(templateDir, 'examples', packName);
+  if (!fs.existsSync(packPath)) return `no-pack:${packName}`;
+  let pack;
+  try { pack = JSON.parse(fs.readFileSync(packPath, 'utf-8')); } catch { return 'pack-unreadable'; }
+  if (!pack || typeof pack !== 'object') return 'pack-not-object';
+  const contentPath = path.join(dir, '_content.json');
+  let existing = {};
+  try { existing = JSON.parse(fs.readFileSync(contentPath, 'utf-8')) || {}; } catch { /* none yet */ }
+  // Pack defaults are the BASE; a non-blank existing value (orchestrator/research)
+  // overrides its token. A blank existing token falls back to the rich default.
+  const merged = {};
+  for (const [k, v] of Object.entries(pack)) {
+    if (typeof v === 'string' || typeof v === 'number') merged[k] = String(v);
+  }
+  for (const [k, v] of Object.entries(existing)) {
+    if ((typeof v === 'string' || typeof v === 'number') && String(v).trim() !== '') merged[k] = String(v);
+  }
+  fs.writeFileSync(contentPath, JSON.stringify(merged, null, 2));
+  return `merged ${packName} (${Object.keys(pack).length} defaults, ${Object.keys(existing).length} existing)`;
+}
+
+/**
  * Deterministic safety net. Replace EVERY content {TOKEN} across the shipped
  * surfaces with a real value from `contentMap`, else a SAFE fallback by token
  * semantics, so ZERO {TOKEN} can survive to dist/. Writes files in place.
@@ -589,8 +625,9 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
           try {
             const preset = pickVerticalPreset(dir, prompt);
             console.warn(`[${jobId}] Vertical theme: ${applyVerticalPreset(dir, preset, TEMPLATE_DIR)}`);
+            console.warn(`[${jobId}] Vertical content: ${applyVerticalContentPack(dir, preset, TEMPLATE_DIR)}`);
           } catch (te) {
-            console.warn(`[${jobId}] Vertical theme skipped: ${te.message.slice(0, 200)}`);
+            console.warn(`[${jobId}] Vertical theme/content skipped: ${te.message.slice(0, 200)}`);
           }
           const contentMap = loadContentMap(dir);
           // Identity fallbacks come from the context map itself (BUSINESS_NAME/URL
