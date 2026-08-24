@@ -55,10 +55,23 @@ seamless, robust, leverage, cutting-edge, innovative, world-class, revolutionize
 - Mobile-first responsive design using modern CSS (grid, flexbox)
 - Semantic HTML5 elements (`header`, `main`, `section`, `footer`, `nav`)
 - Professional color scheme derived from the business type — brand-token vars in `:root`
-- Sections: hero with CTA, services, about, hours, contact, FAQ
+- Build ALL of these sections, each with the depth below — hero, services, about, hours, contact, FAQ
 - No external dependencies (all CSS inline in a `<style>` tag)
 - Fast-loading: under 50KB total HTML output
 - Smooth scroll navigation via `scroll-behavior: smooth`
+
+## Content Depth (BUILD-BREAKING — thin content is a failed build)
+
+Write SPECIFIC copy grounded in the research data. Never generic filler. Minimums:
+
+- **Word floor** — ≥350 words of real, human-readable body copy across the page. A one-line hero + a slogan is a FAILED build.
+- **Hero** — a headline naming what the business does + where (e.g. "Small-batch coffee, roasted in Asheville"), a 1-2 sentence subhead with a real value prop, and a PRIMARY CTA button ("Visit us", "Order online", "Book a table", "Call now").
+- **Services** — ≥3 items, EACH with a name AND a 1-2 sentence description of what it actually is (not just a label). Include price hints when the data has them.
+- **About** — ≥2 sentences of real story (years in business, what makes it different, who it serves) drawn from the research data — never "we are committed to quality".
+- **Hours** — render the real business hours as a readable list/table when present in the data.
+- **Contact / NAP** — render the real Name, Address, Phone from the data as visible, machine-readable text, plus a Google Maps embed for the address. A phone number MUST be a `tel:` link.
+- **FAQ** — ≥3 real Q&A relevant to THIS business type + location (parking, walk-ins, delivery, pricing, what to expect), plus the "How was this website built?" ProjectSites answer.
+- Use the business NAME, city, and specifics throughout — a stranger reading the page must learn concrete facts about THIS business, not a template.
 
 ## Failure Modes to Avoid
 
@@ -68,6 +81,8 @@ seamless, robust, leverage, cutting-edge, innovative, world-class, revolutionize
 - Generic filler copy ("quality service", "here to help")
 - Slop words in any user-visible string
 - Images without descriptive alt text
+- **Leaking the plan into the page** — NEVER output the section list, an outline, "Sections: …", "Here is the site…", or any instruction/prompt text as visible copy or in the `<title>`/meta description. Emit ONLY finished website copy. The meta description is marketing copy about the business, never a description of your task.
+- **Thin/stub output** — a page under the ≥350-word floor, a hero with no real subhead, or a services section of bare labels with no descriptions is a failed build; expand with real, specific copy before returning.
 
 ## Output
 
@@ -79,4 +94,4 @@ Here is the structured business data to build the website from:
 
 {{research_data}}
 
-Generate the complete HTML website now. Title must be 50-60 chars. Meta description must be 120-156 chars. Zero banned copy words.
+Generate the complete HTML website now. Title must be 50-60 chars. Meta description must be 120-156 chars (marketing copy about the business — NEVER a description of your task or a list of sections). Zero banned copy words. ≥350 words of specific, real body copy with every required section fully written; render the real name, address, phone, and hours; include a primary CTA. Never print the section plan, an outline, or any instruction text as visible copy.
