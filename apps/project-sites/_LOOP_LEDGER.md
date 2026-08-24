@@ -108,7 +108,7 @@ isolation. Merges the old #1 (WfP) + #9 (Container App Runtime) — one substrat
 2. Binding scoping — D1 DB-per-app, KV namespace-per-app, R2 prefix-per-app, DO class-per-app
 3. `wrangler deploy` from the platform — customer code → build → WASM-harden → live in <60s
 4. Per-app environment variables (AES-GCM encrypted, reusing `ai_env_vars.ts` patterns)
-5. Usage metering per app (CPU ms, requests, bandwidth, D1 rows) feeding Lago
+5. Usage metering per app (CPU ms, requests, bandwidth, D1 rows) feeding Stripe Meter Events
 6. App health monitoring with auto-restart (DO alarm pattern)
 7. Build logs, deploy history, instant rollback (`wrangler rollback` per-app)
 8. Migration of `site_serving` to multi-tenant dispatch — every `{slug}.projectsites.dev` is a Worker
@@ -123,24 +123,21 @@ is the edge application platform the STRATEGY.md thesis demands.
 
 **What:** A production-grade public API at `api.projectsites.dev` with typed SDKs (TS/Python),
 OpenAPI 3.1 + Scalar docs, per-key metered billing, and a self-serve developer portal.
-The LOOP_LEDGER § api.projectsites.dev — Unkey has 24 specced tasks; this is the
-revenue-facing product layer ON TOP of that key-management spine.
+This is the revenue-facing product layer ON TOP of the native `api_tokens` key-management spine.
 
 **Already in place:**
-- `src/services/unkey.ts` — Unkey client (LIVE at api.projectsites.dev)
-- `src/services/billing_provider_lago.ts` — Lago billing pipeline (LIVE)
+- `src/services/api_tokens.ts` + `src/routes/api_tokens_admin.ts` — native tenant API-token management (replaces removed Unkey)
 - `src/middleware/api-keys.ts` + `src/middleware/rate_limit.ts` — auth/rate-limit middleware
-- `src/services/usage_metering.ts` (17K) — usage event pipeline
+- `src/services/usage_metering.ts` — usage-event pipeline (Stripe Meter Events; Lago removed)
 - `src/routes/openapi.ts` — OpenAPI serving stub
-- `LOOP-API-001` through `LOOP-API-024` — 24 specced Unkey API tasks (unimplemented)
 - `libs/features/platform_mcp/` — MCP server already exposes platform tools
 
 **Implementation spine:**
-1. Ship the 24 LOOP-API tasks (key mgmt, scoping, rotation, revocation, rate limits, quotas)
+1. Ship native api-token management (scoping, rotation, revocation, rate limits, quotas)
 2. OpenAPI 3.1 spec for all `/api/v1/*` routes — Zod-derived via `@asteasolutions/zod-to-openapi`
 3. Scalar API reference at `docs.projectsites.dev/api` — served from R2
 4. Typed SDKs — `@projectsites/sdk` (TS), `projectsites` (PyPI) — generated from OpenAPI
-5. Lago billing enforcement — per-key usage → Tinybird → Lago events API → Stripe invoice
+5. Stripe Meter Events enforcement — per-key usage → Tinybird → Stripe Meter Events → invoice
 6. AI credit metering — separate credit pool for AI-backed routes, model-priced
 7. Self-serve developer portal — `/admin/api-keys` with create/rotate/revoke, usage charts
 8. SDK quickstart snippets (curl, TS, Python) with retry-on-429 + rotation guidance
@@ -334,7 +331,7 @@ collaboration surface that sells upgrades.
 > - **Flags:** one per spec, never auto-activate on env var
 > - **#4 cutover:** run old scraper + Deepcrawl in parallel for 30 days, compare, drop old scraper
 > - **#2 severity:** log-only (D1 audit) during experimental; block publish at beta/stable
-> - **#6 billing:** Lago metered (per-monitor usage events), not flat plan add-on
+> - **#6 billing:** usage-metered (Stripe) (per-monitor usage events), not flat plan add-on
 >
 > **Deepcrawl client:** `src/services/deepcrawl.ts` (✅ CREATED) — typed API client
 > calling `api.deepcrawl.projectsites.dev` with the ProjectSites internal API key.
@@ -434,7 +431,7 @@ for this — proven market, zero marginal cost.
 - [ ] D1 tables: `competitor_monitors` (site_id FK, urls JSON, frequency, tier), `competitor_snapshots`
 - [ ] `routes/competitor_monitor.ts` — CRUD + manual-check trigger
 - [ ] Email: weekly digest via Resend/SES using existing notify path
-- [ ] **Billing: Lago metered** — `competitor_monitor_check` usage events per check, NOT a flat plan add-on
+- [ ] **Billing: usage-metered (Stripe)** — `competitor_monitor_check` usage events per check, NOT a flat plan add-on
 - [ ] Flag: `competitor_monitor` (experimental, default-off, paid-tier only)
 
 **Files:** `services/competitor_monitor.ts`, `services/competitor_diff.ts`, `routes/competitor_monitor.ts`,
@@ -666,7 +663,7 @@ images per site" invariant is data-driven.
 > The loop cannot finish these alone. Each names the ONE decision/action required.
 
 - [ ] **Provision `E2E_TEST_PASSWORD`** — `wrangler secret put` (prod) + `.dev.vars`. ~1h, unlocks authed prod-E2E across the whole money path. Smallest unblock, highest leverage. [parked]
-- [ ] **Pricing one-way doors** — free/Pro split (AN52), snapshot retention tiers (S45), AI-insight credits metering (AN53), 3rd-party paid app tier (A22), Lago usage metering. Loop proposes + wires; Brian sets prices. [parked]
+- [ ] **Pricing one-way doors** — free/Pro split (AN52), snapshot retention tiers (S45), AI-insight credits metering (AN53), 3rd-party paid app tier (A22), Stripe usage-metering. Loop proposes + wires; Brian sets prices. [parked]
 - [ ] **A19 guest-browsable admin** — exposing the whole tenant `/admin` read-only to ANONYMOUS visitors is a data-exposure/privacy call: which sections/fields are safe unauthenticated vs must stay gated. [parked]
 - [ ] **Notification vendor** — confirm `psnotify` (the ZERO-Novu rule) so the Novu/Dittofeed drift is deleted and it's built. [parked]
 - [ ] **Case-study pages** — featuring a real named org (njsk.org) needs THEIR consent + approved logo/copy use. Decision: which consenting builds may be published. [parked]
@@ -763,15 +760,15 @@ images per site" invariant is data-driven.
 - [ ] **AP1 platform backup/restore runbook** — ALL stateful stores (D1, R2, TiDB, every Neon DB, every Upstash, container DBs); per-store RPO/RTO; one drill. (No backups exist platform-wide — biggest risk.) [parked]
 - [ ] **AP2 unified service-health dashboard** — live status of every container/worker in /admin + the crash-loop alert class. [parked]
 - [ ] **AP3 CF-Container hardening baseline** — shared template baking every hard-won lesson (`mkdir /dev/shm`, amd64 pin + CACHEBUST, keep-warm cron, health route, observability). [parked]
-- [ ] **AP4 self-hosted-app deploy generator** — scaffold Dockerfile+wrangler+worker+CI from the Plane/Unkey/Twenty pattern. [parked]
+- [ ] **AP4 self-hosted-app deploy generator** — scaffold Dockerfile+wrangler+worker+CI from the Plane/Twenty pattern. [parked]
 - [ ] **AP5 WAF-skip automation** — any new app subdomain serving POST auto-added to the zone skip rule (we hit this 3× pm/api/r2s3) + a gate. [parked]
 - [x] [auto] **AP6 reusable R2 POST-Object shim** — **CORE DONE 2026-06-29:** `services/r2_post_shim.ts` — `buildR2PostForm(config, nowMs)` builds a signed AWS4-HMAC-SHA256 S3 POST policy + form fields for R2 (endpoint/key-prefix/max-size/expiration), cap at 2d. Web Crypto (impure but Workers-native), deterministic `nowMs` param. 4/4 unit, tsc+lint clean. Remaining = wire into Plane + any other S3-POST app. 137→136. worker→CI.
-- [ ] **AP7 unified SSO** — one login across Plane/Twenty/Listmonk/CMS/Unkey dashboards via Better Auth/OIDC. [parked]
+- [ ] **AP7 unified SSO** — one login across Plane/Twenty/Listmonk/CMS dashboards via Better Auth/OIDC. [parked]
 - [ ] **AP8 psnotify cross-app bus** — every app's webhooks → one DO inbox + center + prefs. [parked]
 - [x] [auto] **AP9 secret-rotation calendar** — **CORE DONE 2026-06-29:** `services/secret_rotation.ts` — pure `rotationStatus(record, now, maxAgeDays=90)` → ok|due_soon(≤14d)|overdue|unknown + ageDays/daysUntilDue/dueAtMs (per-secret `maxAgeDays` override; ms-or-ISO; never-rotated→unknown) + `buildRotationReport(records, now)` → entries sorted overdue→due_soon→unknown→ok + counts + `needsAttention`. No `Date.now()` inside (caller passes now → deterministic). Zero-I/O, never-throws on empty/non-finite, 11/11 unit, tsc 0. Enforces the ≤90d vendor-risk-tiering cadence. Remaining wiring = a D1 `secret_rotations` registry (name/vendor/last_rotated) + the /admin calendar surface + the rotation automation. 146→145. worker→CI (gate now GREEN — 506 suites/7010 tests).
 - [x] [auto] **AP10 cost-per-service dashboard** — **CORE DONE 2026-06-29:** `services/cost_aggregation.ts` — pure `aggregateCosts(lineItems)` → grand total (+`$x.xx` display) + per-vendor breakdown (sorted highest-first, % share) + per-app breakdown (`unattributed` bucket pinned last) + `formatCents`. Clamps negative/non-finite to 0, skips vendor-less items, all-zero on empty — never throws. Zero-I/O, 7/7 unit, tsc 0, lint 0-err, format clean. Remaining wiring = pull line items from each provider billing API (CF/Neon/Upstash/CloudAMQP/SES/TiDB) + /admin dashboard surface. 144→143. worker→CI.
 - [x] [auto] **AP11 typed service registry** — **CORE DONE 2026-06-29:** `services/service_registry.ts` — `createRegistry(entries)` factory (validate/dedup/freeze) + `DEFAULT_SERVICES` (9 live entries: Plane/Twenty/Listmonk/Unkey/Postiz/Inngest/CMS/LLM/CRM). Zero-I/O, 22/22 unit, gates clean. Remaining = wire admin health-dashboard + secret-rotation calendar. 137→136. driving admin + clients.
-- [ ] **AP12 MCP gateway** — expose Plane/Twenty/Listmonk/Unkey MCP behind one authenticated endpoint for our agents. [parked]
+- [ ] **AP12 MCP gateway** — expose Plane/Twenty/Listmonk MCP behind one authenticated endpoint for our agents. [parked]
 - [x] [auto] **AP13 cross-app identity graph** — **CORE DONE 2026-06-29:** `services/identity_graph.ts` — pure `buildIdentityGraph(flatRows)` → `{nodes: IdentityNode[] (userId/email/apps/appCount/isCrossApp), totalUsers, crossAppUsers, appCounts}`. Merges + dedupes per (app, externalId); sorts most-connected-first; missing email→"unknown"; skips empty rows, never throws. Zero-I/O, 6/6 unit, tsc 0, lint+prettier clean. The unification layer psnotify/billing/AI-ops consume to resolve one customer view. Remaining wiring = pull rows from each app DB/API. 141→140. worker→CI.
 - [ ] **AP14 DR game day** — simulate a store/region outage; verify wrangler rollback + D1 Time Travel + restores. [parked]
 - [ ] **AP15 aggregate uptime + status page** — external probe of all subdomains → public status. [parked]
