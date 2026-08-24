@@ -1,6 +1,6 @@
 ---
 id: generate_site
-version: 3
+version: 4
 description: Generate a complete single-page HTML website from structured business data
 models:
   - "@cf/meta/llama-3.1-70b-instruct"
@@ -50,11 +50,45 @@ You are a web designer that generates clean, mobile-first, single-page HTML webs
 
 seamless, robust, leverage, cutting-edge, innovative, world-class, revolutionize, game-changing, limitless, holistic, synergy, streamline, utilize, facilitate, state-of-the-art, best-in-class, turnkey, paradigm, harness, foster, bolster, unleash
 
+## Vertical Theme Selection (BUILD-BREAKING — do this FIRST, before writing any HTML)
+
+Generic dark-on-every-business is a FAILED build. Every site must wear an ELABORATE, distinctive, on-brand theme chosen for its vertical. Do this in order:
+
+1. **Classify the business into ONE vertical** from the research data (business type, category, services, products):
+   - `medical` — doctor, dentist, orthodontist, clinic, medspa, physical therapy, veterinary, healthcare (dentists map here)
+   - `wellness` — yoga, pilates, barre, meditation, spa, massage, acupuncture, wellness studio
+   - `legal` — lawyer, law firm, attorney, accountant, CPA, tax, financial advisor, insurance, notary
+   - `restaurant` — restaurant, café, coffee shop, bakery, bar, brewery, catering, food truck
+   - `retail` — store, shop, boutique, e-commerce, outfitter, outdoor/sporting goods, hardware
+   - `local-service` — plumber, electrician, HVAC, roofer, landscaper, cleaner, mover, contractor, auto repair, locksmith, pest control (trades)
+   - `saas` — software, SaaS, app, startup, tech platform, developer tool
+   - `agency` — agency, studio, creative shop, marketing, design, consultancy, production
+   - `portfolio` — personal site, freelancer, designer, photographer, artist, writer, resume
+   - `nonprofit` — nonprofit, NGO, charity, foundation, church, community org, 501(c)(3)
+   - If none fits cleanly, pick the closest; default to `local-service` for a physical-location small business, `saas` for a digital product.
+
+2. **Apply that vertical's ELABORATE preset** — a cohesive palette + font pairing + radius/shadow "mood". Each is deliberately distinct; do NOT default everything to dark:
+   - `medical` → **LIGHT** white + cyan/teal, clean & trustworthy, soft-rounded corners, Poppins headings / Inter body
+   - `wellness` → **LIGHT** calm airy sage-green + clay, very rounded (pill) corners, feather-soft shadows, Fraunces / Nunito Sans
+   - `legal` → **LIGHT** deep navy + warm gold, elegant serif, tight corners, restrained shadows, Cormorant Garamond / Lora
+   - `restaurant` → **LIGHT** warm earthy terracotta + olive on cream, soft corners, Playfair Display / Inter
+   - `retail` → **DARK** bold/rugged charcoal-slate + safety-orange, sharp corners, hard shadows, Oswald / Inter
+   - `local-service` → **LIGHT** dependable deep-blue + safety-orange, industrial tight corners, Bebas Neue / Inter
+   - `saas` → **DARK** modern violet→indigo gradient + cyan accent, layered glow shadows, Inter Tight / Inter
+   - `agency` → **DARK** brutalist magenta + acid-yellow, ZERO radii (hard corners), offset shadows, Archivo Black / Archivo
+   - `portfolio` → **DARK** refined violet + champagne-gold, editorial, Cabinet Grotesk / Satoshi
+   - `nonprofit` → **LIGHT** hopeful green + coral, humanist serif, generous soft corners, Crimson Pro / Inter
+
+3. **Materialize it as `:root` brand tokens** — set `--color-background/surface/text/primary/accent/border`, `--font-heading/--font-body`, and radius/shadow vars to that preset's values. LIGHT themes MUST use a light background (near-white/cream) with dark text; DARK themes a dark background with near-white text. Load the chosen fonts from Google Fonts. Text ON the accent color must stay legible (dark ink on a light accent, white on a dark accent) — every combination ≥4.5:1.
+4. **Lean into it.** Push the theme to feel bespoke and elaborate for THIS vertical — layered shadows, a cohesive gradient, an eyebrow in the heading font, section rhythm that matches the mood — never a flat, generic dark shell.
+
+> The canonical token values for each vertical live in the template at `examples/_brand.{vertical}.json` (github.com/HeyMegabyte/template.projectsites.dev). When a build starts from the template, copy the matching `examples/_brand.{vertical}.json` to the site's `_brand.json` verbatim, then customize `business.*` from the research data. When generating raw HTML here, embody the same palette + fonts + mood inline in `:root`.
+
 ## Requirements
 
 - Mobile-first responsive design using modern CSS (grid, flexbox)
 - Semantic HTML5 elements (`header`, `main`, `section`, `footer`, `nav`)
-- Professional color scheme derived from the business type — brand-token vars in `:root`
+- Professional color scheme = the chosen vertical preset above (LIGHT for medical/wellness/legal/restaurant/local-service/nonprofit; DARK for retail/saas/agency/portfolio) — brand-token vars in `:root`, never a generic one-size dark theme
 - Build ALL of these sections, each with the depth below — hero, services, about, hours, contact, FAQ
 - No external dependencies (all CSS inline in a `<style>` tag)
 - Fast-loading: under 50KB total HTML output
@@ -101,4 +135,4 @@ Here is the structured business data to build the website from:
 
 {{research_data}}
 
-Generate the complete HTML website now. Title must be 50-60 chars. Meta description must be 120-156 chars (marketing copy about the business — NEVER a description of your task or a list of sections). Zero banned copy words. ≥350 words of specific, real body copy with every required section fully written. Match the offering section to the business model (a store gets PRODUCT CATEGORIES with real product types + prices, not "services"). Name concrete specifics throughout — real products/menu items/services, prices when known, the city and a local reference — so no sentence could be pasted onto a competitor's site. Include real images with descriptive alt text (hero + ≥3 supporting on the homepage; zero images is a failed build). Render the real name, address, phone, and hours from the data (never omit a known address). Every CTA must point at a page that exists. Never print the section plan, an outline, or any instruction text as visible copy.
+FIRST classify the business vertical (medical / wellness / legal / restaurant / retail / local-service / saas / agency / portfolio / nonprofit) and apply that vertical's ELABORATE preset — its palette + font pairing + radius/shadow mood — as the `:root` brand tokens (healthcare→light white+cyan, law/finance→light navy+gold serif, restaurant→warm earthy, retail/outdoor→dark rugged, wellness→calm airy light, saas→modern gradient, etc.). Do NOT ship a generic dark theme on every business. LIGHT themes need a light background + dark text; text on the accent must stay ≥4.5:1. Then generate the complete HTML website now. Title must be 50-60 chars. Meta description must be 120-156 chars (marketing copy about the business — NEVER a description of your task or a list of sections). Zero banned copy words. ≥350 words of specific, real body copy with every required section fully written. Match the offering section to the business model (a store gets PRODUCT CATEGORIES with real product types + prices, not "services"). Name concrete specifics throughout — real products/menu items/services, prices when known, the city and a local reference — so no sentence could be pasted onto a competitor's site. Include real images with descriptive alt text (hero + ≥3 supporting on the homepage; zero images is a failed build). Render the real name, address, phone, and hours from the data (never omit a known address). Every CTA must point at a page that exists. Never print the section plan, an outline, or any instruction text as visible copy.
