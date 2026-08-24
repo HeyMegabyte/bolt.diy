@@ -339,17 +339,21 @@ function pickVerticalPreset(dir, promptText = '') {
   for (const f of ['_content.json', '_research.json', '_brand.json']) {
     try { hay += ' ' + fs.readFileSync(path.join(dir, f), 'utf-8').toLowerCase(); } catch { /* absent */ }
   }
+  // Leading \b + STEM match (no trailing \b) so inflections resolve: dentist→
+  // "dentistry", plumb→"plumbing", landscap→"landscaping", photograph→
+  // "photography", charit→"charitable". Short/ambiguous tokens carry an explicit
+  // trailing \b (spa\b not "space", law\b not "lawn", app\b not "apparel").
   const rules = [
-    ['_brand.medical.json', /\b(dentist|dental|orthodont|endodont|periodont|doctor|physician|clinic|medical|healthcare|health care|hospital|chiropract|dermatolog|pediatric|veterinar|optometr|ophthalmolog|physical therapy|physiotherap|urgent care|family medicine|surgeon|cardiolog|pharmac)\b/],
-    ['_brand.wellness.json', /\b(yoga|pilates|spa|massage|wellness|meditation|fitness|gym|crossfit|salon|beauty|nail|barber|acupunctur|reiki|nutrition|wellbeing|well-being)\b/],
-    ['_brand.legal.json', /\b(law|lawyer|attorney|legal|counsel|litigation|paralegal|notary|estate planning|llp)\b/],
-    ['_brand.restaurant.json', /\b(restaurant|cafe|café|coffee|bakery|bar|bistro|diner|eatery|catering|pizzeria|brewery|food truck|grill|steakhouse|winery|taqueria|deli)\b/],
-    ['_brand.local-service.json', /\b(plumb|hvac|electric|roofing|landscap|lawn care|cleaning|janitor|contractor|handyman|pest control|locksmith|moving|movers|garage door|painting|construction|remodel|flooring|fencing|paving|towing|auto repair|mechanic)\b/],
-    ['_brand.nonprofit.json', /\b(nonprofit|non-profit|charity|foundation|ministry|church|synagogue|mosque|temple|community center|volunteer|shelter|soup kitchen|food bank|outreach|humanitarian|advocacy|ngo)\b/],
-    ['_brand.retail.json', /\b(shop|store|retail|boutique|apparel|clothing|jewelry|goods|merchandise|marketplace|e-commerce|ecommerce|outfitter)\b/],
-    ['_brand.saas.json', /\b(saas|software|platform|api|startup|analytics|dashboard|developer tool|automation|machine learning|fintech|cybersecurity|app)\b/],
-    ['_brand.agency.json', /\b(agency|marketing|advertis|branding|design studio|creative studio|consult|pr firm|media agency|growth marketing|seo agency)\b/],
-    ['_brand.portfolio.json', /\b(portfolio|photographer|photography|artist|freelance|illustrator|filmmaker|musician|architect|videographer)\b/],
+    ['_brand.medical.json', /\b(dentist|dental|orthodont|endodont|periodont|doctor|physician|clinic|medical|health|hospital|chiropract|dermatolog|pediatric|veterinar|optometr|ophthalmolog|physical therapy|physiotherap|physio|urgent care|family medicine|surgeon|cardiolog|pharmac)/],
+    ['_brand.wellness.json', /\b(yoga|pilates|spa\b|massage|wellness|meditation|fitness|gym\b|crossfit|salon|beaut|nail|barber|acupunctur|reiki|nutrition|wellbeing|well-being)/],
+    ['_brand.legal.json', /\b(law\b|lawyer|attorney|legal|counsel|litigation|paralegal|notary|estate planning|llp\b)/],
+    ['_brand.restaurant.json', /\b(restaurant|cafe|café|coffee|bakery|bar\b|bistro|diner|eatery|catering|pizzeria|brewery|food truck|grill|steakhouse|winery|taqueria|deli\b)/],
+    ['_brand.local-service.json', /\b(plumb|hvac|electric|roofing|roofer|landscap|lawn|cleaning|janitor|contractor|handyman|pest control|locksmith|moving|movers|garage door|paint|construction|remodel|flooring|fencing|paving|towing|auto repair|mechanic)/],
+    ['_brand.nonprofit.json', /\b(nonprofit|non-profit|charit|foundation|ministry|church|synagogue|mosque|temple|community center|volunteer|shelter|soup kitchen|food bank|outreach|humanitarian|advocacy|ngo\b)/],
+    ['_brand.retail.json', /\b(shop|store|retail|boutique|apparel|clothing|jewelr|goods|merchandise|marketplace|e-commerce|ecommerce|outfitter)/],
+    ['_brand.saas.json', /\b(saas|software|platform|api\b|startup|analytics|dashboard|developer tool|automation|machine learning|fintech|cybersecurity|app\b|web app)/],
+    ['_brand.agency.json', /\b(agency|marketing|advertis|branding|design studio|creative studio|consult|pr firm|media agency|growth marketing|seo agency)/],
+    ['_brand.portfolio.json', /\b(portfolio|photograph|artist|freelance|illustrat|filmmaker|musician|architect|videograph)/],
   ];
   for (const [file, re] of rules) if (re.test(hay)) return file;
   return '';
