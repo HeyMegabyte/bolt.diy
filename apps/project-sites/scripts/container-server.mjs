@@ -353,11 +353,26 @@ function fillTemplateTokens(dir, contentMap, params = {}) {
   for (const f of templateFillSurfaces(dir)) {
     let before;
     try { before = fs.readFileSync(f, 'utf-8'); } catch { continue; }
-    const after = before.replace(TEMPLATE_TOKEN_RE, (_m, pre, key) => {
+    const after = before.replace(TEMPLATE_TOKEN_RE, (_m, pre, key, offset) => {
+      // Tokens live inside quoted string literals ('…'/"…"/`…`) or JSX attributes
+      // (attr="…"). Escape the value for its enclosing context so real content
+      // (apostrophes, quotes, &, <, >, newlines) can NEVER break TS/JSX compilation.
+      // isJsxAttr: pre is a double-quote immediately preceded by '=' → attr="…".
+      const isJsxAttr = pre === '"' && before[offset - 1] === '=';
+      const enc = (raw) => {
+        const s = String(raw).replace(/\r?\n/g, ' ').trim();
+        if (isJsxAttr) {
+          return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+        // JS string literal (', ", or backtick): backslash-escape.
+        let e = s.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
+        e = pre === '"' ? e.replace(/"/g, '\\"') : e.replace(/'/g, "\\'");
+        return e;
+      };
       const v = Object.prototype.hasOwnProperty.call(contentMap, key) ? contentMap[key] : undefined;
-      if (typeof v === 'string' && v.trim() !== '') { fromMap++; return pre + v; }
+      if (typeof v === 'string' && v.trim() !== '') { fromMap++; return pre + enc(v); }
       fromFallback++;
-      return pre + fallback(key);
+      return pre + enc(fallback(key));
     });
     if (after !== before) { try { fs.writeFileSync(f, after); filesTouched++; } catch {} }
   }
@@ -508,13 +523,13 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
         const inst = await runAsync(`cd ${dir} && npm install --legacy-peer-deps 2>&1`, 300000, 50 * 1024 * 1024);
         if (inst.code !== 0) {
           console.warn(`[${jobId}] npm install exit=${inst.code} tail=`, inst.stdout.slice(-500));
-          buildFailReason = `npm install failed code=${inst.code}: ${inst.stdout.slice(-300)}`;
+          buildFailReason = `npm install failed code=${inst.code}: ${inst.stdout.slice(-800)}`;
           throw new Error(`npm install failed code=${inst.code}`);
         }
         const bld = await runAsync(`cd ${dir} && npm run build 2>&1`, 300000, 50 * 1024 * 1024);
         if (bld.code !== 0) {
           console.warn(`[${jobId}] npm build exit=${bld.code} tail=`, bld.stdout.slice(-500));
-          buildFailReason = `npm build failed code=${bld.code}: ${bld.stdout.slice(-300)}`;
+          buildFailReason = `npm build failed code=${bld.code}: ${(bld.stdout.match(/[^\n]*error[^\n]*/gi) || []).slice(-6).join(' | ') || bld.stdout.slice(-1500)}`;
           throw new Error(`npm build failed code=${bld.code}`);
         }
         const distDir = path.join(dir, 'dist');
