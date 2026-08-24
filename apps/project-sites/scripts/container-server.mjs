@@ -324,6 +324,78 @@ function loadContentMap(dir) {
 }
 
 /**
+ * Deterministic vertical → brand-preset selector. The orchestrator is TOLD to
+ * `cp examples/_brand.<vertical>.json _brand.json`, but it crashes/truncates
+ * often enough that theme selection cannot depend on it (journey 2026-08-24:
+ * a dentist build shipped the DARK default because the orchestrator died before
+ * the cp). Classify the vertical from the deterministic signals already in the
+ * build dir (slug + prompt + research/content/brand JSON) so the container can
+ * force the right preset regardless of orchestrator health.
+ * @returns the preset filename under examples/, or '' when no confident match.
+ */
+function pickVerticalPreset(dir, promptText = '') {
+  let hay = String(promptText || '').toLowerCase();
+  hay += ' ' + path.basename(dir).toLowerCase();
+  for (const f of ['_content.json', '_research.json', '_brand.json']) {
+    try { hay += ' ' + fs.readFileSync(path.join(dir, f), 'utf-8').toLowerCase(); } catch { /* absent */ }
+  }
+  const rules = [
+    ['_brand.medical.json', /\b(dentist|dental|orthodont|endodont|periodont|doctor|physician|clinic|medical|healthcare|health care|hospital|chiropract|dermatolog|pediatric|veterinar|optometr|ophthalmolog|physical therapy|physiotherap|urgent care|family medicine|surgeon|cardiolog|pharmac)\b/],
+    ['_brand.wellness.json', /\b(yoga|pilates|spa|massage|wellness|meditation|fitness|gym|crossfit|salon|beauty|nail|barber|acupunctur|reiki|nutrition|wellbeing|well-being)\b/],
+    ['_brand.legal.json', /\b(law|lawyer|attorney|legal|counsel|litigation|paralegal|notary|estate planning|llp)\b/],
+    ['_brand.restaurant.json', /\b(restaurant|cafe|café|coffee|bakery|bar|bistro|diner|eatery|catering|pizzeria|brewery|food truck|grill|steakhouse|winery|taqueria|deli)\b/],
+    ['_brand.local-service.json', /\b(plumb|hvac|electric|roofing|landscap|lawn care|cleaning|janitor|contractor|handyman|pest control|locksmith|moving|movers|garage door|painting|construction|remodel|flooring|fencing|paving|towing|auto repair|mechanic)\b/],
+    ['_brand.nonprofit.json', /\b(nonprofit|non-profit|charity|foundation|ministry|church|synagogue|mosque|temple|community center|volunteer|shelter|soup kitchen|food bank|outreach|humanitarian|advocacy|ngo)\b/],
+    ['_brand.retail.json', /\b(shop|store|retail|boutique|apparel|clothing|jewelry|goods|merchandise|marketplace|e-commerce|ecommerce|outfitter)\b/],
+    ['_brand.saas.json', /\b(saas|software|platform|api|startup|analytics|dashboard|developer tool|automation|machine learning|fintech|cybersecurity|app)\b/],
+    ['_brand.agency.json', /\b(agency|marketing|advertis|branding|design studio|creative studio|consult|pr firm|media agency|growth marketing|seo agency)\b/],
+    ['_brand.portfolio.json', /\b(portfolio|photographer|photography|artist|freelance|illustrator|filmmaker|musician|architect|videographer)\b/],
+  ];
+  for (const [file, re] of rules) if (re.test(hay)) return file;
+  return '';
+}
+
+// Presets whose colorScheme is light — Brian directive: healthcare/wellness/legal/
+// restaurant/local-service/nonprofit render LIGHT (white/cyan), never dark.
+const LIGHT_VERTICAL_PRESETS = new Set([
+  '_brand.medical.json', '_brand.wellness.json', '_brand.legal.json',
+  '_brand.restaurant.json', '_brand.local-service.json', '_brand.nonprofit.json',
+]);
+
+/**
+ * Force the vertical brand preset into _brand.json when the orchestrator left the
+ * template DEFAULT (crash) OR mis-themed a light vertical dark. Design-merge only:
+ * the preset supplies color/colorScheme/font/etc.; the real business identity
+ * (business/social/logo, research-derived) is preserved so we never ship the
+ * preset's placeholder name. No-op when the orchestrator already produced a
+ * correctly-themed custom brand.
+ * @returns a short status string for the log.
+ */
+function applyVerticalPreset(dir, preset, templateDir) {
+  if (!preset) return 'no-match';
+  let presetPath = path.join(dir, 'examples', preset);
+  if (!fs.existsSync(presetPath) && templateDir) presetPath = path.join(templateDir, 'examples', preset);
+  if (!fs.existsSync(presetPath)) return `preset-missing:${preset}`;
+  const brandPath = path.join(dir, '_brand.json');
+  let presetJson;
+  let current = null;
+  try { presetJson = JSON.parse(fs.readFileSync(presetPath, 'utf-8')); } catch { return 'preset-unreadable'; }
+  try { current = JSON.parse(fs.readFileSync(brandPath, 'utf-8')); } catch { /* missing/default */ }
+  const curScheme = current && (current.colorScheme?.$value || current.colorScheme);
+  const curBg = String((current && current.color && current.color.background && current.color.background.$value) || '');
+  // "default" = the template dark shell the crash path leaves behind.
+  const isDefault = !current || !current.color || !curScheme || curBg.includes('0.08 0.02');
+  const forceLight = LIGHT_VERTICAL_PRESETS.has(preset) && curScheme !== 'light';
+  if (!isDefault && !forceLight) return `kept-custom (scheme=${curScheme})`;
+  const merged = { ...presetJson };
+  for (const idKey of ['business', 'social', 'logo']) {
+    if (current && current[idKey]) merged[idKey] = current[idKey];
+  }
+  fs.writeFileSync(brandPath, JSON.stringify(merged, null, 2));
+  return `applied ${preset} (default=${isDefault} forceLight=${forceLight})`;
+}
+
+/**
  * Deterministic safety net. Replace EVERY content {TOKEN} across the shipped
  * surfaces with a real value from `contentMap`, else a SAFE fallback by token
  * semantics, so ZERO {TOKEN} can survive to dist/. Writes files in place.
@@ -506,6 +578,16 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
         // {BUSINESS_NAME}/{HERO_SUBHEADLINE}/… to the live site. Idempotent —
         // tokens the orchestrator already filled are simply absent here. ──
         try {
+          // ── DETERMINISTIC VERTICAL THEME (journey 2026-08-24): the orchestrator's
+          // `cp examples/_brand.<vertical>.json` step is unreliable — a crash ships the
+          // DARK default for a light vertical (dentist). Force the right preset here so
+          // the theme survives an orchestrator crash; design-merge preserves identity. ──
+          try {
+            const preset = pickVerticalPreset(dir, prompt);
+            console.warn(`[${jobId}] Vertical theme: ${applyVerticalPreset(dir, preset, TEMPLATE_DIR)}`);
+          } catch (te) {
+            console.warn(`[${jobId}] Vertical theme skipped: ${te.message.slice(0, 200)}`);
+          }
           const contentMap = loadContentMap(dir);
           // Identity fallbacks come from the context map itself (BUSINESS_NAME/URL
           // sourced from _content.json/_brand.json/_research.json in loadContentMap)
