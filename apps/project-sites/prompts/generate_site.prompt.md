@@ -62,16 +62,23 @@ seamless, robust, leverage, cutting-edge, innovative, world-class, revolutionize
 
 ## Content Depth (BUILD-BREAKING — thin content is a failed build)
 
-Write SPECIFIC copy grounded in the research data. Never generic filler. Minimums:
+Write SPECIFIC, NAMED copy grounded in the research data. Never generic filler, never a one-hero stub. The test for EVERY sentence: could it be copy-pasted onto a competitor's site unchanged? If yes, it is filler — rewrite it with a concrete, named detail (a real product, price, neighborhood, material, brand, year, or number) before returning. Minimums:
 
-- **Word floor** — ≥350 words of real, human-readable body copy across the page. A one-line hero + a slogan is a FAILED build.
-- **Hero** — a headline naming what the business does + where (e.g. "Small-batch coffee, roasted in Asheville"), a 1-2 sentence subhead with a real value prop, and a PRIMARY CTA button ("Visit us", "Order online", "Book a table", "Call now").
-- **Services** — ≥3 items, EACH with a name AND a 1-2 sentence description of what it actually is (not just a label). Include price hints when the data has them.
-- **About** — ≥2 sentences of real story (years in business, what makes it different, who it serves) drawn from the research data — never "we are committed to quality".
+- **Word floor** — ≥350 words of real, human-readable body copy across the page. A one-line hero + a slogan is a FAILED build. If the research data is thin, expand from what a customer of THIS business in THIS city genuinely needs to know — never pad with adjectives.
+- **Hero** — a headline naming what the business SELLS/DOES + where, using a concrete noun (e.g. "Trail-tested climbing gear & packs in Boulder" — NOT "Discover Exceptional Outdoor Gear"). A 1-2 sentence subhead with a real value prop (what you actually get, for whom). A PRIMARY CTA whose label matches the business model AND points at a page that exists ("Shop climbing gear" → `/shop`, "Order online", "Book a table", "Call now" → `tel:`). Never a CTA to a surface the site doesn't have.
+- **Offering section — MATCH THE BUSINESS MODEL, don't default to "Services":**
+  - **Retail / e-commerce / store** → PRODUCT CATEGORIES: ≥3 named categories (e.g. "Climbing hardware", "Backpacks & packs", "Trail footwear"), EACH with a 1-2 sentence description naming real product types or brands the store carries and a price-from hint when data has it. NOT "our services".
+  - **Restaurant / café / bar** → MENU highlights: ≥3 named dishes/drinks with a short description + price when known.
+  - **Service business (trades, legal, medical, agency)** → SERVICES: ≥3 named services, EACH with a 1-2 sentence description of what it actually is (not a bare label) + price hint when data has it.
+  - Pick the shape from the business type; a store scaffolded with `/services`+`/pricing`+`/team` instead of products/categories is a FAILED build.
+- **About** — ≥2 sentences of real story: years in business, what makes it different, who it serves, drawn from the research data — never "we are committed to quality". Name a concrete differentiator (a specialty, a founder, a local tie).
+- **Local grounding** — name the CITY/neighborhood and ≥1 concrete local reference relevant to the business (for a Boulder outdoor store: nearby trails, crags, the climate, the local outdoor community). A stranger must learn this business is HERE, not anywhere.
+- **Imagery** — every page needs real images with descriptive alt text: a hero image + ≥3 supporting images (product/category, lifestyle, or storefront shots) on the homepage, ≥1 per sub-page. Zero `<img>` elements = a failed build (an outdoor-gear store with no product/lifestyle photography reads as abandoned). Use `alt` naming the subject + business, never "image".
 - **Hours** — render the real business hours as a readable list/table when present in the data.
-- **Contact / NAP** — render the real Name, Address, Phone from the data as visible, machine-readable text, plus a Google Maps embed for the address. A phone number MUST be a `tel:` link.
-- **FAQ** — ≥3 real Q&A relevant to THIS business type + location (parking, walk-ins, delivery, pricing, what to expect), plus the "How was this website built?" ProjectSites answer.
+- **Contact / NAP** — render the real Name, Address, Phone from the data as visible, machine-readable text, plus a Google Maps embed for the address. A phone number MUST be a `tel:` link. If the research data has an address (e.g. a storefront), it MUST appear — never omit a known address.
+- **FAQ** — ≥3 real Q&A relevant to THIS business type + location (parking, returns/exchanges, in-store pickup, brands carried, walk-ins, delivery, pricing, what to expect), plus the "How was this website built?" ProjectSites answer.
 - Use the business NAME, city, and specifics throughout — a stranger reading the page must learn concrete facts about THIS business, not a template.
+- **Every sitemap route must be a real, populated page** with its own distinct H1 + body content — never the same hero shell repeated. If you list a route in the sitemap, it must render unique content; drop routes you can't populate rather than shipping empty shells.
 
 ## Failure Modes to Avoid
 
@@ -94,4 +101,4 @@ Here is the structured business data to build the website from:
 
 {{research_data}}
 
-Generate the complete HTML website now. Title must be 50-60 chars. Meta description must be 120-156 chars (marketing copy about the business — NEVER a description of your task or a list of sections). Zero banned copy words. ≥350 words of specific, real body copy with every required section fully written; render the real name, address, phone, and hours; include a primary CTA. Never print the section plan, an outline, or any instruction text as visible copy.
+Generate the complete HTML website now. Title must be 50-60 chars. Meta description must be 120-156 chars (marketing copy about the business — NEVER a description of your task or a list of sections). Zero banned copy words. ≥350 words of specific, real body copy with every required section fully written. Match the offering section to the business model (a store gets PRODUCT CATEGORIES with real product types + prices, not "services"). Name concrete specifics throughout — real products/menu items/services, prices when known, the city and a local reference — so no sentence could be pasted onto a competitor's site. Include real images with descriptive alt text (hero + ≥3 supporting on the homepage; zero images is a failed build). Render the real name, address, phone, and hours from the data (never omit a known address). Every CTA must point at a page that exists. Never print the section plan, an outline, or any instruction text as visible copy.
