@@ -643,7 +643,14 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
         } catch (fe) {
           console.warn(`[${jobId}] Token safety-net skipped: ${fe.message.slice(0, 200)}`);
         }
-        const inst = await runAsync(`cd ${dir} && npm install --legacy-peer-deps 2>&1`, 300000, 50 * 1024 * 1024);
+        // --omit=dev: the template's build tools (vite/tsc/tailwind/postcss/plugin-react)
+        // live in `dependencies`; the 8 devDependencies are ALL test-only (@playwright/test
+        // — which downloads browsers, MINUTES — vitest, jsdom, testing-library, coverage) and
+        // are NOT needed by `tsc -b && vite build`. Skipping them cuts install from ~minutes
+        // to seconds, keeping the whole job under the CF 15min wall-clock eviction cap (the #1
+        // build-reliability bottleneck, 2026-08-24). Verified safe: no src/**/*.test.ts to
+        // typecheck, `npm run build --omit=dev` passes clean.
+        const inst = await runAsync(`cd ${dir} && npm install --legacy-peer-deps --omit=dev 2>&1`, 300000, 50 * 1024 * 1024);
         if (inst.code !== 0) {
           console.warn(`[${jobId}] npm install exit=${inst.code} tail=`, inst.stdout.slice(-500));
           buildFailReason = `npm install failed code=${inst.code}: ${inst.stdout.slice(-800)}`;
