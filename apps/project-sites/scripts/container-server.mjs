@@ -213,6 +213,173 @@ function collectFiles(dir, base = '') {
   return files;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// DETERMINISTIC TEMPLATE-TOKEN SAFETY NET + POST-BUILD GATE
+// ───────────────────────────────────────────────────────────────────────────
+// Root cause (journey 2026-08-22, e.g. summit-peak-pt): the template ships every
+// page as TypeScript with single-brace {TOKEN} placeholders — {BUSINESS_NAME},
+// {HERO_SUBHEADLINE}, {ABOUT_HEADLINE}, {BLOG_1_TITLE}, {CS_1_CLIENT}, {FAQ_*},
+// {STAT_*}, {TIER_*}, … (hundreds across src/**/*.tsx + index.html + public/**
+// + _brand.json). The orchestrator is TOLD to fill them but nothing GUARANTEES
+// it — a partial/failed generation ships raw {TOKEN}s to the live site.
+//
+// This is the guarantee: after the orchestrator finishes, deterministically fill
+// EVERY remaining content token from the job's context (whatever _content.json /
+// _brand.json / _research.json / params landed in the build dir), and for any
+// token still unfilled substitute a SAFE fallback by semantics so ZERO {TOKEN}
+// can survive. Then a post-build GATE greps dist/ and FAILS the job if any leak.
+// Pure w.r.t. inputs (fillTemplateTokens/distUnfilledTokens are unit-checkable).
+// ═══════════════════════════════════════════════════════════════════════════
+
+// A content token = {ALL_CAPS_SNAKE} in a string/text position. A JS-expression
+// token (`={IDENT}` JSX container or `${IDENT}` template-literal interpolation,
+// e.g. sw.js `${CACHE_VERSION}`) is NOT content — replacing it corrupts source.
+// Discriminate on the char immediately before `{`: `=`/`$` = JS-expr (skip).
+const TEMPLATE_TOKEN_RE = /(^|[^=$])\{([A-Z][A-Z0-9_]+)\}/g;
+const TEMPLATE_TEXT_EXT = new Set([
+  '.tsx', '.ts', '.jsx', '.js', '.mjs', '.html', '.htm', '.css',
+  '.json', '.xml', '.txt', '.svg', '.webmanifest', '.md',
+]);
+
+/** Recursively list text files under `root` (skips node_modules/.git/dist/.claude). */
+function walkTemplateTextFiles(root, acc = []) {
+  let entries;
+  try { entries = fs.readdirSync(root, { withFileTypes: true }); } catch { return acc; }
+  for (const e of entries) {
+    if (e.name === 'node_modules' || e.name === '.git' || e.name === 'dist' || e.name === '.claude') continue;
+    const full = path.join(root, e.name);
+    if (e.isDirectory()) walkTemplateTextFiles(full, acc);
+    else if (TEMPLATE_TEXT_EXT.has(path.extname(e.name).toLowerCase())) acc.push(full);
+  }
+  return acc;
+}
+
+// The surfaces the build reads + ships: source pages/components, the SPA shell,
+// public/** (Vite copies verbatim into dist/), AND root _brand.json — brand.ts
+// imports it (bundled into assets/index-*.js) and build-feeds.mjs postbuild reads
+// it raw, so its {BUSINESS_*} $value leaves re-emit into dist/ if left tokenized.
+function templateFillSurfaces(dir) {
+  const out = [];
+  for (const sub of ['src', 'public']) {
+    const p = path.join(dir, sub);
+    if (fs.existsSync(p)) out.push(...walkTemplateTextFiles(p));
+  }
+  for (const rootFile of ['index.html', '_brand.json']) {
+    const p = path.join(dir, rootFile);
+    if (fs.existsSync(p)) out.push(p);
+  }
+  return out;
+}
+
+// Strip JS comments so a token documented in JSDoc/comments (e.g. `{TOKEN}` in a
+// doc block, `{FEATURE_N_TITLE}` in a note) is never treated as fillable content.
+// NEVER strip .html/.svg/.txt/.md/.json/.xml — `//` and `<...>` are content there.
+function stripJsComments(src) {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+}
+
+/**
+ * Best-effort content map from whatever context files landed in the build dir.
+ * Priority: _content.json (explicit token→value) > _brand.json business $value
+ * leaves > _research.json profile. Returns a flat { TOKEN: string } map.
+ */
+function loadContentMap(dir) {
+  const map = {};
+  const readJson = (name) => {
+    try { return JSON.parse(fs.readFileSync(path.join(dir, name), 'utf-8')); } catch { return null; }
+  };
+  // 1. _content.json — the ideal explicit token→value map (may or may not exist).
+  const content = readJson('_content.json');
+  if (content && typeof content === 'object') {
+    for (const [k, v] of Object.entries(content)) {
+      if (typeof v === 'string' || typeof v === 'number') map[k] = String(v);
+    }
+  }
+  // 2. _brand.json business leaves → the BUSINESS_* tokens (don't overwrite _content.json).
+  const brand = readJson('_brand.json');
+  const biz = (brand && brand.business) || {};
+  const leaf = (l) => (l && typeof l === 'object' && typeof l.$value === 'string' ? l.$value : (typeof l === 'string' ? l : ''));
+  const put = (k, v) => { if (v && !map[k]) map[k] = v; };
+  put('BUSINESS_NAME', leaf(biz.name));
+  put('BUSINESS_SHORT_NAME', leaf(biz.shortName));
+  put('BUSINESS_TAGLINE', leaf(biz.tagline));
+  put('BUSINESS_DESCRIPTION', leaf(biz.description));
+  put('BUSINESS_URL', leaf(biz.url));
+  put('BUSINESS_EMAIL', leaf(biz.email) || leaf(biz.contactEmail));
+  put('BUSINESS_PHONE', leaf(biz.phone));
+  put('BUSINESS_ADDRESS', leaf(biz.address));
+  put('BUSINESS_HOURS', leaf(biz.hours));
+  put('BUSINESS_CLASS', leaf(biz.businessClass));
+  // 3. _research.json profile as a last-resort source for the identity tokens.
+  const research = readJson('_research.json');
+  const prof = (research && research.profile) || {};
+  put('BUSINESS_NAME', typeof prof.name === 'string' ? prof.name : '');
+  put('BUSINESS_PHONE', typeof prof.phone === 'string' ? prof.phone : '');
+  put('BUSINESS_EMAIL', typeof prof.email === 'string' ? prof.email : '');
+  // Drop any value that is itself a placeholder (a token pointing at a token).
+  for (const k of Object.keys(map)) {
+    if (typeof map[k] !== 'string' || map[k].trim() === '' || /^\{[A-Z0-9_]+\}$/.test(map[k].trim())) delete map[k];
+  }
+  return map;
+}
+
+/**
+ * Deterministic safety net. Replace EVERY content {TOKEN} across the shipped
+ * surfaces with a real value from `contentMap`, else a SAFE fallback by token
+ * semantics, so ZERO {TOKEN} can survive to dist/. Writes files in place.
+ *
+ * Safe fallbacks: BUSINESS_NAME → real name (never blank); *_IMAGE_URL / *_COVER
+ * / *_PHOTO / *_LOGO / *_LINKEDIN → '' (template placeholders.ts then hides the
+ * <img>/link); all other text → '' (the section self-hides via its {value && …}
+ * guard). Returns { filled, fromMap, fromFallback, filesTouched }.
+ *
+ * @param {string} dir             build directory
+ * @param {Record<string,string>} contentMap  token → value
+ * @param {{businessName?:string, businessUrl?:string}} params  identity fallbacks
+ */
+function fillTemplateTokens(dir, contentMap, params = {}) {
+  const realName = String(contentMap.BUSINESS_NAME || params.businessName || '').trim();
+  const realUrl = String(contentMap.BUSINESS_URL || params.businessUrl || '').trim();
+  const fallback = (token) => {
+    if (token === 'BUSINESS_NAME') return realName || 'Our Business';
+    if (token === 'BUSINESS_SHORT_NAME') return (realName || 'Our Business').slice(0, 12);
+    if (token === 'BUSINESS_URL' || token === 'DOMAIN') return realUrl;
+    // image/media/link tokens → '' so the template hides the element (no 404).
+    if (/(_IMAGE_URL|_COVER|_PHOTO|_LOGO|_ICON|_LINKEDIN)$/.test(token) || /IMAGE_URL$/.test(token)) return '';
+    // all other text → '' so the owning section self-hides.
+    return '';
+  };
+  let fromMap = 0, fromFallback = 0, filesTouched = 0;
+  for (const f of templateFillSurfaces(dir)) {
+    let before;
+    try { before = fs.readFileSync(f, 'utf-8'); } catch { continue; }
+    const after = before.replace(TEMPLATE_TOKEN_RE, (_m, pre, key) => {
+      const v = Object.prototype.hasOwnProperty.call(contentMap, key) ? contentMap[key] : undefined;
+      if (typeof v === 'string' && v.trim() !== '') { fromMap++; return pre + v; }
+      fromFallback++;
+      return pre + fallback(key);
+    });
+    if (after !== before) { try { fs.writeFileSync(f, after); filesTouched++; } catch {} }
+  }
+  return { filled: fromMap + fromFallback, fromMap, fromFallback, filesTouched };
+}
+
+/**
+ * Post-build gate. Return the distinct content tokens still present anywhere in
+ * `distDir` (excludes `${…}` JS interpolation via TEMPLATE_TOKEN_RE). A non-empty
+ * result means a token leaked into the shippable output → the job must FAIL.
+ */
+function distUnfilledTokens(distDir) {
+  if (!fs.existsSync(distDir)) return [];
+  const set = new Set();
+  for (const f of walkTemplateTextFiles(distDir)) {
+    let raw;
+    try { raw = fs.readFileSync(f, 'utf-8'); } catch { continue; }
+    for (const m of raw.matchAll(TEMPLATE_TOKEN_RE)) set.add(m[2]);
+  }
+  return [...set].sort();
+}
+
 function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSecret, skipBuild) {
   jobs[jobId] = {
     jobId,
@@ -319,6 +486,25 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
       if (!buildOk) buildFailReason = 'skipBuild=true and no live files';
     } else if (fs.existsSync(path.join(dir, 'package.json'))) {
       try {
+        // ── SAFETY NET: deterministically fill EVERY remaining template {TOKEN}
+        // before build so a partial/failed orchestrator run can never ship raw
+        // {BUSINESS_NAME}/{HERO_SUBHEADLINE}/… to the live site. Idempotent —
+        // tokens the orchestrator already filled are simply absent here. ──
+        try {
+          const contentMap = loadContentMap(dir);
+          // Identity fallbacks come from the context map itself (BUSINESS_NAME/URL
+          // sourced from _content.json/_brand.json/_research.json in loadContentMap)
+          // and the slug parsed from the build dir name (/tmp/build-<slug>-<ts>) —
+          // no dependence on a build-param that may be absent.
+          const slugFromDir = (path.basename(dir).match(/^build-(.+)-\d+$/) || [])[1] || '';
+          const fill = fillTemplateTokens(dir, contentMap, {
+            businessName: contentMap.BUSINESS_NAME,
+            businessUrl: contentMap.BUSINESS_URL || (slugFromDir ? `https://${slugFromDir}.projectsites.dev` : ''),
+          });
+          console.warn(`[${jobId}] Token safety-net: filled ${fill.filled} (${fill.fromMap} from context, ${fill.fromFallback} safe-fallback) across ${fill.filesTouched} files`);
+        } catch (fe) {
+          console.warn(`[${jobId}] Token safety-net skipped: ${fe.message.slice(0, 200)}`);
+        }
         const inst = await runAsync(`cd ${dir} && npm install --legacy-peer-deps 2>&1`, 300000, 50 * 1024 * 1024);
         if (inst.code !== 0) {
           console.warn(`[${jobId}] npm install exit=${inst.code} tail=`, inst.stdout.slice(-500));
@@ -335,8 +521,17 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
         if (fs.existsSync(distDir)) {
           const distFiles = collectFiles(distDir);
           if (distFiles.length > 0) {
-            buildOk = true;
-            console.warn(`[${jobId}] npm build ok: ${distFiles.length} dist files`);
+            // ── QUALITY GATE: a build that still emits raw {TOKEN}s into dist/
+            // is a token-leaking site (the summit-peak-pt class). FAIL it — never
+            // publish. Excludes ${…} JS interpolation via TEMPLATE_TOKEN_RE. ──
+            const leaked = distUnfilledTokens(distDir);
+            if (leaked.length > 0) {
+              console.warn(`[${jobId}] TOKEN GATE FAIL: ${leaked.length} unfilled tokens in dist/ — ${leaked.slice(0, 12).join(', ')}${leaked.length > 12 ? '…' : ''}`);
+              buildFailReason = `dist/ still contains ${leaked.length} unfilled template tokens (${leaked.slice(0, 8).join(', ')}${leaked.length > 8 ? '…' : ''}) — site would render raw {TOKEN}s`;
+            } else {
+              buildOk = true;
+              console.warn(`[${jobId}] npm build ok: ${distFiles.length} dist files, 0 unfilled tokens`);
+            }
           } else {
             console.warn(`[${jobId}] dist/ empty after build`);
             buildFailReason = 'dist/ exists but is empty after npm run build';
