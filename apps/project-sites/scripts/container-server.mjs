@@ -462,6 +462,53 @@ function applyVerticalContentPack(dir, preset, templateDir) {
   return `merged ${packName} (${Object.keys(pack).length} defaults, ${Object.keys(existing).length} existing)`;
 }
 
+// Canonical homepage section components. A full template Home.tsx references ~10
+// of these; an orchestrator-stubbed Home (contact-only) references ~0.
+const STUB_SECTION_COMPONENTS = [
+  'HeroSplit', 'HeroCenter', 'BentoGrid', 'Stats', 'FeatureSplit',
+  'ProcessSteps', 'Pricing', 'FAQ', 'LogoCloud', 'CTASection', 'GalleryGrid',
+];
+
+/**
+ * Stub guard (journey 2026-08-25, cascade-metrics-sf). The container orchestrator
+ * sometimes REWRITES src/pages/Home.tsx into a 1-section contact-only stub, deleting
+ * the hero/bento/stats/about/… section JSX and their {TOKEN}s. The deterministic
+ * content pack still fills _content.json, but a stubbed Home references none of those
+ * tokens → the rich pack content renders NOWHERE → a published 1-section stub. (Theme
+ * survives because it's _brand.json data read at render; content does NOT because the
+ * orchestrator rewrote the structure.)
+ *
+ * Fix: when Home.tsx references fewer than 3 of the canonical section components, the
+ * orchestrator stubbed it — restore the template's whole src/pages/ render layer from
+ * TEMPLATE_DIR. fillTemplateTokens (called right after) then fills the restored,
+ * token-bearing pages from the pack-merged _content.json → a full, on-vertical site.
+ * The orchestrator's reliable output (content in _content.json, theme in _brand.json,
+ * generated assets in public/) is untouched; only its unreliable .tsx structure edits
+ * are discarded. No-op when Home already carries the full section set. Fail-safe: any
+ * error is caught + logged, never breaks the build.
+ * @returns a short status string for the log.
+ */
+function guardAgainstStubPages(dir, templateDir) {
+  try {
+    const homePath = path.join(dir, 'src', 'pages', 'Home.tsx');
+    let refCount = 0;
+    if (fs.existsSync(homePath)) {
+      const home = fs.readFileSync(homePath, 'utf-8');
+      refCount = STUB_SECTION_COMPONENTS.filter((c) => new RegExp(`\\b${c}\\b`).test(home)).length;
+      if (refCount >= 3) return `pages-ok (Home references ${refCount} sections)`;
+    }
+    // STUB (or Home missing) → restore the template's page render layer.
+    if (!templateDir) return `stub-detected (refs=${refCount}) but no TEMPLATE_DIR to restore from`;
+    const srcPages = path.join(templateDir, 'src', 'pages');
+    if (!fs.existsSync(srcPages)) return `stub-detected (refs=${refCount}) but template src/pages missing`;
+    const dstPages = path.join(dir, 'src', 'pages');
+    x(`rm -rf ${dstPages} && cp -r ${srcPages} ${dstPages}`, { shell: true, stdio: 'pipe' });
+    return `STUB DETECTED (Home referenced ${refCount} sections) → restored src/pages/ from template`;
+  } catch (e) {
+    return `stub-guard error: ${String(e && e.message).slice(0, 140)}`;
+  }
+}
+
 /**
  * Deterministic safety net. Replace EVERY content {TOKEN} across the shipped
  * surfaces with a real value from `contentMap`, else a SAFE fallback by token
@@ -653,6 +700,7 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
             const preset = pickVerticalPreset(dir, prompt);
             console.warn(`[${jobId}] Vertical theme: ${applyVerticalPreset(dir, preset, TEMPLATE_DIR)}`);
             console.warn(`[${jobId}] Vertical content: ${applyVerticalContentPack(dir, preset, TEMPLATE_DIR)}`);
+            console.warn(`[${jobId}] Stub guard: ${guardAgainstStubPages(dir, TEMPLATE_DIR)}`);
           } catch (te) {
             console.warn(`[${jobId}] Vertical theme/content skipped: ${te.message.slice(0, 200)}`);
           }
