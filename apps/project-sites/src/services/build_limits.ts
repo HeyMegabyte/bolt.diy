@@ -48,7 +48,12 @@ export async function isUnlimitedOrgOwner(db: D1Database, orgId: string): Promis
     `SELECT u.email FROM users u JOIN memberships m ON u.id = m.user_id WHERE m.org_id = ? AND m.role = 'owner' AND m.deleted_at IS NULL AND u.deleted_at IS NULL LIMIT 1`,
     [orgId],
   ).catch(() => null);
-  return owner?.email === 'brian@megabyte.space';
+  // Unlimited-build owners: the platform operator + the e2e/loop dogfooding org.
+  // e2e@megabyte.space added 2026-08-25 (Brian directive) so the self-improving
+  // loop can accumulate as MANY sample sites as it likes without the 1-site free
+  // limit forcing a delete-before-create (which was 404-ing prior loop builds).
+  const UNLIMITED_OWNER_EMAILS = new Set(['brian@megabyte.space', 'e2e@megabyte.space']);
+  return UNLIMITED_OWNER_EMAILS.has(owner?.email ?? '');
 }
 
 /**
