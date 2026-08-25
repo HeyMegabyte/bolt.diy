@@ -77,6 +77,7 @@ import { chatwootAgentBot } from './routes/chatwoot_agent_bot.js';
 import { assets } from './routes/assets.js';
 import { forms } from './routes/forms.js';
 import { analyticsRoutes } from './routes/analytics.js';
+import { APP_JS } from './generated/app_js.js';
 import { aiAdmin } from './routes/ai_admin.js';
 import { apiTokensAdmin } from './routes/api_tokens_admin.js'; // account psk_ token CRUD for /admin/api-tokens (flag: public_api)
 import { authSessions } from './routes/auth_sessions.js'; // custom-auth Active Sessions for /admin/auth-security (Better Auth is dark)
@@ -766,6 +767,18 @@ app.route('/', siteBranchesApp); // /api/sites/:siteId/branches — branch-style
 app.route('/', experiments); // /_ps/{i,c,e,predict} + /api/sites/:siteId/experiments — Thompson-sampling A/B + predictive prerender
 app.route('/', mediaRoutes); // /api/media/* — unified media library (uploads, stock, AI gen, send-to-bolt)
 app.route('/', publicRoutes); // /changelog.json + /feed.xml + /api/public/{roadmap,integrations} — distribution flywheel surfaces; must precede the catch-all so the marketing worker never tries to resolve a site for these paths
+
+// GET /app.js — the unified client script injected into every served site
+// (analytics beacon + form hijack + upgrade bar + Sentry/PostHog stubs). Served
+// from a string constant because this Worker does not serve public/ (no
+// serveStatic/[assets] binding); 1h edge+browser cache. Must precede the
+// site-serving catch-all so a site is never resolved for the /app.js path.
+app.get('/app.js', (c) =>
+  c.body(APP_JS, 200, {
+    'content-type': 'application/javascript; charset=utf-8',
+    'cache-control': 'public, max-age=3600',
+  }),
+);
 // libs/features/* — viral + billing + audit-chain modules (ideas #33, #34, #36, #46)
 app.route('/', tokenBurnMeter); // /api/usage/budget + /api/admin/usage/budget — #13 per-tenant token-burn meter + budget killswitch (flag: token_burn_meter)
 app.route('/', siteAnalytics); // /api/sites/:siteId/analytics — owner analytics summary (flag: site_analytics). Must precede `api` so the :siteId/analytics suffix wins.

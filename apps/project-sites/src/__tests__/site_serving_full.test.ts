@@ -364,7 +364,12 @@ describe('serveSiteFromR2', () => {
     expect(response.status).toBe(404);
   });
 
-  it('injects top bar for unpaid site HTML responses', async () => {
+  // The upgrade bar's presentation now lives in the unified client script
+  // (`/app.js`), gated on the `data-paid` attribute. Serve-path assertion is:
+  // every site gets the app.js script tag injected; unpaid carries
+  // data-paid="false" (client renders the bar), paid carries data-paid="true"
+  // (client renders nothing). The server no longer emits the `ps-bar` HTML.
+  it('injects the unified app.js script (data-paid="false") for unpaid site HTML', async () => {
     const r2Obj = createMockR2Object(SAMPLE_HTML);
     (env.SITES_BUCKET.get as jest.Mock).mockResolvedValue(r2Obj);
 
@@ -373,15 +378,18 @@ describe('serveSiteFromR2', () => {
 
     expect(response.status).toBe(200);
     const html = await response.text();
-    expect(html).toContain('ps-bar');
-    expect(html).toContain('ProjectSites');
+    expect(html).toContain(`https://${DOMAINS.SITES_BASE}/app.js`);
+    expect(html).toContain('data-paid="false"');
     expect(html).toContain('<h1>Hello</h1>');
+    // Script is injected before </body>, after the opening <body>.
     const bodyIndex = html.indexOf('<body>');
-    const barIndex = html.indexOf('ps-bar');
-    expect(barIndex).toBeGreaterThan(bodyIndex);
+    const scriptIndex = html.indexOf('/app.js');
+    expect(scriptIndex).toBeGreaterThan(bodyIndex);
+    // The server no longer renders the conversion-flow bar HTML itself.
+    expect(html).not.toContain('ps-bar-inner');
   });
 
-  it('does NOT inject top bar for paid site HTML responses', async () => {
+  it('injects the unified app.js script with data-paid="true" for paid site HTML', async () => {
     const r2Obj = createMockR2Object(SAMPLE_HTML);
     (env.SITES_BUCKET.get as jest.Mock).mockResolvedValue(r2Obj);
 
@@ -390,7 +398,10 @@ describe('serveSiteFromR2', () => {
 
     expect(response.status).toBe(200);
     const body = await response.text();
-    expect(body).not.toContain('ps-bar');
+    expect(body).toContain(`https://${DOMAINS.SITES_BASE}/app.js`);
+    expect(body).toContain('data-paid="true"');
+    // No server-rendered bar HTML for a paid site.
+    expect(body).not.toContain('ps-bar-inner');
     expect(body).not.toContain('ProjectSites Conversion Flow');
   });
 
@@ -472,7 +483,7 @@ describe('serveSiteFromR2', () => {
     expect(response.headers.get('Content-Type')).toBe('application/octet-stream');
   });
 
-  it('injects top bar with correct slug in upgrade link for unpaid HTML', async () => {
+  it('injects app.js with the correct data-slug for unpaid HTML', async () => {
     const r2Obj = createMockR2Object(SAMPLE_HTML);
     (env.SITES_BUCKET.get as jest.Mock).mockResolvedValue(r2Obj);
 
@@ -480,11 +491,13 @@ describe('serveSiteFromR2', () => {
     const response = await serveSiteFromR2(env as any, site, '/index.html');
 
     const html = await response.text();
-    expect(html).toContain('slug=joe-pizza');
-    expect(html).toContain(`https://${DOMAINS.SITES_BASE}`);
+    // The upgrade URL (slug=…) is now built client-side inside app.js from the
+    // injected data-slug; the server passes the slug via the attribute.
+    expect(html).toContain('data-slug="joe-pizza"');
+    expect(html).toContain(`https://${DOMAINS.SITES_BASE}/app.js`);
   });
 
-  it('injects top bar for SPA fallback on unpaid sites', async () => {
+  it('injects app.js for SPA fallback on unpaid sites', async () => {
     const indexHtml = createMockR2Object(SAMPLE_HTML);
     (env.SITES_BUCKET.get as jest.Mock)
       .mockResolvedValueOnce(null)
@@ -495,15 +508,16 @@ describe('serveSiteFromR2', () => {
 
     expect(response.status).toBe(200);
     const html = await response.text();
-    expect(html).toContain('ps-bar');
+    expect(html).toContain('/app.js');
+    expect(html).toContain('data-paid="false"');
   });
 
-  // Conversion-correctness pair to the unpaid-inject cases above: a PAID site
-  // must NOT get the upgrade bar injected — nagging a paying subscriber to
-  // "upgrade" they already bought reads as broken + erodes the trust that keeps
-  // them subscribed. The impl gates on `site.plan !== 'paid'`; this locks the
-  // paid branch so a regression can't start nagging customers.
-  it('does NOT inject the upgrade bar for a PAID site', async () => {
+  // Conversion-correctness pair to the unpaid cases above: a PAID site must NOT
+  // get the upgrade bar. The bar now lives in app.js gated on data-paid, so the
+  // paid contract is: app.js is injected with data-paid="true" (client renders
+  // no bar) and the server emits no ps-bar HTML. Locks the paid branch so a
+  // regression can't start nagging paying customers.
+  it('injects app.js with data-paid="true" (no bar) for a PAID site', async () => {
     const r2Obj = createMockR2Object(SAMPLE_HTML);
     (env.SITES_BUCKET.get as jest.Mock).mockResolvedValue(r2Obj);
 
@@ -511,8 +525,9 @@ describe('serveSiteFromR2', () => {
     const response = await serveSiteFromR2(env as any, site, '/index.html');
 
     const html = await response.text();
-    expect(html).not.toContain('ps-bar');
-    expect(html).not.toContain('slug=paid-biz');
+    expect(html).toContain('data-slug="paid-biz"');
+    expect(html).toContain('data-paid="true"');
+    expect(html).not.toContain('ps-bar-inner');
   });
 });
 

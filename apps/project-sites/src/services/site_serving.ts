@@ -1504,9 +1504,10 @@ async function buildSiteResponse(
     if (env?.GTM_CONTAINER_ID) {
       bodyInjection += generateGtmBodySnippet(env.GTM_CONTAINER_ID);
     }
-    if (site.plan !== 'paid') {
-      bodyInjection += generateTopBar(site.slug);
-    }
+    // The free-tier upgrade bar is no longer injected here as server-rendered
+    // HTML — its presentation now lives in the unified client script (`/app.js`,
+    // injected before </body> below), gated on the `data-paid` attribute. This
+    // keeps ONE script owning the bar (+ analytics + form hijack) for every site.
     // Unified Analytics beacon (Plane H) — inject when ingestion is enabled by a
     // simple var (normal deploy → D1 store → Analytics tab) OR when the dispatcher
     // DO is bound (adds external fan-out). Keyed by slug; XSS guard in the builder.
@@ -1523,6 +1524,31 @@ async function buildSiteResponse(
     bodyInjection += generateOpenNowBadge();
     if (bodyInjection) {
       html = html.replace(/(<body[^>]*>)/i, `$1\n${bodyInjection}\n`);
+    }
+
+    // Unified client script (`/app.js`) — ONE vanilla-JS file for EVERY served
+    // site (paid and free): analytics beacon + site-wide form hijack (→
+    // /api/contact-form/<slug>) + the free-tier upgrade bar. The script decides
+    // whether to show the bar from `data-paid`; the server only passes the slug +
+    // paid flag. `defer` so it never blocks first paint. Injected before </body>
+    // (falls back to appending when the tag is absent). slug is attribute-escaped.
+    {
+      const safeSlug = String(site.slug).replace(/[&<>"']/g, (ch) =>
+        ch === '&'
+          ? '&amp;'
+          : ch === '<'
+            ? '&lt;'
+            : ch === '>'
+              ? '&gt;'
+              : ch === '"'
+                ? '&quot;'
+                : '&#39;',
+      );
+      const paid = site.plan === 'paid' ? 'true' : 'false';
+      const appScript = `<script defer src="https://${DOMAINS.SITES_BASE}/app.js" data-slug="${safeSlug}" data-paid="${paid}"></script>`;
+      html = /<\/body>/i.test(html)
+        ? html.replace(/<\/body>/i, `${appScript}\n</body>`)
+        : html + appScript;
     }
 
     // AN26 (#112): stamp a stable `data-ps-section` on every <section> so

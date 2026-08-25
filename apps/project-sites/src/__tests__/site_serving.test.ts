@@ -548,18 +548,23 @@ describe('serveSiteFromR2', () => {
     });
   });
 
-  it('injects top bar for free plan HTML', async () => {
+  // The upgrade bar moved into the unified client script (`/app.js`), gated on
+  // the injected data-paid attribute. Free → app.js injected with
+  // data-paid="false" (client renders the bar); paid → data-paid="true" (no bar).
+  // The server no longer emits the ps-bar conversion-flow HTML for either plan.
+  it('injects app.js with data-paid="false" for free plan HTML', async () => {
     const env = createMockEnv({
       'sites/my-biz/v1/index.html': '<html><body>Content</body></html>',
     });
 
     const response = await serveSiteFromR2(env, baseSite, '/');
     const html = await response.text();
-    expect(html).toContain('ps-bar');
-    expect(html).toContain('ProjectSites');
+    expect(html).toContain('/app.js');
+    expect(html).toContain('data-paid="false"');
+    expect(html).not.toContain('ps-bar-inner');
   });
 
-  it('does NOT inject top bar for paid plan HTML', async () => {
+  it('injects app.js with data-paid="true" (no bar) for paid plan HTML', async () => {
     const paidSite = { ...baseSite, plan: 'paid' };
     const env = createMockEnv({
       'sites/my-biz/v1/index.html': '<html><body>Content</body></html>',
@@ -567,7 +572,9 @@ describe('serveSiteFromR2', () => {
 
     const response = await serveSiteFromR2(env, paidSite, '/');
     const body = await response.text();
-    expect(body).not.toContain('ps-bar');
+    expect(body).toContain('/app.js');
+    expect(body).toContain('data-paid="true"');
+    expect(body).not.toContain('ps-bar-inner');
   });
 
   // ── Building placeholder (no build artifact yet) — MUST NOT be indexed ──
