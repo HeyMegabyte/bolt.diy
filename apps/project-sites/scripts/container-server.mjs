@@ -334,11 +334,22 @@ function loadContentMap(dir) {
  * @returns the preset filename under examples/, or '' when no confident match.
  */
 function pickVerticalPreset(dir, promptText = '') {
-  let hay = String(promptText || '').toLowerCase();
-  hay += ' ' + path.basename(dir).toLowerCase();
-  for (const f of ['_content.json', '_research.json', '_brand.json']) {
-    try { hay += ' ' + fs.readFileSync(path.join(dir, f), 'utf-8').toLowerCase(); } catch { /* absent */ }
-  }
+  const read = (f) => { try { return fs.readFileSync(path.join(dir, f), 'utf-8'); } catch { return ''; } };
+  const leaf = (l) => (l && typeof l === 'object' && typeof l.$value === 'string' ? l.$value : (typeof l === 'string' ? l : ''));
+  let brand = {};
+  try { brand = JSON.parse(read('_brand.json')); } catch { /* absent */ }
+  const biz = (brand && brand.business) || {};
+  // PRIMARY = the business's OWN authoritative identity (slug + name/type/desc),
+  // weighted 10× below so incidental research text (e.g. a Google Places match on
+  // the address surfacing a NEARBY restaurant) can't hijack the vertical — the
+  // 2026-08-25 bug where "Flowdesk Analytics" (software) got the restaurant vertical.
+  const primary = [
+    path.basename(dir), leaf(biz.name), leaf(biz.shortName),
+    leaf(biz.tagline), leaf(biz.description), leaf(biz.businessClass),
+  ].join(' ').toLowerCase();
+  // SECONDARY = broad, noisier context (prompt + research + content).
+  let secondary = String(promptText || '').toLowerCase();
+  for (const f of ['_content.json', '_research.json']) secondary += ' ' + read(f).toLowerCase();
   // Leading \b + STEM match (no trailing \b) so inflections resolve: dentist→
   // "dentistry", plumb→"plumbing", landscap→"landscaping", photograph→
   // "photography", charit→"charitable". Short/ambiguous tokens carry an explicit
@@ -355,8 +366,19 @@ function pickVerticalPreset(dir, promptText = '') {
     ['_brand.agency.json', /\b(agency|marketing|advertis|branding|design studio|creative studio|consult|pr firm|media agency|growth marketing|seo agency)/],
     ['_brand.portfolio.json', /\b(portfolio|photograph|artist|freelance|illustrat|filmmaker|musician|architect|videograph)/],
   ];
-  for (const [file, re] of rules) if (re.test(hay)) return file;
-  return '';
+  // SCORED, not first-match-by-order: count keyword hits per vertical; identity
+  // (primary) hits weigh 10× the noisy research (secondary) hits. Highest score
+  // wins — a stray restaurant term in research no longer beats a real saas identity.
+  let best = '';
+  let bestScore = 0;
+  for (const [file, re] of rules) {
+    const g = new RegExp(re.source, 'gi');
+    const pHits = (primary.match(g) || []).length;
+    const sHits = (secondary.match(g) || []).length;
+    const score = pHits * 10 + sHits;
+    if (score > bestScore) { bestScore = score; best = file; }
+  }
+  return bestScore > 0 ? best : '';
 }
 
 // Presets whose colorScheme is light — Brian directive: healthcare/wellness/legal/
@@ -389,14 +411,19 @@ function applyVerticalPreset(dir, preset, templateDir) {
   const curBg = String((current && current.color && current.color.background && current.color.background.$value) || '');
   // "default" = the template dark shell the crash path leaves behind.
   const isDefault = !current || !current.color || !curScheme || curBg.includes('0.08 0.02');
-  const forceLight = LIGHT_VERTICAL_PRESETS.has(preset) && curScheme !== 'light';
-  if (!isDefault && !forceLight) return `kept-custom (scheme=${curScheme})`;
+  // Force the preset when the current scheme doesn't match the vertical's EXPECTED
+  // scheme (light for healthcare/wellness/legal/restaurant/local-service/nonprofit,
+  // dark for retail/saas/agency/portfolio) — generalizes the old light-only force so
+  // a dark vertical can't ship light (or vice-versa) when the orchestrator mis-themes.
+  const expectLight = LIGHT_VERTICAL_PRESETS.has(preset);
+  const schemeMismatch = expectLight ? curScheme !== 'light' : curScheme !== 'dark';
+  if (!isDefault && !schemeMismatch) return `kept-custom (scheme=${curScheme})`;
   const merged = { ...presetJson };
   for (const idKey of ['business', 'social', 'logo']) {
     if (current && current[idKey]) merged[idKey] = current[idKey];
   }
   fs.writeFileSync(brandPath, JSON.stringify(merged, null, 2));
-  return `applied ${preset} (default=${isDefault} forceLight=${forceLight})`;
+  return `applied ${preset} (default=${isDefault} schemeMismatch=${schemeMismatch})`;
 }
 
 /**
