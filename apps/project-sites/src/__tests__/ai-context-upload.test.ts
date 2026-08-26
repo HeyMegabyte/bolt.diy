@@ -31,6 +31,10 @@ jest.mock('../lib/posthog.js', () => ({
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { aiAdmin } from '../routes/ai_admin.js';
+// Route-decomposition installment 16: POST /api/sites/:siteId/ai/context/upload moved to the
+// `aiContext` module. Mount it BEFORE `aiAdmin` (mirrors src/index.ts) so this test exercises the
+// real moved handler, not a 404.
+import { aiContext } from '../../libs/features/ai_context/handlers.js';
 
 function createApp() {
   const r2Put = jest.fn().mockResolvedValue(undefined);
@@ -70,6 +74,8 @@ function createApp() {
     c.set('userId', 'user-1');
     await next();
   });
+  // aiContext owns the moved /api/sites/:siteId/ai/context/upload route; mount ahead of aiAdmin.
+  app.route('/', aiContext);
   app.route('/', aiAdmin);
 
   return { app, env, r2Put, dbInserts };

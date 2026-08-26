@@ -355,6 +355,11 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // installment 15). Core, un-gated, org+user-scoped (need() auth) not flag-gated — same class
     // as 'analytics'/'siteVersioning'/'siteFiles'.
     'aiEndpoints',
+    // aiContext — /api/sites/:siteId/{ai-chat/context-files,ai/context,ai/drive}/* (AI context /
+    // knowledge management: context-file uploads + Google Drive OAuth + folder sync), extracted to
+    // its own module from ai_admin.ts (route-decomposition installment 16). Core, un-gated,
+    // org+user-scoped (need() auth) not flag-gated — same class as 'aiEndpoints'/'analytics'.
+    'aiContext',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;
