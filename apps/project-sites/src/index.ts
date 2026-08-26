@@ -127,6 +127,8 @@ import { tokenBurnMeter } from '../libs/features/token_burn_meter/handlers.js'; 
 import { siteAnalytics } from '../libs/features/site_analytics/handlers.js'; // owner-facing per-site analytics summary (flag: site_analytics)
 import { domains } from '../libs/features/domains/handlers.js'; // domain search/purchase/register/suggest — extracted from api.ts (route-decomposition installment 1)
 import { notifications } from '../libs/features/notifications/handlers.js'; // in-app notifications inbox (list/mark-read/read-all) — extracted from api.ts (route-decomposition installment 2)
+import { inbox } from '../libs/features/inbox/handlers.js'; // HITL task tray (list/resolve) — extracted from api.ts (route-decomposition installment 3)
+import { sheets } from '../libs/features/sheets/handlers.js'; // public Google Sheets proxy (data/meta) — extracted from api.ts (route-decomposition installment 4)
 import { visitorEvents } from '../libs/features/visitor_events_core/handlers.js'; // public pageview/event beacon ingest (flag: visitor_events_core)
 import { recordPageviewFromRequest } from '../libs/features/visitor_events_core/service.js'; // edge-recorded per-request pageview (no flag — core site analytics)
 // IDEAS-50 wave 3 — GEO + reputation + growth
@@ -879,6 +881,8 @@ app.route('/', cmdkAiActionsRouter); // /api/cmdk/resolve (flag: cmdk_ai_actions
 app.route('/', integrationHealth); // GET /api/integrations/:name/health + /api/integrations/health
 app.route('/', domains); // /api/domains/* + /api/admin/profile/:site_id/context — extracted from api.ts (route-decomposition installment 1); precedes `api`.
 app.route('/', notifications); // /api/notifications + /:id/read + /read-all — extracted from api.ts (route-decomposition installment 2); precedes `api`.
+app.route('/', inbox); // /api/inbox/tasks + /:id/resolve — extracted from api.ts (route-decomposition installment 3); precedes `api`.
+app.route('/', sheets); // /api/sheets/:sheetId + /meta — extracted from api.ts (route-decomposition installment 4); precedes `api`.
 
 app.route('/', api);
 app.route('/', webhooks);

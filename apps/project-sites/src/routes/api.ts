@@ -148,7 +148,6 @@ import { classifyError } from '../services/retry.js';
 import { loadChangelogEntries } from './public.js';
 import * as posthog from '../lib/posthog.js';
 import { createLogger } from '../observability/index.js';
-import { fetchSheetData, fetchSheetMeta } from '../services/google_sheets.js';
 import { migrateExternalAssets } from '../services/asset_migration.js';
 import {
   isCloudflareAnalyticsConfigured,
@@ -2870,58 +2869,6 @@ api.get('/api/readiness', async (c) => {
   );
 
   return c.json({ data: out });
-});
-
-// Companion to `services/task_inbox.ts`. Workflows post elicitation rows;
-// the admin task tray polls `GET /api/inbox/tasks` and resolves a chosen
-// option via `POST /api/inbox/tasks/:id/resolve`. Resolution fans the
-// answer back into the originating workflow via `SITE_GENERATION.sendEvent`
-// when that binding is wired (Workflows v2) — see `resolveTask` for the
-// silent no-op fallback.
-
-/**
- * @route GET /api/inbox/tasks
- * @auth Bearer — `orgId` MUST resolve.
- * @returns 200 OK `{ tasks: TaskInboxView[] }` — unresolved tasks for the
- *   caller's org, newest first, expired rows filtered out so the UI never
- *   offers a stale option the workflow can no longer honor.
- */
-api.get('/api/inbox/tasks', async (c) => {
-  const orgId = c.get('orgId');
-  if (!orgId) throw unauthorized('Must be authenticated');
-  const { listOpenTasks } = await import('../services/task_inbox.js');
-  const tasks = await listOpenTasks(c.env, orgId);
-  return c.json({ tasks });
-});
-
-/**
- * @route POST /api/inbox/tasks/:id/resolve
- * @auth Bearer — `orgId` MUST resolve; the task must belong to that org.
- * @body `{ choice: string }` — option key OR free-text response.
- * @returns 200 OK `{ ok: true }` on a fresh resolution, 200 OK `{ ok: false }`
- *   when the task is already resolved / expired-defaulted / unknown.
- */
-api.post('/api/inbox/tasks/:id/resolve', async (c) => {
-  const orgId = c.get('orgId');
-  const userId = c.get('userId');
-  if (!orgId) throw unauthorized('Must be authenticated');
-
-  const id = c.req.param('id');
-  const body = (await c.req.json().catch(() => ({}))) as { choice?: unknown };
-  const choice = typeof body.choice === 'string' ? body.choice.trim() : '';
-  if (!choice) throw badRequest('choice is required');
-
-  // Cross-org guard — verify the task belongs to this org before resolving.
-  const owns = await dbQueryOne<{ id: string }>(
-    c.env.DB,
-    'SELECT id FROM ai_task_inbox WHERE id = ? AND org_id = ? LIMIT 1',
-    [id, orgId],
-  );
-  if (!owns) throw unauthorized('Task not found for this org');
-
-  const { resolveTask } = await import('../services/task_inbox.js');
-  const ok = await resolveTask(c.env, id, { choice, by: userId ?? undefined });
-  return c.json({ ok });
 });
 
 /**
@@ -6957,99 +6904,6 @@ api.get('/api/sites/:siteId/git/commits/:commitId', async (c) => {
   if (!commit) throw notFound('Commit not found');
 
   return c.json({ data: commit });
-});
-
-/**
- * Read tabular data from a public Google Sheet, returning rows as
- * key-value records keyed by the header row. Powers menu/listing/price
- * widgets on generated sites where the owner maintains a Google Sheet
- * as the source of truth (no CMS, no D1 schema migration needed).
- *
- * @route GET /api/sheets/:sheetId
- * @auth Public (no Bearer). Rate-limited by Worker default + per-IP KV
- *   counter at the edge.
- *
- * @param sheetId - URL param. Google Sheets document ID (the long string
- *   in the share URL: `docs.google.com/spreadsheets/d/{sheetId}/...`).
- *   Sheet MUST be set to "anyone with link can view" — server-side API
- *   key has no domain-scoped permissions.
- * @queryParam tab - Optional tab/worksheet name (case-sensitive). Defaults
- *   to first tab when omitted. URL-encode names containing spaces.
- *
- * @returns 200 with `{ data: Array<Record<string, string>>, count: number }`.
- *   First sheet row = headers (object keys). Subsequent rows → records.
- *   Empty rows below the data range are stripped. Numeric cells stay as
- *   strings — caller coerces.
- *
- * @remarks
- * Key resolution: `GOOGLE_SHEETS_API_KEY` preferred (scoped to Sheets API);
- * falls back to `GOOGLE_PLACES_API_KEY` (which has Sheets API enabled in
- * the same GCP project). Either works because the Sheets API treats them
- * identically once enabled — the fallback exists for cost-tracking
- * granularity, not security separation.
- *
- * No caching layer — every request hits Google. Sheets API quota: 300
- * reqs/min per project. For high-traffic widgets, layer a CF cache or
- * KV cache on top in the calling component.
- *
- * @throws {Error} - Bubbles from `fetchSheetData()` when sheet is private
- *   (Google returns 403), sheetId is malformed (400), tab name doesn't
- *   exist (400), or API quota is exhausted (429). Global error handler
- *   maps to 500 unless re-thrown as AppError upstream.
- *
- * @example
- * ```bash
- * curl "https://projectsites.dev/api/sheets/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms?tab=Menu"
- * # → { "data": [{ "Name": "Margherita", "Price": "$12" }], "count": 1 }
- * ```
- *
- * @see {@link GET /api/sheets/:sheetId/meta} for tab discovery.
- */
-api.get('/api/sheets/:sheetId', async (c) => {
-  const sheetId = c.req.param('sheetId');
-  const tab = c.req.query('tab');
-  const apiKey = c.env.GOOGLE_SHEETS_API_KEY || c.env.GOOGLE_PLACES_API_KEY;
-  const data = await fetchSheetData(sheetId, tab || undefined, apiKey);
-  return c.json({ data, count: data.length });
-});
-
-/**
- * Discover the tabs (worksheets) in a Google Sheet — name + dimensions.
- * Used by the site editor UI's "pick a tab" dropdown so owners don't have
- * to remember/spell tab names. Pairs with `GET /api/sheets/:sheetId?tab=`.
- *
- * @route GET /api/sheets/:sheetId/meta
- * @auth Public (no Bearer).
- *
- * @param sheetId - URL param. Google Sheets document ID. Sheet must be
- *   publicly readable ("anyone with link").
- *
- * @returns 200 with `{ tabs: Array<{ name: string, rows: number,
- *   columns: number }> }`. Order matches the tab order in Google Sheets.
- *   `rows` and `columns` reflect the sheet's allocated grid, not the
- *   used range (a fresh blank tab reports rows=1000, columns=26).
- *
- * @remarks
- * Single Sheets API call (`spreadsheets.get` with `fields=sheets.properties`).
- * Lighter than fetching data — useful as a quick existence check before
- * the heavier data endpoint.
- *
- * @throws {Error} - Bubbles from `fetchSheetMeta()` on private sheet (403),
- * malformed sheetId (400), or quota exhaustion (429). Mapped to 500 by
- * global error handler.
- *
- * @example
- * ```bash
- * curl "https://projectsites.dev/api/sheets/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms/meta"
- * # → { "tabs": [{ "name": "Sheet1", "rows": 100, "columns": 10 },
- * #              { "name": "Menu",   "rows":  50, "columns":  4 }] }
- * ```
- */
-api.get('/api/sheets/:sheetId/meta', async (c) => {
-  const sheetId = c.req.param('sheetId');
-  const apiKey = c.env.GOOGLE_SHEETS_API_KEY || c.env.GOOGLE_PLACES_API_KEY;
-  const tabs = await fetchSheetMeta(sheetId, apiKey);
-  return c.json({ tabs });
 });
 
 /**

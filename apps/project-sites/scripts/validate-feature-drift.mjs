@@ -282,6 +282,14 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // extracted to its own module (route-decomposition installment 2). Core, un-gated,
     // user-scoped (userId auth) not flag-gated — same class as 'domains'/'domainStack'.
     'notifications',
+    // inbox — /api/inbox/tasks + /:id/resolve (HITL task tray), extracted to its own
+    // module (route-decomposition installment 3). Core, un-gated, org-scoped (orgId auth)
+    // not flag-gated — same class as 'notifications'/'domains'.
+    'inbox',
+    // sheets — /api/sheets/:sheetId[/meta] (public Google Sheets proxy for site widgets),
+    // extracted to its own module (route-decomposition installment 4). Core, un-gated,
+    // PUBLIC (no auth) — same class as the other route-organization extractions.
+    'sheets',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;
