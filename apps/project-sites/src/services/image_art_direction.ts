@@ -211,10 +211,7 @@ export function buildArtDirectedPrompt(input: ArtDirectionInput): string {
   // Derive the subject: prefer the caller's cue, ground it in the vertical + slot;
   // when the cue is thin/empty, fall back to a concrete slot-specific scene.
   const fallback = slotSubjectFallback(slot, vertical);
-  const subject =
-    rawSubject.length >= 4
-      ? `${fallback}. Featuring: ${rawSubject}`
-      : fallback;
+  const subject = rawSubject.length >= 4 ? `${fallback}. Featuring: ${rawSubject}` : fallback;
 
   const businessContext = input.businessName
     ? `Context: this is for ${input.businessName.trim()} (a ${vertical}) — depict the real place, never render its name as text. `
