@@ -26,7 +26,7 @@ export default defineFeatureManifest({
   // ---- surfaces ----
   routes: ['/admin/billing', '/admin/upgrade'],
   apiRoutes: [
-    // checkout-core money paths — still in routes/api.ts (pending a dedicated money-path fire)
+    // checkout-core money paths — now in libs/features/billing/handlers.ts (route-decomposition installment 8)
     'POST /api/billing/checkout',
     'POST /api/billing/embedded-checkout',
     'POST /api/billing/payment-intent',
