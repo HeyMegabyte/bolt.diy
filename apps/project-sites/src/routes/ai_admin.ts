@@ -14,7 +14,6 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { z } from 'zod';
 import type { Env, Variables } from '../types/env.js';
-import { getBalance, topupCredits, CREDIT_BUNDLES, type BundleKey } from '../services/credits.js';
 import { listUserSessions, revokeUserSession, revokeOtherUserSessions } from '../services/auth.js';
 import {
   transferOwnership,
@@ -40,7 +39,6 @@ import {
   type IdeLanguage,
   type EndpointAuthMode,
 } from '../services/ai_endpoints_ide.js';
-import { recordEvent, loadOverview } from '../services/cf_analytics.js';
 import { extractContext, MAX_CONTEXT_FILE_BYTES } from '../services/ai_context_extract.js';
 import {
   buildAuthUrl,
@@ -1143,153 +1141,11 @@ aiAdmin.delete('/api/sites/:siteId/ai-endpoints/:endpointId', async (c) => {
   return c.json({ data: { deleted: true } });
 });
 
-/* ────────────────────────── AI Credits + Spend Alerts ────────────────────────── */
-
-/**
- * `GET /api/billing/credits` — Fetch the caller's org credit balance and
- * recent ledger entries.
- *
- * @remarks
- * Returns `{ balance, ledger[], bundles: CREDIT_BUNDLES }` for rendering
- * a topup dialog. Ledger is capped at the last 50 entries.
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- *
- * @see {@link aiAdmin.post('/api/billing/credits/topup')}
- */
-aiAdmin.get('/api/billing/credits', async (c) => {
-  const { orgId } = need(c);
-  const balance = await getBalance(c.env, orgId);
-  const ledger = await c.env.DB.prepare(
-    `SELECT delta, reason, stripe_session_id, created_at FROM ai_credits_ledger
-     WHERE org_id = ? ORDER BY created_at DESC LIMIT 50`,
-  )
-    .bind(orgId)
-    .all();
-  return c.json({
-    data: {
-      balance,
-      bundles: CREDIT_BUNDLES,
-      ledger: ledger.results ?? [],
-    },
-  });
-});
-
-/**
- * `POST /api/billing/credits/topup` — Start a Stripe Checkout session for
- * one of the predefined credit bundles.
- *
- * @remarks
- * Body: `{ bundle: BundleKey }` keyed into {@link CREDIT_BUNDLES}. Returns
- * a checkout URL the frontend redirects to. Idempotent per checkout
- * session id. Stripe webhook completes the {@link topupCredits} call.
- *
- * @throws 400 BAD_REQUEST when `bundle` is missing or unknown.
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- */
-aiAdmin.post('/api/billing/credits/topup', async (c) => {
-  const { orgId, userId } = need(c);
-  const { bundle } = (await c.req.json().catch(() => ({}))) as { bundle: BundleKey };
-  const cfg = CREDIT_BUNDLES[bundle];
-  if (!cfg) throw new HTTPError(400, 'unknown bundle');
-  const priceKey = cfg.price_id as keyof Env;
-  const priceId = c.env[priceKey] as string | undefined;
-  if (!priceId) {
-    // DEV fallback: credit immediately. In prod this would be a Stripe Checkout.
-    const fresh = await topupCredits(c.env, { orgId, amount: cfg.credits, reason: 'topup_dev' });
-    c.executionCtx.waitUntil(
-      auditService.writeAuditLog(c.env.DB, {
-        org_id: orgId,
-        actor_id: userId,
-        action: 'billing.credits_topup_dev',
-        message: `${cfg.credits} AI credits granted via dev top-up (bundle '${bundle}')`,
-        target_type: 'org',
-        target_id: orgId,
-        metadata_json: { bundle, credits: cfg.credits, mode: 'dev' },
-        request_id: c.get('requestId'),
-      }),
-    );
-    return c.json({ data: { mode: 'dev', balance: fresh } });
-  }
-  const params = new URLSearchParams({
-    mode: 'payment',
-    'line_items[0][price]': priceId,
-    'line_items[0][quantity]': '1',
-    success_url: `https://projectsites.dev/admin/billing?topup=success&bundle=${bundle}`,
-    cancel_url: `https://projectsites.dev/admin/billing?topup=cancel`,
-    'metadata[org_id]': orgId,
-    'metadata[bundle]': bundle,
-    'metadata[credits]': String(cfg.credits),
-  });
-  const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${c.env.STRIPE_SECRET_KEY}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: params,
-  });
-  const json = (await res.json()) as { url?: string; id?: string };
-  if (!res.ok || !json.url) throw new HTTPError(502, 'Stripe session creation failed');
-
-  c.executionCtx.waitUntil(
-    auditService.writeAuditLog(c.env.DB, {
-      org_id: orgId,
-      actor_id: userId,
-      action: 'billing.credits_topup_initiated',
-      message: `Stripe checkout created for AI credits top-up (bundle '${bundle}', ${cfg.credits} credits)`,
-      target_type: 'org',
-      target_id: orgId,
-      metadata_json: { bundle, credits: cfg.credits, stripe_session_id: json.id ?? null },
-      request_id: c.get('requestId'),
-    }),
-  );
-
-  return c.json({ data: { mode: 'stripe', url: json.url, session_id: json.id } });
-});
-
-// The canonical spend-alerts surface lives in `routes/api.ts` § Spend Alerts
+// AI credit balance/top-up + per-site cost rollup moved to
+// `libs/features/billing/handlers.ts` (route-decomposition installment 14):
+//   GET  /api/billing/credits, POST /api/billing/credits/topup, GET /api/billing/site-costs.
+// The canonical spend-alerts surface lives in `libs/features/billing/handlers.ts`
 // (behind `createSpendAlertSchema` + the migration-0024 `spend_alerts` schema).
-
-/**
- * `GET /api/billing/site-costs` — Per-site rollup of credit spend over the
- * last 30 days.
- *
- * @remarks
- * Aggregates `ai_form_logs.credits_debited` grouped by `site_id` for the
- * caller's org. Used by the billing dashboard to flag runaway sites.
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- */
-aiAdmin.get('/api/billing/site-costs', async (c) => {
-  const { orgId } = need(c);
-  const sinceDay =
-    c.req.query('since') ?? new Date(Date.now() - 30 * 86400 * 1000).toISOString().slice(0, 10);
-  const rows = await c.env.DB.prepare(
-    `SELECT site_id, SUM(ai_calls) AS ai_calls, SUM(ai_credits) AS ai_credits,
-            SUM(bandwidth_bytes) AS bandwidth_bytes, SUM(storage_bytes) AS storage_bytes,
-            SUM(estimated_cost_micro_usd) AS estimated_cost_micro_usd
-     FROM site_cost_daily WHERE org_id = ? AND day >= ?
-     GROUP BY site_id ORDER BY estimated_cost_micro_usd DESC`,
-  )
-    .bind(orgId, sinceDay)
-    .all();
-  const sites = await c.env.DB.prepare(
-    `SELECT id, slug, business_name FROM sites WHERE org_id = ? AND deleted_at IS NULL`,
-  )
-    .bind(orgId)
-    .all<{ id: string; slug: string; business_name: string | null }>();
-  const byId = new Map((sites.results ?? []).map((s) => [s.id, s]));
-  return c.json({
-    data: {
-      since: sinceDay,
-      rows: (rows.results ?? []).map((r) => {
-        const s = byId.get(r['site_id'] as string);
-        return { ...r, slug: s?.slug, business_name: s?.business_name };
-      }),
-    },
-  });
-});
 
 /* ────────────────────────── MCP connections (list + disconnect) ────────────────────────── */
 
@@ -1628,133 +1484,10 @@ aiAdmin.delete('/api/team/members/:userId', async (c) => {
   return c.json({ data: { removed: true } });
 });
 
-/* ────────────────────────── Audit Log (ag-grid friendly) ────────────────────────── */
-
-/* ────────────────────────── Cloudflare Analytics ────────────────────────── */
-
-// Public, unauthenticated — the admin SPA fires this on every route change.
-// Records one Analytics Engine data point. Seeds a sentinel visit on first
-// hit so the Analytics page always shows ≥ 1 visit out of the box.
-/**
- * `POST /api/analytics/track` — Record a tenant-scoped analytics event
- * (CF Analytics + PostHog server-side).
- *
- * @remarks
- * Body: `{ event, properties? }`. Tagged with `org_id` + `user_id` for
- * cross-tenant isolation. Fire-and-forget; failures never block the
- * response.
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- */
-aiAdmin.post('/api/analytics/track', async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as { route?: string; site_id?: string };
-  const orgId = (c.get('orgId') as string | undefined) ?? 'anonymous';
-  recordEvent(c.env, {
-    event: 'admin_visit',
-    routePath: body.route ?? '/admin',
-    siteId: body.site_id ?? null,
-    orgId,
-    userAgent: c.req.header('user-agent'),
-    referrer: c.req.header('referer'),
-    country: c.req.header('cf-ipcountry'),
-  });
-  return c.json({ data: { tracked: true } });
-});
-
-/**
- * `GET /api/analytics/overview` — Rolling analytics summary (last 7 + 30
- * days) for the caller's org.
- *
- * @remarks
- * Pulls counts from CF Analytics + funnel events from D1 via
- * {@link loadOverview}. Used by the admin dashboard tiles.
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- */
-aiAdmin.get('/api/analytics/overview', async (c) => {
-  const { orgId } = need(c);
-  // Seed at least one visit so the page never reads empty on first load.
-  recordEvent(c.env, {
-    event: 'admin_visit',
-    routePath: '/admin/analytics',
-    orgId,
-    userAgent: c.req.header('user-agent'),
-    country: c.req.header('cf-ipcountry'),
-  });
-  const rangeRaw = c.req.query('range') ?? '30d';
-  const days = rangeRaw === '1d' ? 1 : rangeRaw === '7d' ? 7 : rangeRaw === '90d' ? 90 : 30;
-  try {
-    const data = await loadOverview(c.env, orgId, days);
-    return c.json({ data, range: rangeRaw, days });
-  } catch (err) {
-    return c.json(
-      {
-        error: { message: err instanceof Error ? err.message : 'analytics unavailable' },
-        data: null,
-      },
-      200,
-    );
-  }
-});
-
-/**
- * `GET /api/audit/rows` — Paginated audit log feed for the caller's org.
- *
- * @remarks
- * Query params: `limit` (default 100, max 500), `action`, `actor_id`,
- * `target_type`, `from`, `to` (ISO timestamps). Append-only — audit rows
- * are never editable or deletable through this surface.
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- */
-aiAdmin.get('/api/audit/rows', async (c) => {
-  const { orgId } = need(c);
-  const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 100) || 100, 1), 500);
-  // Honor the documented filter params (action / actor_id / target_type / from / to).
-  // Each is optional and additive — the feed stays org-scoped; omitted filters are no-ops.
-  // Previously these were documented but never bound into WHERE (accepted-but-ignored
-  // filter drift): a caller narrowing to one action silently got the whole feed.
-  const where: string[] = ['org_id = ?'];
-  const binds: unknown[] = [orgId];
-  const action = c.req.query('action');
-  if (action) {
-    where.push('action = ?');
-    binds.push(action);
-  }
-  const actorId = c.req.query('actor_id');
-  if (actorId) {
-    where.push('actor_id = ?');
-    binds.push(actorId);
-  }
-  const targetType = c.req.query('target_type');
-  if (targetType) {
-    where.push('target_type = ?');
-    binds.push(targetType);
-  }
-  const from = c.req.query('from');
-  if (from) {
-    where.push('created_at >= ?');
-    binds.push(from);
-  }
-  const to = c.req.query('to');
-  if (to) {
-    where.push('created_at <= ?');
-    binds.push(to);
-  }
-  binds.push(limit);
-  const rows = await c.env.DB.prepare(
-    `SELECT id, action, message, target_type, target_id, actor_id, metadata_json, request_id, created_at
-     FROM audit_logs WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT ?`,
-  )
-    .bind(...binds)
-    .all();
-  return c.json({
-    data: (rows.results ?? []).map((r) => ({
-      ...r,
-      metadata: safeJson(r['metadata_json'] as string | null),
-    })),
-  });
-});
+// Analytics + audit-feed routes moved to their own feature modules
+// (route-decomposition installment 14):
+//   POST /api/analytics/track + GET /api/analytics/overview → libs/features/analytics/handlers.ts
+//   GET  /api/audit/rows                                    → libs/features/audit_logs/handlers.ts
 
 /* ────────────────────────── Team invite acceptance ────────────────────────── */
 // Email link is /admin/accept-invite?token=…; the frontend POSTs back here.

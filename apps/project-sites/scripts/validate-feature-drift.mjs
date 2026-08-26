@@ -344,6 +344,12 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // un-gated, org-scoped (orgId auth) not flag-gated — same class as 'notifications'/'inbox'/the other
     // route-organization extractions.
     'auditLogs',
+    // analytics — /api/analytics/{track,overview,:siteId}: admin-visit beacon (public, degrades to an
+    // anonymous org tag) + rolling overview tiles (orgId) + per-site dashboard feed (member-scoped,
+    // GA4 → CF zone → first-party edge fallback), extracted to its own module from ai_admin.ts + api.ts
+    // (route-decomposition installment 14). Core, un-gated, mixed public/org/member auth (not flag-gated)
+    // — same class as the other route-organization extractions.
+    'analytics',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;

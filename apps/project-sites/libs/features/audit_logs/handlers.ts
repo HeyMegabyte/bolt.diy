@@ -17,6 +17,7 @@
  * | ------ | ----------------------------- | ----- | ------------------------------------------------ |
  * | GET    | /api/audit-logs               | orgId | List org audit rows (+optional site scope, paged) |
  * | POST   | /api/audit-logs/editor-error  | orgId | Record a bolt.diy editor runtime error           |
+ * | GET    | /api/audit/rows               | orgId | Filtered audit feed (action/actor/target/from/to) |
  *
  * Extracted VERBATIM from the `api.ts` monolith (route-decomposition installment
  * 13) — only the route-registration receiver changed (`api.` → `auditLogs.`);
@@ -26,10 +27,17 @@
  * the app-level error handler; the POST returns its own 401/403 envelopes for
  * missing identity.
  *
+ * `GET /api/audit/rows` (the ag-grid-friendly filtered feed) was additionally
+ * folded BYTE-VERBATIM from the `ai_admin.ts` monolith (installment 14). It keeps
+ * ai_admin's local scaffolding (`HTTPError` / `need(c)` / `safeJson` / this
+ * module's `onError`) so its 401 `{ error: { message: 'Authentication required' } }`
+ * gate stays byte-identical to the ai_admin surface it came from.
+ *
  * @packageDocumentation
  */
 
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { unauthorized } from '@project-sites/shared';
 import type { Env, Variables } from '../../../src/types/env.js';
 import { dbQueryOne } from '../../../src/services/db.js';
@@ -271,4 +279,108 @@ auditLogs.post('/api/audit-logs/editor-error', async (c) => {
   });
 
   return c.json({ data: { recorded: true } });
+});
+
+/* ────────────────────────── Audit feed (folded from ai_admin.ts, installment 14) ────────────────────────── */
+// `GET /api/audit/rows` was moved BYTE-VERBATIM from `routes/ai_admin.ts`. It keeps
+// ai_admin's local auth + error scaffolding (`HTTPError` / `need` / `safeJson` /
+// this module's `onError`) so its 401 `{ error: { message: 'Authentication
+// required' } }` gate + generic-500 behavior are identical to the ai_admin surface.
+
+type Ctx = Context<AppContext>;
+
+class HTTPError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+auditLogs.onError((err, c) => {
+  // Only the folded-in `GET /api/audit/rows` route throws HTTPError — render its
+  // intentional envelope here (byte-identical to ai_admin's onError). Anything else
+  // (the shared AppError/ZodError thrown by the ORIGINAL /api/audit-logs routes
+  // above) must propagate UNCHANGED to the app-level errorHandler, so re-throw it —
+  // else this handler would swallow those routes' 401 envelopes into a generic 500.
+  if (err instanceof HTTPError) {
+    return c.json({ error: { message: err.message } }, err.status as 400);
+  }
+  throw err;
+});
+
+function need(c: Ctx): { orgId: string; userId: string } {
+  const orgId = c.get('orgId') as string | undefined;
+  const userId = c.get('userId') as string | undefined;
+  if (!orgId || !userId) throw new HTTPError(401, 'Authentication required');
+  return { orgId, userId };
+}
+
+function safeJson(s: string | null | undefined): unknown {
+  if (!s) return null;
+  try {
+    return JSON.parse(s);
+  } catch {
+    return s;
+  }
+}
+
+/**
+ * `GET /api/audit/rows` — Paginated audit log feed for the caller's org.
+ *
+ * @remarks
+ * Query params: `limit` (default 100, max 500), `action`, `actor_id`,
+ * `target_type`, `from`, `to` (ISO timestamps). Append-only — audit rows
+ * are never editable or deletable through this surface.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
+auditLogs.get('/api/audit/rows', async (c) => {
+  const { orgId } = need(c);
+  const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 100) || 100, 1), 500);
+  // Honor the documented filter params (action / actor_id / target_type / from / to).
+  // Each is optional and additive — the feed stays org-scoped; omitted filters are no-ops.
+  // Previously these were documented but never bound into WHERE (accepted-but-ignored
+  // filter drift): a caller narrowing to one action silently got the whole feed.
+  const where: string[] = ['org_id = ?'];
+  const binds: unknown[] = [orgId];
+  const action = c.req.query('action');
+  if (action) {
+    where.push('action = ?');
+    binds.push(action);
+  }
+  const actorId = c.req.query('actor_id');
+  if (actorId) {
+    where.push('actor_id = ?');
+    binds.push(actorId);
+  }
+  const targetType = c.req.query('target_type');
+  if (targetType) {
+    where.push('target_type = ?');
+    binds.push(targetType);
+  }
+  const from = c.req.query('from');
+  if (from) {
+    where.push('created_at >= ?');
+    binds.push(from);
+  }
+  const to = c.req.query('to');
+  if (to) {
+    where.push('created_at <= ?');
+    binds.push(to);
+  }
+  binds.push(limit);
+  const rows = await c.env.DB.prepare(
+    `SELECT id, action, message, target_type, target_id, actor_id, metadata_json, request_id, created_at
+     FROM audit_logs WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT ?`,
+  )
+    .bind(...binds)
+    .all();
+  return c.json({
+    data: (rows.results ?? []).map((r) => ({
+      ...r,
+      metadata: safeJson(r['metadata_json'] as string | null),
+    })),
+  });
 });

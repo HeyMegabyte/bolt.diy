@@ -35,6 +35,12 @@ jest.mock('../services/credits.js', () => ({
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { aiAdmin } from '../routes/ai_admin.js';
+// Route-decomposition installment 14: /api/billing/{credits,credits/topup,site-costs}
+// moved to the `billing` module and /api/audit/rows moved to the `auditLogs`
+// module. Mount both BEFORE `aiAdmin` so those moved routes resolve here (they win
+// over any aiAdmin path just as they do in src/index.ts).
+import { billing } from '../../libs/features/billing/handlers.js';
+import { auditLogs } from '../../libs/features/audit_logs/handlers.js';
 import { writeAuditLog } from '../services/audit.js';
 import { canInviteMember, transferOwnership } from '../services/team_seats.js';
 
@@ -97,6 +103,10 @@ function makeApp(vars: Partial<Variables> = {}) {
     if (vars.requestId) c.set('requestId', vars.requestId);
     await next();
   });
+  // billing + auditLogs own the moved /api/billing/* + /api/audit/rows routes;
+  // mount them ahead of aiAdmin (mirrors the index.ts precedence).
+  app.route('/', billing);
+  app.route('/', auditLogs);
   app.route('/', aiAdmin);
   return app;
 }

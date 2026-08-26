@@ -27,9 +27,17 @@
  * | POST   | /api/billing/embedded-checkout   | orgId | Stripe embedded Checkout (in-page)   |
  * | POST   | /api/billing/payment-intent      | orgId | Stripe PaymentIntent (inline 1-click)|
  * | POST   | /api/billing/portal              | orgId | Stripe billing-portal session        |
+ * | GET    | /api/billing/credits             | orgId | AI credit balance + ledger + bundles |
+ * | POST   | /api/billing/credits/topup       | orgId | Stripe Checkout for a credit bundle  |
+ * | GET    | /api/billing/site-costs          | orgId | Per-site 30-day credit-spend rollup  |
  *
  * Extracted VERBATIM from the `api.ts` monolith (route-decomposition installments
- * 5 + 7 + 8). Installment 5 brought the GET (read-only) billing reads; installment 7
+ * 5 + 7 + 8) plus the `ai_admin.ts` monolith (installment 14 — the AI-credit
+ * balance/top-up + per-site cost rollup). The credits/top-up/site-costs trio keeps
+ * ai_admin's original local scaffolding (the `HTTPError` class + `need(c)` auth gate
+ * + `safeJson` + the module `onError`) so their 401/400/500 envelopes and the
+ * `{ error: { message } }` shape stay byte-identical to the ai_admin surface they
+ * came from. Installment 5 brought the GET (read-only) billing reads; installment 7
  * added the billing-ADMIN write routes (Stripe Connect onboarding/status/disconnect,
  * usage metering record + panel, and spend-alert CRUD); installment 8 adds the
  * checkout-core money paths (checkout / embedded-checkout / payment-intent / portal),
@@ -61,8 +69,15 @@ import {
   createPaymentIntentSchema,
 } from '@project-sites/shared';
 import type { Env, Variables } from '../../../src/types/env.js';
+import type { Context } from 'hono';
 import * as auditService from '../../../src/services/audit.js';
 import * as billingService from '../../../src/services/billing.js';
+import {
+  getBalance,
+  topupCredits,
+  CREDIT_BUNDLES,
+  type BundleKey,
+} from '../../../src/services/credits.js';
 import { dbInsert, dbQuery, dbQueryOne } from '../../../src/services/db.js';
 import { checkBuildLimit, resolveActiveOrgPlan } from '../../../src/services/build_limits.js';
 import * as connectService from '../../../src/services/stripe_connect.js';
@@ -935,4 +950,185 @@ billing.post('/api/billing/portal', async (c) => {
     .catch(() => {});
 
   return c.json({ data: result });
+});
+
+/* ────────────────────────── AI Credits (folded from ai_admin.ts, installment 14) ────────────────────────── */
+// The credits/top-up/site-costs handlers below were moved BYTE-VERBATIM from
+// `routes/ai_admin.ts`. They keep ai_admin's local auth + error scaffolding
+// (`HTTPError` / `need` / `safeJson` / this module's `onError`) so their runtime
+// behavior — the 401 `{ error: { message: 'Authentication required' } }` gate, the
+// 400 `unknown bundle` / 502 `Stripe session creation failed` throws, and the
+// generic-500 on any unexpected error — is identical to the ai_admin surface.
+
+type Ctx = Context<AppContext>;
+
+class HTTPError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+billing.onError((err, c) => {
+  // Only the folded-in ai_admin routes throw HTTPError — render its intentional
+  // envelope here (byte-identical to ai_admin's onError). Anything else (the
+  // shared AppError/ZodError thrown by the ORIGINAL billing routes above) must
+  // propagate UNCHANGED to the app-level errorHandler, so re-throw it — else this
+  // handler would swallow those routes' 401/400 envelopes into a generic 500.
+  if (err instanceof HTTPError) {
+    return c.json({ error: { message: err.message } }, err.status as 400);
+  }
+  throw err;
+});
+
+function need(c: Ctx): { orgId: string; userId: string } {
+  const orgId = c.get('orgId') as string | undefined;
+  const userId = c.get('userId') as string | undefined;
+  if (!orgId || !userId) throw new HTTPError(401, 'Authentication required');
+  return { orgId, userId };
+}
+
+/**
+ * `GET /api/billing/credits` — Fetch the caller's org credit balance and
+ * recent ledger entries.
+ *
+ * @remarks
+ * Returns `{ balance, ledger[], bundles: CREDIT_BUNDLES }` for rendering
+ * a topup dialog. Ledger is capped at the last 50 entries.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ *
+ * @see The `POST /api/billing/credits/topup` route below.
+ */
+billing.get('/api/billing/credits', async (c) => {
+  const { orgId } = need(c);
+  const balance = await getBalance(c.env, orgId);
+  const ledger = await c.env.DB.prepare(
+    `SELECT delta, reason, stripe_session_id, created_at FROM ai_credits_ledger
+     WHERE org_id = ? ORDER BY created_at DESC LIMIT 50`,
+  )
+    .bind(orgId)
+    .all();
+  return c.json({
+    data: {
+      balance,
+      bundles: CREDIT_BUNDLES,
+      ledger: ledger.results ?? [],
+    },
+  });
+});
+
+/**
+ * `POST /api/billing/credits/topup` — Start a Stripe Checkout session for
+ * one of the predefined credit bundles.
+ *
+ * @remarks
+ * Body: `{ bundle: BundleKey }` keyed into {@link CREDIT_BUNDLES}. Returns
+ * a checkout URL the frontend redirects to. Idempotent per checkout
+ * session id. Stripe webhook completes the {@link topupCredits} call.
+ *
+ * @throws 400 BAD_REQUEST when `bundle` is missing or unknown.
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
+billing.post('/api/billing/credits/topup', async (c) => {
+  const { orgId, userId } = need(c);
+  const { bundle } = (await c.req.json().catch(() => ({}))) as { bundle: BundleKey };
+  const cfg = CREDIT_BUNDLES[bundle];
+  if (!cfg) throw new HTTPError(400, 'unknown bundle');
+  const priceKey = cfg.price_id as keyof Env;
+  const priceId = c.env[priceKey] as string | undefined;
+  if (!priceId) {
+    // DEV fallback: credit immediately. In prod this would be a Stripe Checkout.
+    const fresh = await topupCredits(c.env, { orgId, amount: cfg.credits, reason: 'topup_dev' });
+    c.executionCtx.waitUntil(
+      auditService.writeAuditLog(c.env.DB, {
+        org_id: orgId,
+        actor_id: userId,
+        action: 'billing.credits_topup_dev',
+        message: `${cfg.credits} AI credits granted via dev top-up (bundle '${bundle}')`,
+        target_type: 'org',
+        target_id: orgId,
+        metadata_json: { bundle, credits: cfg.credits, mode: 'dev' },
+        request_id: c.get('requestId'),
+      }),
+    );
+    return c.json({ data: { mode: 'dev', balance: fresh } });
+  }
+  const params = new URLSearchParams({
+    mode: 'payment',
+    'line_items[0][price]': priceId,
+    'line_items[0][quantity]': '1',
+    success_url: `https://projectsites.dev/admin/billing?topup=success&bundle=${bundle}`,
+    cancel_url: `https://projectsites.dev/admin/billing?topup=cancel`,
+    'metadata[org_id]': orgId,
+    'metadata[bundle]': bundle,
+    'metadata[credits]': String(cfg.credits),
+  });
+  const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${c.env.STRIPE_SECRET_KEY}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params,
+  });
+  const json = (await res.json()) as { url?: string; id?: string };
+  if (!res.ok || !json.url) throw new HTTPError(502, 'Stripe session creation failed');
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: userId,
+      action: 'billing.credits_topup_initiated',
+      message: `Stripe checkout created for AI credits top-up (bundle '${bundle}', ${cfg.credits} credits)`,
+      target_type: 'org',
+      target_id: orgId,
+      metadata_json: { bundle, credits: cfg.credits, stripe_session_id: json.id ?? null },
+      request_id: c.get('requestId'),
+    }),
+  );
+
+  return c.json({ data: { mode: 'stripe', url: json.url, session_id: json.id } });
+});
+
+/**
+ * `GET /api/billing/site-costs` — Per-site rollup of credit spend over the
+ * last 30 days.
+ *
+ * @remarks
+ * Aggregates `ai_form_logs.credits_debited` grouped by `site_id` for the
+ * caller's org. Used by the billing dashboard to flag runaway sites.
+ *
+ * @throws 401 UNAUTHORIZED when org/user context is missing.
+ */
+billing.get('/api/billing/site-costs', async (c) => {
+  const { orgId } = need(c);
+  const sinceDay =
+    c.req.query('since') ?? new Date(Date.now() - 30 * 86400 * 1000).toISOString().slice(0, 10);
+  const rows = await c.env.DB.prepare(
+    `SELECT site_id, SUM(ai_calls) AS ai_calls, SUM(ai_credits) AS ai_credits,
+            SUM(bandwidth_bytes) AS bandwidth_bytes, SUM(storage_bytes) AS storage_bytes,
+            SUM(estimated_cost_micro_usd) AS estimated_cost_micro_usd
+     FROM site_cost_daily WHERE org_id = ? AND day >= ?
+     GROUP BY site_id ORDER BY estimated_cost_micro_usd DESC`,
+  )
+    .bind(orgId, sinceDay)
+    .all();
+  const sites = await c.env.DB.prepare(
+    `SELECT id, slug, business_name FROM sites WHERE org_id = ? AND deleted_at IS NULL`,
+  )
+    .bind(orgId)
+    .all<{ id: string; slug: string; business_name: string | null }>();
+  const byId = new Map((sites.results ?? []).map((s) => [s.id, s]));
+  return c.json({
+    data: {
+      since: sinceDay,
+      rows: (rows.results ?? []).map((r) => {
+        const s = byId.get(r['site_id'] as string);
+        return { ...r, slug: s?.slug, business_name: s?.business_name };
+      }),
+    },
+  });
 });

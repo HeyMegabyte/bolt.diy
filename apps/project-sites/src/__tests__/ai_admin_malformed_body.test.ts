@@ -13,6 +13,10 @@
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { aiAdmin } from '../routes/ai_admin.js';
+// Route-decomposition installment 14: POST /api/billing/credits/topup moved to the
+// `billing` module. Mount it BEFORE `aiAdmin` (mirrors src/index.ts) so the malformed-
+// body path exercises the real moved handler, not a 404.
+import { billing } from '../../libs/features/billing/handlers.js';
 
 const mockDb = {
   prepare: jest.fn((sql: string) => {
@@ -48,6 +52,8 @@ app.use('*', async (c, next) => {
   c.set('requestId', 'req-1');
   await next();
 });
+// billing owns the moved /api/billing/credits/topup route; mount it ahead of aiAdmin.
+app.route('/', billing);
 app.route('/', aiAdmin);
 
 // Some handlers schedule the audit write via `c.executionCtx.waitUntil(...)`,
