@@ -2,38 +2,55 @@
  * @module libs/features/billing/handlers
  *
  * @description
- * Hono routes for the READ-ONLY billing surface — the owner-dashboard billing
- * pane: current subscription, resolved plan entitlements, per-tenant site-quota
- * snapshot, and the 30-day rolling cost forecast. Every route is org-scoped via
- * `c.get('orgId')` (401 envelope when missing) and every read is bounded to that
- * org's rows — a caller can never read another org's billing state.
+ * Hono routes for the org-scoped billing surface — the owner-dashboard billing
+ * pane (subscription, resolved plan entitlements, per-tenant site-quota snapshot,
+ * 30-day rolling cost forecast) plus the billing-ADMIN writes (Stripe Connect
+ * onboarding, usage metering, spend-alert CRUD). Every route is org-scoped via
+ * `c.get('orgId')` (401 envelope when missing) and every read/write is bounded to
+ * that org's rows — a caller can never touch another org's billing state.
  *
- * | Method | Path                          | Auth  | Purpose                              |
- * | ------ | ----------------------------- | ----- | ------------------------------------ |
- * | GET    | /api/billing/subscription     | orgId | Current Stripe subscription row \| null |
- * | GET    | /api/billing/entitlements     | orgId | Resolved plan entitlements object    |
- * | GET    | /api/billing/quota            | orgId | Site-quota snapshot (used/limit/…)   |
- * | GET    | /api/billing/cost-forecast    | orgId | 30-day rolling cost projection       |
+ * | Method | Path                             | Auth  | Purpose                              |
+ * | ------ | -------------------------------- | ----- | ------------------------------------ |
+ * | GET    | /api/billing/subscription        | orgId | Current Stripe subscription row \| null |
+ * | GET    | /api/billing/entitlements        | orgId | Resolved plan entitlements object    |
+ * | GET    | /api/billing/quota               | orgId | Site-quota snapshot (used/limit/…)   |
+ * | GET    | /api/billing/cost-forecast       | orgId | 30-day rolling cost projection       |
+ * | POST   | /api/billing/connect/start       | orgId | Start Stripe Connect onboarding      |
+ * | GET    | /api/billing/connect/status      | orgId | Connect account charges/payouts state|
+ * | POST   | /api/billing/connect/disconnect  | orgId | Disconnect the Connect account       |
+ * | POST   | /api/billing/usage               | orgId | Internal record-a-usage-event        |
+ * | GET    | /api/billing/usage/this-month    | orgId | Usage panel payload for the org      |
+ * | POST   | /api/billing/spend-alerts        | orgId | Create a spend alert rule            |
+ * | GET    | /api/billing/spend-alerts        | orgId | List the org's spend alerts          |
+ * | DELETE | /api/billing/spend-alerts/:id    | orgId | Soft-delete a spend alert            |
  *
- * Extracted VERBATIM from the `api.ts` monolith (route-decomposition installment
- * 5). These are the GET (read-only) billing routes ONLY — no money movement. The
- * WRITE billing routes (checkout / embedded-checkout / payment-intent / portal /
- * connect / usage / spend-alerts) stay in their existing homes and are NOT part of
- * this module. Core, un-gated (`core_billing` sentinel — no `isFlagOn` guard). No
- * request body/params are cast via `as {…}` — the only query params (`days`) are
- * numerically clamped — so there is no `schemas.ts` (nothing to Zod-validate at the
- * boundary). Reads use `billingService`, `resolveActiveOrgPlan`/`checkBuildLimit`,
- * and direct `c.env.DB.prepare(...)` for the forecast aggregate. Known AppErrors
- * (`unauthorized()`) propagate to the app-level error handler.
+ * Extracted VERBATIM from the `api.ts` monolith (route-decomposition installments
+ * 5 + 7). Installment 5 brought the GET (read-only) billing reads; installment 7
+ * adds the billing-ADMIN write routes (Stripe Connect onboarding/status/disconnect,
+ * usage metering record + panel, and spend-alert CRUD). The checkout-core money
+ * paths (checkout / embedded-checkout / payment-intent / portal) stay in their
+ * existing home and are NOT part of this module. Core, un-gated (`core_billing`
+ * sentinel — no `isFlagOn` guard). Request bodies are read via
+ * `c.req.json().catch(() => ({}))`; spend-alert creation validates via the shared
+ * `createSpendAlertSchema` (dynamically imported), the rest read narrow ad-hoc
+ * shapes. Reads/writes use `billingService`, `resolveActiveOrgPlan`/`checkBuildLimit`,
+ * `connectService`, `usageMetering`, the shared `dbQuery`/`dbQueryOne`/`dbInsert`
+ * helpers, `auditService.writeAuditLog`, and direct `c.env.DB.prepare(...)` for the
+ * forecast aggregate + spend-alert delete. Known AppErrors (`unauthorized()`,
+ * `badRequest()`, `notFound()`) propagate to the app-level error handler.
  *
  * @packageDocumentation
  */
 
 import { Hono } from 'hono';
-import { unauthorized } from '@project-sites/shared';
+import { DOMAINS, badRequest, notFound, unauthorized } from '@project-sites/shared';
 import type { Env, Variables } from '../../../src/types/env.js';
+import * as auditService from '../../../src/services/audit.js';
 import * as billingService from '../../../src/services/billing.js';
+import { dbInsert, dbQuery, dbQueryOne } from '../../../src/services/db.js';
 import { checkBuildLimit, resolveActiveOrgPlan } from '../../../src/services/build_limits.js';
+import * as connectService from '../../../src/services/stripe_connect.js';
+import * as usageMetering from '../../../src/services/usage_metering.js';
 
 type AppContext = { Bindings: Env; Variables: Variables };
 
@@ -287,4 +304,301 @@ billing.get('/api/billing/cost-forecast', async (c) => {
       period_end: now.toISOString(),
     },
   });
+});
+
+// Customer-side payments: each org connects their own Stripe account through
+// our platform and we keep a 1.5% platform fee. See services/stripe_connect.ts.
+
+/**
+ * @route POST /api/billing/connect/start
+ * @auth Bearer — orgId required.
+ * @returns `{ data: { url, account_id } }` — redirect URL for Stripe onboarding.
+ */
+billing.post('/api/billing/connect/start', async (c) => {
+  const orgId = c.get('orgId');
+  const userId = c.get('userId');
+  if (!orgId || !userId) throw unauthorized('Must be authenticated');
+
+  const user = await dbQueryOne<{ email: string | null }>(
+    c.env.DB,
+    'SELECT email FROM users WHERE id = ? AND deleted_at IS NULL',
+    [userId],
+  );
+  if (!user?.email) throw badRequest('User has no email on file');
+
+  const body = (await c.req.json().catch(() => ({}))) as {
+    refresh_url?: string;
+    return_url?: string;
+  };
+  const refreshUrl =
+    body.refresh_url ?? `https://${DOMAINS.SITES_BASE}/admin/billing?connect=refresh`;
+  const returnUrl = body.return_url ?? `https://${DOMAINS.SITES_BASE}/admin/billing?connect=done`;
+
+  const result = await connectService.startConnectOnboarding(c.env, c.env.DB, {
+    orgId,
+    email: user.email,
+    refreshUrl,
+    returnUrl,
+  });
+
+  await auditService
+    .writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: userId,
+      action: 'billing.connect.started',
+      message: `Stripe Connect onboarding started for org '${orgId}'`,
+      target_type: 'org',
+      target_id: orgId,
+      metadata_json: { account_id: result.account_id },
+      request_id: c.get('requestId'),
+    })
+    .catch(() => {});
+
+  return c.json({ data: result });
+});
+
+/**
+ * @route GET /api/billing/connect/status
+ * @auth Bearer — orgId required.
+ * @returns `{ data: { connected, charges_enabled, payouts_enabled, dashboard_url } }`
+ */
+billing.get('/api/billing/connect/status', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+  const status = await connectService.getConnectStatus(c.env, c.env.DB, orgId);
+  return c.json({ data: status });
+});
+
+/**
+ * @route POST /api/billing/connect/disconnect
+ * @auth Bearer — orgId required.
+ */
+billing.post('/api/billing/connect/disconnect', async (c) => {
+  const orgId = c.get('orgId');
+  const userId = c.get('userId');
+  if (!orgId || !userId) throw unauthorized('Must be authenticated');
+
+  const result = await connectService.disconnectConnect(c.env, c.env.DB, orgId);
+
+  await auditService
+    .writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: userId,
+      action: 'billing.connect.disconnected',
+      message: `Stripe Connect account disconnected from org '${orgId}'`,
+      target_type: 'org',
+      target_id: orgId,
+      metadata_json: { ...result },
+      request_id: c.get('requestId'),
+    })
+    .catch(() => {});
+
+  return c.json({ data: result });
+});
+
+/**
+ * @route POST /api/billing/usage
+ * @description Internal record-a-usage-event endpoint. Used by middleware on
+ *   the originating Worker — never call directly from a browser.
+ * @auth Bearer — orgId required.
+ */
+billing.post('/api/billing/usage', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+  const body = (await c.req.json().catch(() => ({}))) as {
+    metric?: string;
+    value?: number;
+    site_id?: string | null;
+  };
+  if (
+    !body.metric ||
+    (body.metric !== 'ai_calls' &&
+      body.metric !== 'bytes_egress' &&
+      body.metric !== 'image_generations')
+  ) {
+    throw badRequest('metric must be one of: ai_calls, bytes_egress, image_generations');
+  }
+  if (typeof body.value !== 'number' || body.value < 0) {
+    throw badRequest('value must be a non-negative number');
+  }
+  await usageMetering.recordUsage(c.env, c.env.DB, {
+    orgId,
+    metric: body.metric,
+    value: body.value,
+    siteId: body.site_id ?? null,
+  });
+  return c.json({ data: { ok: true } });
+});
+
+/**
+ * @route GET /api/billing/usage/this-month
+ * @auth Bearer — orgId required.
+ */
+billing.get('/api/billing/usage/this-month', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+  const payload = await usageMetering.getUsagePanelPayload(c.env.DB, orgId);
+  return c.json({ data: payload });
+});
+
+/**
+ * Create a new spend alert rule for the caller's org.
+ *
+ * @route POST /api/billing/spend-alerts
+ * @auth Bearer orgId required.
+ * @body `{ name, trigger, threshold_credits, email, channels?: string[],
+ *   site_id?: string }` — validated via `createSpendAlertSchema`. `trigger`
+ *   is one of `balance_below | monthly_spend_above | rate_spike`. `channels`
+ *   defaults to `['email']` and accepts `email | slack | discord | pagerduty`.
+ *   `site_id` is optional — when supplied, the cron sweep scopes the alert
+ *   to a single site's usage; when omitted the alert evaluates the whole org.
+ * @returns 201 `{ data: SpendAlert }`.
+ * @throws UNAUTHORIZED, VALIDATION_ERROR.
+ *
+ * @remarks
+ * No ownership check on `site_id` — the field is informational for the cron
+ * sweep, NOT a cross-tenant access vector. The cron join is always
+ * `spend_alerts.org_id = <caller>` so a stale or wrong `site_id` cannot leak
+ * usage from another org's site.
+ */
+billing.post('/api/billing/spend-alerts', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const { createSpendAlertSchema: cas } = await import('@project-sites/shared/schemas');
+  // Malformed body → ZodError 400 (createSpendAlertSchema required fields), not 500.
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = cas.parse(body);
+
+  const id = crypto.randomUUID();
+  const channelsJson = JSON.stringify(parsed.channels);
+  await dbInsert(c.env.DB, 'spend_alerts', {
+    id,
+    org_id: orgId,
+    site_id: parsed.site_id ?? null,
+    name: parsed.name,
+    trigger_type: parsed.trigger,
+    threshold_credits: parsed.threshold_credits,
+    email: parsed.email,
+    channels_json: channelsJson,
+    last_fired_at: null,
+    fire_count: 0,
+    created_by: c.get('userId') ?? null,
+    deleted_at: null,
+  });
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'billing.spend_alert_created',
+      message: `Spend alert '${parsed.name}' created (${parsed.trigger} @ ${parsed.threshold_credits} credits → ${parsed.email})`,
+      target_type: 'spend_alert',
+      target_id: id,
+      metadata_json: {
+        trigger: parsed.trigger,
+        threshold_credits: parsed.threshold_credits,
+        email: parsed.email,
+        channels: parsed.channels,
+        site_id: parsed.site_id ?? null,
+      },
+      request_id: c.get('requestId'),
+    }),
+  );
+
+  return c.json(
+    {
+      data: {
+        id,
+        org_id: orgId,
+        site_id: parsed.site_id ?? null,
+        name: parsed.name,
+        trigger_type: parsed.trigger,
+        threshold_credits: parsed.threshold_credits,
+        email: parsed.email,
+        channels_json: channelsJson,
+        last_fired_at: null,
+        fire_count: 0,
+      },
+    },
+    201,
+  );
+});
+
+/**
+ * List spend alerts for the caller's org.
+ *
+ * @route GET /api/billing/spend-alerts
+ * @auth Bearer orgId required.
+ * @returns `{ data: SpendAlert[] }` — soft-deleted rows excluded, newest first.
+ */
+billing.get('/api/billing/spend-alerts', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const rows = await dbQuery<{
+    id: string;
+    org_id: string;
+    site_id: string | null;
+    name: string;
+    trigger_type: string;
+    threshold_credits: number;
+    email: string;
+    channels_json: string;
+    last_fired_at: string | null;
+    fire_count: number;
+    created_at: string;
+    updated_at: string;
+  }>(
+    c.env.DB,
+    `SELECT id, org_id, site_id, name, trigger_type, threshold_credits, email,
+            channels_json, last_fired_at, fire_count, created_at, updated_at
+       FROM spend_alerts
+      WHERE org_id = ? AND deleted_at IS NULL
+      ORDER BY created_at DESC`,
+    [orgId],
+  );
+
+  return c.json({ data: rows.data });
+});
+
+/**
+ * Soft-delete a spend alert.
+ *
+ * @route DELETE /api/billing/spend-alerts/:id
+ * @auth Bearer orgId required — cross-org guard via `WHERE org_id = ?`.
+ * @returns `{ data: { deleted: true } }` (idempotent — 200 on already-deleted).
+ */
+billing.delete('/api/billing/spend-alerts/:id', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const alertId = c.req.param('id');
+  const existing = await dbQueryOne<{ name: string }>(
+    c.env.DB,
+    'SELECT name FROM spend_alerts WHERE id = ? AND org_id = ? AND deleted_at IS NULL',
+    [alertId, orgId],
+  );
+  if (!existing) throw notFound('Spend alert not found');
+
+  await c.env.DB.prepare(
+    "UPDATE spend_alerts SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND org_id = ?",
+  )
+    .bind(alertId, orgId)
+    .run();
+
+  c.executionCtx.waitUntil(
+    auditService.writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'billing.spend_alert_deleted',
+      message: `Spend alert '${existing.name}' deleted`,
+      target_type: 'spend_alert',
+      target_id: alertId,
+      metadata_json: { name: existing.name },
+      request_id: c.get('requestId'),
+    }),
+  );
+
+  return c.json({ data: { deleted: true } });
 });
