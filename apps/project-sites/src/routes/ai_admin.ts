@@ -13,14 +13,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Env, Variables } from '../types/env.js';
-import {
-  HTTPError,
-  need,
-  siteOwned,
-  safeJson,
-  aiAdminOnError,
-  type Ctx,
-} from '../lib/ai_admin_kit.js';
+import { HTTPError, need, siteOwned, aiAdminOnError, type Ctx } from '../lib/ai_admin_kit.js';
 import { listUserSessions, revokeUserSession, revokeOtherUserSessions } from '../services/auth.js';
 import {
   transferOwnership,
@@ -29,7 +22,6 @@ import {
   resolveSeatLimit,
 } from '../services/team_seats.js';
 import { getOrgEntitlements } from '../services/billing.js';
-import { allProviders } from '../services/mcp_client.js';
 import { forecastCost } from '../services/ai_admin_features.js';
 import * as auditService from '../services/audit.js';
 import { escapeHtml } from '@project-sites/shared';
@@ -37,160 +29,17 @@ import { getEmailProvider } from '../platform/email-router.js';
 
 export const aiAdmin = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-// Error/auth scaffolding (HTTPError · need · siteOwned · safeJson · onError) is
-// shared via src/lib/ai_admin_kit.ts — imported above (route-decomposition
-// installment 17, DRY consolidation). Byte-identical behavior to the prior
-// inline copies; see the kit module doc for the siteOwned-vs-requireOwnedSite
-// rationale.
+// Error/auth scaffolding (HTTPError · need · siteOwned · onError) is shared via
+// src/lib/ai_admin_kit.ts — imported above (route-decomposition installment 17,
+// DRY consolidation). Byte-identical behavior to the prior inline copies; see the
+// kit module doc for the siteOwned-vs-requireOwnedSite rationale.
 aiAdmin.onError(aiAdminOnError);
 
-/* ────────────────────────── Form Submissions + AI Logs ────────────────────────── */
-
-/**
- * `GET /api/sites/:siteId/form-submissions` — List up to 200 most recent form
- * submissions for the requested site.
- *
- * @remarks
- * Requires org membership of the site's owning org. Returns each submission
- * with `fields` parsed from the stored JSON payload.
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
- *
- * @see {@link aiAdmin.get('/api/sites/:siteId/form-submissions/:subId')}
- */
-aiAdmin.get('/api/sites/:siteId/form-submissions', async (c) => {
-  const { orgId } = need(c);
-  const siteId = c.req.param('siteId');
-  await siteOwned(c, orgId, siteId);
-  const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 200), 1), 500);
-  const offset = Math.max(Number(c.req.query('offset') ?? 0), 0);
-  const rows = await c.env.DB.prepare(
-    `SELECT id, form_name, email, payload, status, ip_address, origin_url, created_at
-     FROM form_submissions WHERE site_id = ?
-     ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-  )
-    .bind(siteId, limit, offset)
-    .all<Record<string, unknown>>();
-  // True count so a business owner can reach EVERY lead (offset-page) and the
-  // count pill shows the real total — a hardcoded LIMIT with no total silently
-  // hides leads (= revenue) past the cap once a site gets popular.
-  const countRow = await c.env.DB.prepare(
-    `SELECT COUNT(*) AS n FROM form_submissions WHERE site_id = ?`,
-  )
-    .bind(siteId)
-    .first<{ n: number }>();
-  const data = (rows.results ?? []).map((r) => ({
-    ...r,
-    fields: safeJson(r['payload'] as string),
-  }));
-  const total = Number(countRow?.n ?? data.length);
-  return c.json({
-    data,
-    meta: { limit, offset, total, has_more: offset + data.length < total },
-  });
-});
-
-/**
- * `GET /api/sites/:siteId/form-submissions/:subId` — Fetch a single form
- * submission by id with parsed `fields`.
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
- * @throws 404 NOT_FOUND when the submission doesn't exist on that site.
- */
-aiAdmin.get('/api/sites/:siteId/form-submissions/:subId', async (c) => {
-  const { orgId } = need(c);
-  const siteId = c.req.param('siteId');
-  await siteOwned(c, orgId, siteId);
-  const sub = await c.env.DB.prepare(
-    `SELECT id, form_name, email, payload, status, ip_address, origin_url, user_agent, created_at
-     FROM form_submissions WHERE id = ? AND site_id = ?`,
-  )
-    .bind(c.req.param('subId'), siteId)
-    .first<Record<string, unknown>>();
-  if (!sub) throw new HTTPError(404, 'Submission not found');
-  const logs = await c.env.DB.prepare(
-    `SELECT * FROM ai_form_logs WHERE submission_id = ? ORDER BY created_at DESC`,
-  )
-    .bind(c.req.param('subId'))
-    .all();
-  return c.json({
-    data: {
-      submission: { ...sub, fields: safeJson(sub['payload'] as string) },
-      ai_logs: logs.results ?? [],
-    },
-  });
-});
-
-/**
- * `GET /api/sites/:siteId/ai-logs?kind=&limit=` — List recent AI trace rows
- * for a site (LLM calls, tool calls, router decisions).
- *
- * @remarks
- * `kind` optionally filters by `trace_kind` (`router`, `chat`, `endpoint`,
- * etc.); `limit` is clamped to 1000 and defaults to 200. Each row is a
- * lightweight summary with `output_preview` truncated to 200 chars.
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
- *
- * @see {@link aiAdmin.get('/api/sites/:siteId/ai-logs/:logId')}
- */
-aiAdmin.get('/api/sites/:siteId/ai-logs', async (c) => {
-  const { orgId } = need(c);
-  const siteId = c.req.param('siteId');
-  await siteOwned(c, orgId, siteId);
-  const kind = c.req.query('kind');
-  const limit = Math.min(Number(c.req.query('limit') ?? 200), 1000);
-  const stmt = kind
-    ? c.env.DB.prepare(
-        `SELECT id, submission_id, trace_kind, endpoint_slug, model, status, latency_ms,
-                tokens_input, tokens_output, credits_debited, tool_name, tool_status,
-                substr(output_text, 1, 200) AS output_preview, error_message, created_at
-         FROM ai_form_logs WHERE site_id = ? AND trace_kind = ?
-         ORDER BY created_at DESC LIMIT ?`,
-      ).bind(siteId, kind, limit)
-    : c.env.DB.prepare(
-        `SELECT id, submission_id, trace_kind, endpoint_slug, model, status, latency_ms,
-                tokens_input, tokens_output, credits_debited, tool_name, tool_status,
-                substr(output_text, 1, 200) AS output_preview, error_message, created_at
-         FROM ai_form_logs WHERE site_id = ?
-         ORDER BY created_at DESC LIMIT ?`,
-      ).bind(siteId, limit);
-  const rows = await stmt.all();
-  const list = rows.results ?? [];
-  // TRUE count (respecting the same `kind` filter) so the admin "Calls" stat can't
-  // under-report once a site's AI traces exceed the page cap — mirrors
-  // form-submissions + /logs + audit-logs. A hardcoded LIMIT with no total silently
-  // hides calls (cost/debugging signal) on any active AI site.
-  const countStmt = kind
-    ? c.env.DB.prepare(
-        `SELECT COUNT(*) AS n FROM ai_form_logs WHERE site_id = ? AND trace_kind = ?`,
-      ).bind(siteId, kind)
-    : c.env.DB.prepare(`SELECT COUNT(*) AS n FROM ai_form_logs WHERE site_id = ?`).bind(siteId);
-  const countRow = await countStmt.first<{ n: number }>();
-  const total = Number(countRow?.n ?? list.length);
-  return c.json({ data: list, meta: { limit, total, has_more: list.length < total } });
-});
-
-/**
- * `GET /api/sites/:siteId/ai-logs/:logId` — Fetch a single AI trace row
- * including full input/output text and timing breakdown.
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
- * @throws 404 NOT_FOUND when the log row doesn't exist on that site.
- */
-aiAdmin.get('/api/sites/:siteId/ai-logs/:logId', async (c) => {
-  const { orgId } = need(c);
-  await siteOwned(c, orgId, c.req.param('siteId'));
-  const row = await c.env.DB.prepare(`SELECT * FROM ai_form_logs WHERE id = ? AND site_id = ?`)
-    .bind(c.req.param('logId'), c.req.param('siteId'))
-    .first();
-  if (!row) throw new HTTPError(404, 'Log not found');
-  return c.json({ data: row });
-});
+// Per-site read-only activity — form submissions + AI logs — moved to
+// `libs/features/site_activity/handlers.ts` (route-decomposition installment 19):
+//   GET /api/sites/:siteId/form-submissions, GET …/form-submissions/:subId,
+//   GET /api/sites/:siteId/ai-logs, GET …/ai-logs/:logId.
+// Backs BOTH the admin Forms inbox (form_submissions) + the AI-Logs view (ai_form_logs).
 
 // Per-site AI settings (GET/PUT /api/sites/:siteId/ai-settings) + the
 // "Improve with AI" rewrite (POST …/ai-settings/improve) + the per-site AI
@@ -203,79 +52,9 @@ aiAdmin.get('/api/sites/:siteId/ai-logs/:logId', async (c) => {
 // The canonical spend-alerts surface lives in `libs/features/billing/handlers.ts`
 // (behind `createSpendAlertSchema` + the migration-0024 `spend_alerts` schema).
 
-/* ────────────────────────── MCP connections (list + disconnect) ────────────────────────── */
-
-/**
- * `GET /api/sites/:siteId/mcp/connections` — List MCP (Model Context
- * Protocol) provider connections for a site.
- *
- * @remarks
- * Returns one row per provider (Mailchimp, Stripe, HubSpot, GitHub, …) with
- * connection status + last-sync timestamp. Never returns access tokens.
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
- */
-aiAdmin.get('/api/sites/:siteId/mcp/connections', async (c) => {
-  const { orgId } = need(c);
-  const siteId = c.req.param('siteId');
-  await siteOwned(c, orgId, siteId);
-  const rows = await c.env.DB.prepare(
-    `SELECT id, provider, display_name, status, scopes_json, account_metadata_json, connected_at
-     FROM mcp_connections WHERE site_id = ? AND status = 'active'`,
-  )
-    .bind(siteId)
-    .all();
-  return c.json({
-    data: {
-      providers: allProviders(),
-      connections: (rows.results ?? []).map((r) => ({
-        ...r,
-        metadata: safeJson(r['account_metadata_json'] as string | null),
-      })),
-    },
-  });
-});
-
-/**
- * `DELETE /api/sites/:siteId/mcp/connections/:id` — Revoke an MCP provider
- * connection and clear its encrypted tokens.
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 403 FORBIDDEN when the site is not owned by the caller's org.
- * @throws 404 NOT_FOUND when the connection id doesn't exist on that site.
- */
-aiAdmin.delete('/api/sites/:siteId/mcp/connections/:id', async (c) => {
-  const { orgId } = need(c);
-  const siteId = c.req.param('siteId');
-  await siteOwned(c, orgId, siteId);
-  const connectionId = c.req.param('id');
-  const connection = await c.env.DB.prepare(
-    `SELECT provider FROM mcp_connections WHERE id = ? AND site_id = ?`,
-  )
-    .bind(connectionId, siteId)
-    .first<{ provider: string }>();
-  await c.env.DB.prepare(
-    `UPDATE mcp_connections SET status = 'revoked', updated_at = datetime('now') WHERE id = ? AND site_id = ?`,
-  )
-    .bind(connectionId, siteId)
-    .run();
-
-  c.executionCtx.waitUntil(
-    auditService.writeAuditLog(c.env.DB, {
-      org_id: orgId,
-      actor_id: c.get('userId') ?? null,
-      action: 'mcp.disconnected',
-      message: `MCP '${connection?.provider ?? 'unknown'}' disconnected from site '${siteId}'`,
-      target_type: 'mcp_connection',
-      target_id: connectionId,
-      metadata_json: { site_id: siteId, provider: connection?.provider ?? null },
-      request_id: c.get('requestId'),
-    }),
-  );
-
-  return c.json({ data: { revoked: true } });
-});
+// Per-site MCP connection management (list + disconnect) moved to
+// `libs/features/mcp_connections/handlers.ts` (route-decomposition installment 19):
+//   GET /api/sites/:siteId/mcp/connections, DELETE …/mcp/connections/:id.
 
 /* ────────────────────────── Team (Settings → Team) ────────────────────────── */
 
@@ -910,129 +689,10 @@ aiAdmin.get('/api/admin/org/export/:id/download', async (c) => {
   });
 });
 
-/* ────────────────────────── Org API keys (psk_…) ────────────────────────── */
-// Org-scoped programmatic keys for the projectsites.dev REST API. Hash + 8-char
-// prefix are stored; the full secret is shown to the user EXACTLY once at
-// creation. Pattern: psk_live_<48 url-safe chars>. Bearer-auth callers can
-// present either a session token (existing) or one of these keys.
-async function hashApiKey(secret: string): Promise<string> {
-  const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret));
-  return Array.from(new Uint8Array(bytes))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-/**
- * `GET /api/admin/api-keys` — List org-scoped API keys (`psk_live_*`,
- * `psk_test_*`) without secret bodies.
- *
- * @remarks
- * Returns name, prefix, created_by, last_used_at, revoked_at. The raw
- * secret is only ever returned once at creation time.
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- */
-aiAdmin.get('/api/admin/api-keys', async (c) => {
-  const { orgId } = need(c);
-  const rows = await c.env.DB.prepare(
-    `SELECT id, name, prefix, scopes_json, last_used_at, expires_at, created_at, revoked_at
-     FROM api_keys WHERE org_id = ? ORDER BY created_at DESC LIMIT 200`,
-  )
-    .bind(orgId)
-    .all();
-  return c.json({
-    data: (rows.results ?? []).map((r) => ({
-      ...r,
-      scopes: r['scopes_json'] ? safeJson(r['scopes_json'] as string) : [],
-      active:
-        !r['revoked_at'] &&
-        (!r['expires_at'] || new Date(r['expires_at'] as string).getTime() > Date.now()),
-    })),
-  });
-});
-
-/**
- * `POST /api/admin/api-keys` — Mint a new org-scoped API key.
- *
- * @remarks
- * Body: `{ name, expires_at? }`. Returns `{ key: 'psk_live_…' }` exactly
- * once — the raw secret is only ever stored as SHA-256 in D1. Audit-logged.
- *
- * @throws 400 BAD_REQUEST when name is missing.
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- */
-aiAdmin.post('/api/admin/api-keys', async (c) => {
-  const { orgId, userId } = need(c);
-  const body = (await c.req.json().catch(() => ({}))) as {
-    name?: string;
-    scopes?: string[];
-    expires_in_days?: number;
-  };
-  const name = (body.name ?? '').trim() || 'untitled key';
-  // 48 url-safe chars of entropy = ~288 bits.
-  const random = Array.from(crypto.getRandomValues(new Uint8Array(36)))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-    .slice(0, 48);
-  const secret = `psk_live_${random}`;
-  const prefix = secret.slice(0, 16); // "psk_live_AbCdEfGh"
-  const hash = await hashApiKey(secret);
-  const id = crypto.randomUUID();
-  const expiresAt = body.expires_in_days
-    ? new Date(
-        Date.now() + Math.max(1, Math.min(365, body.expires_in_days)) * 86400 * 1000,
-      ).toISOString()
-    : null;
-  await c.env.DB.prepare(
-    `INSERT INTO api_keys (id, org_id, created_by, name, prefix, hash, scopes_json, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-  )
-    .bind(
-      id,
-      orgId,
-      userId,
-      name,
-      prefix,
-      hash,
-      JSON.stringify(body.scopes ?? ['read', 'write']),
-      expiresAt,
-    )
-    .run();
-  return c.json(
-    {
-      data: {
-        id,
-        name,
-        prefix,
-        secret, // returned ONCE — never again.
-        expires_at: expiresAt,
-        scopes: body.scopes ?? ['read', 'write'],
-        note: 'Copy this secret now — it cannot be shown again. Send as `Authorization: Bearer <secret>`.',
-      },
-    },
-    201,
-  );
-});
-
-/**
- * `DELETE /api/admin/api-keys/:id` — Revoke an org-scoped API key.
- *
- * @remarks
- * Sets `revoked_at = now()`; subsequent requests with that key fail auth.
- * Audit-logged.
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 404 NOT_FOUND when the key id doesn't belong to the caller's org.
- */
-aiAdmin.delete('/api/admin/api-keys/:id', async (c) => {
-  const { orgId } = need(c);
-  await c.env.DB.prepare(
-    `UPDATE api_keys SET revoked_at = datetime('now') WHERE id = ? AND org_id = ? AND revoked_at IS NULL`,
-  )
-    .bind(c.req.param('id'), orgId)
-    .run();
-  return c.json({ data: { revoked: true } });
-});
+// Org-scoped programmatic API keys (psk_live_*: list/mint/revoke) + the module-
+// private `hashApiKey` helper moved to `libs/features/api_keys/handlers.ts`
+// (route-decomposition installment 19):
+//   GET /api/admin/api-keys, POST /api/admin/api-keys, DELETE /api/admin/api-keys/:id.
 
 /* ────────────────────────── Active sessions (account security) ────────────────────────── */
 // Backs the /admin/user "Active sessions" panel — real D1 `sessions` rows,

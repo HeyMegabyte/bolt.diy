@@ -372,6 +372,21 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // installment 18). Core operator AI tooling, un-gated, org+user-scoped (need() auth) not
     // flag-gated — same class as 'aiSettings'/'aiContext'.
     'adminAi',
+    // apiKeys — /api/admin/api-keys{,/:id} (org-scoped programmatic API keys psk_live_*: list/mint/
+    // revoke), extracted to its own module from ai_admin.ts (route-decomposition installment 19).
+    // Core, un-gated, org+user-scoped (need() auth) not flag-gated — same class as 'adminAi'/
+    // 'aiSettings'/'aiContext'.
+    'apiKeys',
+    // siteActivity — /api/sites/:siteId/{form-submissions,ai-logs}{,/:id} (per-site read-only
+    // activity: contact-form submissions inbox + AI operation logs, list + single-row), extracted to
+    // its own module from ai_admin.ts (route-decomposition installment 19). Core, un-gated,
+    // org+user-scoped (need() + siteOwned() auth) not flag-gated — same class as 'apiKeys'/'aiSettings'.
+    'siteActivity',
+    // mcpConnections — /api/sites/:siteId/mcp/connections{,/:id} (per-site MCP connection management:
+    // list active connections + revoke), extracted to its own module from ai_admin.ts
+    // (route-decomposition installment 19). Core, un-gated, org+user-scoped (need() + siteOwned() auth)
+    // not flag-gated — same class as 'siteActivity'/'apiKeys'/'aiSettings'.
+    'mcpConnections',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;

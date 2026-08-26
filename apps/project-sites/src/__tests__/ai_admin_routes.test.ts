@@ -41,6 +41,13 @@ import { aiAdmin } from '../routes/ai_admin.js';
 // over any aiAdmin path just as they do in src/index.ts).
 import { billing } from '../../libs/features/billing/handlers.js';
 import { auditLogs } from '../../libs/features/audit_logs/handlers.js';
+// Route-decomposition installment 19: /api/admin/api-keys{,/:id},
+// /api/sites/:siteId/{form-submissions,ai-logs}{,/:id}, and
+// /api/sites/:siteId/mcp/connections{,/:id} moved to their own modules. Mount all
+// three BEFORE `aiAdmin` so those moved routes resolve here (mirrors src/index.ts).
+import { apiKeys } from '../../libs/features/api_keys/handlers.js';
+import { siteActivity } from '../../libs/features/site_activity/handlers.js';
+import { mcpConnections } from '../../libs/features/mcp_connections/handlers.js';
 import { writeAuditLog } from '../services/audit.js';
 import { canInviteMember, transferOwnership } from '../services/team_seats.js';
 
@@ -104,9 +111,14 @@ function makeApp(vars: Partial<Variables> = {}) {
     await next();
   });
   // billing + auditLogs own the moved /api/billing/* + /api/audit/rows routes;
-  // mount them ahead of aiAdmin (mirrors the index.ts precedence).
+  // apiKeys + siteActivity + mcpConnections own the installment-19 moved routes
+  // (/api/admin/api-keys, /api/sites/:siteId/{form-submissions,ai-logs,mcp/connections}).
+  // Mount them all ahead of aiAdmin (mirrors the index.ts precedence).
   app.route('/', billing);
   app.route('/', auditLogs);
+  app.route('/', apiKeys);
+  app.route('/', siteActivity);
+  app.route('/', mcpConnections);
   app.route('/', aiAdmin);
   return app;
 }
