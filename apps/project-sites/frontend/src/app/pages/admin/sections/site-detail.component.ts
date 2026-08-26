@@ -637,15 +637,21 @@ export class AdminSiteDetailComponent {
       // { silent }: the catchError below degrades to a slug-only record, so a
       // 404/transient must NOT also fire ApiService's generic "resource wasn't
       // found" toast (it stacked scary toasts on this param route).
-      .get<{ site: { id: string; slug: string; name: string } }>(`/sites/${id}`, undefined, { silent: true })
+      // The worker returns { data: { id, slug, business_name, … } } — reading the old
+      // res.site key always yielded undefined → site() stayed null → the h1 fell back
+      // to siteId() (the raw UUID). Read res.data and map business_name → the signal's
+      // `name` field so the title shows the real business name.
+      .get<{ data: { id: string; slug: string; business_name: string } }>(`/sites/${id}`, undefined, { silent: true })
       .pipe(
         // On failure, fall back to a slug-only record (slug = the URL id) — never
         // inject a misleading "Site" name literal (the h1 + subtitle derive a
         // meaningful host from the slug/id instead of a generic word).
-        catchError(() => of({ site: { id, slug: id, name: '' } })),
+        catchError(() => of({ data: { id, slug: id, business_name: '' } })),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe((res) => this.site.set(res.site ?? null));
+      .subscribe((res) =>
+        this.site.set(res.data ? { id: res.data.id, slug: res.data.slug, name: res.data.business_name } : null),
+      );
   }
 
   // ── Logs ─────────────────────────────────────────────────────────────

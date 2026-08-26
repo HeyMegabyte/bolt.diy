@@ -21,7 +21,7 @@ function make(post = jasmine.createSpy('post').and.returnValue(of({ ok: true, co
   c: AdminSiteDetailComponent;
   post: jasmine.Spy;
 } {
-  const api = { get: jasmine.createSpy('get').and.returnValue(of({ site: { id: 'site-1', slug: 's', name: 'S' } })), post };
+  const api = { get: jasmine.createSpy('get').and.returnValue(of({ data: { id: 'site-1', slug: 's', business_name: 'S' } })), post };
   TestBed.configureTestingModule({
     imports: [AdminSiteDetailComponent],
     providers: [
@@ -204,7 +204,7 @@ describe('AdminSiteDetailComponent (cinematic entrance — matches sibling secti
   afterEach(() => TestBed.resetTestingModule());
 
   it('the root section animates in on first paint (animate-fade-in), like every other admin section', () => {
-    const api = { get: jasmine.createSpy('get').and.returnValue(of({ site: { id: 'site-1', slug: 's', name: 'S' }, columns: [], rows: [], logs: [], snapshots: [] })), post: jasmine.createSpy('post').and.returnValue(of({ ok: true })) };
+    const api = { get: jasmine.createSpy('get').and.returnValue(of({ data: { id: 'site-1', slug: 's', business_name: 'S' }, columns: [], rows: [], logs: [], snapshots: [] })), post: jasmine.createSpy('post').and.returnValue(of({ ok: true })) };
     TestBed.configureTestingModule({
       imports: [AdminSiteDetailComponent],
       providers: [
@@ -221,7 +221,7 @@ describe('AdminSiteDetailComponent (cinematic entrance — matches sibling secti
   });
 
   it('the {slug}.projectsites.dev subtitle is a clickable external link to the live site', () => {
-    const api = { get: jasmine.createSpy('get').and.returnValue(of({ site: { id: 'site-1', slug: 's', name: 'S' }, columns: [], rows: [], logs: [], snapshots: [] })), post: jasmine.createSpy('post').and.returnValue(of({ ok: true })) };
+    const api = { get: jasmine.createSpy('get').and.returnValue(of({ data: { id: 'site-1', slug: 's', business_name: 'S' }, columns: [], rows: [], logs: [], snapshots: [] })), post: jasmine.createSpy('post').and.returnValue(of({ ok: true })) };
     TestBed.configureTestingModule({
       imports: [AdminSiteDetailComponent],
       providers: [
@@ -240,7 +240,7 @@ describe('AdminSiteDetailComponent (cinematic entrance — matches sibling secti
   });
 
   it('stagger-reveals the header, tablist nav, and active panel via appReveal (first-paint cohesion)', () => {
-    const api = { get: jasmine.createSpy('get').and.returnValue(of({ site: { id: 'site-1', slug: 's', name: 'S' }, columns: [], rows: [], logs: [], snapshots: [] })), post: jasmine.createSpy('post').and.returnValue(of({ ok: true })) };
+    const api = { get: jasmine.createSpy('get').and.returnValue(of({ data: { id: 'site-1', slug: 's', business_name: 'S' }, columns: [], rows: [], logs: [], snapshots: [] })), post: jasmine.createSpy('post').and.returnValue(of({ ok: true })) };
     TestBed.configureTestingModule({
       imports: [AdminSiteDetailComponent],
       providers: [
@@ -264,7 +264,7 @@ describe('AdminSiteDetailComponent (cinematic entrance — matches sibling secti
   // The Logs + Snapshots tab empties used bare muted text; the cockpit standard
   // for a sub-panel empty is the cyan-glyph <app-mini-empty> primitive.
   function renderEmpty(): import('@angular/core/testing').ComponentFixture<AdminSiteDetailComponent> {
-    const api = { get: jasmine.createSpy('get').and.returnValue(of({ site: { id: 'site-1', slug: 's', name: 'S' }, columns: [], rows: [], logs: [], snapshots: [] })), post: jasmine.createSpy('post').and.returnValue(of({ ok: true })) };
+    const api = { get: jasmine.createSpy('get').and.returnValue(of({ data: { id: 'site-1', slug: 's', business_name: 'S' }, columns: [], rows: [], logs: [], snapshots: [] })), post: jasmine.createSpy('post').and.returnValue(of({ ok: true })) };
     TestBed.configureTestingModule({
       imports: [AdminSiteDetailComponent],
       providers: [
@@ -319,7 +319,11 @@ describe('AdminSiteDetailComponent (cinematic entrance — matches sibling secti
   // a failed load) — now it falls back to the slug, which is meaningful context.
   function renderWithSite(site: unknown): HTMLElement {
     TestBed.resetTestingModule();
-    const api = { get: jasmine.createSpy('get').and.returnValue(of({ site })), post: jasmine.createSpy('post').and.returnValue(of({ ok: true })) };
+    // The worker returns { data: { …, business_name } } and loadSite reads res.data.
+    // This mock previously used the old { site } wrapper (with a `name` field), which
+    // is exactly why the res.site-miss → h1-shows-UUID bug shipped green. Pass site
+    // objects shaped like the real API (business_name, not name).
+    const api = { get: jasmine.createSpy('get').and.returnValue(of({ data: site })), post: jasmine.createSpy('post').and.returnValue(of({ ok: true })) };
     TestBed.configureTestingModule({
       imports: [AdminSiteDetailComponent],
       providers: [
@@ -333,13 +337,15 @@ describe('AdminSiteDetailComponent (cinematic entrance — matches sibling secti
     return f.nativeElement as HTMLElement;
   }
 
-  it('h1 shows the site business name when present', () => {
-    const el = renderWithSite({ id: 'e2e-site-1', slug: 'urban-fitness', name: 'Urban Fitness Co' });
-    expect(el.querySelector('.site-detail__title')?.textContent?.trim()).toBe('Urban Fitness Co');
+  it('h1 shows the site business name (from res.data.business_name) — never the raw UUID', () => {
+    const el = renderWithSite({ id: 'b41e1eb9-e732-474b-9fc5-281ad4ef1ae2', slug: 'urban-fitness', business_name: 'Urban Fitness Co' });
+    const h1 = el.querySelector('.site-detail__title')?.textContent?.trim();
+    expect(h1).withContext('h1 maps data.business_name → name; res.site miss used to leave this the UUID').toBe('Urban Fitness Co');
+    expect(h1).not.withContext('never renders the raw site UUID').toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-/i);
   });
 
-  it('h1 falls back to the slug (not the generic "Site") when the name is empty', () => {
-    const el = renderWithSite({ id: 'e2e-site-1', slug: 'urban-fitness', name: '' });
+  it('h1 falls back to the slug (not the generic "Site") when the business name is empty', () => {
+    const el = renderWithSite({ id: 'e2e-site-1', slug: 'urban-fitness', business_name: '' });
     const h1 = el.querySelector('.site-detail__title')?.textContent?.trim();
     expect(h1).withContext('a nameless site shows its slug, not an uninformative "Site"').toBe('urban-fitness');
     expect(h1).not.toBe('Site');
@@ -363,7 +369,7 @@ describe('AdminSiteDetailComponent (integration disconnect — confirm-gated via
       imports: [AdminSiteDetailComponent],
       providers: [
         provideRouter([]),
-        { provide: ApiService, useValue: { get: () => of({ site: { id: 's1', slug: 's', name: 'S' } }), post: () => of({}), delete: del } },
+        { provide: ApiService, useValue: { get: () => of({ data: { id: 's1', slug: 's', business_name: 'S' } }), post: () => of({}), delete: del } },
         { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => 's1' }), queryParamMap: of({ get: () => null }) } },
         { provide: ConfirmService, useValue: { confirm } },
         { provide: ToastService, useValue: { error: toastErr, success: () => 0, info: () => 0, warning: () => 0 } },
@@ -414,7 +420,7 @@ describe('AdminSiteDetailComponent (snapshot rollback — confirm-gated, most de
       imports: [AdminSiteDetailComponent],
       providers: [
         provideRouter([]),
-        { provide: ApiService, useValue: { get: () => of({ site: { id: 's1', slug: 's', name: 'S' } }), post, delete: () => of({}) } },
+        { provide: ApiService, useValue: { get: () => of({ data: { id: 's1', slug: 's', business_name: 'S' } }), post, delete: () => of({}) } },
         { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => 's1' }), queryParamMap: of({ get: () => null }) } },
         { provide: ConfirmService, useValue: { confirm } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
@@ -507,7 +513,7 @@ describe('AdminSiteDetailComponent (paste-key save — no silent failure)', () =
       imports: [AdminSiteDetailComponent],
       providers: [
         provideRouter([]),
-        { provide: ApiService, useValue: { get: () => of({ site: { id: 's1', slug: 's', name: 'S' }, providers: [] }), post, delete: () => of({}) } },
+        { provide: ApiService, useValue: { get: () => of({ data: { id: 's1', slug: 's', business_name: 'S' }, providers: [] }), post, delete: () => of({}) } },
         { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => 's1' }), queryParamMap: of({ get: () => null }) } },
         { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
         { provide: ToastService, useValue: { error: toastErr, success: toastOk, info: () => 0, warning: () => 0 } },
@@ -634,7 +640,7 @@ describe('AdminSiteDetailComponent (rollback double-submit guard)', () => {
       imports: [AdminSiteDetailComponent],
       providers: [
         provideRouter([]),
-        { provide: ApiService, useValue: { get: () => of({ site: { id: 's1', slug: 's', name: 'S' } }), post, delete: () => of({}) } },
+        { provide: ApiService, useValue: { get: () => of({ data: { id: 's1', slug: 's', business_name: 'S' } }), post, delete: () => of({}) } },
         { provide: ActivatedRoute, useValue: { paramMap: of({ get: () => 's1' }), queryParamMap: of({ get: () => null }) } },
         { provide: ConfirmService, useValue: { confirm } },
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
@@ -662,7 +668,7 @@ describe('AdminSiteDetailComponent (deep-linkable tabs)', () => {
 
   function makeWithTab(tabParam: string | null): { c: AdminSiteDetailComponent; nav: jasmine.Spy } {
     const api = {
-      get: jasmine.createSpy('get').and.returnValue(of({ site: { id: 'site-1', slug: 's', name: 'S' } })),
+      get: jasmine.createSpy('get').and.returnValue(of({ data: { id: 'site-1', slug: 's', business_name: 'S' } })),
       post: jasmine.createSpy('post').and.returnValue(of({ ok: true })),
     };
     TestBed.configureTestingModule({
