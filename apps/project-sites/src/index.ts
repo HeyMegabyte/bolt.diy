@@ -140,6 +140,7 @@ import { siteBySlug } from '../libs/features/site_by_slug/handlers.js'; // publi
 import { feedback } from '../libs/features/feedback/handlers.js'; // user feedback: POST/GET /api/feedback (submit rating + list approved testimonials) — extracted from api.ts (route-decomposition installment 13)
 import { auditLogs } from '../libs/features/audit_logs/handlers.js'; // audit-log read + editor-error ingest: GET /api/audit-logs + POST /api/audit-logs/editor-error — extracted from api.ts (route-decomposition installment 13)
 import { analytics } from '../libs/features/analytics/handlers.js'; // analytics: POST /api/analytics/track + GET /api/analytics/overview (from ai_admin.ts) + GET /api/analytics/:siteId (from api.ts) — extracted route-decomposition installment 14; MUST mount before both api and aiAdmin
+import { aiEndpoints } from '../libs/features/ai_endpoints/handlers.js'; // AI endpoint management (CRUD + deploy/logs/duplicate/ai-helper/suggest) for /api/sites/:siteId/ai-endpoints/* — extracted from ai_admin.ts (route-decomposition installment 15); MUST mount before both api and aiAdmin
 import { visitorEvents } from '../libs/features/visitor_events_core/handlers.js'; // public pageview/event beacon ingest (flag: visitor_events_core)
 import { recordPageviewFromRequest } from '../libs/features/visitor_events_core/service.js'; // edge-recorded per-request pageview (no flag — core site analytics)
 // IDEAS-50 wave 3 — GEO + reputation + growth
@@ -749,6 +750,7 @@ app.route('/', aiEndpointsPublic); // Public /api/ai/:slug/:endpoint dispatcher
 app.route('/', mcpOauth); // MCP OAuth start + callback (MailChimp/Stripe/Resend/HubSpot)
 app.route('/', envVarsRoutes); // /api/env-vars — per-org/site/MCP customizable env vars for AI + MCP dispatch
 app.route('/', analytics); // /api/analytics/{track,overview,:siteId} — analytics surface extracted from ai_admin.ts + api.ts (route-decomposition installment 14); MUST precede aiAdmin AND api so its /api/analytics/* routes win over both
+app.route('/', aiEndpoints); // /api/sites/:siteId/ai-endpoints/* — AI endpoint management (CRUD + deploy/logs/duplicate/ai-helper/suggest) extracted from ai_admin.ts (route-decomposition installment 15); MUST precede aiAdmin AND api
 app.route('/', aiAdmin); // Form submissions, AI logs, chat, endpoints, credits, alerts, team
 app.route('/', apiTokensAdmin); // GET/POST/DELETE /api/v1-tokens — account API-token CRUD for /admin/api-tokens (flag: public_api)
 app.route('/', authSessions); // GET /api/auth/list-sessions + revoke-session/revoke-other — custom-auth Active Sessions (Better Auth dark). Reached because the /api/auth/* BA middleware next()s when better_auth is off.

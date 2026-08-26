@@ -350,6 +350,11 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // (route-decomposition installment 14). Core, un-gated, mixed public/org/member auth (not flag-gated)
     // — same class as the other route-organization extractions.
     'analytics',
+    // aiEndpoints — /api/sites/:siteId/ai-endpoints/* (AI endpoint CRUD + deploy/logs/duplicate/
+    // ai-helper/suggest), extracted to its own module from ai_admin.ts (route-decomposition
+    // installment 15). Core, un-gated, org+user-scoped (need() auth) not flag-gated — same class
+    // as 'analytics'/'siteVersioning'/'siteFiles'.
+    'aiEndpoints',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;

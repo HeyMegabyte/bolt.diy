@@ -27,6 +27,10 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { aiAdmin } from '../routes/ai_admin.js';
+// Route-decomposition installment 15: POST /api/sites/:siteId/ai-endpoints/suggest moved to
+// the `aiEndpoints` module. Mount it BEFORE `aiAdmin` (mirrors src/index.ts) so the suggest
+// path exercises the real moved handler, not a 404.
+import { aiEndpoints } from '../../libs/features/ai_endpoints/handlers.js';
 
 const ORG_ID = 'org-1';
 const SITE_ID = 'site-1';
@@ -60,6 +64,7 @@ function authedApp() {
     c.set('requestId', 'req-1');
     await next();
   });
+  app.route('/', aiEndpoints);
   app.route('/', aiAdmin);
   return app;
 }
@@ -72,6 +77,7 @@ describe('POST /api/sites/:siteId/ai-endpoints/suggest', () => {
   it('rejects unauthenticated requests with 401', async () => {
     const app = new Hono<{ Bindings: Env; Variables: Variables }>();
     app.onError(errorHandler);
+    app.route('/', aiEndpoints);
     app.route('/', aiAdmin);
     const env = makeEnv('{}', SITE_ROW);
     const res = await app.request(
