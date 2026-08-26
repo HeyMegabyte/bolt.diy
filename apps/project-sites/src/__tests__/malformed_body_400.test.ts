@@ -20,6 +20,8 @@ import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { api } from '../routes/api.js';
 import { domains } from '../../libs/features/domains/handlers.js';
+import { billing } from '../../libs/features/billing/handlers.js';
+import { siteVersioning } from '../../libs/features/site_versioning/handlers.js';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.onError(errorHandler);
@@ -30,6 +32,8 @@ app.use('*', async (c, next) => {
   await next();
 });
 app.route('/', domains);
+app.route('/', billing); // /api/billing/usage moved to the billing module (installment 5+7)
+app.route('/', siteVersioning); // /api/sites/:siteId/snapshots[/revert] moved to the site_versioning module (installment 9)
 app.route('/', api);
 
 const env = { ENVIRONMENT: 'test' } as unknown as Env;

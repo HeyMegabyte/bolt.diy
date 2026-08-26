@@ -301,6 +301,12 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // unsubscribe is PUBLIC (signed-token), digest/trigger is org-scoped (orgId auth) —
     // same class as the other route-organization extractions.
     'email',
+    // siteVersioning — /api/sites/:siteId/{snapshots,snapshots/diff,snapshots/revert,
+    // snapshots/:id/restore,git/history,git/diff,git/commits/:id} + /api/sites/:id/
+    // snapshots/:snapId/download (site version history: D1 snapshots + R2 git), extracted
+    // to its own module (route-decomposition installment 9). Core, un-gated, org-scoped
+    // (orgId auth) not flag-gated — same class as the other route-organization extractions.
+    'siteVersioning',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;

@@ -8,6 +8,7 @@
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { api } from '../routes/api.js';
+import { billing } from '../../libs/features/billing/handlers.js';
 import { errorHandler } from '../middleware/error_handler.js';
 
 function makeDbStub(siteCount: number) {
@@ -40,6 +41,7 @@ function makeApp(env: Partial<Env>, authed = true) {
     c.set('requestId', 'test-req');
     await next();
   });
+  app.route('/', billing); // /api/billing/quota moved to the billing module (installment 5+7); precedes `api`
   app.route('/', api);
   return () => app.request('/api/billing/quota', {}, env as Env);
 }
