@@ -19,9 +19,17 @@ import type { Env } from './types/env.js';
 export class SiteBuilderContainer extends Container<Env> {
   override defaultPort = 8080;
   override enableInternet = true;
-  // Keep container warm across the full build window — workflows poll every
-  // 30s for up to 60min. Hibernation between polls would lose child processes.
-  override sleepAfter = '15m'; // scale-to-zero 2026-08-20 — workflow stop()s on terminal; this is the backstop
+  // Idle hibernation timer. The build's workflow polls /status every 30s, and
+  // those HTTP requests reset this idle timer — so ANY value comfortably above the
+  // 30s poll interval is safe from mid-build hibernation (the old 15m was overly
+  // conservative). Lowered to 3m (2026-08-26) to ACCELERATE warm-container image
+  // convergence: stale pre-fix instances (which lack the setStatus self-terminate)
+  // only die via THIS idle timer, then cold-start fresh on the latest image; 3m
+  // vs 15m makes the whole pool converge ~5× faster after a container-code deploy,
+  // killing the version-skew that caused non-deterministic thin/misclassified
+  // builds (fires 12-15). Pairs with maybeSelfTerminate (container-server.mjs),
+  // which hard-exits new-image instances the instant they go idle post-build.
+  override sleepAfter = '3m';
 
   override entrypoint = ['node', '/home/cuser/container-server.mjs'];
 
