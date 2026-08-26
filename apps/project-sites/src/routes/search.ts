@@ -935,7 +935,6 @@ const TRANSPARENT_PIXEL = new Uint8Array([
   0x60, 0x82,
 ]);
 
-
 // Domain availability (GET /api/domains/availability — public WhoisXML + RDAP-fallback
 // check across popular TLDs + variations, KV-cached) FOLDED into
 // `libs/features/domains/handlers.ts` (route-decomposition installment 24), which already
