@@ -86,9 +86,13 @@ interface NotificationGroup {
       <!-- ─────────────────── HEADER ─────────────────── -->
       <header>
         <div class="kicker">You</div>
-        <h2 class="section-h text-lg font-bold text-white m-0 mt-1 flex items-center gap-2">
+        <!-- The account view's TOP-LEVEL heading MUST be an h1 (WCAG 1.3.1 / 2.4.6):
+             /admin/user rendered with ZERO h1, its outline starting at h2, while
+             sibling sections (settings, social) use an h1.section-h as their page
+             heading. text-lg + font-bold keep the visual size identical. -->
+        <h1 class="section-h text-lg font-bold text-white m-0 mt-1 flex items-center gap-2">
           User settings
-        </h2>
+        </h1>
         <p class="text-[0.78rem] text-text-secondary m-0 mt-1 max-w-prose leading-relaxed">
           Preferences scoped to you — not the workspace. Signed in as
           <strong class="text-white">{{ auth.email() || '—' }}</strong>.
@@ -103,7 +107,7 @@ interface NotificationGroup {
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2 flex-wrap mb-1">
-              <h3 class="section-h m-0 text-base font-semibold text-white truncate" [attr.title]="displayName()" data-testid="us-display-name-heading">{{ displayName() }}</h3>
+              <h2 class="section-h m-0 text-base font-semibold text-white truncate" [attr.title]="displayName()" data-testid="us-display-name-heading">{{ displayName() }}</h2>
               <span class="role-pill" title="Your role on this workspace">{{ roleLabel() }}</span>
             </div>
             <p class="text-[0.74rem] text-text-secondary m-0 break-all" data-testid="us-profile-email">{{ auth.email() || '—' }}</p>
@@ -149,7 +153,7 @@ interface NotificationGroup {
       <!-- ─────────────────── THEME ─────────────────── -->
       <section class="card" appReveal>
         <div class="kicker">Appearance</div>
-        <h3 class="section-h m-0 text-base font-semibold text-white mt-1 mb-1">Theme</h3>
+        <h2 class="section-h m-0 text-base font-semibold text-white mt-1 mb-1">Theme</h2>
         <p class="text-[0.7rem] text-text-secondary m-0 mb-3">
           Applies to your admin dashboard view (persisted per browser). System follows your OS appearance.
         </p>
@@ -178,7 +182,7 @@ interface NotificationGroup {
         <div class="flex items-start justify-between gap-3 mb-3 flex-wrap">
           <div>
             <div class="kicker">Programmatic access</div>
-            <h3 class="section-h m-0 text-base font-semibold text-white mt-1">
+            <h2 class="section-h m-0 text-base font-semibold text-white mt-1">
               API keys
               @if (activeKeyCount() > 0) {
                 <span class="header-pill" aria-label="Active keys">
@@ -186,7 +190,7 @@ interface NotificationGroup {
                   {{ activeKeyCount() }} active
                 </span>
               }
-            </h3>
+            </h2>
             <p class="text-[0.7rem] text-text-secondary m-0 mt-1 max-w-prose">
               Send as <code class="font-mono">Authorization: Bearer &lt;key&gt;</code>.
               The secret is shown <strong>once</strong> — store it in a password manager.
@@ -225,7 +229,7 @@ interface NotificationGroup {
             <div class="empty-glyph" aria-hidden="true">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L22 7l-3-3"/></svg>
             </div>
-            <h4 class="glow-h-grad text-lg font-semibold m-0">No API keys yet</h4>
+            <h3 class="glow-h-grad text-lg font-semibold m-0">No API keys yet</h3>
             <p class="text-[0.82rem] text-text-secondary max-w-[420px] mx-auto m-0 leading-relaxed">
               Generate a programmatic key to call the projectsites.dev REST API from CI, scripts, or external tools. Keys are scoped per-account and revocable any time.
             </p>
@@ -309,7 +313,7 @@ interface NotificationGroup {
         <div class="flex items-start justify-between gap-3 mb-3 flex-wrap">
           <div>
             <div class="kicker">Security</div>
-            <h3 class="section-h m-0 text-base font-semibold text-white mt-1">Active sessions</h3>
+            <h2 class="section-h m-0 text-base font-semibold text-white mt-1">Active sessions</h2>
             <p class="text-[0.7rem] text-text-secondary m-0 mt-1 max-w-prose">
               Devices currently signed in to your account. Revoke anything you don't recognize.
             </p>
@@ -386,7 +390,7 @@ interface NotificationGroup {
             }
           </span>
         </div>
-        <h3 class="section-h m-0 text-base font-semibold text-white mt-1 mb-1">Notification preferences</h3>
+        <h2 class="section-h m-0 text-base font-semibold text-white mt-1 mb-1">Notification preferences</h2>
         <p class="text-[0.7rem] text-text-secondary m-0 mb-3 max-w-prose">
           Choose what lands in your inbox. Security alerts stay on by design — toggling them off only mutes the digest, never critical warnings. Choices save instantly on this device.
         </p>
@@ -422,7 +426,7 @@ interface NotificationGroup {
       <!-- ─────────────────── DANGER ZONE ─────────────────── -->
       <section class="card danger-card">
         <div class="kicker text-red-300">Danger zone</div>
-        <h3 class="section-h m-0 text-base font-semibold text-white mt-1 mb-1">Delete account</h3>
+        <h2 class="section-h m-0 text-base font-semibold text-white mt-1 mb-1">Delete account</h2>
         <p class="text-[0.74rem] text-text-secondary m-0 mb-3 max-w-prose leading-relaxed">
           Archives all your sites, signs you out everywhere, and schedules your account for deletion. Recoverable for 30 days by emailing <a href="mailto:hey@megabyte.space" class="text-accent underline">hey&#64;megabyte.space</a>, then permanently purged. Billing ends with the current period.
         </p>

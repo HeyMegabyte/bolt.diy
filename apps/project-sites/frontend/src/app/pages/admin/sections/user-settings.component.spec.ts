@@ -500,4 +500,28 @@ describe('AdminUserSettingsComponent (delete-account confirm: a11y name + visibl
     expect((fx.nativeElement as HTMLElement).querySelector('[data-testid="delete-confirm-ready"]'))
       .withContext('cue appears when the phrase matches (case-insensitive)').not.toBeNull();
   });
+
+  // Heading-hierarchy regression (2026-08-26): /admin/user rendered with ZERO
+  // <h1> — its outline started at h2 "User settings" — while sibling sections
+  // (settings/social) expose their page heading as `<h1 class="section-h">`. A
+  // view that opens at h2 with no h1 breaks WCAG 1.3.1 / 2.4.6. This guards the
+  // account view keeps exactly one h1 as its first heading. Runs in CI (Karma).
+  it('renders exactly one <h1> as its first heading (no h2-first / zero-h1 regression)', () => {
+    const { fx } = render();
+    const host = fx.nativeElement as HTMLElement;
+    const h1s = Array.from(host.querySelectorAll('h1'));
+    expect(h1s.length).withContext('the account view must expose exactly one h1').toBe(1);
+    expect((h1s[0]?.textContent || '').trim()).withContext('the h1 is the page heading').toContain('User settings');
+    const headings = Array.from(host.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+    expect(headings[0]?.tagName).withContext('the FIRST heading in the view must be the h1, not an h2').toBe('H1');
+    // No heading-level skips (h1→h3 is a WCAG 1.3.1 order violation): each heading
+    // may descend at most one level below the previous. Guards the h3→h2/h4→h3
+    // promotion that removed the h1→h3 skip left by adding the h1.
+    const levels = headings.map((h) => Number(h.tagName[1]));
+    for (let i = 1; i < levels.length; i++) {
+      expect(levels[i] - levels[i - 1])
+        .withContext(`heading #${i} (h${levels[i]}) must not skip a level after h${levels[i - 1]}`)
+        .toBeLessThanOrEqual(1);
+    }
+  });
 });
