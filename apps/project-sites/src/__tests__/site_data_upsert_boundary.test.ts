@@ -19,6 +19,10 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { search } from '../routes/search.js';
+// Route-decomposition installment 21: the /api/sites/:siteId/data/* upsert boundary
+// moved from search.ts to its own module. Mount it before search so the moved routes
+// resolve here (mirrors src/index.ts).
+import { siteDataApi } from '../../libs/features/site_data_api/handlers.js';
 
 let lastRun: { sql: string; binds: unknown[] } | null = null;
 // The authz guard (`ownsSiteData`) was added AFTER this suite landed
@@ -51,6 +55,7 @@ app.use('*', async (c, next) => {
   c.set('requestId', 'req-1');
   await next();
 });
+app.route('/', siteDataApi);
 app.route('/', search);
 
 const PATH = '/api/sites/site-1/data/menu_items/row-1';

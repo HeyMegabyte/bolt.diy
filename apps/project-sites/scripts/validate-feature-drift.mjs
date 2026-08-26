@@ -403,6 +403,12 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // .status() proxy), extracted to its own module from ai_admin.ts (route-decomposition installment 20).
     // Core, un-gated, org+user-scoped (need() + siteOwned() auth) not flag-gated — same class as 'siteActivity'.
     'workflowStatus',
+    // siteDataApi — /api/public-data/:table (public host-resolved read) + GET/PUT/DELETE
+    // /api/sites/:siteId/data[/:table[/:rowId]] (org-scoped admin CRUD over the site_data key→JSON store,
+    // ownsSiteData IDOR guard), extracted to its own module from search.ts (route-decomposition installment
+    // 21 — FIRST search.ts extraction). Core, un-gated, mixed public + org-scoped (c.get('orgId')) not
+    // flag-gated — same class as the other route-organization extractions.
+    'siteDataApi',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;
