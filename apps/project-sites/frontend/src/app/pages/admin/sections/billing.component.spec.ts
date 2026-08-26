@@ -226,6 +226,43 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
     expect('notify_email' in body).withContext('NEVER the old notify_email key').toBe(false);
   });
 
+  // ── upgrade(): valid success_url + cancel_url payload AND consumes the returned
+  //    checkout_url. BOTH bugs made "Upgrade to Pro" dead: (1) { plan:'pro' } payload →
+  //    createCheckoutSessionSchema ZodError 400; (2) reading r.data?.url dropped the
+  //    handler's r.data.checkout_url → "Checkout opened" toast but nothing opened. ──
+  it('upgrade POSTs valid success_url + cancel_url and opens the returned checkout_url', () => {
+    build();
+    const c = fixture.componentInstance;
+    // Spy openStripeUrl so consuming the returned url does NOT trigger a real window
+    // redirect (Karma full-page reload).
+    const openSpy = spyOn(c as unknown as { openStripeUrl(u: string | undefined | null): boolean }, 'openStripeUrl').and.returnValue(true);
+    const postSpy = spyOn(TestBed.inject(ApiService), 'post').and.returnValue(of({ data: { checkout_url: 'https://checkout.stripe.com/c/pay/ok' } }));
+    c.upgrade();
+    const call = postSpy.calls.all().find((x) => x.args[0] === '/billing/checkout');
+    expect(call).withContext('upgrade POSTs to /billing/checkout').toBeTruthy();
+    const body = call!.args[1] as Record<string, unknown>;
+    expect(typeof body['success_url']).withContext('success_url present').toBe('string');
+    expect(typeof body['cancel_url']).withContext('cancel_url present').toBe('string');
+    expect(() => new URL(body['success_url'] as string)).withContext('success_url valid URL').not.toThrow();
+    expect(() => new URL(body['cancel_url'] as string)).withContext('cancel_url valid URL').not.toThrow();
+    expect('plan' in body).withContext('NEVER the old { plan } key').toBe(false);
+    expect(openSpy).withContext('opens the returned checkout_url (not the dropped r.data.url)').toHaveBeenCalledWith('https://checkout.stripe.com/c/pay/ok');
+  });
+
+  // ── manage(): reads portal_url (not the old url key) + sends a return_url ──
+  it('manage POSTs /billing/portal with return_url and consumes r.data.portal_url', () => {
+    build();
+    const c = fixture.componentInstance;
+    // safeStripeUrl → null so the success branch does NOT window.location redirect (reload).
+    const safeSpy = spyOn(c as unknown as { safeStripeUrl(u: unknown): string | null }, 'safeStripeUrl').and.returnValue(null);
+    const postSpy = spyOn(TestBed.inject(ApiService), 'post').and.returnValue(of({ data: { portal_url: 'https://billing.stripe.com/p/session/x' } }));
+    c.manage();
+    const call = postSpy.calls.all().find((x) => x.args[0] === '/billing/portal');
+    expect(call).withContext('manage POSTs to /billing/portal').toBeTruthy();
+    expect((call!.args[1] as Record<string, unknown>)['return_url']).withContext('sends a return_url').toEqual(jasmine.any(String));
+    expect(safeSpy).withContext('reads r.data.portal_url (old code read r.data.url → dropped)').toHaveBeenCalledWith('https://billing.stripe.com/p/session/x');
+  });
+
   it('saveAlert maps the rate_spike trigger + both channels when slack is on too', () => {
     build();
     const postSpy = spyOn(TestBed.inject(ApiService), 'post').and.returnValue(of({ data: {} }));
@@ -496,7 +533,14 @@ describe('AdminBillingComponent (upgrade checkout is {silent})', () => {
     });
     const c = TestBed.createComponent(AdminBillingComponent).componentInstance;
     c.upgrade();
-    expect(post).toHaveBeenCalledWith('/billing/checkout', { plan: 'pro' }, { silent: true });
+    // {silent:true} is the point of this test; the body must carry the schema-required
+    // success_url + cancel_url (NOT the old { plan:'pro' } that 400d — this test previously
+    // asserted the broken payload, so it stayed green while checkout was dead in prod).
+    expect(post).toHaveBeenCalledWith(
+      '/billing/checkout',
+      jasmine.objectContaining({ success_url: jasmine.any(String), cancel_url: jasmine.any(String) }),
+      { silent: true },
+    );
   });
 });
 

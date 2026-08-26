@@ -2338,12 +2338,21 @@ export class AdminBillingComponent implements OnInit {
     if (this.upgrading()) return;
     this.upgrading.set(true);
     this.telemetry.track('billing.upgrade_clicked', { plan: 'pro' });
+    // The checkout endpoint REQUIRES success_url + cancel_url (createCheckoutSessionSchema
+    // in @project-sites/shared). Posting only { plan: 'pro' } fails Zod validation → 400
+    // ("Could not start checkout"), so "Upgrade to Pro" was dead for every user. Send Stripe
+    // the return URLs (origin works on prod + localhost); the webhook — not the return URL —
+    // actually flips the plan to paid.
+    const origin = window.location.origin;
     // {silent}: the error callback shows its own specific checkout message —
     // suppress the generic ApiService toast so a failure shows ONE, not two.
-    this.api.post<{ data: { url?: string } }>('/billing/checkout', { plan: 'pro' }, { silent: true }).subscribe({
+    this.api.post<{ data: { checkout_url?: string } }>('/billing/checkout', { success_url: `${origin}/admin/billing?checkout=success`, cancel_url: `${origin}/admin/billing?checkout=cancel` }, { silent: true }).subscribe({
       next: (r) => {
         this.upgrading.set(false);
-        const url = r.data?.url;
+        // Handler returns { data: { checkout_url } } (matches topup/addons); reading the
+        // old r.data?.url key left url undefined → the "Checkout opened" toast fired but
+        // the Stripe page never opened.
+        const url = r.data?.checkout_url;
         if (url) {
           // Validated new-tab open with a same-tab fallback when the popup is blocked.
           this.openStripeUrl(url);
@@ -2355,11 +2364,15 @@ export class AdminBillingComponent implements OnInit {
     });
   }
   manage(): void {
-    this.api.post<{ data: { url?: string } }>('/billing/portal', {}).subscribe({
+    // Handler returns { data: { portal_url } } — reading the old r.data?.url key always
+    // missed it → "Portal opened" toast but no redirect. Also return the user to the
+    // billing tab (not the marketing-homepage default) after the portal.
+    const origin = window.location.origin;
+    this.api.post<{ data: { portal_url?: string } }>('/billing/portal', { return_url: `${origin}/admin/billing` }).subscribe({
       next: (r) => {
-        const safe = this.safeStripeUrl(r.data?.url);
+        const safe = this.safeStripeUrl(r.data?.portal_url);
         if (safe) window.location.href = safe;
-        else if (r.data?.url) this.toast.error('That billing-portal link looked invalid — please retry.');
+        else if (r.data?.portal_url) this.toast.error('That billing-portal link looked invalid — please retry.');
         else this.toast.info('Portal opened');
       },
       error: () => { /* api.service already toasted */ },
