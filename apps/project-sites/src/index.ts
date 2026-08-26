@@ -58,6 +58,8 @@ import { contactNewsletter } from '../libs/features/contact_newsletter/handlers.
 import { placesSearch } from '../libs/features/places_search/handlers.js'; // public Google Places search (GET /api/search/businesses + GET /api/search/address) — extracted from search.ts (route-decomposition installment 25)
 import { mediaAi } from '../libs/features/media_ai/handlers.js'; // AI media pipeline (GET /api/image-proxy + POST /api/ai/{discover-images,discover-videos,edit-image}) — extracted from search.ts (route-decomposition installment 26)
 import { siteCreation } from '../libs/features/site_creation/handlers.js'; // AI site-creation cluster (POST /api/sites/{create-from-search,improve-prompt,generate-prompt} + POST /api/ai/categorize) — extracted from search.ts (route-decomposition installment 27)
+import { sitePreview } from '../libs/features/site_preview/handlers.js'; // GET /api/sites/:slug/preview — R2 index.html preview serve — extracted from search.ts (route-decomposition installment 28)
+import { conversionCheckout } from '../libs/features/conversion_checkout/handlers.js'; // POST /api/conversion/checkout — public Stripe funnel — extracted from search.ts (route-decomposition installment 28)
 import { featureE2e } from './routes/feature_e2e.js';
 import { visionQa } from './routes/vision_qa.js';
 import { browserService } from './routes/browser_service.js'; // browser.projectsites.dev /v1/browser/* (CF-first browser abstraction)
@@ -541,6 +543,8 @@ app.route('/', contactNewsletter); // /api/contact-form/:slug + /api/newsletter/
 app.route('/', placesSearch); // /api/search/{businesses,address} — public Google Places search extracted from search.ts (route-decomposition installment 25)
 app.route('/', mediaAi); // /api/image-proxy + /api/ai/{discover-images,discover-videos,edit-image} — AI media pipeline extracted from search.ts (route-decomposition installment 26)
 app.route('/', siteCreation); // /api/sites/{create-from-search,improve-prompt,generate-prompt} + /api/ai/categorize — AI site-creation cluster extracted from search.ts (route-decomposition installment 27); MUST precede search+api so /api/sites/create-from-search wins over api's /api/sites/:id
+app.route('/', sitePreview); // /api/sites/:slug/preview — R2 index.html preview serve extracted from search.ts (route-decomposition installment 28); precedes api so :slug/preview wins over /api/sites/:id
+app.route('/', conversionCheckout); // /api/conversion/checkout — public Stripe funnel extracted from search.ts (route-decomposition installment 28)
 app.route('/', search); // Must come before api so /api/sites/search wins over /api/sites/:id
 app.route('/', featureE2e); // /api/feature-e2e/:key/run + /runs/:id — Browser Rendering E2E check runner
 app.route('/', visionQa); // /api/vision-qa — Browser Rendering screenshot + Workers AI vision critique (flag: editor_vision_qa)

@@ -438,6 +438,15 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // (route-decomposition installment 27). Core, un-gated, org-scoped (c.get('orgId')+401) — same
     // class as the other route-organization extractions.
     'siteCreation',
+    // sitePreview — GET /api/sites/:slug/preview (serves a site's built index.html from R2 for the
+    // admin preview panel, public read, no D1), extracted to its own module from search.ts
+    // (route-decomposition installment 28). Core, un-gated, PUBLIC — same class as the others.
+    'sitePreview',
+    // conversionCheckout — POST /api/conversion/checkout (public Stripe Checkout funnel for anonymous
+    // site upgrades; deliberately NOT folded into org-scoped billing — differing auth models),
+    // extracted to its own module from search.ts (route-decomposition installment 28). Core, un-gated,
+    // PUBLIC — same class as the others.
+    'conversionCheckout',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;
