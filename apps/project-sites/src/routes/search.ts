@@ -9,11 +9,7 @@
 
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
-import {
-  badRequest,
-  pickSafeRedirect,
-  DOMAINS,
-} from '@project-sites/shared';
+import { badRequest, pickSafeRedirect, DOMAINS } from '@project-sites/shared';
 
 // Re-exported for callers (and tests) that import it from this module rather
 // than from @project-sites/shared.
@@ -260,8 +256,6 @@ search.get('/api/sites/lookup', async (c) => {
     },
   });
 });
-
-
 
 // Public form-ingest endpoints (POST /api/contact-form/:slug + POST
 // /api/newsletter/subscribe — generated-site contact leads → contacts +
