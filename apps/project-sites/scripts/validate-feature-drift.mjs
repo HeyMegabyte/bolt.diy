@@ -421,6 +421,11 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // 23). Core, un-gated, PUBLIC (both routes, Zod-validated) — same class as the other
     // route-organization extractions.
     'contactNewsletter',
+    // placesSearch — GET /api/search/businesses + GET /api/search/address (public Google Places
+    // business text-search + address autocomplete, KV-cached, honest-empty degradation), extracted
+    // to its own module from search.ts (route-decomposition installment 25). Core, un-gated, PUBLIC —
+    // same class as the other route-organization extractions.
+    'placesSearch',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;

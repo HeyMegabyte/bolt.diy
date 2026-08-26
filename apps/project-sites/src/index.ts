@@ -55,6 +55,7 @@ import { search } from './routes/search.js';
 import { siteDataApi } from '../libs/features/site_data_api/handlers.js'; // per-site D1 data-table API (GET /api/public-data/:table + GET/PUT/DELETE /api/sites/:siteId/data[/:table[/:rowId]]) — extracted from search.ts (route-decomposition installment 21); MUST mount before search + api
 import { containerProxy } from '../libs/features/container_proxy/handlers.js'; // build-container callbacks (PUT /api/container-upload/*, POST /api/container-query, GET /api/container-script — shared-secret auth) — extracted from search.ts (route-decomposition installment 22)
 import { contactNewsletter } from '../libs/features/contact_newsletter/handlers.js'; // public form ingest (POST /api/contact-form/:slug + POST /api/newsletter/subscribe) — extracted from search.ts (route-decomposition installment 23)
+import { placesSearch } from '../libs/features/places_search/handlers.js'; // public Google Places search (GET /api/search/businesses + GET /api/search/address) — extracted from search.ts (route-decomposition installment 25)
 import { featureE2e } from './routes/feature_e2e.js';
 import { visionQa } from './routes/vision_qa.js';
 import { browserService } from './routes/browser_service.js'; // browser.projectsites.dev /v1/browser/* (CF-first browser abstraction)
@@ -535,6 +536,7 @@ app.route('/', openapiRoutes); // GET /api/openapi.json — Zod-derived OpenAPI 
 app.route('/', siteDataApi); // /api/public-data/:table + /api/sites/:siteId/data[/:table[/:rowId]] — per-site D1 data-table API extracted from search.ts (route-decomposition installment 21); MUST precede search AND api so /api/sites/:siteId/data wins over api's /api/sites/:id
 app.route('/', containerProxy); // /api/container-{upload/*,query,script} — build-container shared-secret callbacks extracted from search.ts (route-decomposition installment 22)
 app.route('/', contactNewsletter); // /api/contact-form/:slug + /api/newsletter/subscribe — public form ingest extracted from search.ts (route-decomposition installment 23)
+app.route('/', placesSearch); // /api/search/{businesses,address} — public Google Places search extracted from search.ts (route-decomposition installment 25)
 app.route('/', search); // Must come before api so /api/sites/search wins over /api/sites/:id
 app.route('/', featureE2e); // /api/feature-e2e/:key/run + /runs/:id — Browser Rendering E2E check runner
 app.route('/', visionQa); // /api/vision-qa — Browser Rendering screenshot + Workers AI vision critique (flag: editor_vision_qa)

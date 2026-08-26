@@ -23,6 +23,9 @@ import { search, isProxyableImageUrl } from '../routes/search.js';
 // Route-decomposition installment 23: /api/newsletter/subscribe moved from search.ts to
 // its own module. Mount it before search so the moved route resolves here (mirrors src/index.ts).
 import { contactNewsletter } from '../../libs/features/contact_newsletter/handlers.js';
+// Route-decomposition installment 25: /api/search/{businesses,address} moved from search.ts
+// to their own module. Mount it before search so the moved routes resolve here (mirrors src/index.ts).
+import { placesSearch } from '../../libs/features/places_search/handlers.js';
 import { dbQuery, dbQueryOne, dbInsert } from '../services/db.js';
 import { writeAuditLog } from '../services/audit.js';
 import { newsletterSubscribe } from '../services/advanced_features.js';
@@ -65,6 +68,7 @@ const mockEnv = {
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.onError(errorHandler);
 app.route('/', contactNewsletter);
+app.route('/', placesSearch);
 app.route('/', search);
 
 function makeRequest(path: string, options?: RequestInit) {
@@ -244,6 +248,7 @@ describe('GET /api/search/businesses', () => {
 
   it('short-circuits with SEARCH_PROVIDER_NOT_CONFIGURED when the Places key is unset (no fetch)', async () => {
     const noKeyApp = new Hono<{ Bindings: Env; Variables: Variables }>();
+    noKeyApp.route('/', placesSearch);
     noKeyApp.route('/', search);
     const noKeyEnv = { ...mockEnv, GOOGLE_PLACES_API_KEY: undefined } as unknown as Env;
     const res = await noKeyApp.request('/api/search/businesses?q=pizza', undefined, noKeyEnv);
