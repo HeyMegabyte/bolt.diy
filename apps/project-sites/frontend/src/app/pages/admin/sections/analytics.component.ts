@@ -15,7 +15,6 @@ import {
   type SiteUrlRow,
 } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
-import { PromptService } from '../../../services/prompt.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { MiniEmptyComponent } from '../../../components/mini-empty/mini-empty.component';
 import { EmptyStateComponent } from '../empty-state.component';
@@ -153,36 +152,63 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
 
       
 
-      <!-- ─────────────────── URLs PILLS ─────────────────── -->
+      <!-- ─────────────────── AGGREGATING — contributing URLs ─────────────────── -->
       @if (urls().length > 0) {
-        <div class="urls-row" role="group" aria-label="URLs aggregated in this view">
-          <span class="urls-label">Aggregating</span>
+        <div class="urls-row" role="group" aria-label="Websites contributing to this analytics forecast">
+          <span class="urls-label"
+                [title]="contributingHosts().length + ' website' + (contributingHosts().length === 1 ? '' : 's') + ' feeding the aggregated analytics'">
+            Aggregating
+          </span>
           @for (u of urls(); track u.id) {
             <span class="url-pill"
                   [class.is-excluded]="excluded().has(u.hostname)"
                   [class.is-unresolved]="!isResolved(u.hostname)"
+                  [class.is-contributing]="isContributing(u.hostname)"
                   [title]="urlTooltip(u)">
               @if (u.is_primary) {
-                <span class="primary-dot" aria-hidden="true"></span>
+                <span class="primary-dot" aria-hidden="true" title="Primary URL"></span>
               }
               <span class="url-text">{{ u.hostname }}</span>
+              <!-- Include/exclude toggle stays for the primary + any URL, so a host
+                   can be muted from the aggregate without unbinding it. -->
+              <button class="url-toggle"
+                      type="button"
+                      (click)="toggleExclude(u.hostname)"
+                      [attr.aria-label]="excluded().has(u.hostname) ? 'Include ' + u.hostname + ' in the forecast' : 'Mute ' + u.hostname + ' from the forecast'"
+                      [title]="excluded().has(u.hostname) ? 'Include this URL in the aggregate' : 'Mute this URL from the aggregate (keeps it bound)'">
+                @if (excluded().has(u.hostname)) { + } @else { – }
+              </button>
+              <!-- Remove (unbind) — clickable X per website. Primary can't be removed. -->
               @if (!u.is_primary) {
-                <button class="url-toggle"
+                <button class="url-remove"
                         type="button"
-                        (click)="toggleExclude(u.hostname)"
-                        [attr.aria-label]="excluded().has(u.hostname) ? 'Include ' + u.hostname : 'Exclude ' + u.hostname"
-                        [title]="excluded().has(u.hostname) ? 'Include this URL' : 'Exclude this URL from the aggregate'">
-                  @if (excluded().has(u.hostname)) { + } @else { × }
+                        (click)="removeUrl(u)"
+                        [disabled]="removingId() === u.id"
+                        [attr.aria-label]="'Remove ' + u.hostname + ' from forecast'"
+                        [attr.aria-busy]="removingId() === u.id"
+                        [title]="'Remove ' + u.hostname + ' from the forecast (unbinds it)'">
+                  @if (removingId() === u.id) {
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" class="rm-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                  } @else {
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                  }
                 </button>
               }
             </span>
           }
-          <button class="btn-tiny-ghost"
-                  type="button"
-                  (click)="promptAddUrl()"
-                  aria-label="Bind an additional URL"
-                  title="Add an alternate URL to aggregate alongside the primary">+ Add URL</button>
         </div>
+        <!-- Read-only source-of-truth list: the exact hostnames whose Cloudflare
+             data is feeding the aggregate this turn (from urls_included), so the
+             operator sees WHAT is driving the numbers, not just what's bound. -->
+        @if (contributingHosts().length > 0) {
+          <p class="contributing-note" role="status">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+            <span>Contributing to this data:</span>
+            @for (h of contributingHosts(); track h) {
+              <span class="contributing-chip">{{ h }}</span>
+            }
+          </p>
+        }
       }
 
       <!-- ─────────────────── ERROR / STATE BANNERS ─────────────────── -->
@@ -215,7 +241,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
            traffic yet" (a definitive empty-data claim) over a FAILED load. -->
       @if (state.selectedSite() && !error() && !notAvailable()) {
       <!-- ─────────────────── KPI TILES ─────────────────── -->
-      <div class="grid gap-3 grid-cols-3 max-md:grid-cols-1">
+      <div class="grid gap-3 grid-cols-4 max-lg:grid-cols-2 max-md:grid-cols-1">
         <div class="card kpi" appReveal data-testid="kpi-pageviews" role="group" [attr.aria-label]="kpiPageviewsLabel()">
           @if (loading() && !envelope()) {
             <div class="skel skel-line w-20 h-3 mb-2"></div>
@@ -300,6 +326,26 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
             <div class="text-[0.68rem] text-text-secondary mt-1">All HTTP requests at the edge</div>
           }
         </div>
+
+        <div class="card kpi" appReveal data-testid="kpi-bounce" role="group" [attr.aria-label]="kpiBounceLabel()">
+          @if (loading() && !envelope()) {
+            <div class="skel skel-line w-20 h-3 mb-2"></div>
+            <div class="skel skel-line w-16 h-7 mb-2"></div>
+            <div class="skel skel-line w-28 h-3"></div>
+          } @else {
+            <div class="muted-h">Bounce rate</div>
+            <div class="text-3xl font-bold text-white mt-1 leading-none tabular" [title]="bounceRate() == null ? 'No session data at this source' : bounceRate() + '% single-page sessions'">
+              {{ bounceRate() == null ? '—' : bounceRate() + '%' }}
+            </div>
+            <div class="text-[0.68rem] text-text-secondary mt-1">
+              @if (bounceRate() == null) {
+                Needs per-session data
+              } @else {
+                Est. single-page visits · {{ pagesPerVisit() }} pages/visit
+              }
+            </div>
+          }
+        </div>
       </div>
 
       <!-- ─────────────────── MAIN CHART ─────────────────── -->
@@ -358,8 +404,18 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
       <!-- ─────────────────── TOP PAGES + COUNTRIES ─────────────────── -->
       <div class="grid md:grid-cols-2 gap-4">
         <section class="card" appReveal>
-          <div class="kicker">URLs</div>
-          <h3 class="section-h m-0 text-base font-semibold text-white mt-1 mb-3">Top pages</h3>
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <div>
+              <div class="kicker">URLs</div>
+              <h3 class="section-h m-0 text-base font-semibold text-white mt-1 mb-3">Top pages</h3>
+            </div>
+            <!-- Bounce rate also surfaced here — the page list is where "how sticky
+                 is traffic?" is the natural question. Site-wide estimate; "—" when
+                 per-session data is unavailable (never a fabricated number). -->
+            <span class="stat-pill" [title]="bounceRate() == null ? 'No per-session data at this source' : 'Estimated single-page-session share across the site'">
+              Bounce {{ bounceRate() == null ? '—' : bounceRate() + '%' }}
+            </span>
+          </div>
           @if (loading() && !envelope()) {
             <div class="space-y-2" aria-busy="true">
               @for (i of [1,2,3,4]; track i) {
@@ -417,8 +473,12 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
           @for (r of envelope()!.top_referrers; track r.referrer) {
             <div class="bar-row">
               <div class="flex justify-between mb-1 gap-2">
-                <span class="text-[0.78rem] truncate" [attr.title]="r.referrer">{{ r.referrer }}</span>
-                <span class="text-[0.7rem] text-text-secondary tabular">{{ formatCount(r.views) }}</span>
+                <span class="text-[0.78rem] truncate min-w-0" [attr.title]="referrerHost(r.referrer) + ' (referral)'">
+                  <!-- WHO the referrer is (hostname), then a smaller "(referral)" tag. -->
+                  <span class="text-white">{{ referrerHost(r.referrer) }}</span>
+                  <span class="text-xs opacity-70 ml-1">(referral)</span>
+                </span>
+                <span class="text-[0.7rem] text-text-secondary tabular shrink-0">{{ formatCount(r.views) }}</span>
               </div>
               <div class="bar"><div class="bar-fill" [style.width.%]="barWidth(r.views, maxReferrer())"></div></div>
             </div>
@@ -658,6 +718,55 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
     .url-toggle:hover { color: #fff; background: rgba(255,255,255,0.16); }
     .url-toggle:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 1px; }
 
+    /* Clickable X — removes (unbinds) a website from the forecast. ≥24px target. */
+    .url-remove {
+      min-width: 24px; min-height: 24px; padding: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+      background: transparent; color: rgba(255,255,255,0.5);
+      border: 0; cursor: pointer; line-height: 1;
+      transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+    }
+    .url-remove:hover:not(:disabled) {
+      color: #fecaca;
+      background: rgba(248, 113, 113, 0.16);
+      transform: scale(1.05);
+    }
+    .url-remove:disabled { opacity: 0.6; cursor: progress; }
+    .url-remove:focus-visible { outline: 2px solid #f87171; outline-offset: 1px; }
+    .rm-spin { animation: spin 0.9s linear infinite; }
+
+    /* A pill whose host is actively feeding the aggregate gets a subtle live ring. */
+    .url-pill.is-contributing {
+      box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--ps-success, #4dffb5) 30%, transparent);
+    }
+
+    /* Read-only "Contributing to this data" source-of-truth line. */
+    .contributing-note {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+      margin: -2px 0 0; padding: 0 2px;
+      font-size: 0.64rem; color: rgba(255,255,255,0.55);
+    }
+    .contributing-note > svg { color: var(--ps-success, #4dffb5); flex-shrink: 0; }
+    .contributing-chip {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.62rem; color: var(--ps-ink, #fff);
+      padding: 1px 7px; border-radius: 999px;
+      background: color-mix(in oklch, var(--ps-success, #4dffb5) 10%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-success, #4dffb5) 24%, transparent);
+    }
+
+    /* Compact stat pill used for the on-card Bounce rate readout. */
+    .stat-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 10px; border-radius: 999px;
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 0.62rem; font-weight: 600; letter-spacing: 0.02em;
+      color: color-mix(in oklch, var(--ps-accent, #00E5FF) 70%, var(--ps-ink, #fff) 30%);
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 8%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 22%, transparent);
+    }
+
     .notice { display: flex; gap: 12px; align-items: center; justify-content: space-between; font-size: 0.78rem; line-height: 1.55; }
     .notice strong { display: block; color: #fff; }
     .notice-amber { background: rgba(251, 191, 36, 0.06); border-color: rgba(251, 191, 36, 0.3); color: #fde68a; }
@@ -725,7 +834,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .skel::after, .empty-glyph, .dots span, .refresh-btn .spinning { animation: none; }
+      .skel::after, .empty-glyph, .dots span, .refresh-btn .spinning, .rm-spin { animation: none; }
       .sparkline path, .bar-fill, .btn-primary, .card, .url-pill { transition: none; }
       .card:hover { transform: none; box-shadow: none; }
     }
@@ -735,7 +844,6 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   state = inject(AdminStateService);
   private api = inject(ApiService);
   private toast = inject(ToastService);
-  private promptSvc = inject(PromptService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
@@ -744,6 +852,8 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   urls = signal<SiteUrlRow[]>([]);
   excluded = signal<Set<string>>(new Set());
   credStatus = signal<CloudflareCredentialStatus | null>(null);
+  /** The url row id currently being unbound (drives the X spinner + disabled). */
+  readonly removingId = signal<string | null>(null);
 
   error = signal<string | null>(null);
   /** Worker request_id from a failed load → the copyable support reference on the error card. */
@@ -904,9 +1014,28 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
     const parts: string[] = [];
     parts.push(u.is_primary ? 'Primary URL' : 'Alternate URL');
     if (this.envelope() && !this.isResolved(u.hostname)) parts.push('— zone not resolved');
-    if (this.excluded().has(u.hostname)) parts.push('(excluded from aggregate)');
+    if (this.isContributing(u.hostname)) parts.push('— feeding this data');
+    if (this.excluded().has(u.hostname)) parts.push('(muted from aggregate)');
     return parts.join(' ');
   }
+
+  /**
+   * The hostnames whose Cloudflare data is actually feeding the current aggregate,
+   * straight from the envelope's `urls_included` (the source of truth for WHAT drove
+   * the numbers). Falls back to the bound, non-excluded hostnames when the envelope
+   * carries none (e.g. the visitor_events fallback, which has no per-host breakdown).
+   */
+  contributingHosts = computed<string[]>(() => {
+    const included = this.envelope()?.urls_included ?? [];
+    if (included.length > 0) return included.map((u) => u.hostname);
+    const excluded = this.excluded();
+    return this.urls()
+      .map((u) => u.hostname)
+      .filter((h) => !excluded.has(h));
+  });
+
+  /** True if this hostname is in the contributing set for the current view. */
+  isContributing = (hostname: string): boolean => this.contributingHosts().includes(hostname);
 
   toggleExclude(hostname: string): void {
     const next = new Set(this.excluded());
@@ -916,35 +1045,50 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
     this.reload();
   }
 
-  async promptAddUrl(): Promise<void> {
+  /**
+   * Remove (unbind) an alternate URL from the forecast via `DELETE /sites/:id/urls/:urlId`.
+   * Optimistically drops it from the local `urls` signal so the pill vanishes instantly,
+   * then reloads the aggregate. On failure the row is restored and a toast explains.
+   * The primary URL is never removable (guarded in the template).
+   */
+  removeUrl(u: SiteUrlRow): void {
     const site = this.state.selectedSite();
-    if (!site) return;
-    const entered = await this.promptSvc.prompt({
-      title: 'Bind a hostname',
-      message: 'Track analytics for an additional hostname pointed at this site.',
-      label: 'Hostname',
-      placeholder: 'shop.example.com',
-      confirmLabel: 'Bind hostname',
-      validate: (v) =>
-        /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i.test(v)
-          ? null
-          : 'Enter a valid hostname (e.g. shop.example.com)',
+    if (!site || u.is_primary || this.removingId()) return;
+    this.removingId.set(u.id);
+    const prev = this.urls();
+    // Optimistic: reactive local removal (satisfies the client-side-signal-update floor).
+    this.urls.set(prev.filter((r) => r.id !== u.id));
+    this.api.removeSiteUrl(site.id, u.id).pipe(
+      timeout(8000),
+      catchError((err: unknown) => {
+        this.urls.set(prev); // roll back the optimistic drop
+        const message = err instanceof Error ? err.message : `Couldn't remove ${u.hostname}`;
+        this.toast.error(message);
+        return of(null);
+      }),
+    ).subscribe((res) => {
+      this.removingId.set(null);
+      if (res) {
+        this.toast.success(`${u.hostname} removed from the forecast`);
+        this.loadUrls();
+        this.reload();
+      }
     });
-    const hostname = entered?.trim().toLowerCase();
-    if (!hostname) return;
+  }
+
+  /**
+   * The referrer identity (WHO sent the traffic). Referrer values arrive either as a
+   * bare host (`google.com`) or a full URL (`https://google.com/search?q=…`); surface
+   * the hostname so the "who" is always legible. Falls back to the raw value.
+   */
+  referrerHost(referrer: string): string {
+    const raw = (referrer ?? '').trim();
+    if (!raw || raw === '(direct)' || raw === 'direct') return raw || '(direct)';
     try {
-      await new Promise<void>((resolve, reject) => {
-        this.api.addSiteUrl(site.id, hostname).subscribe({
-          next: () => resolve(),
-          error: (err: unknown) => reject(err),
-        });
-      });
-      this.toast.success(`${hostname} added`);
-      this.loadUrls();
-      this.reload();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to add URL';
-      this.toast.error(message);
+      const u = new URL(raw.includes('://') ? raw : `https://${raw}`);
+      return u.hostname.replace(/^www\./, '') || raw;
+    } catch {
+      return raw;
     }
   }
 
@@ -1043,6 +1187,37 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   kpiPageviewsLabel = computed(() => this.kpiLabel(this.envelope()?.pageviews ?? 0, 'Page views'));
   kpiVisitorsLabel = computed(() => this.kpiLabel(this.envelope()?.uniques ?? 0, 'Unique visitors'));
   kpiRequestsLabel = computed(() => this.kpiLabel(this.envelope()?.total_requests ?? 0, 'Total requests'));
+
+  /**
+   * Average pages per unique visit (pageviews ÷ unique visitors). The lever behind
+   * the bounce proxy: a value near 1.0 means most visits saw a single page. Rounded
+   * to one decimal; `null` when there are no visitors to divide by.
+   */
+  pagesPerVisit = computed<number | null>(() => {
+    const env = this.envelope();
+    if (!env || env.uniques <= 0) return null;
+    return Math.round((env.pageviews / env.uniques) * 10) / 10;
+  });
+
+  /**
+   * Estimated bounce rate (% single-page sessions). No source in this stack reports a
+   * true bounce (CF edge + visitor_events have no session-depth), so this is a labelled
+   * PROXY derived from pages-per-visit: bounce ≈ share of visits that saw ≤1 page,
+   * approximated as `2 − pagesPerVisit` clamped to 0–100%. Returns `null` (→ renders
+   * "—") whenever the inputs are missing — never a fabricated figure.
+   */
+  bounceRate = computed<number | null>(() => {
+    const ppv = this.pagesPerVisit();
+    if (ppv == null) return null;
+    const est = Math.max(0, Math.min(1, 2 - ppv));
+    return Math.round(est * 100);
+  });
+
+  kpiBounceLabel = computed(() => {
+    if (this.loading() && !this.envelope()) return 'Bounce rate, loading';
+    const b = this.bounceRate();
+    return b == null ? 'Bounce rate unavailable — no per-session data' : `${b} percent estimated bounce rate`;
+  });
 
   maxPage = computed(() => Math.max(1, ...(this.envelope()?.top_pages ?? []).map((p) => p.views)));
   maxReferrer = computed(() => Math.max(1, ...(this.envelope()?.top_referrers ?? []).map((r) => r.views)));
