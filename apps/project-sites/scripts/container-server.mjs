@@ -346,6 +346,13 @@ function pickVerticalPreset(dir, promptText = '') {
   const primary = [
     path.basename(dir), leaf(biz.name), leaf(biz.shortName),
     leaf(biz.tagline), leaf(biz.description), leaf(biz.businessClass),
+    // The EXPLICIT business TYPE / CATEGORY the user gave is the single most
+    // authoritative vertical signal — weight it as identity (10×) so a declared
+    // "farm-to-table restaurant" wins RESTAURANT over nonprofit-flavored research
+    // noise (harvest-vine-burlington 2026-08-26: a restaurant shipped as a
+    // nonprofit — "Together We Do More Good" — because type wasn't in primary).
+    leaf(biz.businessType), leaf(biz.business_type), leaf(biz.category),
+    leaf(biz.type), leaf(biz.vertical),
   ].join(' ').toLowerCase();
   // SECONDARY = broad, noisier context (prompt + research + content).
   let secondary = String(promptText || '').toLowerCase();
@@ -358,7 +365,7 @@ function pickVerticalPreset(dir, promptText = '') {
     ['_brand.medical.json', /\b(dentist|dental|orthodont|endodont|periodont|doctor|physician|clinic|medical|health|hospital|chiropract|dermatolog|pediatric|veterinar|optometr|ophthalmolog|physical therapy|physiotherap|physio|urgent care|family medicine|surgeon|cardiolog|pharmac)/],
     ['_brand.wellness.json', /\b(yoga|pilates|spa\b|massage|wellness|meditation|fitness|gym\b|crossfit|salon|beaut|nail|barber|acupunctur|reiki|nutrition|wellbeing|well-being)/],
     ['_brand.legal.json', /\b(law\b|lawyer|attorney|legal|counsel|litigation|paralegal|notary|estate planning|llp\b)/],
-    ['_brand.restaurant.json', /\b(restaurant|cafe|café|coffee|bakery|bar\b|bistro|diner|eatery|catering|pizzeria|brewery|food truck|grill|steakhouse|winery|taqueria|deli\b)/],
+    ['_brand.restaurant.json', /\b(restaurant|farm-to-table|farm to table|cafe|café|coffee|bakery|bar\b|bistro|dining|gastropub|osteria|trattoria|ramen|sushi|diner|eatery|catering|pizzeria|brewery|food truck|grill|steakhouse|winery|vineyard|taqueria|deli\b)/],
     ['_brand.local-service.json', /\b(plumb|hvac|electric|roofing|roofer|landscap|lawn|cleaning|janitor|contractor|handyman|pest control|locksmith|moving|movers|garage door|paint|construction|remodel|flooring|fencing|paving|towing|auto repair|mechanic)/],
     ['_brand.nonprofit.json', /\b(nonprofit|non-profit|charit|foundation|ministry|church|synagogue|mosque|temple|community center|volunteer|shelter|soup kitchen|food bank|outreach|humanitarian|advocacy|ngo\b)/],
     ['_brand.retail.json', /\b(shop|store|retail|boutique|apparel|clothing|jewelr|goods|merchandise|marketplace|e-commerce|ecommerce|outfitter)/],
