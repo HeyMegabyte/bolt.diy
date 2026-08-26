@@ -32,6 +32,7 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { api } from '../routes/api.js';
+import { auditLogs } from '../../libs/features/audit_logs/handlers.js';
 import { dbQueryOne } from '../services/db.js';
 
 const mockDbQueryOne = dbQueryOne as jest.Mock;
@@ -102,6 +103,7 @@ function createAuthedApp(db: D1Database) {
     c.set('userId', 'user-1');
     await next();
   });
+  app.route('/', auditLogs);
   app.route('/', api);
   const env = { ENVIRONMENT: 'test', DB: db } as unknown as Env;
   return { app, env };
@@ -319,6 +321,7 @@ describe('GET /api/audit-logs', () => {
     const { db } = makeMockDb([]);
     const app = new Hono<{ Bindings: Env; Variables: Variables }>();
     app.onError(errorHandler);
+    app.route('/', auditLogs);
     app.route('/', api);
     const env = { ENVIRONMENT: 'test', DB: db } as unknown as Env;
     const res = await app.request('/api/audit-logs', {}, env);

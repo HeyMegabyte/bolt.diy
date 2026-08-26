@@ -29,6 +29,7 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { api } from '../routes/api.js';
+import { siteBySlug } from '../../libs/features/site_by_slug/handlers.js';
 
 function createMockR2Object(data: unknown) {
   const body = typeof data === 'string' ? data : JSON.stringify(data);
@@ -72,6 +73,7 @@ function createApp(r2GetMock: jest.Mock, dbPrepare?: jest.Mock) {
 
   const app = new Hono<{ Bindings: Env; Variables: Variables }>();
   app.onError(errorHandler);
+  app.route('/', siteBySlug);
   app.route('/', api);
 
   return { app, env };

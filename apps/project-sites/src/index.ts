@@ -136,6 +136,9 @@ import { siteFiles } from '../libs/features/site_files/handlers.js'; // editor R
 import { siteUrls } from '../libs/features/site_urls/handlers.js'; // site URL management + multi-URL analytics: list/bind/unbind URLs + aggregated CF analytics — extracted from api.ts (route-decomposition installment 10)
 import { siteGithub } from '../libs/features/site_github/handlers.js'; // per-site GitHub OAuth backup: status/connect/callback/backup/disconnect — extracted from api.ts (route-decomposition installment 11)
 import { hostnames } from '../libs/features/hostnames/handlers.js'; // custom-hostname lifecycle: owner /api/sites/:siteId/hostnames/* + admin /api/admin/domains/* (verify/health/summary/deprovision) — extracted from api.ts (route-decomposition installment 12)
+import { siteBySlug } from '../libs/features/site_by_slug/handlers.js'; // public-by-slug editor reads: /api/sites/by-slug/:slug/{build-context,chat,files,research.json} — extracted from api.ts (route-decomposition installment 13)
+import { feedback } from '../libs/features/feedback/handlers.js'; // user feedback: POST/GET /api/feedback (submit rating + list approved testimonials) — extracted from api.ts (route-decomposition installment 13)
+import { auditLogs } from '../libs/features/audit_logs/handlers.js'; // audit-log read + editor-error ingest: GET /api/audit-logs + POST /api/audit-logs/editor-error — extracted from api.ts (route-decomposition installment 13)
 import { visitorEvents } from '../libs/features/visitor_events_core/handlers.js'; // public pageview/event beacon ingest (flag: visitor_events_core)
 import { recordPageviewFromRequest } from '../libs/features/visitor_events_core/service.js'; // edge-recorded per-request pageview (no flag — core site analytics)
 // IDEAS-50 wave 3 — GEO + reputation + growth
@@ -897,6 +900,9 @@ app.route('/', siteFiles); // /api/sites/:id/{files,files-export,files/:path{.+}
 app.route('/', siteUrls); // /api/sites/:id/{urls,urls/:urlId,multi-url-analytics} — site URL management + aggregated CF analytics extracted from api.ts (route-decomposition installment 10); precedes `api`.
 app.route('/', siteGithub); // /api/sites/:id/github/{status,connect,callback,backup,disconnect} — per-site GitHub OAuth backup extracted from api.ts (route-decomposition installment 11); precedes `api`.
 app.route('/', hostnames); // /api/sites/:siteId/hostnames/* (list/provision/primary/reset-primary/delete/unsubscribe) + /api/admin/domains/* (summary/verify/health/deprovision) — custom-hostname lifecycle extracted from api.ts (route-decomposition installment 12); precedes `api`.
+app.route('/', siteBySlug); // /api/sites/by-slug/:slug/{build-context,chat,files,research.json} — public-by-slug editor reads extracted from api.ts (route-decomposition installment 13); precedes `api`.
+app.route('/', feedback); // /api/feedback (POST submit + GET approved testimonials) — user feedback extracted from api.ts (route-decomposition installment 13); precedes `api`.
+app.route('/', auditLogs); // /api/audit-logs (GET org list) + /api/audit-logs/editor-error (POST) — audit-log read + editor-error ingest extracted from api.ts (route-decomposition installment 13); precedes `api`.
 
 app.route('/', api);
 app.route('/', webhooks);

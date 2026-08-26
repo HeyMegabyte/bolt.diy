@@ -33,6 +33,7 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { api } from '../routes/api.js';
+import { feedback } from '../../libs/features/feedback/handlers.js';
 import { dbQueryOne, dbExecute, dbInsert } from '../services/db.js';
 
 const mockDbQueryOne = dbQueryOne as jest.Mock;
@@ -58,6 +59,7 @@ const createMockEnv = (overrides: Partial<Env> = {}): Env =>
 function createApp(envOverrides: Partial<Env> = {}) {
   const app = new Hono<{ Bindings: Env; Variables: Variables }>();
   app.onError(errorHandler);
+  app.route('/', feedback);
   app.route('/', api);
   const env = createMockEnv(envOverrides);
   return { app, env };
@@ -81,6 +83,7 @@ function createAuthenticatedApp(vars: Partial<Variables> = {}, envOverrides: Par
     if (vars.requestId) c.set('requestId', vars.requestId);
     await next();
   });
+  authedApp.route('/', feedback);
   authedApp.route('/', api);
   const env = createMockEnv(envOverrides);
   return { app: authedApp, env };

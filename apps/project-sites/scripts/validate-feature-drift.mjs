@@ -329,6 +329,21 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // auth); custom domains are entitlement-gated (paid plan) not flag-gated — same class as 'domains'/
     // the other route-organization extractions.
     'hostnames',
+    // siteBySlug — /api/sites/by-slug/:slug/{build-context,chat,files,research.json}: public-by-slug
+    // editor reads (bolt.diy bootstrap payloads from R2), extracted to its own module (route-decomposition
+    // installment 13). Core, un-gated: build-context/chat/files are PUBLIC (slug + R2 obscurity),
+    // research.json is org-scoped unless RESEARCH_JSON_PUBLIC — same class as the other route-organization
+    // extractions.
+    'siteBySlug',
+    // feedback — /api/feedback (POST submit rating + GET approved testimonials), extracted to its own
+    // module (route-decomposition installment 13). Core, un-gated, PUBLIC (both routes) — same class as
+    // 'sheets' and the other route-organization extractions.
+    'feedback',
+    // auditLogs — /api/audit-logs (GET org audit list) + /api/audit-logs/editor-error (POST bolt.diy
+    // editor-error ingest), extracted to its own module (route-decomposition installment 13). Core,
+    // un-gated, org-scoped (orgId auth) not flag-gated — same class as 'notifications'/'inbox'/the other
+    // route-organization extractions.
+    'auditLogs',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;
