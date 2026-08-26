@@ -32,6 +32,9 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { api } from '../routes/api.js';
+// GET/PUT /api/sites/:id/files[/:path] moved to their own module (route-decomposition
+// installment 10) — mount it alongside `api` so these hand-apps still serve the routes.
+import { siteFiles } from '../../libs/features/site_files/handlers.js';
 import { dbQueryOne } from '../services/db.js';
 
 const mockDbQueryOne = dbQueryOne as jest.Mock;
@@ -70,6 +73,7 @@ function createAuthenticatedApp(envOverrides: Partial<Env> = {}) {
     c.set('requestId', 'req-1');
     await next();
   });
+  authedApp.route('/', siteFiles);
   authedApp.route('/', api);
   const env = createMockEnv(envOverrides);
   return { app: authedApp, env };
@@ -78,6 +82,7 @@ function createAuthenticatedApp(envOverrides: Partial<Env> = {}) {
 function createUnauthenticatedApp(envOverrides: Partial<Env> = {}) {
   const app = new Hono<{ Bindings: Env; Variables: Variables }>();
   app.onError(errorHandler);
+  app.route('/', siteFiles);
   app.route('/', api);
   const env = createMockEnv(envOverrides);
   return { app, env };

@@ -307,6 +307,16 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // to its own module (route-decomposition installment 9). Core, un-gated, org-scoped
     // (orgId auth) not flag-gated — same class as the other route-organization extractions.
     'siteVersioning',
+    // siteFiles — /api/sites/:id/{files,files-export,files/:path{.+}} (GET/PUT/DELETE): editor
+    // R2 file CRUD (list/export/read/write/delete), extracted to its own module (route-decomposition
+    // installment 10). Core, un-gated, org-scoped (orgId auth) not flag-gated — same class as the
+    // other route-organization extractions.
+    'siteFiles',
+    // siteUrls — /api/sites/:id/{urls,urls/:urlId,multi-url-analytics}: site URL management +
+    // aggregated Cloudflare analytics, extracted to its own module (route-decomposition installment
+    // 10). Core, un-gated, membership-scoped (userId auth) not flag-gated — same class as the other
+    // route-organization extractions.
+    'siteUrls',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;

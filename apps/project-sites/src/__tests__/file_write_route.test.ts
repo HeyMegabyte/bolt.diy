@@ -18,6 +18,9 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { api } from '../routes/api.js';
+// PUT /api/sites/:id/files/:path{.+} moved to its own module (route-decomposition
+// installment 10) — mount it alongside `api` so this hand-app still serves the route.
+import { siteFiles } from '../../libs/features/site_files/handlers.js';
 
 const mockDb = {
   prepare: jest.fn((sql: string) => {
@@ -54,6 +57,7 @@ app.use('*', async (c, next) => {
   c.set('requestId', 'req-1');
   await next();
 });
+app.route('/', siteFiles);
 app.route('/', api);
 
 function put(env: Env, path: string, body: unknown, rawBody?: string) {
