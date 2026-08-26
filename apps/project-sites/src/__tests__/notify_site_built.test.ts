@@ -9,7 +9,7 @@ const mockDbQueryOne = dbQueryOne as unknown as jest.Mock;
 /**
  * Golden-path "customer notified" for the embedded-bolt publish path. Notifies
  * the org owner their site is live across BOTH channels — the rich email
- * (notifySiteBuilt) + the in-app Novu bell (build.finished) — each independent
+ * (notifySiteBuilt) + the in-app bell (build.finished) — each independent
  * and fail-soft so one failing never blocks the other or the publish.
  */
 const env = { DB: {} } as never;
