@@ -28,6 +28,10 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { aiAdmin } from '../routes/ai_admin.js';
+// Route-decomposition installment 18: POST /api/admin/traces/:traceId/explain moved to
+// the `adminAi` module. Mount it BEFORE `aiAdmin` (mirrors src/index.ts) so the
+// explain path exercises the real moved handler, not a 404.
+import { adminAi } from '../../libs/features/admin_ai/handlers.js';
 
 const ORG_ID = 'org-1';
 const TRACE_ID = 'trace-1';
@@ -98,6 +102,7 @@ function authedApp() {
     c.set('requestId', 'req-1');
     await next();
   });
+  app.route('/', adminAi);
   app.route('/', aiAdmin);
   return app;
 }
@@ -108,6 +113,7 @@ describe('POST /api/admin/traces/:traceId/explain', () => {
   it('rejects unauthenticated requests with 401', async () => {
     const app = new Hono<{ Bindings: Env; Variables: Variables }>();
     app.onError(errorHandler);
+    app.route('/', adminAi);
     app.route('/', aiAdmin);
     const env = makeEnv({ traceRow: null, aiResponse: '', kv: makeKv() });
     const res = await app.request(`/api/admin/traces/${TRACE_ID}/explain`, { method: 'POST' }, env);

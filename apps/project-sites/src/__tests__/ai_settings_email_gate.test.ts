@@ -16,6 +16,10 @@ jest.mock('../services/audit.js', () => ({
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { aiAdmin } from '../routes/ai_admin.js';
+// Route-decomposition installment 18: PUT /api/sites/:siteId/ai-settings moved to
+// the `aiSettings` module. Mount it BEFORE `aiAdmin` (mirrors src/index.ts) so the
+// email-gate path exercises the real moved handler, not a 404.
+import { aiSettings } from '../../libs/features/ai_settings/handlers.js';
 
 function db(): D1Database {
   const chain: Record<string, unknown> = {
@@ -37,6 +41,7 @@ function app(): Hono<{ Bindings: Env; Variables: Variables }> {
     c.set('requestId', 'r1');
     await next();
   });
+  a.route('/', aiSettings);
   a.route('/', aiAdmin);
   return a;
 }

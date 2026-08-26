@@ -26,6 +26,10 @@ import { aiEndpoints } from '../../libs/features/ai_endpoints/handlers.js';
 // it BEFORE `aiAdmin` (mirrors src/index.ts) so the malformed-body path exercises the real moved
 // handler, not a 404.
 import { aiContext } from '../../libs/features/ai_context/handlers.js';
+// Route-decomposition installment 18: PUT /api/sites/:siteId/ai-settings moved to the
+// `aiSettings` module. Mount it BEFORE `aiAdmin` (mirrors src/index.ts) so the
+// malformed-body path exercises the real moved handler, not a 404.
+import { aiSettings } from '../../libs/features/ai_settings/handlers.js';
 
 const mockDb = {
   prepare: jest.fn((sql: string) => {
@@ -67,6 +71,8 @@ app.route('/', billing);
 app.route('/', aiEndpoints);
 // aiContext owns the moved /api/sites/:siteId/ai/drive/select-folder (+ context-files) routes; mount ahead of aiAdmin.
 app.route('/', aiContext);
+// aiSettings owns the moved /api/sites/:siteId/ai-settings routes; mount ahead of aiAdmin.
+app.route('/', aiSettings);
 app.route('/', aiAdmin);
 
 // Some handlers schedule the audit write via `c.executionCtx.waitUntil(...)`,

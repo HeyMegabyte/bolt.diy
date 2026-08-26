@@ -360,6 +360,18 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // its own module from ai_admin.ts (route-decomposition installment 16). Core, un-gated,
     // org+user-scoped (need() auth) not flag-gated — same class as 'aiEndpoints'/'analytics'.
     'aiContext',
+    // aiSettings — /api/sites/:siteId/{ai-settings,ai-settings/improve,credit-cap} (per-site AI
+    // config: router prompt + chat persona + contact/reply email + web-research/Drive read-back +
+    // "Improve with AI" rewrite + monthly credit cap), extracted to its own module from ai_admin.ts
+    // (route-decomposition installment 18). Core, un-gated, org+user-scoped (need() auth) not
+    // flag-gated — same class as 'aiContext'/'aiEndpoints'.
+    'aiSettings',
+    // adminAi — /api/admin/{ai-chat,traces/:traceId/explain,search/ai,ai/stream/palette,ai/stream/chat}
+    // (admin AI assistant tools: single-turn dashboard chat + trace-explainer + NL search + two SSE
+    // streaming surfaces), extracted to its own module from ai_admin.ts (route-decomposition
+    // installment 18). Core operator AI tooling, un-gated, org+user-scoped (need() auth) not
+    // flag-gated — same class as 'aiSettings'/'aiContext'.
+    'adminAi',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;

@@ -30,6 +30,10 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { aiAdmin } from '../routes/ai_admin.js';
+// Route-decomposition installment 18: POST /api/admin/search/ai moved to the
+// `adminAi` module. Mount it BEFORE `aiAdmin` (mirrors src/index.ts) so the
+// AI-search path exercises the real moved handler, not a 404.
+import { adminAi } from '../../libs/features/admin_ai/handlers.js';
 import { buildSearchSql } from '../services/ai_admin_features.js';
 
 const ORG_ID = 'org-search-1';
@@ -74,6 +78,7 @@ function authedApp() {
     c.set('requestId', 'req-1');
     await next();
   });
+  app.route('/', adminAi);
   app.route('/', aiAdmin);
   return app;
 }
@@ -84,6 +89,7 @@ describe('POST /api/admin/search/ai', () => {
   it('rejects unauthenticated requests', async () => {
     const app = new Hono<{ Bindings: Env; Variables: Variables }>();
     app.onError(errorHandler);
+    app.route('/', adminAi);
     app.route('/', aiAdmin);
     const { db } = makeDb([]);
     const env = makeEnv('{}', db);
