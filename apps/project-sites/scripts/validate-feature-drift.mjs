@@ -290,6 +290,11 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // extracted to its own module (route-decomposition installment 4). Core, un-gated,
     // PUBLIC (no auth) — same class as the other route-organization extractions.
     'sheets',
+    // billing — /api/billing/{subscription,entitlements,quota,cost-forecast} (GET-only
+    // reads), extracted to its own module (route-decomposition installment 5). Core billing
+    // reads, `core_billing` sentinel, un-gated (org-scoped orgId auth) — same class as the
+    // other route-organization extractions; the WRITE billing routes stay in api.ts.
+    'billing',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;

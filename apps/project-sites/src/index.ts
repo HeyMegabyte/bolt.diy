@@ -129,6 +129,7 @@ import { domains } from '../libs/features/domains/handlers.js'; // domain search
 import { notifications } from '../libs/features/notifications/handlers.js'; // in-app notifications inbox (list/mark-read/read-all) — extracted from api.ts (route-decomposition installment 2)
 import { inbox } from '../libs/features/inbox/handlers.js'; // HITL task tray (list/resolve) — extracted from api.ts (route-decomposition installment 3)
 import { sheets } from '../libs/features/sheets/handlers.js'; // public Google Sheets proxy (data/meta) — extracted from api.ts (route-decomposition installment 4)
+import { billing } from '../libs/features/billing/handlers.js'; // GET-only billing reads (subscription/entitlements/quota/cost-forecast) — extracted from api.ts (route-decomposition installment 5)
 import { visitorEvents } from '../libs/features/visitor_events_core/handlers.js'; // public pageview/event beacon ingest (flag: visitor_events_core)
 import { recordPageviewFromRequest } from '../libs/features/visitor_events_core/service.js'; // edge-recorded per-request pageview (no flag — core site analytics)
 // IDEAS-50 wave 3 — GEO + reputation + growth
@@ -883,6 +884,7 @@ app.route('/', domains); // /api/domains/* + /api/admin/profile/:site_id/context
 app.route('/', notifications); // /api/notifications + /:id/read + /read-all — extracted from api.ts (route-decomposition installment 2); precedes `api`.
 app.route('/', inbox); // /api/inbox/tasks + /:id/resolve — extracted from api.ts (route-decomposition installment 3); precedes `api`.
 app.route('/', sheets); // /api/sheets/:sheetId + /meta — extracted from api.ts (route-decomposition installment 4); precedes `api`.
+app.route('/', billing); // /api/billing/{subscription,entitlements,quota,cost-forecast} — GET-only reads extracted from api.ts (route-decomposition installment 5); precedes `api`.
 
 app.route('/', api);
 app.route('/', webhooks);
