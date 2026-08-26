@@ -20,6 +20,10 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { search } from '../routes/search.js';
+// Route-decomposition installment 22: the /api/container-* build-container callbacks
+// moved from search.ts to their own module. Mount it before search so the moved routes
+// resolve here (mirrors src/index.ts).
+import { containerProxy } from '../../libs/features/container_proxy/handlers.js';
 
 const mockDb = {
   prepare: jest.fn().mockReturnValue({
@@ -48,6 +52,7 @@ const mockEnv = {
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.onError(errorHandler);
+app.route('/', containerProxy);
 app.route('/', search);
 
 const originalFetch = global.fetch;

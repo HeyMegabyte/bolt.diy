@@ -17,7 +17,6 @@ import {
   stripHtml,
   escapeHtml,
   pickSafeRedirect,
-  timingSafeEqual,
   contactFormSchema,
   DOMAINS,
 } from '@project-sites/shared';
@@ -32,21 +31,6 @@ import { gatewayFetch } from '../services/ai_gateway.js';
 import { writeAuditLog } from '../services/audit.js';
 import { getEmailProvider } from '../platform/email-router.js';
 import { runObservedWorkersAI } from '../lib/workers_ai.js';
-
-/**
- * Authorize a build-container request against the shared secret
- * (`x-container-secret` === first 16 chars of `ANTHROPIC_API_KEY`).
- *
- * Requires BOTH sides present + a constant-time compare. If `ANTHROPIC_API_KEY`
- * is unset, `?.slice` yields `undefined`; a header-less request would then
- * compare `undefined !== undefined` → false → the 401 gets SKIPPED, opening
- * arbitrary R2 writes + SQL execution unauthenticated. The `!!expected` guard
- * closes that AUTH BYPASS (no length/timing oracle).
- */
-function containerAuthorized(env: Env, secretHeader: string | undefined): boolean {
-  const expected = env.ANTHROPIC_API_KEY?.slice(0, 16);
-  return !!expected && !!secretHeader && timingSafeEqual(secretHeader, expected);
-}
 
 const search = new Hono<{ Bindings: Env; Variables: Variables }>();
 
@@ -3221,57 +3205,11 @@ search.post('/api/conversion/checkout', async (c) => {
 // moved to `libs/features/site_data_api/handlers.ts` (route-decomposition installment
 // 21 — first search.ts extraction). Mounted before `search` + `api` in index.ts.
 
-/**
- * Container upload endpoint — allows the build container to upload files to R2
- * via the public worker URL when outbound handlers aren't available.
- * Authenticated via a shared secret passed in the build payload.
- */
-search.put('/api/container-upload/*', async (c) => {
-  if (!containerAuthorized(c.env, c.req.header('x-container-secret'))) {
-    return c.json({ error: 'Unauthorized' }, 401);
-  }
-  const key = c.req.path.replace('/api/container-upload/', '');
-  if (!key || key.includes('..')) return c.json({ error: 'Invalid key' }, 400);
-
-  const body = await c.req.arrayBuffer();
-  const ct = c.req.header('content-type') || 'application/octet-stream';
-  await c.env.SITES_BUCKET.put(key, body, { httpMetadata: { contentType: ct } });
-  return c.json({ ok: true, key });
-});
-
-/**
- * Container D1 query endpoint — allows the build container to execute
- * parameterized SQL via the public worker URL.
- */
-search.post('/api/container-query', async (c) => {
-  if (!containerAuthorized(c.env, c.req.header('x-container-secret'))) {
-    return c.json({ error: 'Unauthorized' }, 401);
-  }
-  let raw: unknown;
-  try {
-    raw = await c.req.json();
-  } catch {
-    return c.json({ error: 'invalid JSON body' }, 400);
-  }
-  const body = raw as { sql?: unknown; params?: unknown };
-  if (typeof body.sql !== 'string' || body.sql.length === 0) {
-    return c.json({ error: 'sql (non-empty string) required' }, 400);
-  }
-  const params = Array.isArray(body.params) ? body.params : undefined;
-  const stmt = c.env.DB.prepare(body.sql);
-  const result = params ? await stmt.bind(...params).run() : await stmt.run();
-  return c.json({ ok: true, meta: result.meta });
-});
-
-/** Serve the container build server script from R2 (used by container entrypoint bootstrap). */
-search.get('/api/container-script', async (c) => {
-  const obj = await c.env.SITES_BUCKET.get('container/build-server.js');
-  if (!obj) {
-    return c.text('// build-server.js not found in R2', 404);
-  }
-  return new Response(await obj.text(), {
-    headers: { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-cache' },
-  });
-});
+// Build-container callback endpoints (PUT /api/container-upload/*, POST
+// /api/container-query, GET /api/container-script — R2 upload + parameterized D1
+// query + build-server script, all shared-secret auth via containerAuthorized)
+// moved to `libs/features/container_proxy/handlers.ts` (route-decomposition
+// installment 22). The containerAuthorized helper + its timingSafeEqual import
+// moved with them.
 
 export { search };

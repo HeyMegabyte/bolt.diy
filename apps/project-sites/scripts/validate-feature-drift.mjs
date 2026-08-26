@@ -409,6 +409,12 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // 21 — FIRST search.ts extraction). Core, un-gated, mixed public + org-scoped (c.get('orgId')) not
     // flag-gated — same class as the other route-organization extractions.
     'siteDataApi',
+    // containerProxy — PUT /api/container-upload/* + POST /api/container-query + GET
+    // /api/container-script (build-container callbacks: R2 upload + parameterized D1 query +
+    // build-server script), extracted to its own module from search.ts (route-decomposition
+    // installment 22). Core, un-gated, MACHINE-to-machine (shared-secret containerAuthorized, not
+    // orgId) — same class as the other route-organization extractions.
+    'containerProxy',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;
