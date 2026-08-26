@@ -165,7 +165,7 @@ const PROVIDERS = MCP_PROVIDERS;
               <div class="flex justify-end gap-2">
                 <button type="button" class="btn-ghost" (click)="resetBusiness()" [disabled]="!businessDirty()">Cancel</button>
                 <button type="submit" class="btn-primary" data-testid="general-save"
-                        [disabled]="!businessDirty() || savingBusiness() || emailInvalid(business.contact_email)">{{ savingBusiness() ? 'Saving…' : 'Save' }}</button>
+                        [disabled]="!businessDirty() || savingBusiness() || emailInvalid(business.contact_email) || !business.business_name.trim()">{{ savingBusiness() ? 'Saving…' : 'Save' }}</button>
               </div>
             </form>
           } @else {

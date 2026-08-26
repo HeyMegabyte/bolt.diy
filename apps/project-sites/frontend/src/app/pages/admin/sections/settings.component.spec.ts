@@ -108,6 +108,29 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
       '/sites/s/ai-settings', { contact_email: 'hi@acme.com', reply_email: 'hi@acme.com' });
   });
 
+  // The Save button gate already disables on an invalid email; it MUST also disable
+  // on the empty REQUIRED business_name — otherwise the button looks saveable, the
+  // user clicks, and saveGeneral() silently no-op-blocks (confusing "active but does
+  // nothing" control). This locks the gate's completeness.
+  it('disables the General Save button when the required business_name is empty', () => {
+    build({ id: 's', slug: 'demo' });
+    const c = fixture.componentInstance;
+    const el = fixture.nativeElement as HTMLElement;
+    const save = () => el.querySelector('[data-testid="general-save"]') as HTMLButtonElement | null;
+    // Dirty + valid email, but the required name cleared → Save MUST be disabled.
+    c.business.business_name = '';
+    c.business.contact_email = 'hi@acme.com';
+    c.businessDirty.set(true);
+    fixture.detectChanges();
+    expect(save()).withContext('General save button present').not.toBeNull();
+    expect(save()!.disabled).withContext('empty required business_name → Save disabled').toBeTrue();
+    // Restore a name → Save enabled (dirty + non-empty name + valid email).
+    c.business.business_name = 'Acme';
+    c.businessDirty.set(true);
+    fixture.detectChanges();
+    expect(save()!.disabled).withContext('valid name + dirty + valid email → Save enabled').toBeFalse();
+  });
+
   // Team + invite emails are reply targets ([[always]] mailto mandate). The team
   // rows aren't clickable, so a plain mailto link is the clean fix (no propagation).
   it('renders team member + pending-invite emails as mailto: links', () => {
