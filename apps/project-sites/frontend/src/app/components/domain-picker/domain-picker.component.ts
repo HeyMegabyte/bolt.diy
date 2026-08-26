@@ -135,7 +135,12 @@ const LOW_BALANCE_CENTS = 500;
         gap: 8px;
         padding: 4px 10px 4px 12px;
         height: 28px;
-        max-width: 340px;
+        /* Viewport-aware cap: desktop keeps the 340px cap (min() picks it on wide
+           screens); on a narrow admin top-bar the trigger shrinks so the picker
+           (home glyph + trigger) never forces the header past the viewport — the
+           ~42px horizontal overflow every /admin page showed at ≤390px when a real
+           site's long {slug}.projectsites.dev host filled the trigger. */
+        max-width: min(340px, 62vw);
         border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: var(--ps-radius-md, 12px);
         background: rgba(13, 13, 40, 0.55);
@@ -165,7 +170,9 @@ const LOW_BALANCE_CENTS = 500;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 280px;
+        /* Pairs with .dp-trigger's viewport cap — the hostname ellipsis-truncates
+           to fit narrow screens instead of widening the trigger past the viewport. */
+        max-width: min(280px, 42vw);
       }
       .dp-caret {
         opacity: 0.55;

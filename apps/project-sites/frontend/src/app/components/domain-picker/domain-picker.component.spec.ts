@@ -129,3 +129,57 @@ describe('DomainPickerComponent — honest unknown-availability badge', () => {
     expect(liveSection?.querySelector('.dp-status--no')).withContext('unknown row not "taken"').toBeNull();
   });
 });
+
+/**
+ * Reflow regression (2026-08-26): the picker's width caps MUST stay viewport-relative.
+ * The desktop-fixed `max-width: 340px` (trigger) / `280px` (host) forced EVERY /admin
+ * page to scroll horizontally ~42px at ≤390px once a real site's long
+ * `{slug}.projectsites.dev` host filled the trigger (surfaced on e2e-test-org's
+ * brightwater-family-dental-madison-2 site — `selectedSite()` returns `sites[0]`).
+ * `min(px, vw)` keeps desktop identical (min() picks the px cap on wide screens)
+ * while the trigger shrinks + the host ellipsis-truncates on mobile. This guard runs
+ * in CI (Karma/ChromeHeadless) so the fix isn't protected ONLY by the prod-suite
+ * admin-reflow.e2e.ts, which is SKIPPED when E2E_API_KEY is unset.
+ */
+describe('DomainPickerComponent — viewport-relative width caps (reflow guard)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('caps .dp-trigger and .dp-host with a viewport-relative min(), never a fixed px', () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      imports: [DomainPickerComponent],
+      providers: [
+        {
+          provide: AdminStateService,
+          useValue: {
+            selectedSite: signal({ id: 's1', business_name: 'Acme Co', slug: 'a-very-long-business-slug-that-would-overflow-mobile' }),
+            sites: signal([]),
+          },
+        },
+        { provide: ApiService, useValue: { get: () => of({ suggestions: [] }) } },
+        { provide: BillingService, useValue: { walletState: () => ({ has_wallet: false, balance_cents: 0 }), start: () => undefined, stop: () => undefined } },
+        { provide: TelemetryService, useValue: { track: () => undefined } },
+        { provide: ToastService, useValue: { info: () => 0, error: () => 0, success: () => 0, warning: () => 0, dismiss: () => undefined } },
+        { provide: Router, useValue: { navigate: () => Promise.resolve(true), navigateByUrl: () => Promise.resolve(true) } },
+      ],
+    });
+    const fixture = TestBed.createComponent(DomainPickerComponent);
+    fixture.detectChanges(); // inject the component's emulated-encapsulation styles
+
+    // Angular may inject component styles as <style> tags OR via adoptedStyleSheets —
+    // scan both so the guard is robust to the injection mechanism.
+    const fromTags = Array.from(document.querySelectorAll('style')).map((s) => s.textContent ?? '');
+    const fromAdopted = Array.from(document.adoptedStyleSheets ?? []).flatMap((sheet) => {
+      try {
+        return Array.from(sheet.cssRules).map((r) => r.cssText);
+      } catch {
+        return [];
+      }
+    });
+    const css = [...fromTags, ...fromAdopted].join('\n').replace(/\s+/g, '');
+
+    expect(css.length).withContext('component styles must be present in the DOM').toBeGreaterThan(0);
+    expect(css).withContext('.dp-trigger max-width must be viewport-relative min(340px,62vw), not a fixed px cap').toContain('min(340px,62vw)');
+    expect(css).withContext('.dp-host max-width must be viewport-relative min(280px,42vw), not a fixed px cap').toContain('min(280px,42vw)');
+  });
+});
