@@ -76,9 +76,7 @@
 | Feature flags — public API | `feature-flags.spec.ts` | convergence | GREEN | 5 tests ✅ |
 | Accessibility — 8 routes × 6bp | `accessibility.spec.ts` | convergence | GREEN | 48 scans ✅ |
 | Site lifecycle — extended | `site-lifecycle-extended.spec.ts` | convergence | GREEN | 6 tests ✅ |
-| Convergence summary — meta | `convergence-summary.spec.ts` | convergence | GREEN | 4 tests ✅ |
-| DONE gate — completeness | `done-gate.spec.ts` | convergence | GREEN | 5/5 ✅ |
-| **TOTAL** | **21 specs** | convergence | **145+ tests GREEN** | Passes 1-28 |
+| **TOTAL** | **19 specs** | convergence | **135+ tests GREEN** | Passes 1-28 |
 
 ## Blockers / Next-prompt work
 

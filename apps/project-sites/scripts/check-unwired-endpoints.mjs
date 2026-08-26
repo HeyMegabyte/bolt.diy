@@ -33,7 +33,7 @@ const WORKER_DIRS = [join(APP_DIR, 'src'), join(APP_DIR, 'libs')];
 
 /**
  * BUILT-AHEAD FE calls — the frontend component ships before its worker route is
- * wired (the "wire-me backlog" class, per `_CONVERGENCE_TASKS.md`). These 6 were
+ * wired (the "wire-me backlog" class). These 6 were
  * surfaced 2026-08-02 when the regex was fixed to see generic-typed calls
  * (`api.get<T>(...)`). They are INTENTIONAL, TRACKED gaps — not accidental
  * regressions — so they're exempted here; the gate still blocks any NEW unwired

@@ -6,7 +6,7 @@
  * Before this file, "what admin sections exist + what each must satisfy" was
  * scattered across FIVE drifting places: app.routes.ts (routes+guards+flags),
  * admin-section-labels.ts (labels), inline SECTIONS[] arrays in 3+ browserbase
- * specs, FEATURES_TO_TEST.md (730 hand-ticked checkboxes), and the hand-curated
+ * specs, a 730-checkbox test doc, and the hand-curated
  * nav in admin.component. Nothing derived from one source, so sections silently
  * drifted in and out of coverage — the "routed+mounted ≠ reachable" and
  * "advertised-route orphan" bug classes.
@@ -14,7 +14,6 @@
  * This contract is the ONE list. Everything reads it:
  *   - scripts/validate-admin-contract.mjs  → drift gate (contract ⇄ app.routes ⇄ labels)
  *   - e2e/admin-verify/contract-sweep.mjs  → prod per-section assertions + real DONE gate
- *   - bin/convergence-loop.sh              → DONE/NOT_DONE derived from the sweep, not checkboxes
  *
  * ADD A SECTION → ADD A ROW HERE. The validator fails the build if app.routes.ts
  * gains an admin route with no row (uncovered) or a row points at a dead route (stale).

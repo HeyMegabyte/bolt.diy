@@ -108,7 +108,7 @@ convergence:
   section_journeys:     { status: covered, specs: [admin-analytics-journey.spec.ts, admin-apps-journey.spec.ts, admin-forms-journey.spec.ts, admin-social-journey.spec.ts, admin-voice-journey.spec.ts, admin-leads-journey.spec.ts, admin-system-services-journey.spec.ts, admin-docs-journey.spec.ts, admin-settings-journey.spec.ts, admin-billing-journey.spec.ts, admin-domains-journey.spec.ts, admin-team-journey.spec.ts] }
   section_journeys_p5:  { status: covered, specs: [admin-editor-journey.spec.ts, admin-snapshots-journey.spec.ts, admin-site-features-journey.spec.ts, admin-site-detail-journey.spec.ts] }
   section_journeys_p6:  { status: covered, specs: [admin-logs-journey.spec.ts, admin-api-tokens-journey.spec.ts] }
-  loop_gates:           { status: covered, specs: [convergence-summary.spec.ts, done-gate.spec.ts, post-convergence-verification.spec.ts] }
+  loop_gates:           { status: covered, specs: [post-convergence-verification.spec.ts] }
   stagehand_visual:     { status: covered, specs: [stagehand-master-orchestrator.spec.ts] }
   admin_sections:       { status: covered, specs: [admin-sections-smoke.spec.ts, admin-social.spec.ts] }
   auth_oauth:           { status: covered, specs: [auth-oauth-buttons.spec.ts] }

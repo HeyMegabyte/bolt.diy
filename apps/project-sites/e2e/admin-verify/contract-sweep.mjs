@@ -2,8 +2,8 @@
 /**
  * contract-sweep.mjs — the REAL convergence DONE gate for admin sections.
  *
- * Replaces the fake gate. The old convergence-loop.sh counted unchecked markdown
- * boxes in FEATURES_TO_TEST.md (730 of them, hand-ticked) — a number decoupled from
+ * Replaces the old fake gate, which counted unchecked markdown checkboxes
+ * (730 of them, hand-ticked) — a number decoupled from
  * whether a section actually WORKS. This sweep drives every section in
  * admin-contract.mjs against PROD, authed as brian, real-browser, and asserts the
  * 6-point per-section contract. DONE = every HARD section passes. NOT_DONE lists

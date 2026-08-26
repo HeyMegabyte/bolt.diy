@@ -1287,7 +1287,7 @@ export class AdminSocialComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   readonly state = inject(AdminStateService);
 
-  /** Guards the site-reactive load effect — see constructor + _ULTIMATE_CONVERGENCE.md §7. */
+  /** Guards the site-reactive load effect (see constructor). */
   private loadedSiteId: string | null = null;
 
   constructor() {

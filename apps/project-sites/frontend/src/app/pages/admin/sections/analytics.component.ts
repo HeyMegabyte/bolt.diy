@@ -889,7 +889,7 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   private refreshTimer?: ReturnType<typeof setInterval>;
   private countdownTimer?: ReturnType<typeof setInterval>;
   private lastSiteId: string | null = null;
-  /** Guards the site-reactive load effect — see constructor + _ULTIMATE_CONVERGENCE.md §7. */
+  /** Guards the site-reactive load effect (see constructor). */
   private loadedSiteId: string | null = null;
 
   readonly formatCount = formatCount;

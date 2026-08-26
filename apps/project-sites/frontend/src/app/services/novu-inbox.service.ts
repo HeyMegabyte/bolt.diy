@@ -23,8 +23,6 @@ export interface NovuInboxItem {
  * @remarks `list()` always resolves `[]`, `read()` is a no-op, and
  * {@link connected} stays `false` — the bell degrades to the seeded/audit
  * feed exactly as it did when Novu Cloud was unreachable.
- *
- * @see apps/project-sites/_CONVERGENCE_TASKS.md § P5 (psnotify)
  */
 @Injectable({ providedIn: 'root' })
 export class NovuInboxService {

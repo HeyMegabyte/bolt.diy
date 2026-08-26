@@ -10,13 +10,13 @@ the loop's DONE gate reads both.
 The truth about "what admin sections exist + what each must satisfy" was scattered
 across **five drifting places** — `app.routes.ts` (routes/guards/flags),
 `admin-section-labels.ts` (labels), inline `SECTIONS[]` arrays in 3+ browserbase
-specs, `FEATURES_TO_TEST.md` (730 hand-ticked checkboxes), and the hand-curated nav.
+specs, a 730-checkbox test doc, and the hand-curated nav.
 Nothing derived from one source, so:
 
 1. **Sections silently drifted out of coverage** — a new `/admin/*` route shipped with
    zero sweep coverage (the "routed+mounted ≠ reachable" / "advertised-route orphan"
    classes). `/admin/apps/:id` was live and in *no* sweep list when this landed.
-2. **The DONE gate lied.** `convergence-loop.sh` counted unchecked `[ ]` boxes — a
+2. **The DONE gate lied.** The old gate counted unchecked `[ ]` boxes — a
    number decoupled from reality. A box could be ticked while the section was broken,
    or unticked forever while it worked. The loop *could not* converge because its
    terminal condition wasn't tied to prod.
@@ -53,7 +53,7 @@ once green (the audit-arc maturity ladder).
 
 ## How the loop leverages it
 
-`bin/convergence-loop.sh` `check_done()` now returns DONE only when **both** halves are
+The DONE gate returns DONE only when **both** halves are
 green:
 
 ```

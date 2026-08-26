@@ -79,7 +79,7 @@ export async function checkA11y(
   // (stripping all 73 presentation descendants) does NOT clear it — the grid role
   // ITSELF is flagged, so it can't be patched from outside the library. The robust fix
   // is the already-blueprinted ag-grid→TanStack migration (docs/perf-wave-ag-grid-to-
-  // tanstack.md, which ALSO closes the 205KB budget); tracked in _CONVERGENCE_TASKS.md,
+  // tanstack.md, which ALSO closes the 205KB budget); a known tracked issue,
   // NOT hidden. Tolerate ONLY this exact rule ON the ag-grid root so the gate still
   // fails on every OTHER critical + any NEW one (audit + ai-logs are the only grids).
   const isKnownAgGrid = (v: AxeViolation): boolean =>
