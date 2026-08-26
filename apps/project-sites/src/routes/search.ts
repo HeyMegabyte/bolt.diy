@@ -11,7 +11,6 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { badRequest } from '@project-sites/shared';
 
-
 import { dbQuery, dbQueryOne } from '../services/db.js';
 import { sanitizeLikeTerm } from '../services/like_pattern.js';
 
