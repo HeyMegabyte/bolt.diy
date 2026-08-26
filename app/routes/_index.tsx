@@ -2,6 +2,7 @@ import { json, type MetaFunction } from '@remix-run/cloudflare';
 import { ClientOnly } from 'remix-utils/client-only';
 import { BaseChat } from '~/components/chat/BaseChat';
 import { Chat } from '~/components/chat/Chat.client';
+import { EditorBootLoader } from '~/components/chat/EditorBootLoader';
 import { Header } from '~/components/header/Header';
 import BackgroundRays from '~/components/ui/BackgroundRays';
 import { isEmbedded } from '~/lib/embed/embedded-mode';
@@ -29,7 +30,13 @@ export default function Index() {
     >
       {!isEmbedded && <BackgroundRays />}
       {!isEmbedded && <Header />}
-      <ClientOnly fallback={<BaseChat />}>{() => <Chat />}</ClientOnly>
+      {/*
+       * Pre-hydration fallback: in embedded mode show the theme-matched boot
+       * loader (never the raw chat UI) so the "What are we shipping?" textarea
+       * doesn't flash before the client `Chat` mounts + the history hydrates.
+       * Standalone bolt keeps its original BaseChat fallback.
+       */}
+      <ClientOnly fallback={isEmbedded ? <EditorBootLoader /> : <BaseChat />}>{() => <Chat />}</ClientOnly>
     </div>
   );
 }

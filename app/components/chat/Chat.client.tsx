@@ -39,6 +39,7 @@ import {
 import { parseToolCallEnvelopes } from '~/lib/runtime/message-parser';
 import { dispatchResultToEnvelope, runTool } from '~/lib/tools/dispatcher';
 import { createEditorToolContext } from '~/lib/tools/editor-context';
+import { EditorBootLoader } from './EditorBootLoader';
 
 const logger = createScopedLogger('Chat');
 
@@ -51,9 +52,19 @@ export function Chat() {
     workbenchStore.setReloadedMessages(initialMessages.map((m) => m.id));
   }, [initialMessages]);
 
+  /*
+   * Until the chat history is loaded (`ready` — bolt.diy has booted and the
+   * DB read of stored messages/snapshot has resolved, i.e. the point it would
+   * start running `npm start`), the raw chat UI — the "What are we shipping?"
+   * textarea and its siblings — must NOT flash. We keep the whole chat surface
+   * unmounted and render a theme-matched, cinematic boot loader over the dark
+   * cockpit background instead. Once `ready` flips true the loader is gone and
+   * the real editor takes over (the `_index.tsx` shell already carries the
+   * matching `#060610` bg so there is no colour flash on the swap).
+   */
   return (
-    <>
-      {ready && (
+    <div className="relative flex flex-col h-full w-full">
+      {ready ? (
         <ChatImpl
           description={title}
           initialMessages={initialMessages}
@@ -61,8 +72,10 @@ export function Chat() {
           storeMessageHistory={storeMessageHistory}
           importChat={importChat}
         />
+      ) : (
+        <EditorBootLoader />
       )}
-    </>
+    </div>
   );
 }
 
