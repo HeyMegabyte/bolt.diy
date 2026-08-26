@@ -426,6 +426,12 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // to its own module from search.ts (route-decomposition installment 25). Core, un-gated, PUBLIC —
     // same class as the other route-organization extractions.
     'placesSearch',
+    // mediaAi — GET /api/image-proxy (public SSRF-guarded external-image proxy) + POST
+    // /api/ai/{discover-images,discover-videos,edit-image} (AI media discovery + edit for the
+    // site-build pipeline), extracted to its own module from search.ts (route-decomposition
+    // installment 26). Core, un-gated, mixed public + build-pipeline — same class as the other
+    // route-organization extractions.
+    'mediaAi',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;

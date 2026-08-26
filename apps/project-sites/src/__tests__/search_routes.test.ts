@@ -19,7 +19,9 @@ jest.mock('../services/advanced_features.js', () => ({
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
-import { search, isProxyableImageUrl } from '../routes/search.js';
+import { search } from '../routes/search.js';
+// Route-decomposition installment 26: isProxyableImageUrl moved from search.ts to the media_ai module.
+import { isProxyableImageUrl } from '../../libs/features/media_ai/handlers.js';
 // Route-decomposition installment 23: /api/newsletter/subscribe moved from search.ts to
 // its own module. Mount it before search so the moved route resolves here (mirrors src/index.ts).
 import { contactNewsletter } from '../../libs/features/contact_newsletter/handlers.js';

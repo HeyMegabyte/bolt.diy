@@ -14,6 +14,8 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { search } from '../routes/search.js';
+// Route-decomposition installment 26: /api/ai/discover-images moved to media_ai. Mount before search.
+import { mediaAi } from '../../libs/features/media_ai/handlers.js';
 
 const mockDb = {} as D1Database;
 const mockSitesBucket = {
@@ -34,6 +36,7 @@ const mockEnv = {
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.onError(errorHandler);
+app.route('/', mediaAi);
 app.route('/', search);
 
 function makeRequest(path: string, options?: RequestInit) {
@@ -668,6 +671,7 @@ describe('POST /api/ai/discover-images', () => {
       } as unknown as Env;
       const appNoVision = new Hono<{ Bindings: Env; Variables: Variables }>();
       appNoVision.onError(errorHandler);
+      appNoVision.route('/', mediaAi);
       appNoVision.route('/', search);
 
       const res = await appNoVision.request(
@@ -801,6 +805,7 @@ describe('POST /api/ai/discover-images', () => {
       const envNoCSE = { ...mockEnv, GOOGLE_CSE_KEY: undefined } as unknown as Env;
       const appNoCSE = new Hono<{ Bindings: Env; Variables: Variables }>();
       appNoCSE.onError(errorHandler);
+      appNoCSE.route('/', mediaAi);
       appNoCSE.route('/', search);
 
       const res = await appNoCSE.request(
