@@ -495,14 +495,19 @@ const STUB_SECTION_COMPONENTS = [
  * error is caught + logged, never breaks the build.
  * @returns a short status string for the log.
  */
-function guardAgainstStubPages(dir, templateDir) {
+function guardAgainstStubPages(dir, templateDir, force = false) {
   try {
     const homePath = path.join(dir, 'src', 'pages', 'Home.tsx');
     let refCount = 0;
     if (fs.existsSync(homePath)) {
       const home = fs.readFileSync(homePath, 'utf-8');
       refCount = STUB_SECTION_COMPONENTS.filter((c) => new RegExp(`\\b${c}\\b`).test(home)).length;
-      if (refCount >= 3) return `pages-ok (Home references ${refCount} sections)`;
+      // `force` (used by the content self-heal) restores pages even when Home
+      // LOOKS ok structurally — because a partial-fill (meridian-creative-denver
+      // 2026-08-26: Home had ≥3 sections but an EMPTY <h1>/hero) still needs the
+      // clean template pages so the freshly re-applied content pack fills every
+      // token (HERO_HEADLINE included), not just the sections the orchestrator kept.
+      if (!force && refCount >= 3) return `pages-ok (Home references ${refCount} sections)`;
     }
     // STUB (or Home missing) → restore the template's page render layer.
     if (!templateDir) return `stub-detected (refs=${refCount}) but no TEMPLATE_DIR to restore from`;
@@ -724,11 +729,19 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
           // every pack fills all 167 tokens — and re-load before filling. ──
           const CORE_CONTENT = ['HERO_HEADLINE', 'SERVICE_1_LONG_DESCRIPTION', 'ABOUT_PARAGRAPH_1', 'SERVICES_INTRO'];
           if (CORE_CONTENT.filter((k) => !String(contentMap[k] || '').trim()).length >= 2) {
+            // Prefer the deterministically-picked vertical; else the theme already
+            // applied to _brand.json (so content matches the shell); else saas.
+            let themeVal = '';
+            try { const b = JSON.parse(fs.readFileSync(path.join(dir, '_brand.json'), 'utf-8')); themeVal = (b.colorScheme?.$value || b.colorScheme || ''); } catch { /* none */ }
             const fallbackPreset = preset || '_brand.saas.json';
-            console.warn(`[${jobId}] Content self-heal: core content empty → force-applying ${fallbackPreset} + restoring pages`);
+            console.warn(`[${jobId}] Content self-heal: core content empty → force-applying ${fallbackPreset} + FORCE-restoring pages (theme=${themeVal})`);
             try {
               applyVerticalContentPack(dir, fallbackPreset, TEMPLATE_DIR);
-              guardAgainstStubPages(dir, TEMPLATE_DIR);
+              // FORCE restore (true): a partial-fill Home (≥3 sections but empty
+              // hero) would otherwise be kept, shipping an empty <h1>. Restoring the
+              // clean template pages guarantees every token — HERO_HEADLINE included —
+              // fills from the freshly-applied pack → a FULL site, never partial.
+              guardAgainstStubPages(dir, TEMPLATE_DIR, true);
               contentMap = loadContentMap(dir);
             } catch (he) {
               console.warn(`[${jobId}] Content self-heal error: ${he.message.slice(0, 160)}`);
