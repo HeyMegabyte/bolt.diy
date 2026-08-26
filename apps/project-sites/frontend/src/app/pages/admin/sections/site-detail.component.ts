@@ -689,7 +689,11 @@ export class AdminSiteDetailComponent {
   loadSnapshots(id: string): void {
     this.snapshotsErrorRef.set('');
     this.api
-      .get<{ snapshots: SnapshotRow[] }>(`/sites/${id}/snapshots`, undefined, { silent: true })
+      // Worker returns { data: SnapshotRow[], git_history } (site_versioning route
+      // extraction standardized on `data`). Reading the old `snapshots` key made
+      // res.snapshots undefined → the shape-guard below fired on EVERY load, showing
+      // "response was unexpected" instead of the snapshots.
+      .get<{ data: SnapshotRow[] }>(`/sites/${id}/snapshots`, undefined, { silent: true })
       // catchError → null so a genuine network/404 is distinguishable from a
       // healthy-but-shapeless 200 (which reaches the subscriber as a non-array).
       // Capture the worker request_id off the real error so the shared error card
@@ -707,14 +711,14 @@ export class AdminSiteDetailComponent {
         // mask that as a fake "no snapshots yet" — or crash the @for on a non-array
         // (e.g. a coerced string). Surface an honest, retryable error instead and
         // keep the list a safe empty array.
-        if (!res || !Array.isArray(res.snapshots)) {
+        if (!res || !Array.isArray(res.data)) {
           this.snapshots.set([]);
           this.snapshotsError.set('The snapshots response was unexpected — check your connection and retry.');
           return;
         }
         this.snapshotsError.set(null);
         this.snapshotsErrorRef.set('');
-        this.snapshots.set(res.snapshots);
+        this.snapshots.set(res.data);
       });
   }
 

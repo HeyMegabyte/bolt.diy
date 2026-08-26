@@ -86,7 +86,7 @@ describe('AdminSiteDetailComponent (tabs + logs + SQL console)', () => {
     c.loadSnapshots('site-1');
     expect(c.snapshotsError()).toBeTruthy();
     expect(c.snapshotsErrorRef()).toBe('');
-    get.and.returnValue(of({ snapshots: [] }));
+    get.and.returnValue(of({ data: [] })); // worker returns { data: SnapshotRow[] }
     c.loadSnapshots('site-1');
     expect(c.snapshotsError()).toBeNull();
     expect(c.snapshotsErrorRef()).toBe('');
@@ -598,7 +598,7 @@ describe('AdminSiteDetailComponent (stale-route shapeless 200 — no fake-empty 
   });
 
   it('loadSnapshots: a NON-ARRAY snapshots value (e.g. HTML coerced to a string) never reaches the signal (no @for crash)', () => {
-    const c = buildWithGet({ snapshots: '<html>not an array</html>' });
+    const c = buildWithGet({ data: '<html>not an array</html>' });
     (c as unknown as { loadSnapshots: (id: string) => void }).loadSnapshots('site-1');
     expect(Array.isArray(c.snapshots())).toBeTrue();
     expect(c.snapshots().length).toBe(0);
@@ -606,7 +606,7 @@ describe('AdminSiteDetailComponent (stale-route shapeless 200 — no fake-empty 
   });
 
   it('loadSnapshots: a real array clears any prior error and populates the list', () => {
-    const c = buildWithGet({ snapshots: [{ id: 's1', snapshot_name: 'v1', kind: 'initial', created_at: 'x' }] });
+    const c = buildWithGet({ data: [{ id: 's1', snapshot_name: 'v1', kind: 'initial', created_at: 'x' }] });
     c.snapshotsError.set('stale error');
     (c as unknown as { loadSnapshots: (id: string) => void }).loadSnapshots('site-1');
     expect(c.snapshots().length).toBe(1);
