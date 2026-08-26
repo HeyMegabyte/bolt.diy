@@ -36,6 +36,8 @@ site_lifecycle:
   rebuild_research: { status: covered, specs: [rebuild-and-research.spec.ts] }
   waiting_terminal: { status: covered, specs: [waiting-and-terminal.spec.ts] }
   lifecycle_ext:    { status: covered, specs: [site-lifecycle-extended.spec.ts] }
+  create_edit_publish: { status: covered, specs: [create-edit-publish-flow.spec.ts] }
+  live_build_logs:  { status: covered, specs: [flows/flow-011-live-build-logs-widget.spec.ts] }
 
 site_management:
   site_cards:       { status: covered, specs: [site-card-features.spec.ts] }
@@ -68,7 +70,6 @@ media:
   library:          { status: covered, specs: [media-library.spec.ts] }
   stock_search:     { status: covered, specs: [media-stock-search.spec.ts] }
   image_studio:     { status: covered, specs: [media-image-studio.spec.ts] }
-  video_studio:     { status: covered, specs: [media-video-studio.spec.ts] }
   podcast_studio:   { status: covered, specs: [media-podcast-studio.spec.ts] }
   drop_zone:        { status: covered, specs: [media-drop-zone.spec.ts] }
   send_to_bolt:     { status: covered, specs: [media-send-to-bolt.spec.ts] }
@@ -173,24 +174,21 @@ subdir_inventory:
   editor: { status: covered, specs: [editor/editor-lifecycle.spec.ts] }
   env: { status: covered, specs: [env/env-extras.spec.ts] }
   flags: { status: covered, specs: [flags/all-flags.spec.ts] }
-  fortress: { status: covered, specs: [_fortress/admin-detail/adversarial.spec.ts, _fortress/admin-detail/happy-path.spec.ts, _fortress/auth/adversarial.spec.ts, _fortress/auth/happy-path.spec.ts, _fortress/billing/adversarial.spec.ts, _fortress/billing/happy-path.spec.ts, _fortress/feature-flags/adversarial.spec.ts, _fortress/feature-flags/happy-path.spec.ts, _fortress/site-create/adversarial.spec.ts, _fortress/site-create/happy-path.spec.ts, _fortress/unified_inbox/adversarial.spec.ts, _fortress/unified_inbox/happy-path.spec.ts] }
+  fortress: { status: covered, specs: [_fortress/admin-detail/adversarial.spec.ts, _fortress/admin-detail/happy-path.spec.ts, _fortress/auth/adversarial.spec.ts, _fortress/auth/happy-path.spec.ts, _fortress/billing/adversarial.spec.ts, _fortress/billing/happy-path.spec.ts, _fortress/feature-flags/adversarial.spec.ts, _fortress/feature-flags/happy-path.spec.ts, _fortress/site-create/adversarial.spec.ts, _fortress/site-create/happy-path.spec.ts] }
   home: { status: covered, specs: [home/create-wizard.spec.ts] }
   inbox: { status: covered, specs: [inbox/inbox.spec.ts] }
-  live-stream: { status: covered, specs: [live-stream/live-stream.spec.ts] }
   logs: { status: covered, specs: [logs/logs-explorer.spec.ts] }
   marketplace: { status: covered, specs: [marketplace/marketplace.spec.ts] }
   mcp: { status: covered, specs: [mcp/mcp-providers.spec.ts] }
   media: { status: covered, specs: [media/media-coverage.spec.ts] }
   perf: { status: covered, specs: [perf/ttfr.spec.ts] }
   platform-mcp: { status: covered, specs: [platform-mcp/mcp-http.spec.ts] }
-  pseo: { status: covered, specs: [pseo/pseo-matrix.spec.ts] }
   public: { status: covered, specs: [public/discovery.spec.ts, public/marketing.spec.ts] }
   site-dna: { status: covered, specs: [site-dna/site-dna.spec.ts] }
   site-lifecycle: { status: covered, specs: [site-lifecycle/site-crud.spec.ts] }
   site-mcp: { status: covered, specs: [site-mcp/site-mcp.spec.ts] }
   social: { status: covered, specs: [social/social-flows.spec.ts] }
   social_publishing_native: { status: covered, specs: [social_publishing_native/account-connect.spec.ts, social_publishing_native/post-create.spec.ts, social_publishing_native/post-schedule.spec.ts] }
-  swarm: { status: covered, specs: [swarm/swarm.spec.ts] }
   tabs: { status: covered, specs: [tabs/per-project-tabs.spec.ts] }
   voice: { status: covered, specs: [voice/voice-sms.spec.ts] }
   webhook: { status: covered, specs: [webhook/webhooks.spec.ts] }
@@ -212,7 +210,6 @@ admin_verification_sweeps:
       - admin-verify/admin-a11y-critical.spec.ts
       - admin-verify/admin-advertised-routes.spec.ts
       - admin-verify/admin-ag-grid-populated.spec.ts
-      - admin-verify/admin-alias-and-editor-media.spec.ts
       - admin-verify/admin-alias-redirects.spec.ts
       - admin-verify/admin-analytics-populated.spec.ts
       - admin-verify/admin-homepage-journey.spec.ts
