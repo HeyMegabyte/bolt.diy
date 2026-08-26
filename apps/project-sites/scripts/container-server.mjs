@@ -392,7 +392,14 @@ function pickVerticalPreset(dir, promptText = '') {
   // trailing \b (spa\b not "space", law\b not "lawn", app\b not "apparel").
   const rules = [
     ['_brand.medical.json', /\b(dentist|dental|orthodont|endodont|periodont|doctor|physician|clinic|medical|health|hospital|chiropract|dermatolog|pediatric|veterinar|optometr|ophthalmolog|physical therapy|physiotherap|physio|urgent care|family medicine|surgeon|cardiolog|pharmac)/],
-    ['_brand.wellness.json', /\b(yoga|pilates|spa\b|massage|wellness|meditation|fitness|gym\b|crossfit|salon|beaut|nail|barber|acupunctur|reiki|nutrition|wellbeing|well-being)/],
+    // Fitness = its OWN vertical (dark, strength-gym copy), NOT wellness. Placed
+    // before wellness so a tie favors it; gym/fitness/strength terms were REMOVED
+    // from the wellness regex below so a strength gym no longer scores wellness
+    // (it rendered yoga copy + LIGHT theme — fire-20). Kept out of
+    // LIGHT_VERTICAL_PRESETS so fitness stays DARK. Pairs with the template's
+    // examples/_brand.fitness.json + _content.fitness.json pack.
+    ['_brand.fitness.json', /\b(gym\b|crossfit|cross-fit|fitness|strength training|strength and conditioning|barbell|powerlifting|power lifting|weightlifting|weight lifting|olympic lifting|personal trainer|personal training|bootcamp|boot camp|kettlebell|calisthenics|athletic club|hiit\b)/],
+    ['_brand.wellness.json', /\b(yoga|pilates|spa\b|massage|wellness|meditation|salon|beaut|nail|barber|acupunctur|reiki|nutrition|wellbeing|well-being)/],
     ['_brand.legal.json', /\b(law\b|lawyer|attorney|legal|counsel|litigation|paralegal|notary|estate planning|llp\b)/],
     ['_brand.restaurant.json', /\b(restaurant|farm-to-table|farm to table|cafe|café|coffee|bakery|bar\b|bistro|dining|gastropub|osteria|trattoria|ramen|sushi|diner|eatery|catering|pizzeria|brewery|food truck|grill|steakhouse|winery|vineyard|taqueria|deli\b)/],
     ['_brand.local-service.json', /\b(plumb|hvac|electric|roofing|roofer|landscap|lawn|cleaning|janitor|contractor|handyman|pest control|locksmith|moving|movers|garage door|paint|construction|remodel|flooring|fencing|paving|towing|auto repair|mechanic)/],
