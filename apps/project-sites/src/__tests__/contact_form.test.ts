@@ -18,6 +18,9 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { search } from '../routes/search.js';
+// Route-decomposition installment 23: /api/contact-form/:slug moved from search.ts to
+// its own module. Mount it before search so the moved route resolves here (mirrors src/index.ts).
+import { contactNewsletter } from '../../libs/features/contact_newsletter/handlers.js';
 
 /** D1 stub: the contact-form site lookup resolves to a site with a contact email. */
 const SITE_ROW = {
@@ -49,6 +52,7 @@ function makeEnv(overrides: Partial<Record<string, unknown>> = {}): Env {
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.onError(errorHandler);
+app.route('/', contactNewsletter);
 app.route('/', search);
 
 function submit(env: Env, body: unknown) {

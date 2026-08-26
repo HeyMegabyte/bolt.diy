@@ -20,6 +20,9 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { search, isProxyableImageUrl } from '../routes/search.js';
+// Route-decomposition installment 23: /api/newsletter/subscribe moved from search.ts to
+// its own module. Mount it before search so the moved route resolves here (mirrors src/index.ts).
+import { contactNewsletter } from '../../libs/features/contact_newsletter/handlers.js';
 import { dbQuery, dbQueryOne, dbInsert } from '../services/db.js';
 import { writeAuditLog } from '../services/audit.js';
 import { newsletterSubscribe } from '../services/advanced_features.js';
@@ -61,6 +64,7 @@ const mockEnv = {
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.onError(errorHandler);
+app.route('/', contactNewsletter);
 app.route('/', search);
 
 function makeRequest(path: string, options?: RequestInit) {

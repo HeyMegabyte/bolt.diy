@@ -415,6 +415,12 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // installment 22). Core, un-gated, MACHINE-to-machine (shared-secret containerAuthorized, not
     // orgId) — same class as the other route-organization extractions.
     'containerProxy',
+    // contactNewsletter — POST /api/contact-form/:slug (generated-site lead → contacts +
+    // form_submissions + SES/SendGrid/Resend + bell) + POST /api/newsletter/subscribe (native
+    // double-opt-in), extracted to its own module from search.ts (route-decomposition installment
+    // 23). Core, un-gated, PUBLIC (both routes, Zod-validated) — same class as the other
+    // route-organization extractions.
+    'contactNewsletter',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;
