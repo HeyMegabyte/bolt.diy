@@ -69,10 +69,14 @@ Key constraints enforced downstream:
 - All entries must use consistent `ai_enhancement_prompt` style so the grid looks uniform.
 - Never mix photographic images with placeholder icons in the same grid.
 
-### AI generation quality bar
+### AI generation quality bar (ULTRA-REALISTIC, context-perfect — every prompt)
 
-- When brand images are low quality: mark `"quality": "low"` + `"use_as": "inspiration_only"` + provide a detailed `ai_generation_prompt` (40+ words, specifying: lighting, composition, mood, subject, style, color palette, NO text or logos).
-- AI-generated images should be cinematic, professional, high-resolution — not generic.
+- When brand images are low quality: mark `"quality": "low"` + `"use_as": "inspiration_only"` + provide a detailed `ai_generation_prompt`.
+- Every AI prompt MUST describe a **specific, real scene for THIS business's vertical + THIS section** — never a generic stock cue. A dental hero is "a bright, modern dental-office reception, warm and welcoming, real patients smiling", NOT "healthcare image".
+- Every AI prompt MUST read as photographic realism: name the **subject**, the **real setting**, **who is in frame**, **lighting** (natural / golden-hour / bright daylight), **composition/framing**, and **mood**. 40+ words.
+- Ban in every prompt: text, words, logos, signage text, watermarks, cartoons, 3D/CGI renders, distorted hands/faces, plastic skin, over-saturation. (The build layer appends a photographic preamble + these negatives automatically — write the SUBJECT precisely and it inherits ultra-realism.)
+- Heroes/backgrounds: describe a wide 16:9 landscape scene with clear negative space for overlaid headline text.
+- Result must look like an award-winning editorial photograph shot on a 35mm prime — never a generic AI stock image.
 
 ### Video integration
 
@@ -100,7 +104,7 @@ Return valid JSON:
       "search_query_stock": "string (Unsplash/Pexels query for royalty-free alternative)",
       "aspect_ratio": "16:9",
       "confidence_specific": 0.5,
-      "ai_generation_prompt": "string (40+ word prompt for AI fallback; no text/logos; specify lighting + mood + composition)"
+      "ai_generation_prompt": "string (40+ words; a SPECIFIC real scene for THIS vertical + hero: subject + real setting + who is in frame + natural lighting + wide 16:9 composition with negative space for a headline + mood; ultra-realistic photograph; no text/logos)"
     }
   ],
   "storefront_image": {
@@ -127,7 +131,7 @@ Return valid JSON:
   "ai_enhancement_prompts": [
     {
       "target": "string (hero|logo|service|team|storefront)",
-      "prompt": "string (40+ words, cinematic DALL-E prompt — no text/logos)",
+      "prompt": "string (40+ words; ULTRA-REALISTIC photograph specific to THIS vertical + this slot: subject + real setting + people in frame + natural lighting + composition + mood; no text/logos/watermarks/cartoons)",
       "style": "cinematic | lifestyle | editorial | abstract | product"
     }
   ],

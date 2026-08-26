@@ -29,11 +29,48 @@ import { WorkflowEntrypoint } from 'cloudflare:workers';
 import type { WorkflowStep, WorkflowEvent } from 'cloudflare:workers';
 import type { Env } from '../types/env.js';
 import { gatewayFetch } from '../services/ai_gateway.js';
+import { buildArtDirectedPrompt, type ImageSlot } from '../services/image_art_direction.js';
 
 /**
  * Allowed DALL-E output sizes (also accepted by the Stability adapter).
  */
 export type ImageSize = '1024x1024' | '1792x1024' | '1024x1792';
+
+/**
+ * Map a concept slug (`hero`, `team`, `service-1`, `about`, `gallery-3`, …) to
+ * an {@link ImageSlot} for art direction. Trailing indices are stripped
+ * (`service-1` → `service`) so numbered slots share their family's framing +
+ * subject template. Unknown concepts default to `section`.
+ */
+function conceptToSlot(concept: string): ImageSlot {
+  const base = concept
+    .toLowerCase()
+    .replace(/[-_]?\d+$/, '')
+    .trim();
+  const known: readonly ImageSlot[] = [
+    'hero',
+    'section',
+    'background',
+    'feature',
+    'bento',
+    'gallery',
+    'team',
+    'service',
+    'storefront',
+    'product',
+    'about',
+    'testimonial',
+    'logo',
+    'icon',
+    'favicon',
+  ];
+  if ((known as readonly string[]).includes(base)) return base as ImageSlot;
+  if (base.startsWith('service')) return 'service';
+  if (base.startsWith('team') || base.startsWith('staff')) return 'team';
+  if (base.startsWith('gallery')) return 'gallery';
+  if (base.startsWith('product')) return 'product';
+  return 'section';
+}
 
 /**
  * Parameters for one image-generation workflow run.
@@ -51,9 +88,12 @@ export interface ImageGenerationParams {
   siteId: string;
   /** Site slug — drives the R2 key prefix `sites/{slug}/assets/...`. */
   slug: string;
-  /** Short concept slug (`hero`, `team`, `service-1`). Used in the filename. */
+  /** Short concept slug (`hero`, `team`, `service-1`). Drives the filename AND
+   *  the art-direction slot (see `validate-prompt` step). */
   concept: string;
-  /** Full DALL-E prompt (already brand-aware; the workflow does not edit it). */
+  /** The per-slot subject cue. The workflow art-directs it into a supreme,
+   *  ultra-realistic prompt in `validate-prompt` (idempotent — a pre-directed
+   *  prompt is passed through untouched). */
   prompt: string;
   /** Output dimensions. Default `1024x1024`. */
   size?: ImageSize;
@@ -109,13 +149,23 @@ export class ImageGenerationWorkflow extends WorkflowEntrypoint<Env, ImageGenera
     const validated = await step.do('validate-prompt', RETRY_30S, async () => {
       const slug = (params.slug || '').trim();
       const concept = (params.concept || '').trim();
-      const prompt = (params.prompt || '').trim();
+      const rawPrompt = (params.prompt || '').trim();
       if (!slug) throw new Error('slug_required');
       if (!concept) throw new Error('concept_required');
-      if (prompt.length < 10) throw new Error('prompt_too_short');
-      if (prompt.length > 4000) throw new Error('prompt_too_long');
+      if (rawPrompt.length < 10) throw new Error('prompt_too_short');
+      if (rawPrompt.length > 4000) throw new Error('prompt_too_long');
       const size: ImageSize = params.size ?? '1024x1024';
       const safeConcept = concept.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 60);
+      // Art-direct the caller's per-slot cue into a supreme, ultra-realistic,
+      // context-aware prompt (photographic realism + slot-derived subject +
+      // negative prompts + hero framing). Slot is derived from the concept
+      // (`service-1` → service, `hero` → hero). Idempotent: a pre-directed
+      // prompt is returned unchanged. Both the DALL-E and Stability steps
+      // consume this single directed prompt so providers stay consistent.
+      const prompt = buildArtDirectedPrompt({
+        subject: rawPrompt,
+        slot: conceptToSlot(concept),
+      });
       return { slug, concept: safeConcept, prompt, size };
     });
 

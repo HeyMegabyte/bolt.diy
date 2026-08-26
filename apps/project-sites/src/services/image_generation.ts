@@ -14,9 +14,17 @@
 
 import type { Env } from '../types/env.js';
 import { gatewayFetch } from './ai_gateway.js';
+import { ensureArtDirected } from './image_art_direction.js';
 
 /**
  * Call OpenAI DALL-E 3 to generate an image.
+ *
+ * The incoming prompt is passed through {@link ensureArtDirected} so every image
+ * inherits the supreme, ultra-realistic art-direction preamble (photographic
+ * realism + brand-aware subject + negative prompts + landscape framing for
+ * heroes). Enrichment is idempotent — an already-directed prompt is untouched,
+ * so callers that pre-direct (the site-generation workflow) never double-wrap.
+ * `1792x1024` requests are treated as `hero` framing; other sizes as `section`.
  *
  * @returns The image as an ArrayBuffer (PNG) or null on failure.
  */
@@ -31,6 +39,9 @@ export async function callDallE3(
     return null;
   }
 
+  // Wide (1792x1024) requests are banner heroes; everything else is a section image.
+  const directedPrompt = ensureArtDirected(prompt, size === '1792x1024' ? 'hero' : 'section');
+
   try {
     const { response: res } = await gatewayFetch(env, 'openai', '/v1/images/generations', {
       method: 'POST',
@@ -40,7 +51,7 @@ export async function callDallE3(
       },
       body: JSON.stringify({
         model: 'dall-e-3',
-        prompt,
+        prompt: directedPrompt,
         n: 1,
         size,
         response_format: 'url',

@@ -89,7 +89,13 @@ describe('image_generation service', () => {
       const body = JSON.parse((init as RequestInit).body as string);
       expect(body.model).toBe('dall-e-3');
       expect(body.size).toBe('1792x1024');
-      expect(body.prompt).toBe('hero prompt');
+      // The prompt is art-directed into a supreme, ultra-realistic prompt: it
+      // keeps the caller's cue AND inherits the photographic preamble + hero
+      // framing (1792x1024 → hero slot) + the negative-prompt tail.
+      expect(body.prompt).toContain('hero prompt');
+      expect(body.prompt).toContain('35mm');
+      expect(body.prompt).toContain('16:9 landscape');
+      expect(body.prompt).toContain('no watermark');
       // Routed through gatewayFetch → headers arrive as a Headers instance.
       const sentHeaders = new Headers((init as RequestInit).headers);
       expect(sentHeaders.get('Authorization')).toBe('Bearer sk-test-key');
