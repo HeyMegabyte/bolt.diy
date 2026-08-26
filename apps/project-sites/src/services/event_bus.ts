@@ -6,7 +6,7 @@
  * transition (claim started/completed, subscription active, invoice paid, site
  * generated/published, notification triggered) becomes a CloudEvents-1.0
  * `ProjectSitesEvent` written to the `outbox_events` table in the SAME logical
- * unit as the domain write — then a dispatcher drains it to Queues/Workflows/Novu.
+ * unit as the domain write — then a dispatcher drains it to Queues/Workflows/psnotify.
  *
  * Tenant-scoped (every event carries `tenantId`), idempotent (the
  * `idempotency_key` UNIQUE constraint makes a duplicate write a no-op), and

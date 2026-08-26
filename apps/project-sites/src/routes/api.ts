@@ -2164,8 +2164,8 @@ api.post('/api/sites/:siteId/hostnames', async (c) => {
     /* fire-and-forget */
   }
 
-  // Fire-and-forget Novu notification to the user (bell + channels). Safe no-op
-  // without NOVU_SECRET_KEY; never affects the provisioning response.
+  // Fire-and-forget in-app notification to the user (bell + channels). Safe no-op
+  // when notifications are unconfigured; never affects the provisioning response.
   try {
     const actorId = c.get('userId');
     if (actorId) {
@@ -4576,8 +4576,8 @@ api.post('/api/sites/:id/deploy', async (c) => {
     .bind(version, siteId)
     .run();
 
-  // Fire-and-forget Novu notification to the publisher (bell + channels).
-  // Safe no-op when NOVU_SECRET_KEY is unset; never blocks the publish response.
+  // Fire-and-forget in-app notification to the publisher (bell + channels).
+  // Safe no-op when notifications are unconfigured; never blocks the publish response.
   try {
     const publisherId = c.get('userId');
     if (publisherId) {
@@ -5153,7 +5153,7 @@ api.post('/api/admin/domains/:hostnameId/verify', async (c) => {
             request_id: c.get('requestId'),
           })
           .catch(() => {});
-        // Typed Novu bell event (best-effort, never blocks verification).
+        // Typed in-app bell event (best-effort, never blocks verification).
         try {
           const { notifyEvent } = await import('../services/notify.js');
           const p = notifyEvent(c.env, {

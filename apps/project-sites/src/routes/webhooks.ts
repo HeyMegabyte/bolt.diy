@@ -211,7 +211,7 @@ webhooks.post('/webhooks/stripe', async (c) => {
             subscription: obj.subscription as string,
             metadata: obj.metadata as { org_id?: string; site_id?: string },
           });
-          // Fire-and-forget Novu: notify the org owner their plan is active.
+          // Fire-and-forget notification: notify the org owner their plan is active.
           // Fully isolated — Hono's c.executionCtx getter throws when absent
           // (e.g. tests), so guard it; notification never affects the webhook.
           if (meta.org_id) {
@@ -326,7 +326,7 @@ webhooks.post('/webhooks/stripe', async (c) => {
           subscription: obj.subscription as string,
           metadata: failMeta,
         });
-        // Fire-and-forget Novu: alert the org owner so they can fix billing.
+        // Fire-and-forget notification: alert the org owner so they can fix billing.
         if (failMeta.org_id) {
           try {
             const { notifyOwnerEvent } = await import('../services/notify.js');

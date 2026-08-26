@@ -1485,7 +1485,7 @@ aiAdmin.post('/api/team/invites', async (c) => {
     }),
   );
 
-  // Typed Novu bell event for the org owner (best-effort, never blocks).
+  // Typed in-app bell event for the org owner (best-effort, never blocks).
   c.executionCtx.waitUntil(
     (async () => {
       try {
@@ -1837,7 +1837,7 @@ aiAdmin.post('/api/team/invites/accept', async (c) => {
     }),
   );
 
-  // Typed Novu bell event — tell the org owner a teammate joined (best-effort).
+  // Typed in-app bell event — tell the org owner a teammate joined (best-effort).
   c.executionCtx.waitUntil(
     (async () => {
       try {

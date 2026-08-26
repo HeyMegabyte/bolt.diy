@@ -1386,7 +1386,7 @@ search.post('/api/contact-form/:slug', async (c) => {
       );
     }
 
-    // In-app bell notification to the site owner (Novu backbone). Additive +
+    // In-app bell notification to the site owner (psnotify backbone). Additive +
     // guarded + fire-and-forget; never blocks the form response.
     if (site.org_id) {
       try {

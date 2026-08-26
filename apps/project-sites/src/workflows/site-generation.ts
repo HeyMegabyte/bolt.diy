@@ -95,11 +95,11 @@ async function updateSiteStatus(db: D1Database, siteId: string, status: string):
 }
 
 /**
- * Notify the org owner that a build failed, via the typed Novu `build.failed`
+ * Notify the org owner that a build failed, via the typed psnotify `build.failed`
  * event (bell + channels). Best-effort: any failure is swallowed so it never
  * affects the workflow's own error handling.
  *
- * @param env - Worker bindings (needs DB + NOVU_SECRET_KEY for delivery).
+ * @param env - Worker bindings (needs DB for delivery).
  * @param orgId - The org whose owner is notified.
  * @param siteId - The site that failed to build.
  * @param reason - Human-readable failure reason.
@@ -783,7 +783,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           pct: meter.pct,
           message: `Budget OK: $${meter.spentUsd.toFixed(2)}/$${meter.capUsd === Infinity ? '∞' : meter.capUsd.toFixed(2)} (${meter.pct.toFixed(0)}%)`,
         });
-        // Proactive Novu warning when a capped org crosses 80% of its monthly AI
+        // Proactive psnotify warning when a capped org crosses 80% of its monthly AI
         // budget — so they can upgrade before a build is blocked. Best-effort.
         if (meter.capUsd !== Infinity && meter.pct >= 80) {
           try {

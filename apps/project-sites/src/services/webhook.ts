@@ -2,7 +2,7 @@
  * @module webhook
  * @description Generic webhook ingestion for Cloudflare D1: signature verification,
  * idempotency, event storage, and status tracking for inbound provider webhooks
- * (Stripe, Dub, Chatwoot, Novu).
+ * (Stripe, Dub, Chatwoot, psnotify).
  *
  * Pipeline: verify signature → check idempotency (`provider + event_id`) → store raw
  * event → caller processes → mark `processed`/`failed`.

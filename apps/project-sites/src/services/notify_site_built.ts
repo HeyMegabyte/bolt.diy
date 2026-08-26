@@ -50,7 +50,7 @@ export interface NotifyOwnerDeps {
 
 /**
  * Notify the org owner that their site is live across BOTH channels: the
- * "Your Site Is Live!" email ({@link notifySiteBuilt}) and the in-app Novu bell
+ * "Your Site Is Live!" email ({@link notifySiteBuilt}) and the in-app bell
  * (`build.finished` event via {@link notifyOwnerEvent}). Each channel is
  * independent + fail-soft — one failing never blocks the other or the publish.
  *
