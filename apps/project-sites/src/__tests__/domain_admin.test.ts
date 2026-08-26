@@ -30,6 +30,7 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { api } from '../routes/api.js';
+import { hostnames } from '../../libs/features/hostnames/handlers.js';
 import { dbQuery, dbQueryOne, dbUpdate } from '../services/db.js';
 import { writeAuditLog } from '../services/audit.js';
 
@@ -83,6 +84,7 @@ function createAuthenticatedApp(vars: Partial<Variables> = {}, envOverrides: Par
     if (vars.userRole) c.set('userRole', vars.userRole);
     await next();
   });
+  authedApp.route('/', hostnames);
   authedApp.route('/', api);
   const env = createMockEnv(envOverrides);
   return { app: authedApp, env };
@@ -128,6 +130,7 @@ describe('POST /api/admin/domains/:hostnameId/verify', () => {
   it('returns 401 when not authenticated', async () => {
     const app = new Hono<{ Bindings: Env; Variables: Variables }>();
     app.onError(errorHandler);
+    app.route('/', hostnames);
     app.route('/', api);
     const env = createMockEnv();
 
@@ -296,6 +299,7 @@ describe('DELETE /api/admin/domains/:hostnameId', () => {
   it('returns 401 when not authenticated', async () => {
     const app = new Hono<{ Bindings: Env; Variables: Variables }>();
     app.onError(errorHandler);
+    app.route('/', hostnames);
     app.route('/', api);
     const env = createMockEnv();
 
@@ -440,6 +444,7 @@ describe('GET /api/admin/domains/:hostnameId/health', () => {
   it('returns 401 when not authenticated', async () => {
     const app = new Hono<{ Bindings: Env; Variables: Variables }>();
     app.onError(errorHandler);
+    app.route('/', hostnames);
     app.route('/', api);
     const env = createMockEnv();
 
@@ -556,6 +561,7 @@ describe('GET /api/admin/domains/summary', () => {
   it('returns 401 when not authenticated', async () => {
     const app = new Hono<{ Bindings: Env; Variables: Variables }>();
     app.onError(errorHandler);
+    app.route('/', hostnames);
     app.route('/', api);
     const env = createMockEnv();
 

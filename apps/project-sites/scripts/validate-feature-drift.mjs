@@ -322,6 +322,13 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // its own module (route-decomposition installment 11). Core, un-gated, org-scoped (orgId auth)
     // not flag-gated — same class as the other route-organization extractions.
     'siteGithub',
+    // hostnames — /api/sites/:siteId/hostnames/* (list/provision/set-primary/reset-primary/delete/
+    // unsubscribe) + /api/admin/domains/{summary,:id/verify,:id/health,:id} (custom-hostname lifecycle:
+    // CF4SaaS custom domains + free subdomains + verify/health/deprovision), extracted to its own module
+    // (route-decomposition installment 12). Core custom-hostname capability, un-gated, org-scoped (orgId
+    // auth); custom domains are entitlement-gated (paid plan) not flag-gated — same class as 'domains'/
+    // the other route-organization extractions.
+    'hostnames',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;

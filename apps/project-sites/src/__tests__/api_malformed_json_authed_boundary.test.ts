@@ -23,6 +23,7 @@ import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { api } from '../routes/api.js';
 import { domains } from '../../libs/features/domains/handlers.js';
+import { hostnames } from '../../libs/features/hostnames/handlers.js';
 
 const mockDb = {
   prepare: jest.fn(() => ({
@@ -47,6 +48,7 @@ app.use('*', async (c, next) => {
   await next();
 });
 app.route('/', domains);
+app.route('/', hostnames);
 app.route('/', api);
 
 function postRaw(path: string, raw: string) {
