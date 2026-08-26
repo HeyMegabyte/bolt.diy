@@ -8,7 +8,7 @@ import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
-import { MCP_PROVIDERS } from './mcp-providers';
+import { MCP_PROVIDERS, mcpAvailable } from './mcp-providers';
 import { EnvVarsManagerComponent } from '../../../components/env-vars-manager/env-vars-manager.component';
 import { AdminWebhooksComponent } from './webhooks.component';
 import { AdminDeliverabilityComponent } from './deliverability.component';
@@ -465,6 +465,10 @@ const PROVIDERS = MCP_PROVIDERS;
                       <app-env-vars-manager [scope]="'mcp'" [mcpProvider]="p.id" [showDotenv]="false" />
                     </div>
                   }
+                } @else if (!mcpAvailable(p.id)) {
+                  <span class="mcp-btn mcp-coming-soon mt-1 self-start" role="note"
+                        [attr.aria-label]="p.label + ' integration — coming soon, not yet available'"
+                        title="Not yet available — coming soon">Coming soon</span>
                 } @else if (pasteMode() === p.id) {
                   <div class="mt-1 flex gap-2">
                     <input hlmInput type="password" class="flex-1 font-mono text-[0.72rem]"
@@ -826,6 +830,9 @@ const PROVIDERS = MCP_PROVIDERS;
     .mcp-btn-oauth { color: rgba(255,255,255,0.8); }
     .mcp-btn-oauth svg { opacity: 0.7; }
     .mcp-btn-oauth:hover svg { opacity: 1; color: #00E5FF; }
+    /* Built-ahead providers with no worker adapter — honest disabled state
+       (a real connect button would 404 "unknown provider"). */
+    .mcp-coming-soon { opacity: 0.45; cursor: default; pointer-events: none; font-style: italic; }
     .mcp-btn-solid {
       background: rgba(0,229,255,0.1);
       color: #cdf2ff;
@@ -855,6 +862,12 @@ export class AdminSettingsComponent implements OnInit {
   tab = signal<Tab>('general');
   /** Static tab list exposed to the template (Cmd-K palette handles search now). */
   tabs = TABS;
+  /**
+   * Template guard: true when a provider has a live worker adapter (connectable
+   * now). Built-ahead catalogue entries (no adapter) render "Coming soon" instead
+   * of a connect button that 404s "unknown provider". SSOT: `mcp-providers.ts`.
+   */
+  protected readonly mcpAvailable = mcpAvailable;
   /** Email tab — free transactional-send allowance + shared sender (template-readonly). */
   readonly freeEmailCap = FREE_EMAIL_CAP_PER_MONTH;
   readonly providedEmailSender = PROVIDED_EMAIL_SENDER;

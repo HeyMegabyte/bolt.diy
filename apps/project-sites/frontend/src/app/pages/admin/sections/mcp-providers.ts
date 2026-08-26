@@ -129,3 +129,57 @@ const MCP_PROVIDER_INDEX: Readonly<Record<string, McpProvider>> = Object.freeze(
 export function mcpProvider(id: string): McpProvider | undefined {
   return MCP_PROVIDER_INDEX[id];
 }
+
+/**
+ * Provider ids that have a LIVE worker adapter — the `ADAPTERS` map in
+ * `apps/project-sites/src/services/mcp_client.ts` (`getAdapter()` returns a
+ * real adapter). These are the ONLY providers whose
+ * `/api/mcp/:provider/connect` + `/paste` routes resolve today; every other
+ * catalogue entry is BUILT-AHEAD (aspirational) and the worker returns
+ * `404 unknown provider` on connect.
+ *
+ * @remarks
+ * The Settings → MCP tab renders catalogue-only (unavailable) providers as a
+ * "Coming soon" disabled state instead of a connect button that dead-ends
+ * (the worker's own `mcp_client.ts` docs call for a "coming-soon UI"). Keep
+ * this set in LOCK-STEP with the worker `ADAPTERS` map — `mcp-providers.spec.ts`
+ * guards the contract so adding a catalogue entry without a worker adapter
+ * (or vice-versa) fails the build.
+ *
+ * @example
+ * mcpAvailable('stripe');  // true  — has a worker adapter
+ * mcpAvailable('openai');  // false — catalogue-only → "Coming soon"
+ */
+export const MCP_AVAILABLE_PROVIDERS: ReadonlySet<string> = new Set([
+  'mailchimp',
+  'stripe',
+  'resend',
+  'hubspot',
+  'slack',
+  'notion',
+  'github',
+  'linear',
+  'discord',
+  'google_calendar',
+  'twilio',
+  'calendly',
+  'airtable',
+  'zapier',
+  'pagerduty',
+  'vercel',
+]);
+
+/**
+ * True when a provider has a live worker adapter (connectable now); false for
+ * built-ahead catalogue entries the worker can't yet connect (→ "Coming soon").
+ *
+ * @param id - The provider id (e.g. `'slack'`, `'datadog'`).
+ * @returns Whether `/api/mcp/:id/connect` will resolve to a real adapter.
+ *
+ * @example
+ * mcpAvailable('slack');   // true
+ * mcpAvailable('datadog'); // false
+ */
+export function mcpAvailable(id: string): boolean {
+  return MCP_AVAILABLE_PROVIDERS.has(id);
+}
