@@ -162,6 +162,33 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
     expect(fixture.nativeElement.querySelector('app-empty-state')).not.toBeNull();
   });
 
+  it('free-plan empty state offers an Upgrade CTA (not a dead-end) with accurate copy', async () => {
+    await build({ features: [], plan: 'free' });
+    const navSpy = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+    const empty = fixture.nativeElement.querySelector('app-empty-state');
+    expect(empty).not.toBeNull();
+    // Copy must NOT conflate "active" with "paid" — a free plan's status IS active,
+    // so "once your plan is active" was misleading. Guard against its return.
+    expect(empty.textContent).not.toContain('once your plan is active');
+    // Actionable: an Upgrade CTA exists and routes to billing (empty state was a dead-end).
+    const cta = (Array.from(empty.querySelectorAll('button')) as HTMLButtonElement[]).find((b) =>
+      /upgrade plan/i.test(b.textContent || ''),
+    );
+    expect(cta).withContext('free-plan empty state must expose an Upgrade CTA').toBeTruthy();
+    cta!.click();
+    expect(navSpy).toHaveBeenCalledWith(['/admin/billing']);
+  });
+
+  it('paid-plan empty state does NOT show an Upgrade CTA (they already pay)', async () => {
+    await build({ features: [], plan: 'pro' });
+    const empty = fixture.nativeElement.querySelector('app-empty-state');
+    expect(empty).not.toBeNull();
+    const hasUpgrade = (Array.from(empty.querySelectorAll('button')) as HTMLButtonElement[]).some(
+      (b) => /upgrade plan/i.test(b.textContent || ''),
+    );
+    expect(hasUpgrade).withContext('a paid org already pays — no upgrade CTA').toBeFalse();
+  });
+
   it('renders a card per feature with plan-aware enabled/available counts', async () => {
     await build({
       plan: 'pro',
