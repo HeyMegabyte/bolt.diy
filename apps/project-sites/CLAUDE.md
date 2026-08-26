@@ -121,7 +121,7 @@ The container's `~/.claude/CLAUDE.md` `@-imports` the upstream `~/.agentskills/C
 ```
 Step 1-3: Research (parallel)
   → Profile, Brand, Social, Images, Scrape, Structure plan
-  → Workers AI (Llama 3.1) + external APIs
+  → Workers AI (Llama 3.3 70B + 3.1 8B, FP8) + external APIs
 
 Step 4: container-build (single call, ~25-40 min)
   → Container runs ONE Claude Code orchestrator prompt
@@ -288,22 +288,13 @@ Every generated website must implement aggressive, intelligent SEO that targets 
 - **Keyword placement**: Primary in H1, title tag, meta description, first paragraph, and at least 2 H2s. Secondary in H3s, image alt text, internal link anchor text.
 - **Keyword density**: 1-2% natural density. Never stuff. Always readable.
 
-### Technical SEO (every site, every page)
-- `<title>` under 60 chars: `{Primary Keyword} | {Business Name}`
-- `<meta description>` under 160 chars: compelling, includes primary keyword + CTA
-- `<link rel="canonical">` on every page
-- JSON-LD `LocalBusiness` schema with: name, address, phone, geo coordinates, opening hours, price range, image, URL, sameAs (social links)
-- `robots.txt` allowing all crawlers
-- `sitemap.xml` listing all pages with lastmod dates
-- Open Graph + Twitter Card meta tags for social sharing
-- Semantic HTML: one H1, logical H2→H3 hierarchy, `<article>`, `<section>`, `<nav>`, `<main>`
-
-### Content SEO
-- **Internal linking**: Every page links to at least 2 other pages with keyword-rich anchor text
-- **FAQ schema**: FAQ section uses `FAQPage` structured data for rich snippets in Google
-- **Breadcrumbs**: Multi-page sites include breadcrumb navigation with `BreadcrumbList` schema
-- **Image SEO**: Every image has descriptive alt text containing a relevant keyword. File names are descriptive (not `img-1.jpg`).
-- **Content length**: Homepage 1000+ words, about page 500+ words. Real content, not filler.
+### Technical + Content SEO
+- The mechanical set — title 50-60 / meta-desc 120-156 chars, canonical, OG + Twitter cards,
+  `LocalBusiness`/`FAQPage`/`BreadcrumbList` JSON-LD, `robots.txt`, `sitemap.xml` + lastmod, semantic
+  HTML (exactly 1 H1, logical H2→H3) — is **enforced by `build_validators.ts`** (invariants table above).
+- Dictated content specifics: primary keyword in H1/title/desc/first-paragraph/≥2 H2s at 1-2% density;
+  every page internal-links ≥2 others with keyword-rich anchors; descriptive alt text + filenames
+  (never `img-1.jpg`); homepage 1000+ words / about 500+ (real content, never filler).
 
 ### Local SEO (for location-based businesses)
 - Google Maps embed with exact address
@@ -376,27 +367,12 @@ Two dedicated SEO prompts run during the build:
 
 ## Design System & Style Guide (MANDATORY)
 
-Every generated website must embody **Stripe / Linear / Vercel-level polish**:
-
-### Design Stack
-- **Layout:** Material Design spacing + layout principles
-- **Typography:** Apple-level hierarchy — Inter or Satoshi, 48px hero / 24px section / 16px body
-- **Components:** Tailwind CSS patterns + shadcn/ui-inspired accessible components (Radix UI patterns)
-- **Colors:** Professional Tailwind-style palette, WCAG AA minimum contrast, brand colors extracted via AI vision
-
-### UX Principles
-- Immediate clarity above the fold — visitor knows what the business does in 3 seconds
-- Single primary CTA (scroll to contact/donate/book)
-- No cognitive overload — clean, minimal, premium SaaS aesthetic
-- Subtle gradients, soft shadows, light motion only (not garish)
-
-### Performance
-- Must pass Lighthouse 90+ across all categories
-- Minimal JS, fast load, lazy images, font-display: swap
-
-### Quality Bar
-- **Reference:** Stripe.com, Linear.app, Vercel.com level of polish
-- **Output:** Production-ready code. No placeholders. No filler text. No lorem ipsum.
+**Stripe / Linear / Vercel-level polish**, non-negotiable: Material spacing; Apple-level type
+hierarchy (Inter/Satoshi — 48px hero / 24px section / 16px body); shadcn/ui + Tailwind + Radix;
+brand colors extracted via AI vision at WCAG AA contrast. Immediate above-the-fold clarity (what the
+business does in 3s) + a single primary CTA; subtle gradients/shadows/motion, never garish.
+Lighthouse 90+ across all categories; minimal JS, lazy images, `font-display:swap`. Production-ready
+output — no placeholders, no filler, no lorem ipsum.
 
 ## Asset Curation Philosophy (MANDATORY)
 
@@ -426,7 +402,7 @@ Every generated website must embody **Stripe / Linear / Vercel-level polish**:
 
 **Snapshot system:** Each build auto-creates a snapshot (first = "initial", edits = AI-named). Access frozen versions at `{slug}-{snapshot}.projectsites.dev`.
 
-**49 API integrations deployed** — see memory file for full list. Key: Unsplash, Foursquare, Yelp, YouTube, Pexels, Pixabay, DALL-E, Stability AI, Cloudinary, Mapbox, Brandfetch, Logo.dev, plus quality gates (PageSpeed, GTmetrix).
+**Many API integrations deployed** — see memory file for full list. Key: Unsplash, Foursquare, Yelp, YouTube, Pexels, Pixabay, DALL-E, Stability AI, Cloudinary, Mapbox, Brandfetch, Logo.dev, plus quality gates (PageSpeed, GTmetrix).
 
 **Quality rules:** See memory file `website_quality_rules.md` for the criticism registry — every user feedback item about generated websites, organized by category.
 
@@ -472,7 +448,7 @@ The generated website should have **minimum 10 unique images** from these source
 ```bash
 cd apps/project-sites
 npm install --legacy-peer-deps   # NOT pnpm (electron-builder breaks it)
-npm test                         # 902 unit tests across 49 suites
+npm test                         # Jest unit tests (run from apps/project-sites; repo-root = babel trap)
 npm run typecheck                # tsc --noEmit
 npm run lint                     # eslint
 npx wrangler dev                 # local dev server (port 8787)
@@ -768,7 +744,7 @@ dbExecute(db, sql, params)       // Raw execute
 
 ## Testing
 ```bash
-npm test                    # 902 unit tests across 49 suites
+npm test                    # Jest unit tests (run from apps/project-sites; repo-root = babel trap)
 npm run test:coverage       # with coverage
 npx playwright test         # E2E tests (needs Chromium)
 ```
