@@ -19,17 +19,22 @@ import type { Env } from './types/env.js';
 export class SiteBuilderContainer extends Container<Env> {
   override defaultPort = 8080;
   override enableInternet = true;
-  // Idle hibernation timer. The build's workflow polls /status every 30s, and
-  // those HTTP requests reset this idle timer — so ANY value comfortably above the
-  // 30s poll interval is safe from mid-build hibernation (the old 15m was overly
-  // conservative). Lowered to 3m (2026-08-26) to ACCELERATE warm-container image
-  // convergence: stale pre-fix instances (which lack the setStatus self-terminate)
-  // only die via THIS idle timer, then cold-start fresh on the latest image; 3m
-  // vs 15m makes the whole pool converge ~5× faster after a container-code deploy,
-  // killing the version-skew that caused non-deterministic thin/misclassified
-  // builds (fires 12-15). Pairs with maybeSelfTerminate (container-server.mjs),
-  // which hard-exits new-image instances the instant they go idle post-build.
-  override sleepAfter = '3m';
+  // Idle hibernation timer. REVERTED 3m → 15m (2026-08-26) after the 3m value
+  // EVICTED ACTIVE BUILDS: the fire-19 wellness build hibernated mid-generation,
+  // got the one-shot restart, hibernated AGAIN, and was abandoned
+  // ("Container DO evicted before build completed"). The theory that the 30s
+  // /status polls reset the idle timer did NOT hold — a CPU-bound build phase
+  // (npm install, a long `claude -p` turn) can run >3m without a NEW incoming
+  // request to the container, so a 3m timer fires mid-build. 15m is the
+  // proven-safe floor (fires 12-16 completed without eviction; their only
+  // defect was image-VERSION skew, never hibernation). Convergence is already
+  // handled SAFELY by maybeSelfTerminate (container-server.mjs), which hard-exits
+  // an instance 8s after it goes idle POST-build (guarded by a no-running-jobs
+  // check) — that forces the fresh-image cold-start WITHOUT risking a live build.
+  // So sleepAfter only needs to be high enough to never evict an in-flight build;
+  // it is NOT the convergence lever. Never drop it below the longest plausible
+  // no-request gap inside a build again.
+  override sleepAfter = '15m';
 
   override entrypoint = ['node', '/home/cuser/container-server.mjs'];
 
