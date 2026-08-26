@@ -696,15 +696,37 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
           // `cp examples/_brand.<vertical>.json` step is unreliable — a crash ships the
           // DARK default for a light vertical (dentist). Force the right preset here so
           // the theme survives an orchestrator crash; design-merge preserves identity. ──
+          let preset = '';
           try {
-            const preset = pickVerticalPreset(dir, prompt);
+            preset = pickVerticalPreset(dir, prompt);
             console.warn(`[${jobId}] Vertical theme: ${applyVerticalPreset(dir, preset, TEMPLATE_DIR)}`);
             console.warn(`[${jobId}] Vertical content: ${applyVerticalContentPack(dir, preset, TEMPLATE_DIR)}`);
             console.warn(`[${jobId}] Stub guard: ${guardAgainstStubPages(dir, TEMPLATE_DIR)}`);
           } catch (te) {
             console.warn(`[${jobId}] Vertical theme/content skipped: ${te.message.slice(0, 200)}`);
           }
-          const contentMap = loadContentMap(dir);
+          let contentMap = loadContentMap(dir);
+          // ── CONTENT-COMPLETENESS SELF-HEAL (loopwork class, 2026-08-26): if the
+          // vertical content pack did NOT populate _content.json (pickVerticalPreset
+          // returned '' on a real business, applyVerticalContentPack was skipped by a
+          // stale warm-container image, or the orchestrator emptied it), the core
+          // content tokens are blank → the site publishes near-empty (Home ~130w,
+          // /services ~12w) with the default dark shell + no tagline, and NOTHING
+          // catches it (the token-leak gate only fires on raw {TOKEN}s, not on empty
+          // fills). Force-apply the picked pack — or a sensible default vertical, since
+          // every pack fills all 167 tokens — and re-load before filling. ──
+          const CORE_CONTENT = ['HERO_HEADLINE', 'SERVICE_1_LONG_DESCRIPTION', 'ABOUT_PARAGRAPH_1', 'SERVICES_INTRO'];
+          if (CORE_CONTENT.filter((k) => !String(contentMap[k] || '').trim()).length >= 2) {
+            const fallbackPreset = preset || '_brand.saas.json';
+            console.warn(`[${jobId}] Content self-heal: core content empty → force-applying ${fallbackPreset} + restoring pages`);
+            try {
+              applyVerticalContentPack(dir, fallbackPreset, TEMPLATE_DIR);
+              guardAgainstStubPages(dir, TEMPLATE_DIR);
+              contentMap = loadContentMap(dir);
+            } catch (he) {
+              console.warn(`[${jobId}] Content self-heal error: ${he.message.slice(0, 160)}`);
+            }
+          }
           // Identity fallbacks come from the context map itself (BUSINESS_NAME/URL
           // sourced from _content.json/_brand.json/_research.json in loadContentMap)
           // and the slug parsed from the build dir name (/tmp/build-<slug>-<ts>) —
@@ -749,8 +771,23 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
               console.warn(`[${jobId}] TOKEN GATE FAIL: ${leaked.length} unfilled tokens in dist/ — ${leaked.slice(0, 12).join(', ')}${leaked.length > 12 ? '…' : ''}`);
               buildFailReason = `dist/ still contains ${leaked.length} unfilled template tokens (${leaked.slice(0, 8).join(', ')}${leaked.length > 8 ? '…' : ''}) — site would render raw {TOKEN}s`;
             } else {
-              buildOk = true;
-              console.warn(`[${jobId}] npm build ok: ${distFiles.length} dist files, 0 unfilled tokens`);
+              // ── CONTENT-COMPLETENESS BACKSTOP (loopwork class, 2026-08-26): a build
+              // whose core content tokens are still empty published a near-empty site
+              // (Home ~130w, /services ~12w). If the self-heal above could not populate
+              // them (e.g. a stale image lacking applyVerticalContentPack entirely),
+              // FAIL LOUD → error email + retry (which may hit a healthy container) —
+              // never publish a thin site. ──
+              let cm = {};
+              try { cm = JSON.parse(fs.readFileSync(path.join(dir, '_content.json'), 'utf-8')) || {}; } catch { /* none */ }
+              const CORE = ['HERO_HEADLINE', 'SERVICE_1_LONG_DESCRIPTION', 'ABOUT_PARAGRAPH_1', 'SERVICES_INTRO'];
+              const emptyCore = CORE.filter((k) => !String(cm[k] || '').trim());
+              if (emptyCore.length >= 2) {
+                buildFailReason = `content-completeness gate: ${emptyCore.length}/${CORE.length} core content tokens empty (${emptyCore.join(', ')}) — the vertical content pack did not apply; refusing to publish a thin site`;
+                console.warn(`[${jobId}] CONTENT GATE FAIL: ${buildFailReason}`);
+              } else {
+                buildOk = true;
+                console.warn(`[${jobId}] npm build ok: ${distFiles.length} dist files, 0 unfilled tokens, content complete`);
+              }
             }
           } else {
             console.warn(`[${jobId}] dist/ empty after build`);
