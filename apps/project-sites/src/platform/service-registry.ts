@@ -227,16 +227,6 @@ export const SERVICE_REGISTRY: readonly ServiceRegistryEntry[] = [
     notes: 'NEVER added to hosted customer sites (§4/§56).',
   },
   {
-    id: 'notifications-novu',
-    name: 'Novu — notification backbone',
-    domain: 'notify.projectsites.dev',
-    category: 'notifications',
-    runtime: 'managed-saas',
-    secretsNamespace: '/novu',
-    status: 'integrated',
-    access: 'customer-authenticated',
-  },
-  {
     id: 'email-port',
     name: 'Email ports — EmailProvider/MarketingEmailProvider + chooseEmailPath (§42)',
     category: 'email',

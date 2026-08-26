@@ -36,7 +36,6 @@ import { AuthService } from '../../services/auth.service';
 import { BoltEmbedService } from '../../services/bolt-embed.service';
 import { HoverPreloadingStrategy } from '../../services/hover-preloading-strategy';
 import { NavigationModeService } from '../../services/navigation-mode.service';
-import { NovuInboxService } from '../../services/novu-inbox.service';
 import { ShareLinkService } from '../../services/share-link.service';
 import { ToastService } from '../../services/toast.service';
 import { provideHlmTooltip } from '../../ui';
@@ -128,7 +127,6 @@ export class AdminComponent implements OnInit, OnDestroy {
   private hoverPreloader = inject(HoverPreloadingStrategy);
   private toast = inject(ToastService);
   private api = inject(ApiService);
-  private novuInbox = inject(NovuInboxService);
   private titleService = inject(Title);
   private metaService = inject(Meta);
   private translate = inject(TranslateService);
@@ -716,8 +714,6 @@ export class AdminComponent implements OnInit, OnDestroy {
   }
   markAllRead(): void {
     const ids = this.notifications().map((n) => n.id);
-    // Propagate read receipts to Novu for any Novu-sourced items (best-effort).
-    for (const id of ids) if (id.startsWith('novu-')) void this.novuInbox.read(id);
     this.notifications.update((ns) => ns.map((n) => ({ ...n, read: true })));
     try {
       localStorage.setItem('ps_notif_read', JSON.stringify(ids));
@@ -726,7 +722,6 @@ export class AdminComponent implements OnInit, OnDestroy {
     }
   }
   openNotification(n: Notification): void {
-    if (n.id.startsWith('novu-')) void this.novuInbox.read(n.id);
     this.notifications.update((ns) => ns.map((m) => (m.id === n.id ? { ...m, read: true } : m)));
     try {
       const prev = JSON.parse(localStorage.getItem('ps_notif_read') ?? '[]') as string[];
@@ -779,7 +774,7 @@ export class AdminComponent implements OnInit, OnDestroy {
     this.notifications.set(seeded);
     // Pull recent audit log entries as notifications (last 5). Background,
     // best-effort: pass { silent: true } so an audit fetch failure (404 / no
-    // data / transient) degrades to the seeded + Novu feed instead of firing
+    // data / transient) degrades to the seeded feed instead of firing
     // ApiService's generic "resource wasn't found" error toast on every admin
     // page load. The error handler below is already silent — but without this
     // opt the generic toast fires anyway.
@@ -811,31 +806,6 @@ export class AdminComponent implements OnInit, OnDestroy {
           });
           if (items.length) this.notifications.update((cur) => [...items, ...cur]);
         },
-      });
-    // Merge the Novu Cloud inbox (the doctrine notification backbone) as an
-    // ADDITIVE source — local audit/seed feed stays primary, so the bell never
-    // regresses if Novu is empty/unreachable. Fully guarded inside the service.
-    this.novuInbox
-      .list(20)
-      .then((rows) => {
-        if (!rows.length) return;
-        const mapped: Notification[] = rows.map((n) => ({
-          href: n.href ?? undefined,
-          id: n.id,
-          kind: 'info',
-          read: n.read || readIds.includes(n.id),
-          time: this.relativeTime(Date.now() - n.ts),
-          title: n.title,
-          ts: n.ts,
-        }));
-        this.notifications.update((cur) => {
-          const seen = new Set(cur.map((c) => c.id));
-          const fresh = mapped.filter((m) => !seen.has(m.id));
-          return [...fresh, ...cur].sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
-        });
-      })
-      .catch(() => {
-        /* swallow — Novu is additive, never blocks the local feed */
       });
   }
   /**

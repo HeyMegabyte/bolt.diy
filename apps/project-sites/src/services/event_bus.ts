@@ -32,7 +32,6 @@ export const EVENT_PRODUCERS = [
   'hatchet',
   'stripe',
   'hookdeck',
-  'novu',
   'dub',
   'llm',
   'psnotify',
