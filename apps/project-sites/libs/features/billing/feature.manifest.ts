@@ -21,16 +21,29 @@ export default defineFeatureManifest({
   flagKey: 'core_billing',
   owner: 'brian@megabyte.space',
   createdAt: '2026-05-28',
-  updatedAt: '2026-05-28',
+  updatedAt: '2026-08-26',
 
   // ---- surfaces ----
   routes: ['/admin/billing', '/admin/upgrade'],
   apiRoutes: [
+    // checkout-core money paths — still in routes/api.ts (pending a dedicated money-path fire)
     'POST /api/billing/checkout',
     'POST /api/billing/embedded-checkout',
+    'POST /api/billing/payment-intent',
+    'POST /api/billing/portal',
+    // reads + billing-admin — libs/features/billing/handlers.ts (route-decomposition installments 5 + 7)
     'GET  /api/billing/subscription',
     'GET  /api/billing/entitlements',
-    'POST /api/billing/portal',
+    'GET  /api/billing/quota',
+    'GET  /api/billing/cost-forecast',
+    'POST /api/billing/connect/start',
+    'GET  /api/billing/connect/status',
+    'POST /api/billing/connect/disconnect',
+    'POST /api/billing/usage',
+    'GET  /api/billing/usage/this-month',
+    'POST /api/billing/spend-alerts',
+    'GET  /api/billing/spend-alerts',
+    'DELETE /api/billing/spend-alerts/:id',
   ],
 
   // ---- governance ----
@@ -81,7 +94,8 @@ export default defineFeatureManifest({
   ],
 
   removalNotes:
-    'Remove: billing.ts service, billing routes in routes/api.ts, ' +
+    'Remove: billing.ts service, libs/features/billing/handlers.ts (reads + admin) + ' +
+    'checkout-core billing routes in routes/api.ts, ' +
     'frontend billing.component.ts + /admin/billing lazy route. ' +
     'Drop STRIPE_* secrets. Remove webhook_events rows for billing events.',
 });
