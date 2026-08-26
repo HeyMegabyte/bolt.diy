@@ -22,6 +22,8 @@ import { errorHandler } from '../middleware/error_handler.js';
 import { search } from '../routes/search.js';
 // Route-decomposition installment 26: isProxyableImageUrl moved from search.ts to the media_ai module.
 import { isProxyableImageUrl } from '../../libs/features/media_ai/handlers.js';
+// Route-decomposition installment 27: site-creation routes moved to their own module. Mount before search.
+import { siteCreation } from '../../libs/features/site_creation/handlers.js';
 // Route-decomposition installment 23: /api/newsletter/subscribe moved from search.ts to
 // its own module. Mount it before search so the moved route resolves here (mirrors src/index.ts).
 import { contactNewsletter } from '../../libs/features/contact_newsletter/handlers.js';
@@ -71,6 +73,7 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.onError(errorHandler);
 app.route('/', contactNewsletter);
 app.route('/', placesSearch);
+app.route('/', siteCreation);
 app.route('/', search);
 
 function makeRequest(path: string, options?: RequestInit) {
@@ -86,6 +89,7 @@ function makeAuthenticatedApp(vars: Partial<Variables> = {}) {
     if (vars.requestId) c.set('requestId', vars.requestId);
     await next();
   });
+  authedApp.route('/', siteCreation);
   authedApp.route('/', search);
   return authedApp;
 }
@@ -251,6 +255,7 @@ describe('GET /api/search/businesses', () => {
   it('short-circuits with SEARCH_PROVIDER_NOT_CONFIGURED when the Places key is unset (no fetch)', async () => {
     const noKeyApp = new Hono<{ Bindings: Env; Variables: Variables }>();
     noKeyApp.route('/', placesSearch);
+    noKeyApp.route('/', siteCreation);
     noKeyApp.route('/', search);
     const noKeyEnv = { ...mockEnv, GOOGLE_PLACES_API_KEY: undefined } as unknown as Env;
     const res = await noKeyApp.request('/api/search/businesses?q=pizza', undefined, noKeyEnv);

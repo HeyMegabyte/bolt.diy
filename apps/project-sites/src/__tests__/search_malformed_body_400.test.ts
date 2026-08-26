@@ -22,6 +22,7 @@ import { errorHandler } from '../middleware/error_handler.js';
 import { search } from '../routes/search.js';
 // Route-decomposition installment 26: /api/ai/{discover-images,discover-videos,edit-image} moved to media_ai. Mount before search.
 import { mediaAi } from '../../libs/features/media_ai/handlers.js';
+import { siteCreation } from '../../libs/features/site_creation/handlers.js';
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 app.onError(errorHandler);
@@ -32,6 +33,7 @@ app.use('*', async (c, next) => {
   await next();
 });
 app.route('/', mediaAi);
+app.route('/', siteCreation);
 app.route('/', search);
 
 const env = { ENVIRONMENT: 'test' } as unknown as Env;

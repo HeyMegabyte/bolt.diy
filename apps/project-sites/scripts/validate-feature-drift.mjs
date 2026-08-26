@@ -432,6 +432,12 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // installment 26). Core, un-gated, mixed public + build-pipeline — same class as the other
     // route-organization extractions.
     'mediaAi',
+    // siteCreation — POST /api/sites/{create-from-search,improve-prompt,generate-prompt} + POST
+    // /api/ai/categorize (AI-assisted site creation + prompt tooling: mint site + start workflow,
+    // improve/generate build prompt, classify business), extracted to its own module from search.ts
+    // (route-decomposition installment 27). Core, un-gated, org-scoped (c.get('orgId')+401) — same
+    // class as the other route-organization extractions.
+    'siteCreation',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;
