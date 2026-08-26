@@ -283,6 +283,63 @@ describe('POST /api/contact-form/:slug — writes the contacts row with the auth
 });
 
 // ---------------------------------------------------------------------------
+// REVIEWABILITY: the lead must ALSO land in `form_submissions` — the ONLY table
+// the owner's /admin Forms inbox reads (ai_admin.ts GET /sites/:id/form-submissions,
+// forms.component.ts). Historically the contact handler wrote `contacts` ONLY, which
+// no admin surface reads, so generated-site contact-form leads were invisible in the
+// inbox (email + bell delivery only). This LOCKS the canonical inbox mirror so a
+// refactor that drops it silently makes every owner's leads invisible again while
+// every render/status test stays green.
+// ---------------------------------------------------------------------------
+describe('POST /api/contact-form/:slug — mirrors the lead into the form_submissions inbox', () => {
+  it('inserts ONE form_submissions row: org+site scoped, form_name=contact, fields in payload', async () => {
+    global.fetch = jest.fn().mockResolvedValue(new Response('{}', { status: 200 }));
+    const captured: Array<{ sql: string; vals: unknown[] }> = [];
+    const db = {
+      prepare: jest.fn((sql: string) => ({
+        bind: jest.fn((...vals: unknown[]) => {
+          if (/INSERT INTO form_submissions\b/i.test(sql)) captured.push({ sql, vals });
+          return {
+            all: jest.fn().mockResolvedValue({ results: [SITE_ROW] }),
+            first: jest.fn().mockResolvedValue(SITE_ROW),
+            run: jest.fn().mockResolvedValue({ success: true, meta: {} }),
+          };
+        }),
+      })),
+    } as unknown as D1Database;
+
+    const res = await submit(makeEnv({ DB: db }), {
+      name: 'Real Visitor',
+      email: 'lead@visitor.test',
+      phone: '+1-555-0100',
+      message: 'I would like a quote for catering next month please.',
+    });
+    expect(res.status).toBe(200);
+
+    // Exactly one form_submissions INSERT — the inbox row the owner reviews.
+    expect(captured).toHaveLength(1);
+    const { sql, vals } = captured[0];
+    const cols = sql
+      .match(/\(([^)]+)\)\s*VALUES/i)![1]
+      .split(',')
+      .map((s) => s.trim());
+    const row: Record<string, unknown> = {};
+    cols.forEach((col, i) => (row[col] = vals[i]));
+
+    expect(row.org_id).toBe('org-1'); // SITE_ROW.org_id — org-scoped (RBAC + inbox filter)
+    expect(row.site_id).toBe('site-1'); // SITE_ROW.id — lead attributed to the site
+    expect(row.form_name).toBe('contact'); // matches the inbox "Contact" filter chip
+    expect(row.email).toBe('lead@visitor.test');
+    expect(row.status).toBe('received'); // valid form_submissions.status CHECK value
+    const payload = JSON.parse(String(row.payload));
+    expect(payload.name).toBe('Real Visitor');
+    expect(payload.email).toBe('lead@visitor.test');
+    expect(payload.phone).toBe('+1-555-0100');
+    expect(payload.message).toBe('I would like a quote for catering next month please.');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Contact-email SOURCE resolution: the admin Settings "Contact Email" field
 // writes ai_site_settings.contact_email; sites.contact_email is the build/legacy
 // fallback. Reading only sites.contact_email ignored the configured address →

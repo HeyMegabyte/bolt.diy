@@ -1272,6 +1272,50 @@ search.post('/api/contact-form/:slug', async (c) => {
           }),
         );
       }
+
+      // ALSO mirror the lead into `form_submissions` — the table the owner's
+      // /admin Forms inbox actually reads (ai_admin.ts GET /sites/:id/form-submissions).
+      // The `contacts` write above is durable CRM capture, but NO admin surface
+      // reads `contacts`, so generated-site contact-form leads were invisible in
+      // the inbox — delivered only by best-effort email + bell. Writing the
+      // canonical inbox row makes every lead reviewable (and repliable via the
+      // forms reply actions, which key on a form_submissions id). Best-effort +
+      // error-checked: a failure logs, never throws — the contacts row, email,
+      // and bell are independent capture channels, and the visitor's 200 stands.
+      const { error: submissionErr } = await dbInsert(c.env.DB, 'form_submissions', {
+        id: crypto.randomUUID(),
+        site_id: site.id,
+        org_id: site.org_id,
+        form_name: 'contact',
+        email: body.email,
+        payload: JSON.stringify({
+          name: body.name,
+          email: body.email,
+          phone: body.phone ?? '',
+          message: body.message,
+        }),
+        ip_address:
+          c.req.header('cf-connecting-ip') ??
+          c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
+          null,
+        user_agent: c.req.header('user-agent')?.slice(0, 512) ?? null,
+        origin_url: c.req.header('referer') ?? c.req.header('origin') ?? null,
+        forwarded_to: '[]',
+        status: 'received',
+        created_at: new Date().toISOString(),
+      });
+      if (submissionErr) {
+        console.warn(
+          JSON.stringify({
+            level: 'warn',
+            service: 'contact-form',
+            message: 'form_submissions_persist_failed',
+            slug,
+            site_id: site.id,
+            error: submissionErr,
+          }),
+        );
+      }
     }
 
     // Resolve the owner's notification address. The admin Settings "Contact Email"
