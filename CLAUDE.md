@@ -1,708 +1,190 @@
 # bolt.diy Monorepo — AI Context Guide
 
-> **Purpose**: This file is the primary AI onboarding document for the bolt.diy monorepo.
-> A new Claude Code session reading only this file should understand the project structure,
-> development patterns, and how to get productive immediately.
+> Primary AI onboarding for the monorepo. Read this to ORIENT; the per-surface `CLAUDE.md`
+> files are the canonical owners of detail — don't duplicate them here. Every task ends
+> green per the global `verification-loop` (deploy + prod-E2E) and reports in the `always.md`
+> format. This file carries only what's **project-specific** — the general engineering
+> discipline (Zod, errors, logging, TDD, CI) lives in the global rules and in code.
 
 ---
 
-# PART 0 — How to use this document
+## What this is
 
-## 0.1 The workflow
-1. Read this file to understand the project purpose, architecture, and standards
-2. Follow the **Task Protocol** and **Hard Gates** before claiming any task complete
-3. Every task produces: **code changes** with tests + docs, and a **Verification Log**
+**bolt.diy** — an open-source, AI-powered full-stack web IDE in the browser: chat with AI to
+generate/edit/deploy web apps, with a code editor, terminal, file manager, and live preview.
+The monorepo ships three surfaces:
 
-## 0.2 The two outputs every task must produce
-- **Code changes** with tests + docs updates
-- A **Verification Log** containing exact commands and pass/fail results
+- **`app/`** — the bolt.diy editor (Remix + Vite) → Cloudflare **Pages `bolt-diy`** at
+  `editor.projectsites.dev`. The admin Editor **extends** this — never build a parallel editor.
+- **`apps/project-sites/`** — the SaaS website-delivery engine (**Cloudflare Worker + Hono**) →
+  `projectsites.dev`, plus the **Angular admin SPA** under `frontend/`. **Primary dev focus.**
+- **`packages/shared/`** — Zod schemas, constants, RBAC middleware, utilities shared across.
 
----
+**Product**: "We don't sell websites, we deliver them." A business owner searches for their
+business → signs in → gets a professionally AI-generated site, hosted + SSL'd + live in <15min.
 
-# PART 1 — Mission and non-negotiables
+### Canonical detail owners (read for depth)
 
-## 1.1 Mission
-Build an **AI-native**, **gorgeous**, **easy-to-use**, **Cloudflare-optimized** application suite where correctness is proven by:
-- **E2E-TDD Playwright** (primary verification)
-- **100% feature coverage** (enforced via `e2e/FEATURES.md` inventory)
-- **100% unit test coverage** (enforced by test thresholds)
-- **strict linting** and **quantitative quality gates**
-
-## 1.2 Non-negotiables
-- AI is the primary developer — the system must be **self-explaining** and **self-diagnosing**
-- Prefer **Cloudflare-only** primitives; only use **Neon/Upstash** when the Cloudflare stack cannot meet requirements
-- Use **Zod everywhere** at boundaries; error messages must be **human-readable**
-- Implement "distinguished engineer" error handling everywhere (taxonomy + envelopes + idempotency + retries + fallbacks)
-- Every major system is instrumented: logs, traces, events, notifications are **enriched and correlated**
-- Documentation is first-class: JSDoc/TypeDoc on exports + docs with tables/examples/references
+- **`apps/project-sites/CLAUDE.md`** — Worker API surface, middleware, services, prompt system,
+  site-generation pipeline, container build, gotchas.
+- **`apps/project-sites/frontend/CLAUDE.md`** — Angular admin SPA (Spartan UI, services, perf).
+- **`packages/shared/CLAUDE.md`** — schemas, constants, RBAC.
+- **`SCOPE.md`** — mission · hard constraints · AI-buildable backlog · Brian-gated decisions.
+- **`DECISIONS.md`** — accepted ADRs · **`apps/project-sites/_LOOP_LEDGER.md`** — the task tracker.
 
 ---
 
-# PART 2 — Project Purpose Summary
+## Mission + stance
 
-**bolt.diy** is an open-source, AI-powered full-stack web development IDE that runs in the browser. It lets developers chat with AI models to generate, edit, and deploy web applications — all within an integrated environment featuring a code editor, terminal, file manager, and live preview.
-
-- **Primary users**: Web developers, indie hackers, and learners who want AI-assisted code generation
-- **First value**: User types a prompt, AI generates a working web app they can preview and deploy
-- **Primary entities**: Chats, Files/Projects, Providers/Models, Deployments, Settings
-
-The monorepo also includes:
-- **Project Sites** (`apps/project-sites/`): A SaaS website builder powered by AI, serving generated business websites on Cloudflare Workers
-- **Shared Package** (`packages/shared/`): Zod schemas, constants, RBAC middleware, utilities shared between packages
-
----
-
-# PART 3 — Quick Orientation
-
-This is a monorepo containing:
-
-1. **Root app** (`/app`): A Remix + Vite web app for bolt.diy (AI code editor), deployed to Cloudflare Pages at `editor.projectsites.dev`
-2. **Project Sites Worker** (`/apps/project-sites`): A Cloudflare Worker (Hono) that powers the SaaS website delivery engine at `projectsites.dev`
-3. **Shared Package** (`/packages/shared`): Zod schemas, constants, RBAC middleware, utilities shared between packages
-4. **Database Schema** (`/supabase/migrations/`): Reference Postgres schema (D1 SQLite equivalent used in production)
-
-The **primary development focus** in recent sessions has been on `apps/project-sites/` and `packages/shared/`.
-
-## Repository Structure
-
-```
-bolt.diy/
-├── app/                          # Remix frontend (bolt.diy AI code editor)
-├── apps/
-│   └── project-sites/            # Cloudflare Worker → projectsites.dev
-│       ├── src/
-│       │   ├── index.ts          # Hono app entry point
-│       │   ├── types/env.ts      # Env bindings + Variables
-│       │   ├── middleware/       # auth, error_handler, payload_limit, request_id, security_headers
-│       │   ├── routes/           # api.ts, health.ts, search.ts, webhooks.ts
-│       │   ├── services/         # ai_workflows, analytics, audit, auth, billing, build_limits, confidence, contact, db, domains, external_llm, google_places, image_generation, media, notifications, openai_research, rag, site_serving, webhook
-│       │   ├── prompts/          # TS infra: parser, renderer, registry, schemas, observability, types
-│       │   ├── workflows/        # site-generation.ts (Cloudflare Workflow)
-│       │   ├── lib/              # posthog.ts, sentry.ts
-│       │   └── __tests__/        # 48 test suites
-│       ├── prompts/              # .prompt.md files (YAML frontmatter + # System/# User)
-│       ├── public/               # index.html (marketing SPA), static assets
-│       ├── e2e/                  # Playwright E2E specs
-│       ├── wrangler.toml         # Worker config (dev/staging/production)
-│       ├── jest.config.cjs
-│       └── playwright.config.ts
-├── packages/
-│   └── shared/                   # @project-sites/shared
-│       └── src/
-│           ├── schemas/          # Zod: org, site, billing, auth, audit, webhook, workflow, config, analytics, hostname, api
-│           ├── middleware/        # RBAC + entitlements
-│           ├── utils/            # errors, crypto, sanitize, redact
-│           └── constants/        # DOMAINS, AUTH, PRICING, CAPS, ENTITLEMENTS, ROLES
-├── e2e/                          # Root-level E2E tests for bolt.diy main app
-│   ├── FEATURES.md               # Authoritative feature inventory
-│   ├── COVERAGE.yml              # Feature → spec mapping
-│   ├── fixtures.ts               # Shared Playwright fixtures
-│   ├── playwright.config.ts      # Playwright config for main app
-│   └── specs/                    # 14 spec files, 96+ tests
-├── supabase/migrations/          # Reference Postgres schema (D1 SQLite used in prod)
-├── docs/                         # MkDocs documentation site
-├── electron/                     # Electron desktop wrapper
-└── .github/workflows/            # CI/CD pipelines
-```
+AI-native, gorgeous, easy-to-use, Cloudflare-optimized. **AI is the primary developer**, so the
+system must be self-explaining + self-diagnosing. **Cloudflare-first** (Workers/Hono/D1/R2/KV/
+Durable Objects/Queues/Workflows); Neon (Postgres via Hyperdrive) / Upstash (Redis) only when a
+CF primitive genuinely can't. **Zod at every boundary**; human-readable errors via RFC7807
+envelopes (`code` + `correlationId` + `errors[]` + what-to-do-next); correlated logs/traces/
+events (requestId + traceId + tenantId); JSDoc on exports. Global rules own the general
+discipline — `zod-everywhere`, `verification-loop`, `structured-logging`,
+`feature-module-architecture`, `drift-detection`, `feature-flags`, `quality-metrics`.
 
 ---
 
-# PART 4 — Cloudflare-first architecture (fallback only when necessary)
+## Project Sites Worker stack
 
-## 4.1 Default Cloudflare primitives (use first)
-Use these unless there is a concrete reason not to:
+| Layer | Tech |
+|---|---|
+| Ingress / API | Cloudflare Workers + Hono |
+| System of record | Cloudflare D1 (SQLite) — parameterized SQL, **no Supabase client** |
+| Cache | Cloudflare KV (host resolution 60s TTL, prompt hot-patch) |
+| Storage | Cloudflare R2 — `sites/{slug}/{version}/{file}`, marketing at `marketing/index.html` |
+| Background | Cloudflare Workflows (AI site-generation pipeline) |
+| AI | Cloudflare Workers AI (Llama 3.3 70B + 3.1 8B, FP8) via AI Gateway |
+| Payments | Stripe (checkout, subscriptions, webhooks) |
+| Email | Amazon SES (SigV4 raw-send from the Worker) + Listmonk (newsletters); bounce handling |
+| Analytics | PostHog (server-side) |
+| Errors | Sentry (HTTP API) |
 
-**Compute / routing**
-- Workers (Hono) for APIs and SSR functions
-- Pages for front-end hosting when suitable
-
-**Storage**
-- R2 for uploads/assets
-- KV for small config, cache snapshots, feature flag snapshots
-- Durable Objects for stateful flows, collaboration, presence, progress, per-tenant state
-- Queues for async jobs; Cron Triggers for scheduled tasks
-- D1 for simple relational needs (when Postgres features not required)
-
-**Edge**
-- Caching with explicit rules (SWR for safe content, never cache auth/billing/permissions)
-- Turnstile for abuse prevention
-
-## 4.2 Fallback decision tree: Neon + Upstash (only if required)
-**Neon Postgres (fallback)** — use only if you need:
-- Postgres semantics (advanced SQL, joins, concurrency, extensions)
-- Strong relational modeling beyond D1 scope
-- **RLS** as the primary tenant isolation guarantee
-- Heavy analytics queries / OLAP-like needs
-
-When using Neon with Workers, prefer **Cloudflare Hyperdrive** to stabilize connections.
-
-**Upstash Redis (fallback)** — use only if you need:
-- Redis-specific primitives: sorted sets, streams, locks, atomic counters at scale
-- Global rate limiting beyond what KV/DO can reasonably do
-- High-throughput cache invalidation patterns
-
-## 4.3 Project Sites Worker Stack
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| Ingress/API | Cloudflare Workers + Hono | API gateway, site serving |
-| Database | Cloudflare D1 (SQLite) | System of record |
-| Cache | Cloudflare KV | Host resolution (60s TTL), prompt hot-patching |
-| Storage | Cloudflare R2 | Static sites, marketing assets |
-| Background | Cloudflare Workflows | AI site generation pipeline |
-| AI | Cloudflare Workers AI | LLM inference (Llama 3.1) |
-| Payments | Stripe | Checkout, subscriptions, webhooks |
-| Email | Resend / SendGrid | Magic links, transactional |
-| Analytics | PostHog (server-side) | Funnel events |
-| Errors | Sentry (HTTP API) | Exception tracking |
-
-### Key Design Decisions
-- **No Supabase JS client** — D1 via parameterized SQL for Workers compat
-- **Dot-based subdomains**: `{slug}.projectsites.dev`
-- **R2 paths**: `sites/{slug}/{version}/{file}`, marketing at `marketing/index.html`
-- **Queues NOT yet enabled** — `QUEUE` binding is optional in Env type
-- **CSP must include `'unsafe-inline'`** — homepage uses inline `<script>` tags
-- **Content-type detection bug**: use `marketingPath` not `path` (path='/' has no extension)
-- **Persistent bolt.diy iframe** — `BoltEmbedService` (frontend) owns the
-  `editor.projectsites.dev` iframe lifecycle across admin sub-routes so
-  WebContainer cold-boot (~30-60s) only happens once per session. The iframe
-  element lives inside `AdminComponent`'s template, NOT inside the editor
-  route component — so route navigation never destroys it.
-- **MCP OAuth-first** — every `/api/mcp/:provider/connect` falls back to a
-  paste-key flow when the worker lacks `{PROVIDER}_OAUTH_CLIENT_ID`; the
-  admin UI shows a toast + paste form instead of opening a broken popup.
-- **One dialog primitive** — every admin modal renders via
-  `DialogShellComponent`. Custom modals are not allowed (drift = audit fail).
-- **Design tokens in `_polish.scss`** — `--ps-bg`, `--ps-ink`, `--ps-accent`,
-  `--ps-z-overlay-takeover: 100000`, `--ps-radius-xl: 22px`,
-  `--ps-shadow-modal`. Hard-coded brand colors get flagged in audits.
-- **Visibility-aware polling** — `AdminStateService` pauses its 30s/60s
-  refresh when `document.hidden` is true, resumes + fires an immediate
-  refresh when the tab returns to the foreground.
+Status machine: `draft → collecting → imaging → generating → published | error | archived`.
 
 ---
 
-# PART 5 — Required toolchain
+## Load-bearing design decisions (project gotchas)
 
-## 5.1 Current monorepo tools
-- **pnpm** workspace (but `pnpm install` fails due to electron-builder SSH dep)
-- **npm install --legacy-peer-deps** in sub-packages (`apps/project-sites/`, `packages/shared/`)
-- Worker dep: `@project-sites/shared` linked via `"file:../../packages/shared"`
-
-## 5.2 Target toolchain (for new apps and migrations)
-- **Nx** monorepo with **Nx Cloud** for remote caching and distributed CI execution
-- **Angular** (SSR where applicable) for new UI apps
-- **Spartan UI** (`@spartan-ng/brain` + helm) + Angular CDK as the only component kit — NOT PrimeNG/Material (removed; see DECISIONS ADR-0003 superseded)
-- **Ionic** (only if building mobile/PWA shells)
-- **Storybook** for shared UI components, tokens, and UX regression checks
-
-## 5.3 Testing
-- **Vitest** for unit tests in the root app (required)
-- **Jest** for unit tests in `apps/project-sites/` and `packages/shared/` (existing)
-- **Playwright** for E2E (required, homepage-first)
-- **ng-mocks** only when Angular DI/component isolation requires it (use sparingly)
-
-## 5.4 API contracts and docs
-- **Redocly CLI** for linting OpenAPI definitions, bundling multi-file specs, and building static HTML docs
-
-## 5.5 Linting and formatting
-Required:
-- **ESLint** (TypeScript rules; Angular rules for Angular apps)
-- **Prettier** (formatting)
-- **`console.log` is blocked by eslint** — use `console.warn` for structured logs
-- Local `eslint.config.mjs` in each sub-package (root `@blitz/eslint-plugin` not available)
-
-Recommended:
-- **Stylelint** (CSS/SCSS)
-- **CSpell** (spellcheck for docs + copy + identifiers)
-- **Markdownlint** (docs hygiene)
-- **Knip** (unused exports/deps/files)
-
-## 5.6 TypeScript / Build
-- All packages use `"type": "module"` in package.json
-- `moduleResolution: "Bundler"` in tsconfig
-- `.js` extensions in imports (TypeScript resolves them)
-- Typecheck: `npx tsc --noEmit` in each package
+- **Dot-based subdomains** `{slug}.projectsites.dev`; unpaid sites get a top-bar injected after `<body>`.
+- **Queues not yet enabled** — the `QUEUE` binding is optional; code falls back to Workflows.
+- **CSP includes `'unsafe-inline'`** — the homepage uses inline `<script>`.
+- **Content-type detection**: use `marketingPath` not `path` (`path='/'` has no extension).
+- **Persistent bolt.diy iframe** — `BoltEmbedService` owns the `editor.projectsites.dev` iframe
+  across admin sub-routes (WebContainer cold-boot ~30-60s once/session); the `<iframe>` lives in
+  `AdminComponent`'s template, NOT the editor route component, so navigation never destroys it.
+- **MCP OAuth-first** — `/api/mcp/:provider/connect` falls back to a paste-key flow when the Worker
+  lacks `{PROVIDER}_OAUTH_CLIENT_ID` (returns `501 oauth_not_configured` → toast + paste form, never
+  a broken popup).
+- **One dialog primitive** — every admin modal renders via `DialogShellComponent` (custom = drift).
+- **Design tokens** in `frontend/src/styles/_polish.scss` — `--ps-bg:#060610`, `--ps-ink:#f4f4ff`,
+  `--ps-accent:#00e5ff`, `--ps-z-overlay-takeover:100000`, `--ps-radius-xl:22px`. Hard-coded brand
+  colors get flagged in audits. Feature icons float freely (no boxes/borders; `stroke=currentColor`).
+- **Visibility-aware polling** — `AdminStateService` pauses its 30s/60s refresh on `document.hidden`,
+  resumes + immediate-refresh on foreground.
+- **WebContainer / cross-origin (editor)** — `public/_headers` serves COOP `same-origin` + COEP
+  `credentialless` + `Origin-Agent-Cluster: ?1` (needed for `SharedArrayBuffer`; verify
+  `crossOriginIsolated === true`). `globalThis.WEBCONTAINER_API_IFRAME_URL` is set in `app/root.tsx`
+  Head before the bundle loads (overrides the default `/headless` iframe); `WebContainer.boot()` in
+  `app/lib/webcontainer/index.ts` uses `coep:'credentialless'`. Boot failures → check headers, the
+  iframe URL, third-party-storage blocking (stackblitz.com / webcontainer.io exceptions).
+- **Removed — never reintroduce**: Supabase, Resend/SendGrid (→ SES + Listmonk), Twilio-SMS + phone-OTP,
+  Lago/Unkey/Nango/Inngest/Postiz/Novu. Residual orphan columns (`users.phone`, `phone_otps`) are inert.
 
 ---
 
-# PART 6 — AI-native product requirements (AI everywhere)
+## Toolchain + gotchas
 
-If AI can make the product easier, faster, safer, clearer, or reduce user effort, implement it.
-
-## 6.1 Minimum AI surfaces
-- Onboarding copilot: step-by-step "next action" guidance
-- Natural-language search and filtering (permission-aware)
-- Form assistants: autofill, validation explanations, suggested defaults
-- "Explain this screen" contextual help
-- Summarization for long content (logs, notifications, user content)
-- Command palette with AI actions + navigation
-- AI-driven support workflows (draft replies, triage tickets, suggest fixes)
-
-## 6.2 AI operations and cost discipline
-Every AI feature must:
-- Be tenant-scoped and permission-aware
-- Be behind server-enforced feature flags and kill switches
-- Log prompt template versions + model config safely
-- Have timeouts, budgets, truncation rules, and fallback behaviors
+- **`pnpm install` FAILS** (electron-builder SSH dep) → **`npm install --legacy-peer-deps`** in
+  sub-packages. Worker links `@project-sites/shared` via `file:../../packages/shared`.
+- **`.gitignore` blocks `*.md`** → use `git add -f` for markdown.
+- **`console.log` blocked by ESLint** → `console.warn` for structured logs.
+- **Jest config MUST be `.cjs`** (repo is `"type":"module"`) with
+  `moduleNameMapper: {'^(\\.{1,2}/.*)\\.js$':'$1'}`; `@swc/jest` needs the GLOBAL `jest` for mock
+  hoisting; run from `apps/project-sites` (not repo root). Frontend units are Karma+Jasmine
+  (`ng test`) — NOT Jest/Vitest.
+- **TS**: `"type":"module"`, `moduleResolution:"Bundler"`, `.js` extensions in imports.
+- New UI stack: Angular 21 standalone + Nx + Spartan UI (NOT PrimeNG/Material) + Storybook; Vitest
+  in the root editor app.
 
 ---
 
-# PART 7 — Zod everywhere + human-first errors
+## Commands
 
-## 7.1 Single source of truth
-Zod schemas are the **SSOT** for request/response validation:
-- Client validates before submit
-- Server validates again at the boundary
-
-## 7.2 Human-readable Zod errors (mandatory)
-Never show raw Zod output to humans. Implement:
-- `zodIssueToHumanMessage(issue)` and `zodErrorToFieldMap(error)`
-- Consistent UI behavior: inline field errors + concise toast summary
-- Stable error codes for automation and logging
-
-## 7.3 Problem Details error envelope (mandatory)
-All API errors must use an RFC7807-style envelope:
-- Stable `code`
-- `correlationId` / `requestId`
-- Structured `errors[]` for validation
-- "What to do next" for user-facing failures
-
----
-
-# PART 8 — Distinguished-engineer error handling (everywhere)
-
-## 8.1 Error taxonomy (required)
-Maintain a central taxonomy with:
-- Category (validation/auth/permission/upstream/timeout/internal...)
-- Stable code
-- Retry policy
-- User-safe message
-- Log severity mapping
-
-## 8.2 Idempotency and retries (required)
-- Every mutation is idempotent where possible
-- Background jobs are safe to retry and safe to re-run
-- External API calls: retry with backoff + jitter + circuit-breaking
-- Create compensating actions for partial failures (sagas)
-
-## 8.3 "Errors as UX"
-- Friendly empty states with "Fix / Retry / Learn more"
-- Support panel: copy correlationId + safe diagnostics
-- Dedicated error routes/pages for 404/500 with recovery links
-- No silent failures: always show status and next step
-
----
-
-# PART 9 — Enriched logs, telemetry, and notifications
-
-Because AI agents are the primary maintainers, logging is a first-class product.
-
-## 9.1 Correlation everywhere (mandatory)
-Every request/job/action must carry:
-- requestId + traceId
-- tenantId + userId (when known)
-- Feature flag state (when relevant)
-
-## 9.2 Structured logging schema (mandatory)
-Every log line must be structured and include:
-- service, env, eventName
-- durationMs, status
-- Error taxonomy code/category if failing
-- safeContext only (PII redaction and secret redaction)
-
-## 9.3 "Log enrichment" placement rules
-Add high-signal logs at:
-- Boundaries (incoming requests, validation)
-- Policy decisions (RBAC checks, feature flags)
-- State transitions (job starts/finishes, retries)
-- External calls (provider calls, latency, result)
-- All retry loops (attempt counts + next delay)
-
-## 9.4 Notifications are actionable and enriched
-Notifications must include:
-- What happened
-- Why it matters
-- What to do next (deep links)
-- Correlation metadata
-
-For operational alerts:
-- Include a short AI summary
-- Include remediation steps and runbook links
-
----
-
-# PART 10 — MANDATORY: Test-Driven Development (TDD)
-
-> **ALL development in this repository MUST follow strict Test-Driven Development.**
-> This is NON-NEGOTIABLE. No feature, bug fix, or refactor may be merged without tests.
-
-## 10.1 TDD Workflow (Red -> Green -> Refactor)
-
-1. **Write failing tests FIRST** — Before writing any implementation code, write unit tests that describe the expected behavior. Run them and confirm they fail.
-2. **Write the minimum code to pass** — Implement just enough to make the tests pass.
-3. **Refactor** — Clean up the implementation while keeping all tests green.
-4. **Write E2E tests** — After the unit tests pass, write Playwright E2E tests that cover the full user flow.
-5. **All tests must pass** — Run all test suites before considering any work complete.
-
-## 10.2 Unit Test Requirements
-- Every new function, route handler, or service method MUST have corresponding unit tests
-- Test the happy path AND error/edge cases (invalid input, unauthorized, rate limiting, etc.)
-- Mock external dependencies (D1, fetch, KV, R2) — never call real APIs in unit tests
-- Minimum coverage expectation: all branches of new code must be tested
-- Target: 100% coverage thresholds (statements/branches/functions/lines)
-
-## 10.3 E2E Test Requirements (Playwright)
-- Every user-facing feature MUST have E2E tests that cover the **complete user flow**
-- **Absolute rule: every E2E starts from the homepage** — `goto("/")`, assert shell readiness, navigate by UI actions only
-- All E2E tests must be: deterministic (no sleeps; only locator waits), parallel-safe, using stable selectors (`data-testid` or role-based)
-- E2E tests for bolt.diy main app: `e2e/specs/` (96+ tests across 14 spec files)
-- E2E tests for project-sites: `apps/project-sites/e2e/` (38 spec files)
-- Feature inventory: `e2e/FEATURES.md` — authoritative feature list
-- Coverage mapping: `e2e/COVERAGE.yml` — every feature maps to spec files
-
-## 10.4 Test Commands
 ```bash
-# Root app (bolt.diy)
-npm test                                              # Vitest unit tests
-npx playwright test --config e2e/playwright.config.ts # E2E tests
+# Worker — apps/project-sites
+npm install --legacy-peer-deps
+npm test              # Jest          npm run typecheck   # tsc --noEmit
+npm run lint          # ESLint        npm run check       # all of the above
+npm run validate:features             # feature-module drift gate
+npx wrangler dev                      # local (:8787)
 
-# Project Sites Worker
-cd apps/project-sites && npm test                     # Jest unit tests
-cd apps/project-sites && npx playwright test          # E2E tests
+# Frontend — apps/project-sites/frontend
+npm start                             # ng serve :4200
+npm run test:ci                       # Karma headless
+npx tsc --noEmit -p tsconfig.app.json
 
-# Shared Package
-cd packages/shared && npm test                        # Jest unit tests
-
-# All checks (unit + typecheck + lint + format)
-cd apps/project-sites && npm run check
-cd packages/shared && npm run check
+# Editor — root app/
+npm test                              # Vitest
 ```
 
-## 10.5 Testing patterns
-- **Jest config MUST be `.cjs`** (not `.js` or `.ts`) because `"type": "module"`
-- Jest needs `moduleNameMapper: { '^(\\.{1,2}/.*)\\.js$': '$1' }` for TS imports
-- E2E: Use the custom fixture from `e2e/fixtures.ts` (blocks external CDN requests)
-- Test counts: worker tests (48 suites, 896 tests) + shared tests (6 suites) + root E2E (14 files, 96+ tests)
-
 ---
 
-# PART 11 — Feature inventory + coverage gate (mandatory)
+## Deploy (prod pre-authorized per verification-loop)
 
-## 11.1 Feature inventory files
-- `e2e/FEATURES.md` — the authoritative feature list, grouped by product area
-- `e2e/COVERAGE.yml` — maps every feature to one or more Playwright spec files
-- CI gate: fail if any feature lacks coverage mapping
-
-## 11.2 50-test minimum per product area
-When applying this prompt to a new app or feature area, generate at least **50 Playwright tests** that:
-- Start at homepage
-- Cover nearly all features + critical edge cases
-- Can run in parallel
-- Are deterministic (no sleeps)
-- Use stable selectors
-- Use an isolated fixture strategy
-
-## 11.3 E2E test blueprint (adapt to project entities)
-
-### Group A — App shell, navigation, baseline quality (1-10)
-1. Home renders and shell ready
-2. Global nav works (sidebar)
-3. Theme toggle persists
-4. Not found UX (404)
-5. Loading skeletons
-6. Responsive layout (mobile/tablet/desktop)
-7. Keyboard shortcuts
-8. Performance smoke (no hangs)
-9. Error banner + correlation ID
-10. Copy readability presence
-
-### Group B — Auth and identity (11-20)
-11. Sign up / sign in
-12. Sign out
-13. Session expiry recovery
-14. OTP/passwordless (magic link)
-15. Google OAuth
-16. Profile update
-17. RBAC denial UX
-18. Session management
-
-### Group C — Core domain features (21-35)
-21. Create entity (Chat / Site)
-22. View entity details
-23. Edit entity
-24. Delete entity
-25. Validation errors are human-readable
-26. Pagination/infinite scroll
-27. Sort/filter
-28. Search
-29. Chat streaming
-30. Chat history
-31. Chat persistence
-32. Provider/model configuration
-33. File management
-34. Code editor
-35. Live preview + terminal
-
-### Group D — Deployment & integrations (36-45)
-36. Deploy menu
-37. GitHub deploy
-38. Netlify deploy
-39. Vercel deploy
-40. Stripe checkout
-41. Billing portal
-42. Custom domains
-43. Site serving
-44. Webhook handling
-45. Email (magic link)
-
-### Group E — AI features & edge cases (46-50+)
-46. AI site generation workflow
-47. AI explain screen
-48. AI search (permission-aware)
-49. Rate limit UX is friendly
-50. Stream recovery on network failure
-
----
-
-# PART 12 — Quantitative quality gates (required)
-
-## 12.1 Readability gate for copy (Flesch Reading Ease >= 50)
-All user-facing copy should meet **Flesch Reading Ease >= 50**.
-
-## 12.2 Additional quantitative gates (recommended)
-- Complexity: enforce max cyclomatic complexity in lint rules
-- Dead code: run Knip in CI on main
-- Spellcheck: CSpell in CI (docs + UI copy)
-- Bundle budgets: fail if route bundles exceed thresholds
-- API contract: lint OpenAPI, fail on breaking changes
-- Coverage thresholds: Unit 100%, E2E 100% feature coverage via inventory
-
----
-
-# PART 13 — Documentation standards
-
-Documentation must be good enough that another AI agent can safely operate and evolve the system.
-
-## 13.1 JSDoc/TypeDoc requirements (mandatory on all exports)
-Every exported symbol must include:
-- `@remarks` (why)
-- `@example` (copy/paste runnable)
-- `@throws` (mapped to taxonomy)
-- `@see` / `@link` to docs or related APIs
-
-## 13.2 Docs required in `/docs`
-- `docs/ARCHITECTURE.md` (include Mermaid diagrams)
-- `docs/DEPLOYMENT.md` (dev/test/deploy)
-- `apps/project-sites/_LOOP_LEDGER.md` (THE single consolidated TODO / requirements list — REAL work only: bugs, requirements, in-flight builds. Brainstorm idea-dumps / "top-N" lists are NOT folded here — ideas stay ephemeral per `feedback_ideas_are_ephemeral_not_persisted`)
-- `docs/PROMPTS.md` (prompt infrastructure guide)
-
-## 13.3 Further documentation
-- **[apps/project-sites/CLAUDE.md](apps/project-sites/CLAUDE.md)** — Worker API surface, middleware, services
-- **[packages/shared/CLAUDE.md](packages/shared/CLAUDE.md)** — Schemas, constants, utilities
-- **[apps/project-sites/STRATEGY.md](apps/project-sites/STRATEGY.md)** — agent-native positioning + edge-hosting thesis
-
----
-
-# PART 14 — MANDATORY: Auto-Deploy After Each Session
-
-> **After completing all changes**, you MUST deploy to production.
-> If `CLOUDFLARE_API_KEY` and `CLOUDFLARE_EMAIL` are not set as environment variables,
-> **ask the user to provide them** before deploying.
-
-## Deploy Checklist
-1. Run all unit tests (`npm test` in both packages) — all must pass
-2. Run E2E tests (`npx playwright test`) — all must pass
-3. Run typecheck (`npm run typecheck`) — no errors
-4. Run lint (`npm run lint`) — no errors
-5. Deploy to production: `cd apps/project-sites && npx wrangler deploy --env production`
-6. Upload marketing homepage: `npx wrangler r2 object put project-sites-production/marketing/index.html --file public/index.html --content-type text/html --remote`
-
-## Deployment Credentials
-- **CLOUDFLARE_API_KEY** and **CLOUDFLARE_EMAIL** must be set as env vars for `wrangler deploy`
-- If not available, **ASK THE USER** for these credentials before deploying
-- **NEVER** modify secrets that are already set in the Cloudflare dashboard (Stripe keys, SendGrid, Google OAuth, etc.)
-- Only use `wrangler secret put` when explicitly asked to set a NEW secret
-
----
-
-# PART 15 — Critical Development Patterns
-
-## Git / File Operations
-- **`.gitignore` blocks `*.md`** — ALWAYS use `git add -f` for markdown files
-- Never push to main/master without explicit permission
-
-## Package Management
-- pnpm workspace defined but `pnpm install` fails (electron-builder SSH dep)
-- **Use `npm install --legacy-peer-deps`** in sub-packages (`apps/project-sites/`, `packages/shared/`)
-- Worker dep: `@project-sites/shared` linked via `"file:../../packages/shared"`
-
-## Scripts (in each sub-package)
 ```bash
-npm test              # Run unit tests
-npm run test:watch    # Watch mode
-npm run test:coverage # With coverage
-npm run typecheck     # tsc --noEmit
-npm run lint          # ESLint
-npm run format        # Prettier write
-npm run format:check  # Prettier check
-npm run check         # All of the above
+cd apps/project-sites && npx wrangler deploy --env production   # MUST include --env production
 ```
 
-## Linting
-- Local `eslint.config.mjs` in each sub-package (root `@blitz/eslint-plugin` not available)
-- **`console.log` is blocked by eslint** — use `console.warn` for structured logs
-- Run: `npx eslint --config eslint.config.mjs src` in each package
+- **`--env production` is mandatory** — a bare `wrangler deploy` makes EVERY `/api/*` route 500.
+- Auth: `CLOUDFLARE_API_KEY` (get-secret) + `CLOUDFLARE_EMAIL=blzalewski@gmail.com`.
+- **NEVER modify already-set CF secrets** (Stripe/OAuth/etc.); `wrangler secret put` only for a
+  genuinely NEW secret.
+- After completing changes, deploy, then **prod-verify the changed routes** (curl/Playwright) — a
+  local pass is never sufficient (global `verification-loop`).
 
----
+### Cloudflare resource IDs
 
-# PART 16 — Cloudflare Resource IDs & Deployment
-
-## Resource IDs
 | Resource | ID |
-|----------|-----|
+|---|---|
 | Account | `84fa0d1b16ff8086dd958c468ce7fd59` |
-| Zone (projectsites.dev) | `9ceaa211750dd31899fd5d1bf8d1ec46` |
-| Zone (megabyte.space) | `75a6f8d5e441cd7124552976ba894f83` |
-| Pages (bolt-diy) | `76c34b4f-1bd1-410c-af32-74fd8ee3b23f` |
-| Pages (projectsites-storybook) | `storybook.projectsites.dev` |
-| D1 production | `ea3e839a-c641-4861-ae30-dfc63bff8032` |
-
-## Deployment Environments
-| Environment | Worker | URL |
-|------------|--------|-----|
-| Production | `project-sites` | `projectsites.dev` |
-| Pages (prod) | bolt-diy | `editor.projectsites.dev` |
-
-```bash
-# Deploy worker (uses CLOUDFLARE_API_KEY + CLOUDFLARE_EMAIL env vars)
-cd apps/project-sites && npx wrangler deploy --env production
-
-# Upload marketing homepage to R2
-npx wrangler r2 object put project-sites-production/marketing/index.html --file public/index.html --content-type text/html --remote
-```
+| Zone projectsites.dev | `9ceaa211750dd31899fd5d1bf8d1ec46` |
+| Zone megabyte.space | `75a6f8d5e441cd7124552976ba894f83` |
+| Pages bolt-diy | `76c34b4f-1bd1-410c-af32-74fd8ee3b23f` |
+| D1 production | `ea3e839a-c641-4861-ae30-dfc63bff8032` (`project-sites-db-production`) |
 
 ---
 
-# PART 17 — WebContainer / Cross-Origin Isolation (bolt.diy Main App)
+## Testing + gates (non-negotiable)
 
-## Cross-Origin Headers
-- `public/_headers` serves COOP/COEP headers for Cloudflare Pages
-- Required for `SharedArrayBuffer` which WebContainers need
-- Headers: `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Embedder-Policy: credentialless`, `Origin-Agent-Cluster: ?1`
-- Verify on deployed site: `crossOriginIsolated` should be `true` in DevTools console
-
-## WebContainer Iframe Override
-- `globalThis.WEBCONTAINER_API_IFRAME_URL` is set in `app/root.tsx` Head before app bundle loads
-- This overrides the default `/headless` iframe URL used by `@webcontainer/api`
-- WebContainer.boot() is called in `app/lib/webcontainer/index.ts` with `coep: 'credentialless'`
-- If WebContainer fails to boot/populate, check: (1) cross-origin headers, (2) WEBCONTAINER_API_IFRAME_URL, (3) browser privacy/tracking blocking
-
-## Browser Compatibility
-- Third-party storage/cookies blocking can break WebContainer in subtle ways
-- Users may need to add site exceptions for `stackblitz.com`, `webcontainer.io`, `webcontainer-api.io`
-- Preview iframe at `app/routes/webcontainer.preview.$id.tsx` uses `sandbox` and `allow="cross-origin-isolated"`
-
----
-
-# PART 18 — Email Configuration (Project Sites Worker)
-
-## Provider Stack
-- **Primary**: Resend (`RESEND_API_KEY` secret)
-- **Fallback**: SendGrid (`SENDGRID_API_KEY` secret)
-- Both are optional in `Env` interface and config schema
-- If neither is configured, magic link emails will fail with "Email delivery is not configured"
-- From address: `noreply@projectsites.dev` — domain must be verified in provider
-
-## After Deploying, Verify Secrets Are Set
-```bash
-# List secrets (requires CLOUDFLARE_API_KEY + CLOUDFLARE_EMAIL)
-npx wrangler secret list --env production
-
-# Set a secret if missing
-npx wrangler secret put SENDGRID_API_KEY --env production
-npx wrangler secret put RESEND_API_KEY --env production
-```
-
-## Phone Feature Was Removed
-- Commit `b555680` removed: Twilio SMS, phone OTP endpoints, phone schemas
-- `phone_otps` D1 table still exists but is unused (orphaned)
-- `users.phone` column still exists but always set to NULL
-- No Twilio secrets needed anymore
+- **TDD-first** — a failing Playwright spec BEFORE implementation → implement → green. Bug fix =
+  failing regression test first. No feature without ≥1 test; no bug fix without ≥1 regression.
+- **Homepage-first E2E** — every spec `goto('/')`, then navigate by UI actions only (no
+  `page.goto()` after load). Deterministic (no sleeps; locator waits), parallel-safe, stable
+  selectors (`data-testid` / role). Target 100% feature coverage + 100% unit coverage.
+- Suites: Worker Jest (`apps/project-sites/src/__tests__`); frontend Playwright
+  (`apps/project-sites/e2e` — `*.spec.ts` = CI/dev, `*.e2e.ts` = prod); editor Vitest + root `e2e/`.
+- **Feature inventory** — `e2e/FEATURES.md` (authoritative list) + `e2e/COVERAGE.yml` (feature→spec);
+  `validate:e2e-inventory` keeps them honest. CI fails on a feature without coverage.
+- **Feature modules** — every post-launch capability = `libs/features/<slug>/` + 7-field `manifest.ts`
+  behind a typed flag; drift is a merge-blocker (`npm run validate:features`, CI
+  `feature-architecture.yml`, server guard returns 404 when the flag is off). Ref impl:
+  `libs/features/donations_engine/`.
+- **Copy** meets Flesch Reading Ease ≥ 50. CWV / axe / Lighthouse / console-error gates live in the
+  global `quality-metrics` + `verification-loop`.
 
 ---
 
-# PART 19 — UI Design Rules (Marketing Homepage)
+## Site-generation philosophy (the core product)
 
-## Icons
-- Feature icons should NOT have background boxes or borders — just the SVG icon floating freely
-- SVG icons use `stroke="currentColor"` with appropriate `stroke-width` (1.5-2.5)
-- No `border-radius` + `background` containers around individual icons
-
-## General Style
-- Dark theme: `--bg-primary: #0a0a1a`, accent `#64ffda`, secondary `#7c3aed`
-- Cards have subtle borders: `1px solid var(--border)` with `var(--border): rgba(100, 255, 218, 0.1)`
-- Hover states: `translateY(-3px)`, `border-color: var(--border-hover)`, accent glow shadow
-
----
-
-# PART 20 — CI/CD on GitHub Actions (Cloudflare-optimized)
-
-## 20.1 CI principles
-- Fast PR feedback via affected change detection
-- Full verification on main
-- Deploy to Cloudflare only after all gates pass
-
-## 20.2 Required stages (in order)
-1. Install + compute affected packages
-2. Format check
-3. Lint (ESLint)
-4. Typecheck
-5. Unit tests (with coverage thresholds)
-6. Build (affected)
-7. E2E smoke on PR; full E2E on main
-8. Deploy (main only) via Wrangler / Pages action
-
----
-
-# PART 21 — Hard Gate: E2E Verification (non-negotiable)
-
-You may NOT declare a task complete until you have:
-1. Implemented Playwright E2E tests that cover every feature and edge case in scope.
-2. RUN the E2E suite locally (headless) and confirmed it passes.
-3. Included in your final message:
-   - The exact commands you ran (copy/paste)
-   - A brief summary of results (pass/fail) for unit/integration/e2e
-   - If any test initially failed, describe the fix you made.
-
-If you cannot actually execute commands in your environment, you must still:
-- Write E2E tests that are deterministic (no sleeps, stable selectors)
-- Include a "Self-check protocol" section that simulates execution
-- Do not stop until all flows are covered and consistent with the implementation
-
----
-
-# PART 22 — Verification Log template (must appear in final message)
-
-```md
-## Verification Log
-Commands run:
-- npm test: ...
-- npm run typecheck: ...
-- npm run lint: ...
-- npx playwright test --config e2e/playwright.config.ts: ...
-- cd apps/project-sites && npm test: ...
-- cd apps/project-sites && npx playwright test: ...
-
-Results:
-- Unit: PASS/FAIL (coverage: X%)
-- E2E: PASS/FAIL (tests: N, parallel: yes/no)
-
-Fix notes:
-- If any test initially failed: what failed and what was changed to fix it.
-```
-
----
-
-# PART 23 — Feature Modules, Flags & Drift
-
-Every post-launch capability is a feature module (`libs/features/<slug>/` + 7-field `manifest.ts`) behind a typed flag; drift is a merge-blocker (`npm run validate:features`, CI `.github/workflows/feature-architecture.yml`, server guard returns 404 when off). Full rules: global `feature-module-architecture.md` + `feature-flags.md` + `drift-detection.md`; per-Worker detail in `apps/project-sites/CLAUDE.md`. Reference impl: `libs/features/donations_engine/` + `libs/core/feature-flags/`.
+Generate enterprise-grade sites that BEAT the source — more beautiful, faster, more accessible,
+better-organized, denser. A perfect site needs 20-30 iterative specialized prompts, not one. The
+container runs ONE Claude Code orchestrator that fans out to parallel subagents (visual-qa,
+seo-auditor, accessibility-auditor, performance-profiler, content-writer, domain-builder,
+validator-fixer) and gates DONE on `completeness-checker`. Page count = source sitemap (1:N, up to
+1000). Logo luminance drives light/dark theme. Build invariants are enforced in
+`src/services/build_validators.ts` (required files, asset existence, meta lengths, JSON-LD count,
+single H1, banned slop). Full detail: `apps/project-sites/CLAUDE.md`.
+</content>
