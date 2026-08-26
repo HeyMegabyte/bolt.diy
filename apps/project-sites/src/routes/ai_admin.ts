@@ -22,7 +22,6 @@ import {
   resolveSeatLimit,
 } from '../services/team_seats.js';
 import { getOrgEntitlements } from '../services/billing.js';
-import { forecastCost } from '../services/ai_admin_features.js';
 import * as auditService from '../services/audit.js';
 import { escapeHtml } from '@project-sites/shared';
 import { getEmailProvider } from '../platform/email-router.js';
@@ -423,66 +422,9 @@ aiAdmin.post('/api/team/invites/accept', async (c) => {
   return c.json({ data: { joined: true, org_id: invite.org_id, role: invite.role } });
 });
 
-/* ────────────────────────── Org security defaults ────────────────────────── */
-aiAdmin.get('/api/admin/security', async (c) => {
-  const { orgId } = need(c);
-  const row = await c.env.DB.prepare(
-    `SELECT session_hours, idle_minutes, allowed_domains, require_2fa, updated_at
-     FROM org_security WHERE org_id = ?`,
-  )
-    .bind(orgId)
-    .first();
-  return c.json({
-    data: row ?? {
-      session_hours: 168,
-      idle_minutes: 60,
-      allowed_domains: null,
-      require_2fa: 0,
-      updated_at: null,
-    },
-  });
-});
-/**
- * `PUT /api/admin/security` — Update the caller org's security settings
- * (SSO enforcement, IP allowlist, session TTL).
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- * @throws 403 FORBIDDEN when the caller isn't an org admin.
- */
-aiAdmin.put('/api/admin/security', async (c) => {
-  const { orgId } = need(c);
-  const body = (await c.req.json().catch(() => ({}))) as {
-    session_hours?: number;
-    idle_minutes?: number;
-    allowed_domains?: string | null;
-    require_2fa?: boolean;
-  };
-  const sessionHours = Math.max(1, Math.min(720, Number(body.session_hours) || 168));
-  const idleMinutes = Math.max(5, Math.min(240, Number(body.idle_minutes) || 60));
-  const allowed = (body.allowed_domains ?? '').trim() || null;
-  const require2fa = body.require_2fa ? 1 : 0;
-  await c.env.DB.prepare(
-    `INSERT INTO org_security (org_id, session_hours, idle_minutes, allowed_domains, require_2fa, updated_at)
-     VALUES (?, ?, ?, ?, ?, datetime('now'))
-     ON CONFLICT(org_id) DO UPDATE SET
-       session_hours = excluded.session_hours,
-       idle_minutes = excluded.idle_minutes,
-       allowed_domains = excluded.allowed_domains,
-       require_2fa = excluded.require_2fa,
-       updated_at = excluded.updated_at`,
-  )
-    .bind(orgId, sessionHours, idleMinutes, allowed, require2fa)
-    .run();
-  return c.json({
-    data: {
-      saved: true,
-      session_hours: sessionHours,
-      idle_minutes: idleMinutes,
-      allowed_domains: allowed,
-      require_2fa: require2fa,
-    },
-  });
-});
+// Org security settings (GET/PUT /api/admin/security — session TTL, idle timeout,
+// sign-in domain allowlist, 2FA-required toggle in the org_security table) moved to
+// `libs/features/org_security/handlers.ts` (route-decomposition installment 20).
 
 // "Improve with AI" (POST /api/sites/:siteId/ai-settings/improve) moved to
 // `libs/features/ai_settings/handlers.ts` (route-decomposition installment 18).
@@ -742,195 +684,15 @@ aiAdmin.post('/api/admin/sessions/revoke-others', async (c) => {
   return c.json({ data: { revoked: count } });
 });
 
-/* ────────────────────────── Domains aggregator (all sites' hostnames) ────────────────────────── */
-// Settings → Domains needs to see every hostname across the org without the
-// user having to click into each site. This endpoint joins sites + hostnames
-// so the page can render the full picture and inline-act on any row.
-/**
- * `GET /api/admin/domains` — List custom hostnames + their CF for SaaS
- * provisioning status across the caller's org.
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- */
-aiAdmin.get('/api/admin/domains', async (c) => {
-  const { orgId } = need(c);
-  const sites = await c.env.DB.prepare(
-    `SELECT id, slug, business_name FROM sites WHERE org_id = ? AND deleted_at IS NULL ORDER BY created_at DESC`,
-  )
-    .bind(orgId)
-    .all();
-  const siteRows = (sites.results ?? []) as {
-    id: string;
-    slug: string;
-    business_name: string | null;
-  }[];
-  if (siteRows.length === 0) return c.json({ data: { sites: [] } });
-  const placeholders = siteRows.map(() => '?').join(',');
-  const hosts = await c.env.DB.prepare(
-    `SELECT id, site_id, hostname, type, status, is_primary, ssl_status,
-            verification_errors, last_verified_at, created_at
-     FROM hostnames WHERE site_id IN (${placeholders}) AND deleted_at IS NULL
-     ORDER BY is_primary DESC, created_at DESC`,
-  )
-    .bind(...siteRows.map((s) => s.id))
-    .all();
-  const byId = new Map<
-    string,
-    { site: { id: string; slug: string; business_name: string | null }; hostnames: unknown[] }
-  >();
-  for (const s of siteRows) byId.set(s.id, { site: s, hostnames: [] });
-  for (const h of (hosts.results ?? []) as Record<string, unknown>[]) {
-    const bucket = byId.get(h['site_id'] as string);
-    if (bucket) bucket.hostnames.push(h);
-  }
-  return c.json({ data: { sites: Array.from(byId.values()) } });
-});
+// Domains aggregator (GET /api/admin/domains — every non-deleted org site with its
+// custom-hostname rows attached) folded into `libs/features/hostnames/handlers.ts`
+// (route-decomposition installment 20), which already owns the rest of the
+// /api/admin/domains/* family (summary/verify/health/deprovision).
 
-/* ────────────────────────── Cloudflare auto-config status ────────────────────────── */
-// Returns whether Analytics + WFP are fully wired, plus the namespace name
-// + masked account id so the UI can replace "Setup needed" with a real
-// status badge. POST kicks off a verification round-trip against the CF
-// API using whatever auth the worker already has (scoped token preferred,
-// global key fallback) so we know the dashboard view matches reality.
-/**
- * `GET /api/admin/cloudflare/status` — Probe the Cloudflare account
- * configuration that powers the caller's org.
- *
- * @remarks
- * Verifies API token reachability, Zone, Worker, R2 bucket, D1 binding,
- * and Workers AI access. Used by the onboarding wizard to gate the
- * "Setup Cloudflare" step.
- *
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- */
-aiAdmin.get('/api/admin/cloudflare/status', async (c) => {
-  need(c);
-  const env = c.env as Env & {
-    CF_ACCOUNT_ID?: string;
-    WFP_NAMESPACE_NAME?: string;
-    CLOUDFLARE_API_KEY?: string;
-    CLOUDFLARE_EMAIL?: string;
-  };
-  const accountId = env.CF_ACCOUNT_ID ?? '';
-  const namespace = env.WFP_NAMESPACE_NAME ?? '';
-  const hasScopedToken = !!env.CF_API_TOKEN;
-  const hasGlobalKey = !!(env.CLOUDFLARE_API_KEY && env.CLOUDFLARE_EMAIL);
-  const dispatch = !!env.USER_DISPATCH;
-  return c.json({
-    data: {
-      account_id_masked: accountId ? `${accountId.slice(0, 8)}…${accountId.slice(-4)}` : null,
-      wfp_namespace_name: namespace || null,
-      analytics_configured: !!(accountId && (hasScopedToken || hasGlobalKey)),
-      wfp_configured: !!(accountId && namespace && dispatch && (hasScopedToken || hasGlobalKey)),
-      auth_mode: hasScopedToken ? 'scoped_token' : hasGlobalKey ? 'global_key' : 'none',
-      dispatch_binding_present: dispatch,
-    },
-  });
-});
-
-/**
- * `POST /api/admin/cloudflare/auto-setup` — Run the auto-provisioning
- * flow that creates the R2 bucket, KV namespace, D1 database, and Workers
- * AI binding for the caller's org.
- *
- * @remarks
- * Body: `{ cf_api_token, cf_account_id }`. Encrypts the token via
- * {@link aiCrypto} before persisting. Idempotent — re-running checks
- * existing resources before creating new ones. Audit-logged.
- *
- * @throws 400 BAD_REQUEST when the token doesn't match the account or
- *   lacks the required permission groups.
- * @throws 401 UNAUTHORIZED when org/user context is missing.
- */
-aiAdmin.post('/api/admin/cloudflare/auto-setup', async (c) => {
-  need(c);
-  const env = c.env as Env & {
-    CF_ACCOUNT_ID?: string;
-    WFP_NAMESPACE_NAME?: string;
-    CLOUDFLARE_API_KEY?: string;
-    CLOUDFLARE_EMAIL?: string;
-  };
-  const accountId = env.CF_ACCOUNT_ID;
-  if (!accountId) {
-    return c.json(
-      { error: { code: 'NO_ACCOUNT', message: 'CF_ACCOUNT_ID env var is not set' } },
-      503,
-    );
-  }
-  const headers: Record<string, string> = { 'User-Agent': 'project-sites-admin/1.0' };
-  if (env.CF_API_TOKEN) {
-    headers['Authorization'] = `Bearer ${env.CF_API_TOKEN}`;
-  } else if (env.CLOUDFLARE_API_KEY && env.CLOUDFLARE_EMAIL) {
-    headers['X-Auth-Email'] = env.CLOUDFLARE_EMAIL;
-    headers['X-Auth-Key'] = env.CLOUDFLARE_API_KEY;
-  } else {
-    return c.json({ error: { code: 'NO_AUTH', message: 'No CF credentials configured' } }, 503);
-  }
-  // Round-trip: verify account access by listing dispatch namespaces.
-  const verifyRes = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/dispatch/namespaces`,
-    { headers },
-  );
-  const verifyBody = (await verifyRes.json().catch(() => null)) as {
-    success: boolean;
-    result?: { namespace_name: string }[];
-    errors?: { code: number; message: string }[];
-  } | null;
-  if (!verifyRes.ok || !verifyBody?.success) {
-    return c.json(
-      {
-        error: {
-          code: 'CF_AUTH_FAILED',
-          message: verifyBody?.errors?.[0]?.message ?? `CF API returned ${verifyRes.status}`,
-        },
-      },
-      502,
-    );
-  }
-  const wantNamespace = env.WFP_NAMESPACE_NAME ?? 'project-sites-endpoints';
-  const existsAlready = verifyBody.result?.some((n) => n.namespace_name === wantNamespace) ?? false;
-  let created = false;
-  if (!existsAlready) {
-    const createRes = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/dispatch/namespaces`,
-      {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: wantNamespace }),
-      },
-    );
-    const createBody = (await createRes.json().catch(() => null)) as {
-      success: boolean;
-      errors?: { message: string }[];
-    } | null;
-    if (!createRes.ok || !createBody?.success) {
-      return c.json(
-        {
-          error: {
-            code: 'NAMESPACE_CREATE_FAILED',
-            message: createBody?.errors?.[0]?.message ?? `${createRes.status}`,
-          },
-        },
-        502,
-      );
-    }
-    created = true;
-  }
-  return c.json({
-    data: {
-      account_id_masked: `${accountId.slice(0, 8)}…${accountId.slice(-4)}`,
-      wfp_namespace_name: wantNamespace,
-      namespace_created: created,
-      namespace_existed: existsAlready,
-      analytics_configured: true,
-      wfp_configured: !!env.USER_DISPATCH,
-      dispatch_binding_present: !!env.USER_DISPATCH,
-      note: env.USER_DISPATCH
-        ? 'All Cloudflare services are wired and ready.'
-        : 'Namespace ready; the worker still needs a USER_DISPATCH binding deploy to dispatch user code.',
-    },
-  });
-});
+// Cloudflare account provisioning (GET /api/admin/cloudflare/status +
+// POST /api/admin/cloudflare/auto-setup — WFP dispatch-namespace status + idempotent
+// setup) moved to `libs/features/cloudflare_setup/handlers.ts` (route-decomposition
+// installment 20).
 
 // Admin AI Chat (POST /api/admin/ai-chat) moved to
 // `libs/features/admin_ai/handlers.ts` (route-decomposition installment 18).
@@ -1006,56 +768,17 @@ aiAdmin.delete('/api/team/transfer/:id', async (c) => {
   return c.json({ data: { cancelled: true } });
 });
 
-/* ────────────────────────── AI Chat Extras: uploads + drive + summary ────────────────────────── */
-
-/**
- * GET /api/sites/:siteId/workflows/:wfName/:id
- * Proxy a workflow instance's `.status()` to the client (item #60). Supports
- * `drive-sync` and `image-generation` Workflow names. Verifies the site is
- * owned by the caller's org before exposing the status.
- */
-aiAdmin.get('/api/sites/:siteId/workflows/:wfName/:id', async (c) => {
-  const { orgId } = need(c);
-  const siteId = c.req.param('siteId');
-  const wfName = c.req.param('wfName');
-  const instanceId = c.req.param('id');
-  await siteOwned(c, orgId, siteId);
-
-  let binding: Workflow | undefined;
-  if (wfName === 'drive-sync') binding = c.env.DRIVE_SYNC_WORKFLOW;
-  else if (wfName === 'image-generation') binding = c.env.IMAGE_GENERATION_WORKFLOW;
-  else throw new HTTPError(404, 'unknown workflow name');
-
-  if (!binding) {
-    return c.json({ data: { status: 'unbound', workflow: wfName } });
-  }
-
-  try {
-    const instance = await binding.get(instanceId);
-    const status = await instance.status();
-    return c.json({ data: { workflow: wfName, workflow_id: instanceId, ...status } });
-  } catch (err) {
-    throw new HTTPError(404, err instanceof Error ? err.message : 'workflow_lookup_failed');
-  }
-});
+// Workflow status proxy (GET /api/sites/:siteId/workflows/:wfName/:id — drive-sync +
+// image-generation instance .status()) moved to `libs/features/workflow_status/handlers.ts`
+// (route-decomposition installment 20).
 
 // AI Explain Trace (POST /api/admin/traces/:traceId/explain) + AI
 // Natural-Language Search (POST /api/admin/search/ai) moved to
 // `libs/features/admin_ai/handlers.ts` (route-decomposition installment 18).
 
-/* ────────────────────────── #95 AI Cost Forecaster ────────────────────────── */
-
-/**
- * GET /api/admin/forecast/cost
- *
- * 30-day usage rollup → next-month USD forecast per Cloudflare pricing, plus
- * one LLM-generated savings tip.
- */
-aiAdmin.get('/api/admin/forecast/cost', async (c) => {
-  const { orgId } = need(c);
-  const forecast = await forecastCost(c.env, orgId);
-  return c.json({ data: forecast });
-});
+// AI Cost Forecaster #95 (GET /api/admin/forecast/cost — 30-day usage rollup →
+// next-month USD forecast + one AI savings tip) moved to
+// `libs/features/cost_forecast/handlers.ts` (route-decomposition installment 20).
 
 // Cmd-K Inline AI Streaming (POST /api/admin/ai/stream/palette) + the AI Chat
 // Widget SSE handler (POST /api/admin/ai/stream/chat, incl. its EDITOR_TOOL_SURFACE

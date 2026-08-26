@@ -514,6 +514,58 @@ hostnames.get('/api/admin/domains/summary', async (c) => {
 });
 
 /**
+ * `GET /api/admin/domains` — List every non-deleted site in the caller's org
+ * with its custom-hostname rows attached, for the admin Domains view.
+ *
+ * @auth Bearer orgId required — sites + hostnames scoped via `WHERE org_id = ?`
+ *   / `site_id IN (...)`.
+ * @returns 200 OK `{ data: { sites: [{ site, hostnames: [] }] } }`.
+ * @throws UNAUTHORIZED — missing/invalid Bearer token.
+ *
+ * @remarks
+ * Folded VERBATIM from the `ai_admin.ts` monolith (route-decomposition
+ * installment 20) into this module — which already owns the rest of the
+ * `/api/admin/domains/*` family (summary/verify/health/deprovision). Only the
+ * auth guard was adapted to this module's `c.get('orgId')` idiom (the
+ * original's `need(c)` also asserted `userId`, incidental here since the
+ * handler only reads `orgId`). SQL + response shape are byte-identical.
+ */
+hostnames.get('/api/admin/domains', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+  const sites = await c.env.DB.prepare(
+    `SELECT id, slug, business_name FROM sites WHERE org_id = ? AND deleted_at IS NULL ORDER BY created_at DESC`,
+  )
+    .bind(orgId)
+    .all();
+  const siteRows = (sites.results ?? []) as {
+    id: string;
+    slug: string;
+    business_name: string | null;
+  }[];
+  if (siteRows.length === 0) return c.json({ data: { sites: [] } });
+  const placeholders = siteRows.map(() => '?').join(',');
+  const hosts = await c.env.DB.prepare(
+    `SELECT id, site_id, hostname, type, status, is_primary, ssl_status,
+            verification_errors, last_verified_at, created_at
+     FROM hostnames WHERE site_id IN (${placeholders}) AND deleted_at IS NULL
+     ORDER BY is_primary DESC, created_at DESC`,
+  )
+    .bind(...siteRows.map((s) => s.id))
+    .all();
+  const byId = new Map<
+    string,
+    { site: { id: string; slug: string; business_name: string | null }; hostnames: unknown[] }
+  >();
+  for (const s of siteRows) byId.set(s.id, { site: s, hostnames: [] });
+  for (const h of (hosts.results ?? []) as Record<string, unknown>[]) {
+    const bucket = byId.get(h['site_id'] as string);
+    if (bucket) bucket.hostnames.push(h);
+  }
+  return c.json({ data: { sites: Array.from(byId.values()) } });
+});
+
+/**
  * Force a fresh Cloudflare-for-SaaS verification check against a single
  * hostname, persist the new state to D1, and (when the hostname just
  * transitioned to `active`) email the org owner.

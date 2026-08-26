@@ -48,6 +48,14 @@ import { auditLogs } from '../../libs/features/audit_logs/handlers.js';
 import { apiKeys } from '../../libs/features/api_keys/handlers.js';
 import { siteActivity } from '../../libs/features/site_activity/handlers.js';
 import { mcpConnections } from '../../libs/features/mcp_connections/handlers.js';
+// Route-decomposition installment 20: /api/admin/{security,cloudflare/status,
+// cloudflare/auto-setup,forecast/cost} + /api/sites/:siteId/workflows/:wfName/:id moved
+// to their own modules. Mount all four BEFORE `aiAdmin` so those moved routes resolve
+// here (mirrors src/index.ts).
+import { orgSecurity } from '../../libs/features/org_security/handlers.js';
+import { cloudflareSetup } from '../../libs/features/cloudflare_setup/handlers.js';
+import { costForecast } from '../../libs/features/cost_forecast/handlers.js';
+import { workflowStatus } from '../../libs/features/workflow_status/handlers.js';
 import { writeAuditLog } from '../services/audit.js';
 import { canInviteMember, transferOwnership } from '../services/team_seats.js';
 
@@ -119,6 +127,10 @@ function makeApp(vars: Partial<Variables> = {}) {
   app.route('/', apiKeys);
   app.route('/', siteActivity);
   app.route('/', mcpConnections);
+  app.route('/', orgSecurity);
+  app.route('/', cloudflareSetup);
+  app.route('/', costForecast);
+  app.route('/', workflowStatus);
   app.route('/', aiAdmin);
   return app;
 }

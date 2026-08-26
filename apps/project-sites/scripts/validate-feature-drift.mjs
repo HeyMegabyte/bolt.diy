@@ -387,6 +387,22 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // (route-decomposition installment 19). Core, un-gated, org+user-scoped (need() + siteOwned() auth)
     // not flag-gated — same class as 'siteActivity'/'apiKeys'/'aiSettings'.
     'mcpConnections',
+    // orgSecurity — /api/admin/security (GET/PUT: session TTL/idle/allowlist/2FA in the org_security
+    // table), extracted to its own module from ai_admin.ts (route-decomposition installment 20). Core,
+    // un-gated, org-scoped (need() auth) not flag-gated — same class as 'apiKeys'/'aiSettings'.
+    'orgSecurity',
+    // cloudflareSetup — /api/admin/cloudflare/{status,auto-setup} (WFP dispatch-namespace status +
+    // idempotent auto-setup), extracted to its own module from ai_admin.ts (route-decomposition
+    // installment 20). Core, un-gated, org-scoped (need() auth) not flag-gated — same class as 'orgSecurity'.
+    'cloudflareSetup',
+    // costForecast — /api/admin/forecast/cost (30-day usage rollup → next-month USD forecast + one AI
+    // savings tip), extracted to its own module from ai_admin.ts (route-decomposition installment 20).
+    // Core, un-gated, org-scoped (need() auth) not flag-gated — same class as 'orgSecurity'/'cloudflareSetup'.
+    'costForecast',
+    // workflowStatus — /api/sites/:siteId/workflows/:wfName/:id (drive-sync/image-generation instance
+    // .status() proxy), extracted to its own module from ai_admin.ts (route-decomposition installment 20).
+    // Core, un-gated, org+user-scoped (need() + siteOwned() auth) not flag-gated — same class as 'siteActivity'.
+    'workflowStatus',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;

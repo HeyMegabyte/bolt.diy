@@ -27,6 +27,7 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { aiAdmin } from '../routes/ai_admin.js';
+import { costForecast } from '../../libs/features/cost_forecast/handlers.js';
 import { computeForecast } from '../services/ai_admin_features.js';
 
 const ORG_ID = 'org-forecast-1';
@@ -76,6 +77,7 @@ function authedApp() {
     c.set('requestId', 'req-1');
     await next();
   });
+  app.route('/', costForecast);
   app.route('/', aiAdmin);
   return app;
 }
@@ -128,6 +130,7 @@ describe('GET /api/admin/forecast/cost', () => {
   it('rejects unauthenticated requests', async () => {
     const app = new Hono<{ Bindings: Env; Variables: Variables }>();
     app.onError(errorHandler);
+    app.route('/', costForecast);
     app.route('/', aiAdmin);
     const env = makeEnv(
       makeDb(
