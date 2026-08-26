@@ -185,6 +185,35 @@ function setStatus(jobId, patch) {
   Object.assign(jobs[jobId], patch);
   saveJob(jobId);
   pushStatus(jobId);
+  maybeSelfTerminate(jobId);
+}
+
+// ── SELF-TERMINATE AFTER BUILD (warm-container image-skew fix, 2026-08-26) ──
+// The singleton SITE_BUILDER runs max_instances=20; warm instances PERSIST on
+// OLD image versions across deploys, so each build hits whichever is free → the
+// pipeline was non-deterministically thin/misclassified (fires 12-15) because a
+// deployed fix (self-heal, classifier) wasn't live on the instance that served
+// the build. FIX: once a job reaches a TERMINAL state (step 'done') AND no other
+// job is running, `process.exit(0)` after a short grace. A hard exit stops the
+// container → the NEXT /build cold-starts a FRESH instance on the LATEST image →
+// no version skew. Bounded downside: at worst an extra cold-start — NEVER a broken
+// build, because this fires only AFTER a terminal setStatus (+ its HMAC callback)
+// and only when idle. Self-converging: every instance drains + exits after its
+// batch, so within a fire or two ALL instances run the latest image.
+let selfTerminateTimer = null;
+function maybeSelfTerminate(jobId) {
+  const j = jobs[jobId];
+  if (!j || j.step !== 'done') return; // only on terminal completion
+  if (Object.values(jobs).some((x) => x && x.status === 'running')) return; // concurrent build in flight
+  if (selfTerminateTimer) clearTimeout(selfTerminateTimer);
+  // 8s grace: lets the terminal HMAC callback flush AND lets a rapidly-arriving
+  // follow-up /build cancel the exit (re-checked below) so back-to-back jobs on
+  // one instance don't thrash.
+  selfTerminateTimer = setTimeout(() => {
+    if (Object.values(jobs).some((x) => x && x.status === 'running')) return; // a new build arrived
+    console.warn('[self-terminate] build drained, no jobs running → exit(0); next build cold-starts on the latest image');
+    process.exit(0);
+  }, 8000);
 }
 
 // Boot-time push: surface any orphan errors marked above to KV via callback NOW so
