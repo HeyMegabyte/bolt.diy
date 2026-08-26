@@ -45,9 +45,18 @@
  */
 
 import { Hono } from 'hono';
-import type { Context } from 'hono';
 import type { Env, Variables } from '../../../src/types/env.js';
-import { extractContext, MAX_CONTEXT_FILE_BYTES } from '../../../src/services/ai_context_extract.js';
+import {
+  HTTPError,
+  need,
+  siteOwned,
+  aiAdminOnError,
+  type Ctx,
+} from '../../../src/lib/ai_admin_kit.js';
+import {
+  extractContext,
+  MAX_CONTEXT_FILE_BYTES,
+} from '../../../src/services/ai_context_extract.js';
 import {
   buildAuthUrl,
   getAccessToken,
@@ -62,64 +71,12 @@ type AppContext = { Bindings: Env; Variables: Variables };
 
 export const aiContext = new Hono<AppContext>();
 
-type Ctx = Context<{ Bindings: Env; Variables: Variables }>;
-
-function need(c: Ctx): { orgId: string; userId: string } {
-  const orgId = c.get('orgId') as string | undefined;
-  const userId = c.get('userId') as string | undefined;
-  if (!orgId || !userId) throw new HTTPError(401, 'Authentication required');
-  return { orgId, userId };
-}
-
-class HTTPError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
-
-aiContext.onError((err, c) => {
-  if (err instanceof HTTPError)
-    return c.json({ error: { message: err.message } }, err.status as 400);
-  // Unexpected error → log the detail server-side, return a GENERIC message so
-  // raw internals (stack/SQL/paths) never reach the client (HTTPError above is
-  // the typed, intentionally-surfaced path).
-  console.warn(
-    JSON.stringify({
-      level: 'error',
-      service: 'ai_admin',
-      message: 'unhandled error',
-      error: err.message,
-      request_id: c.get('requestId'),
-    }),
-  );
-  return c.json({ error: { message: 'internal error' } }, 500);
-});
-
-async function siteOwned(
-  c: Ctx,
-  orgId: string,
-  siteId: string,
-): Promise<{ slug: string; business_name: string | null }> {
-  const row = await c.env.DB.prepare(
-    `SELECT slug, business_name FROM sites WHERE id = ? AND org_id = ? AND deleted_at IS NULL`,
-  )
-    .bind(siteId, orgId)
-    .first<{ slug: string; business_name: string | null }>();
-  if (!row) throw new HTTPError(404, 'Site not found');
-  return row;
-}
-
-function safeJson(s: string | null | undefined): unknown {
-  if (!s) return null;
-  try {
-    return JSON.parse(s);
-  } catch {
-    return s;
-  }
-}
+// Error/auth scaffolding (HTTPError · need · siteOwned · safeJson · onError) is
+// shared via src/lib/ai_admin_kit.ts — imported above (route-decomposition
+// installment 17, DRY consolidation). Byte-identical behavior to the prior
+// inline copies; see the kit module doc for the siteOwned-vs-requireOwnedSite
+// rationale.
+aiContext.onError(aiAdminOnError);
 
 /* ────────────────────────── AI Chat Context Files ────────────────────────── */
 
