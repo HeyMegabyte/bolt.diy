@@ -524,7 +524,7 @@ src/
 │   ├── google_places.ts        # Google Places API integration
 │   ├── image_generation.ts     # AI image generation (DALL-E, Stability, etc.)
 │   ├── media.ts                # Unified media library (uploads + stock + DALL·E + Sora + TTS + send-to-bolt)
-│   ├── notifications.ts        # Email notifications (Resend/SendGrid)
+│   ├── notifications.ts        # Email notifications (SES -> Resend -> SendGrid, ADR-0019)
 │   ├── openai_research.ts      # OpenAI-powered research pipeline
 │   ├── rag.ts                  # Vectorize + AutoRAG (embed, indexChunk, semanticSearch, autoRagQuery)
 │   ├── site_serving.ts         # R2 static file serving + top bar injection for unpaid

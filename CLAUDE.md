@@ -58,7 +58,7 @@ discipline — `zod-everywhere`, `verification-loop`, `structured-logging`,
 | Background | Cloudflare Workflows (AI site-generation pipeline) |
 | AI | Cloudflare Workers AI (Llama 3.3 70B + 3.1 8B, FP8) via AI Gateway |
 | Payments | Stripe (checkout, subscriptions, webhooks) |
-| Email | Amazon SES (SigV4 raw-send from the Worker) + Listmonk (newsletters); bounce handling |
+| Email | SES → Resend → SendGrid fallback chain (ADR-0019, SES primary once configured) + Listmonk (newsletters); bounce handling |
 | Analytics | PostHog (server-side) |
 | Errors | Sentry (HTTP API) |
 
@@ -90,8 +90,9 @@ Status machine: `draft → collecting → imaging → generating → published |
   Head before the bundle loads (overrides the default `/headless` iframe); `WebContainer.boot()` in
   `app/lib/webcontainer/index.ts` uses `coep:'credentialless'`. Boot failures → check headers, the
   iframe URL, third-party-storage blocking (stackblitz.com / webcontainer.io exceptions).
-- **Removed — never reintroduce**: Supabase, Resend/SendGrid (→ SES + Listmonk), Twilio-SMS + phone-OTP,
-  Lago/Unkey/Nango/Inngest/Postiz/Novu. Residual orphan columns (`users.phone`, `phone_otps`) are inert.
+- **Removed — never reintroduce**: Supabase, Twilio-SMS + phone-OTP, Lago/Unkey/Nango/Inngest/Postiz/Novu.
+  Residual orphan columns (`users.phone`, `phone_otps`) are inert. **Resend + SendGrid are still LIVE** email
+  fallbacks behind SES (ADR-0019) — being phased out once SES is proven, NOT yet removed.
 
 ---
 
