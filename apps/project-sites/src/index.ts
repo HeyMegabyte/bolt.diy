@@ -126,6 +126,7 @@ import { integrationHealth } from './routes/integration_health.js';
 import { tokenBurnMeter } from '../libs/features/token_burn_meter/handlers.js'; // #13 per-tenant token-burn meter + budget killswitch (flag: token_burn_meter)
 import { siteAnalytics } from '../libs/features/site_analytics/handlers.js'; // owner-facing per-site analytics summary (flag: site_analytics)
 import { domains } from '../libs/features/domains/handlers.js'; // domain search/purchase/register/suggest — extracted from api.ts (route-decomposition installment 1)
+import { notifications } from '../libs/features/notifications/handlers.js'; // in-app notifications inbox (list/mark-read/read-all) — extracted from api.ts (route-decomposition installment 2)
 import { visitorEvents } from '../libs/features/visitor_events_core/handlers.js'; // public pageview/event beacon ingest (flag: visitor_events_core)
 import { recordPageviewFromRequest } from '../libs/features/visitor_events_core/service.js'; // edge-recorded per-request pageview (no flag — core site analytics)
 // IDEAS-50 wave 3 — GEO + reputation + growth
@@ -877,6 +878,7 @@ app.route('/', wireframePlanning); // /api/wireframe/* (flag: wireframe_planning
 app.route('/', cmdkAiActionsRouter); // /api/cmdk/resolve (flag: cmdk_ai_actions)
 app.route('/', integrationHealth); // GET /api/integrations/:name/health + /api/integrations/health
 app.route('/', domains); // /api/domains/* + /api/admin/profile/:site_id/context — extracted from api.ts (route-decomposition installment 1); precedes `api`.
+app.route('/', notifications); // /api/notifications + /:id/read + /read-all — extracted from api.ts (route-decomposition installment 2); precedes `api`.
 
 app.route('/', api);
 app.route('/', webhooks);

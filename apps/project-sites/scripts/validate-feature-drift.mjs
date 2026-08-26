@@ -278,6 +278,10 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // CRUD), extracted to its own module (e2cf9f67). Core custom-hostname capability,
     // entitlement-gated (paid plans) not flag-gated — same class as 'domainPurchase'/'domainStack'.
     'domains',
+    // notifications — /api/notifications + /:id/read + /read-all (in-app bell inbox),
+    // extracted to its own module (route-decomposition installment 2). Core, un-gated,
+    // user-scoped (userId auth) not flag-gated — same class as 'domains'/'domainStack'.
+    'notifications',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;
