@@ -131,7 +131,7 @@ Project Sites is an AI website builder for solo founders and small agencies. Cus
 ## Differentiators
 
 1. Multi-model AI router (Opus 4.7 / Sonnet 4.6 / Workers AI Llama 3.3 70B FP8 / GPT-5).
-2. One-click Supabase + Neon DB provisioning.
+2. One-click Neon DB provisioning.
 3. Accessibility-first publishing — axe-core publish gate at 6 viewports.
 4. Core Web Vitals publish gate — LCP < 2.5s, INP < 200ms, CLS < 0.1.
 5. GEO / AI search built-in — JSON-LD autopilot + per-site llms.txt.

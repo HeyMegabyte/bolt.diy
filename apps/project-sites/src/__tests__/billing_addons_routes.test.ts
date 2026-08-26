@@ -272,7 +272,7 @@ describe('POST /api/billing/usage/report', () => {
     expect(json.delivered).toBe(false);
   });
 
-  it('records usage via LagoProvider when keys are present', async () => {
+  it('records usage via the metered billing provider when keys are present', async () => {
     global.fetch = fetchReturning({});
     const res = await jsonReq(
       makeApp(AUTH),
@@ -297,7 +297,7 @@ describe('POST /api/billing/usage/report', () => {
       { metric: 'email_sends', quantity: 2 },
       makeEnv({ STRIPE_SECRET_KEY: 'sk_test_x' }),
     );
-    // LagoProvider fails soft — the event is persisted to D1, delivery is retried.
+    // The billing provider fails soft — the event is persisted to D1, delivery is retried.
     expect(res.status).toBe(200);
     const json = (await res.json()) as { event_id: string; delivered: boolean };
     expect(json.event_id).toBeTruthy();
