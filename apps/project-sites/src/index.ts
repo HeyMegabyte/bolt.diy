@@ -134,6 +134,7 @@ import { email } from '../libs/features/email/handlers.js'; // weekly-digest ema
 import { siteVersioning } from '../libs/features/site_versioning/handlers.js'; // site version history: D1 snapshots + R2 git history/diff/commits + revert/restore + snapshot download manifest — extracted from api.ts (route-decomposition installment 9)
 import { siteFiles } from '../libs/features/site_files/handlers.js'; // editor R2 file CRUD: list/export/read/write/delete — extracted from api.ts (route-decomposition installment 10)
 import { siteUrls } from '../libs/features/site_urls/handlers.js'; // site URL management + multi-URL analytics: list/bind/unbind URLs + aggregated CF analytics — extracted from api.ts (route-decomposition installment 10)
+import { siteGithub } from '../libs/features/site_github/handlers.js'; // per-site GitHub OAuth backup: status/connect/callback/backup/disconnect — extracted from api.ts (route-decomposition installment 11)
 import { visitorEvents } from '../libs/features/visitor_events_core/handlers.js'; // public pageview/event beacon ingest (flag: visitor_events_core)
 import { recordPageviewFromRequest } from '../libs/features/visitor_events_core/service.js'; // edge-recorded per-request pageview (no flag — core site analytics)
 // IDEAS-50 wave 3 — GEO + reputation + growth
@@ -893,6 +894,7 @@ app.route('/', email); // /api/email/{unsubscribe,digest/trigger} — weekly-dig
 app.route('/', siteVersioning); // /api/sites/:siteId/{snapshots,snapshots/diff,snapshots/revert,snapshots/:id/restore,git/history,git/diff,git/commits/:id} + /api/sites/:id/snapshots/:snapId/download — site version history extracted from api.ts (route-decomposition installment 9); precedes `api`.
 app.route('/', siteFiles); // /api/sites/:id/{files,files-export,files/:path{.+}} (GET/PUT/DELETE) — editor R2 file CRUD extracted from api.ts (route-decomposition installment 10); precedes `api`.
 app.route('/', siteUrls); // /api/sites/:id/{urls,urls/:urlId,multi-url-analytics} — site URL management + aggregated CF analytics extracted from api.ts (route-decomposition installment 10); precedes `api`.
+app.route('/', siteGithub); // /api/sites/:id/github/{status,connect,callback,backup,disconnect} — per-site GitHub OAuth backup extracted from api.ts (route-decomposition installment 11); precedes `api`.
 
 app.route('/', api);
 app.route('/', webhooks);

@@ -317,6 +317,11 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // 10). Core, un-gated, membership-scoped (userId auth) not flag-gated — same class as the other
     // route-organization extractions.
     'siteUrls',
+    // siteGithub — /api/sites/:id/github/{status,connect,callback,backup,disconnect}: per-site
+    // GitHub OAuth backup (mirror build to a private repo via snapshot branch + PR), extracted to
+    // its own module (route-decomposition installment 11). Core, un-gated, org-scoped (orgId auth)
+    // not flag-gated — same class as the other route-organization extractions.
+    'siteGithub',
   ]);
 
   if (ALLOWLIST.has(handlerName)) return true;

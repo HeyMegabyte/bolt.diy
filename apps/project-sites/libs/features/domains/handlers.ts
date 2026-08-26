@@ -14,6 +14,17 @@
  * | GET    | /api/domains/suggest              | orgId  | AI domain suggestions (cached)   |
  * | POST   | /api/domains/suggest/refine       | orgId  | Refine suggestions w/ feedback   |
  * | GET    | /api/admin/profile/:site_id/context | orgId | Debug: resolved ProfileContext |
+ * | POST   | /api/sites/:siteId/domains/ai-search | orgId | AI creative domain search (10 strategies) |
+ * | GET    | /api/sites/:siteId/domains/availability | orgId | Single-domain availability + price probe |
+ * | POST   | /api/sites/:siteId/domains/register | orgId | Register + auto-provision CF for SaaS hostname |
+ * | POST   | /api/sites/:siteId/domains/:domain/transfer-out | orgId | Initiate CF Registrar port-out |
+ *
+ * The four `/api/sites/:siteId/domains/*` routes were folded in from the `api.ts`
+ * monolith VERBATIM (route-decomposition installment 11) — only the receiver
+ * changed (`api.` → `domains.`); their bodies (and the ai-search helpers
+ * `AI_DOMAIN_STRATEGIES` / `parseDomainCandidates` / `readSiteAiPrompt`) are
+ * byte-for-byte unchanged. They read/write bodies via a raw `as {…}` cast rather
+ * than a Zod schema at the boundary, so they are not in `./schemas`.
  *
  * Extracted verbatim from the `api.ts` monolith (route-decomposition
  * installment 1). Every request body/query is validated through
@@ -41,6 +52,7 @@ import { gatherProfileContext } from '../../../src/services/profile_context.js';
 import { dbQueryOne } from '../../../src/services/db.js';
 import * as domainService from '../../../src/services/domains.js';
 import * as auditService from '../../../src/services/audit.js';
+import * as posthog from '../../../src/lib/posthog.js';
 import {
   DomainPurchaseSchema,
   DomainRegisterSchema,
@@ -622,4 +634,499 @@ domains.get('/api/admin/profile/:site_id/context', async (c) => {
   if (!context) throw notFound('Site has no resolvable profile');
 
   return c.json({ context });
+});
+
+/**
+ * Creative-strategy seed used by the AI domain-search fan-out. Each strategy
+ * spawns an independent Workers AI inference with its own system prompt so
+ * the candidate set spans different naming archetypes (literal, metaphor,
+ * alliterative, ...). Deduped + availability-checked downstream.
+ */
+const AI_DOMAIN_STRATEGIES: ReadonlyArray<{ id: string; instruction: string }> = [
+  {
+    id: 'literal',
+    instruction:
+      'Suggest 4 literal, descriptive domain names that say exactly what the business does. Plain English, .com preferred.',
+  },
+  {
+    id: 'metaphor',
+    instruction:
+      'Suggest 4 metaphor-driven domain names that evoke the business through a vivid image (e.g. "ironpaw.com" for a gym). Avoid the business type word directly.',
+  },
+  {
+    id: 'compound',
+    instruction:
+      'Suggest 4 invented compound-word domain names that fuse two relevant nouns or a noun + verb. Keep them under 14 characters.',
+  },
+  {
+    id: 'alliterative',
+    instruction:
+      'Suggest 4 alliterative domain names where the first letter repeats. Memorable, brand-able, .com or .co.',
+  },
+  {
+    id: 'rhyming',
+    instruction:
+      'Suggest 4 rhyming or near-rhyming two-word domain names. Playful but professional.',
+  },
+  {
+    id: 'jargon',
+    instruction:
+      'Suggest 4 industry-jargon domain names that insiders would instantly recognize. Authentic vocabulary, no marketing speak.',
+  },
+  {
+    id: 'playful',
+    instruction:
+      'Suggest 4 playful, slightly irreverent domain names with a wink. Short. .co, .fun, .biz allowed.',
+  },
+  {
+    id: 'minimalist',
+    instruction:
+      'Suggest 4 minimalist single-word or two-syllable domain names. Premium, easy to spell. .com or .io.',
+  },
+  {
+    id: 'premium-tld',
+    instruction:
+      'Suggest 4 domain names paired with premium TLDs (.io, .app, .dev, .ai) where the TLD adds meaning.',
+  },
+  {
+    id: 'geography',
+    instruction:
+      'Suggest 4 geography-flavored domain names that subtly include city, neighborhood, or regional flavor.',
+  },
+];
+
+/**
+ * Parse a Workers AI free-form response and pull out plausible domain
+ * candidates. The Llama model usually returns a markdown list, sometimes a
+ * comma-separated line, sometimes prose — this normalizer survives all
+ * three.
+ *
+ * @param raw - The raw model response (string or wrapper object).
+ * @returns Up to 8 lowercase domain candidates with stripped punctuation.
+ */
+function parseDomainCandidates(raw: unknown): string[] {
+  let text = '';
+  if (typeof raw === 'string') text = raw;
+  else if (raw && typeof raw === 'object' && 'response' in raw)
+    text = String((raw as { response?: unknown }).response ?? '');
+  else if (raw && typeof raw === 'object' && 'result' in raw)
+    text = String((raw as { result?: unknown }).result ?? '');
+  else text = JSON.stringify(raw ?? '');
+
+  const matches = text.match(/[a-z0-9][a-z0-9-]{1,40}\.[a-z]{2,12}\b/gi) ?? [];
+  const cleaned = matches
+    .map((m) => m.toLowerCase())
+    .map((m) => m.replace(/[^a-z0-9.-]/g, ''))
+    .filter((m) => /^[a-z0-9][a-z0-9-]*\.[a-z]{2,12}$/.test(m));
+  return Array.from(new Set(cleaned)).slice(0, 8);
+}
+
+/**
+ * Look up the site's AI-chat system prompt (when one has been configured)
+ * so the domain-search prompts can ride along on the same brand voice.
+ *
+ * @returns The persisted `chat_system_prompt` or `null` when unset.
+ */
+async function readSiteAiPrompt(db: D1Database, siteId: string): Promise<string | null> {
+  const row = await dbQueryOne<{ chat_system_prompt: string | null }>(
+    db,
+    'SELECT chat_system_prompt FROM ai_site_settings WHERE site_id = ?',
+    [siteId],
+  );
+  return row?.chat_system_prompt ?? null;
+}
+
+/**
+ * AI-powered creative domain search for a specific site.
+ *
+ * Fans out ~10 parallel Workers AI inferences (one per naming strategy),
+ * aggregates the candidate set, dedupes, then checks availability + price in
+ * a single bulk Cloudflare Registrar API call. Strategy metadata is
+ * preserved on every candidate so the UI can render a "metaphor" /
+ * "alliterative" badge per card.
+ *
+ * @route POST /api/sites/:siteId/domains/ai-search
+ * @auth Bearer required. Site ownership is enforced via D1 `org_id` predicate.
+ * @body `{ query: string }` — free-form designer brief used as extra context.
+ * @returns `{ data: { available, unavailable } }` where each is an array of
+ *   `{ name, tld, price_usd, available, strategy }`.
+ * @throws {AppError} `UNAUTHORIZED` / `NOT_FOUND` per the standard pattern.
+ *
+ * @example
+ * ```bash
+ * curl -X POST .../api/sites/$ID/domains/ai-search \
+ *   -H 'authorization: bearer $T' -d '{"query":"premium barber shop"}'
+ * ```
+ */
+domains.post('/api/sites/:siteId/domains/ai-search', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const siteId = c.req.param('siteId');
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
+  // ⚠️ Select ONLY real `sites` columns. `business_type` does NOT exist (the
+  // columns are business_name/phone/email/address/website) — selecting it threw
+  // `no such column`, which dbQueryOne SWALLOWS → null → requireOwnedSite 404'd
+  // EVERY site (owned or not), so ai-search was 100% broken in prod (a silent
+  // schema-drift-as-404, per the swallowed-SQL-error class).
+  const site = await requireOwnedSite<{
+    id: string;
+    business_name: string | null;
+    business_address: string | null;
+  }>(c.env, orgId, siteId, 'id, business_name, business_address');
+
+  const body = (await c.req.json().catch(() => ({}))) as { query?: unknown };
+  const query = typeof body.query === 'string' ? body.query.trim().slice(0, 200) : '';
+
+  const sitePrompt = await readSiteAiPrompt(c.env.DB, siteId);
+  const businessName = site.business_name ?? 'the business';
+  // No business_type column exists; the designer query + brand-voice prompt below
+  // carry the domain-naming specificity. Default keeps the AI context well-formed.
+  const businessType = 'small business';
+  const address = site.business_address ?? '';
+
+  const baseContext = [
+    `Business name: ${businessName}`,
+    `Business type: ${businessType}`,
+    address ? `Location: ${address}` : '',
+    query ? `Designer brief: ${query}` : '',
+    sitePrompt ? `Brand voice (extract): ${sitePrompt.slice(0, 300)}` : '',
+    'Output strict format: a markdown list, one candidate per line, "domain.tld" only, no commentary.',
+    'Avoid hyphens unless musically helpful. Prefer ≤14 chars. Never reuse the exact business name verbatim.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const deadline = Date.now() + 25_000;
+
+  // Fan out one inference per strategy in parallel. Each promise resolves to a
+  // typed `{strategy, candidates[]}` regardless of model failure so the
+  // aggregator can keep partial results.
+  const strategyRuns = AI_DOMAIN_STRATEGIES.map(async (strategy) => {
+    try {
+      const remaining = deadline - Date.now();
+      if (remaining <= 200) return { strategy: strategy.id, candidates: [] as string[] };
+      const ai = c.env.AI as unknown as {
+        run: (model: string, opts: unknown) => Promise<unknown>;
+      };
+      // Clear the race-timeout once AI.run wins, else the dangling setTimeout
+      // keeps the runtime alive (the f87/discover-images uncleaned-race-timer
+      // class — caused the domains-ai-search suite force-exit).
+      let raceTimer: ReturnType<typeof setTimeout> | undefined;
+      const raw = await Promise.race([
+        ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+          messages: [
+            { role: 'system', content: strategy.instruction },
+            { role: 'user', content: baseContext },
+          ],
+          max_tokens: 256,
+        }),
+        new Promise((resolve) => {
+          raceTimer = setTimeout(() => resolve(null), Math.min(remaining, 12_000));
+        }),
+      ]);
+      clearTimeout(raceTimer);
+      return { strategy: strategy.id, candidates: parseDomainCandidates(raw) };
+    } catch (err) {
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'ai_domain_search',
+          message: 'strategy_failed',
+          strategy: strategy.id,
+          error: err instanceof Error ? err.message : String(err),
+        }),
+      );
+      return { strategy: strategy.id, candidates: [] };
+    }
+  });
+
+  const strategyResults = await Promise.all(strategyRuns);
+
+  // Dedupe across strategies; first writer wins so the strategy badge stays
+  // stable on subsequent re-renders.
+  const seen = new Map<string, string>();
+  for (const { strategy, candidates } of strategyResults) {
+    for (const name of candidates) {
+      if (!seen.has(name)) seen.set(name, strategy);
+    }
+  }
+
+  const allNames = Array.from(seen.keys()).slice(0, 50);
+  if (allNames.length === 0) {
+    return c.json({ data: { available: [], unavailable: [] } });
+  }
+
+  // The availability provider (RDAP via checkDomainAvailability) is SECONDARY
+  // enrichment on top of the AI-generated candidates — the domain IDEAS are the
+  // primary value. checkBatch never throws on an RDAP hiccup (returns 'unknown'),
+  // but keep the try/catch as defense-in-depth: a dynamic-import failure or future
+  // provider rewire must NOT 502 the whole search. On any failure each row just
+  // shows "availability unknown" instead of a price/available flag.
+  // (Historic bug: the old CF Registrar path 404'd and THREW AppError(502), hiding
+  // every suggestion until this catch was added.)
+  let availabilityResult: Awaited<ReturnType<typeof domainService.checkDomainAvailability>> | null =
+    null;
+  try {
+    availabilityResult = await domainService.checkDomainAvailability(c.env, allNames);
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'ai_domain_search',
+        message: 'availability_check_failed',
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+  }
+
+  // Soft failure: surface every candidate as "availability unknown" rather
+  // than empty.
+  const availabilityRows = Array.isArray(availabilityResult)
+    ? availabilityResult
+    : allNames.map((n) => ({
+        name: n,
+        tld: n.split('.').slice(1).join('.'),
+        available: false,
+        price_usd: 0,
+      }));
+
+  type Card = {
+    name: string;
+    tld: string;
+    price_usd: number;
+    available: boolean;
+    strategy: string;
+  };
+  const available: Card[] = [];
+  const unavailable: Card[] = [];
+
+  for (const row of availabilityRows) {
+    const card: Card = {
+      name: row.name,
+      tld: row.tld,
+      price_usd: row.price_usd,
+      available: row.available,
+      strategy: seen.get(row.name) ?? 'literal',
+    };
+    (card.available ? available : unavailable).push(card);
+  }
+
+  // Fire-and-forget analytics: never block the user response on PostHog.
+  try {
+    posthog.trackDomain(c.env, c.executionCtx, 'ai_searched', c.get('userId') || orgId, {
+      site_id: siteId,
+      available_count: available.length,
+      unavailable_count: unavailable.length,
+      query_length: query.length,
+    });
+  } catch {
+    /* ignore — analytics never blocks */
+  }
+
+  return c.json({ data: { available, unavailable } });
+});
+
+/**
+ * Single-domain availability + pricing probe via RDAP (checkDomainAvailability).
+ *
+ * @route GET /api/sites/:siteId/domains/availability
+ * @auth Bearer required. Site ownership enforced.
+ * @queryParam name - Fully-qualified domain to check.
+ * @returns `{ data: { name, available, price_usd, tld } }`.
+ *
+ * @example
+ * ```bash
+ * curl '.../api/sites/$ID/domains/availability?name=acme.com'
+ * ```
+ */
+domains.get('/api/sites/:siteId/domains/availability', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const siteId = c.req.param('siteId');
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
+  const site = await requireOwnedSite<{ id: string }>(c.env, orgId, siteId);
+
+  const name = (c.req.query('name') ?? '').toLowerCase().trim();
+  if (!/^[a-z0-9][a-z0-9-]*\.[a-z]{2,12}$/.test(name)) {
+    throw badRequest('Provide a valid `name` query parameter');
+  }
+
+  const result = await domainService.checkDomainAvailability(c.env, [name]);
+  if (!Array.isArray(result)) {
+    return c.json({
+      data: { name, available: false, price_usd: 0, tld: name.split('.').slice(1).join('.') },
+    });
+  }
+  return c.json({ data: result[0] });
+});
+
+/**
+ * Register a domain through Cloudflare Registrar AND automatically provision
+ * a Cloudflare for SaaS custom hostname for the requesting site so DNS +
+ * SSL come up in a single user-visible step.
+ *
+ * @route POST /api/sites/:siteId/domains/register
+ * @auth Bearer required. Site ownership enforced.
+ * @body `{ domain: string }`.
+ * @returns `{ data: { domain, hostname_id, status } }`.
+ * @throws {AppError} `DOMAIN_PROVISIONING_ERROR` when CF Registrar refuses.
+ *
+ * @example
+ * ```bash
+ * curl -X POST .../api/sites/$ID/domains/register \
+ *   -d '{"domain":"acme.com"}'
+ * ```
+ */
+domains.post('/api/sites/:siteId/domains/register', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const siteId = c.req.param('siteId');
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
+  const site = await requireOwnedSite<{ id: string; slug: string }>(
+    c.env,
+    orgId,
+    siteId,
+    'id, slug',
+  );
+
+  const body = (await c.req.json().catch(() => ({}))) as { domain?: unknown };
+  const domain = typeof body.domain === 'string' ? body.domain.toLowerCase().trim() : '';
+  if (!/^[a-z0-9][a-z0-9-]*\.[a-z]{2,12}$/.test(domain)) {
+    throw badRequest('`domain` must be a valid FQDN like "acme.com"');
+  }
+
+  // 1. Register at Cloudflare Registrar.
+  const registration = await domainService.registerDomain(c.env, domain);
+
+  // 2. Provision the matching CF for SaaS custom hostname (sets up SSL +
+  //    routes traffic to this Worker). Wrap in try/catch — we never want the
+  //    hostname step to roll back a successful registration silently.
+  let hostnameResult: { hostname: string; status: string } | null = null;
+  try {
+    const r = await domainService.provisionCustomDomain(c.env.DB, c.env, {
+      org_id: orgId,
+      site_id: siteId,
+      hostname: domain,
+    });
+    hostnameResult = { hostname: r.hostname, status: r.status };
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        level: 'warn',
+        service: 'domain_register',
+        message: 'hostname_provision_failed_after_registration',
+        domain,
+        error: err instanceof Error ? err.message : String(err),
+      }),
+    );
+  }
+
+  // Look up the resulting hostname row so the UI can navigate by ID.
+  const hostnameRow = await dbQueryOne<{ id: string; status: string }>(
+    c.env.DB,
+    'SELECT id, status FROM hostnames WHERE site_id = ? AND hostname = ? AND deleted_at IS NULL',
+    [siteId, domain],
+  );
+
+  await auditService.writeAuditLog(c.env.DB, {
+    org_id: orgId,
+    actor_id: c.get('userId') ?? null,
+    action: 'domain.registered',
+    message: `Domain '${domain}' registered via Cloudflare for site '${siteId}'`,
+    target_type: 'domain',
+    target_id: hostnameRow?.id ?? siteId,
+    metadata_json: {
+      site_id: siteId,
+      domain,
+      registrar: 'cloudflare',
+      expires_at: registration.expires_at,
+      hostname_provisioned: Boolean(hostnameResult),
+    },
+    request_id: c.get('requestId'),
+  });
+
+  try {
+    posthog.trackDomain(c.env, c.executionCtx, 'registered', c.get('userId') || orgId, {
+      site_id: siteId,
+      domain,
+    });
+  } catch {
+    /* ignore */
+  }
+
+  return c.json(
+    {
+      data: {
+        domain,
+        hostname_id: hostnameRow?.id ?? null,
+        status: hostnameRow?.status ?? registration.status,
+      },
+    },
+    201,
+  );
+});
+
+/**
+ * Initiate a port-out for a domain previously registered through
+ * Cloudflare. Unlocks the domain, fetches the EPP auth code and surfaces it
+ * to the user along with instructions for the gaining registrar.
+ *
+ * @route POST /api/sites/:siteId/domains/:domain/transfer-out
+ * @auth Bearer required. Site ownership enforced AND the hostname row must
+ *   belong to the same site (defence in depth).
+ * @body `{ new_registrar?: string }` — optional, recorded in the audit log.
+ * @returns `{ data: { auth_code, registrar_locked, instructions_url } }`.
+ *
+ * @example
+ * ```bash
+ * curl -X POST .../api/sites/$ID/domains/acme.com/transfer-out \
+ *   -d '{"new_registrar":"namecheap"}'
+ * ```
+ */
+domains.post('/api/sites/:siteId/domains/:domain/transfer-out', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const siteId = c.req.param('siteId');
+  const domain = (c.req.param('domain') ?? '').toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]*\.[a-z]{2,12}$/.test(domain)) {
+    throw badRequest('Invalid domain in path');
+  }
+
+  // Canonical org-ownership guard: 404 (never 403) so cross-org sites don't leak.
+  const site = await requireOwnedSite<{ id: string }>(c.env, orgId, siteId);
+
+  // Verify the domain belongs to this site (and is not already deleted).
+  const hostnameRow = await dbQueryOne<{ id: string; hostname: string }>(
+    c.env.DB,
+    'SELECT id, hostname FROM hostnames WHERE site_id = ? AND hostname = ? AND deleted_at IS NULL',
+    [siteId, domain],
+  );
+  if (!hostnameRow) throw notFound('Domain not found for this site');
+
+  const body = (await c.req.json().catch(() => ({}))) as { new_registrar?: unknown };
+  const newRegistrar = typeof body.new_registrar === 'string' ? body.new_registrar : undefined;
+
+  const transfer = await domainService.initiateDomainTransfer(c.env, domain);
+
+  await auditService.writeAuditLog(c.env.DB, {
+    org_id: orgId,
+    actor_id: c.get('userId') ?? null,
+    action: 'domain.transfer_out_initiated',
+    message: `Domain '${domain}' transfer-out initiated${newRegistrar ? ` to '${newRegistrar}'` : ''}`,
+    target_type: 'domain',
+    target_id: hostnameRow.id,
+    metadata_json: {
+      site_id: siteId,
+      domain,
+      new_registrar: newRegistrar ?? null,
+      registrar_locked: false,
+    },
+    request_id: c.get('requestId'),
+  });
+
+  return c.json({ data: transfer });
 });

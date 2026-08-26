@@ -50,6 +50,10 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { errorHandler } from '../middleware/error_handler.js';
 import { api } from '../routes/api.js';
+// /api/sites/:siteId/domains/ai-search moved to the domains feature module
+// (route-decomposition installment 11) — mount it before `api` so the ai-search
+// route resolves, matching the prod mount order in src/index.ts.
+import { domains } from '../../libs/features/domains/handlers.js';
 import { dbQueryOne } from '../services/db.js';
 import { checkBatch } from '../services/rdap_availability.js';
 
@@ -105,6 +109,7 @@ function createAuthenticatedApp() {
     c.set('requestId', 'req-1');
     await next();
   });
+  authedApp.route('/', domains);
   authedApp.route('/', api);
   return { app: authedApp, env: createMockEnv() };
 }
@@ -136,6 +141,7 @@ describe('POST /api/sites/:siteId/domains/ai-search', () => {
   it('returns 401 without auth', async () => {
     const app = new Hono<{ Bindings: Env; Variables: Variables }>();
     app.onError(errorHandler);
+    app.route('/', domains);
     app.route('/', api);
     const res = await app.request(
       `/api/sites/${TEST_SITE_ID}/domains/ai-search`,
