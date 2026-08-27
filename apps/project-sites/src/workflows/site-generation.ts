@@ -905,15 +905,21 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     // Poll-budget extension: a restart re-boots the whole build (~14 min) — if
     // it only CONSUMED the remaining budget, any restart past ~poll 90 was a
     // guaranteed timeout (the fresh build never gets enough polls to reach
-    // terminal). Each restart ADDS 60 polls (+30 min); the one-shot restart
-    // guard caps the total at MAX_POLLS + 60 (90 min) — bounded by design.
+    // terminal). Each restart ADDS 60 polls (+30 min); the restart-count guard
+    // caps the total at MAX_POLLS + MAX_RESTARTS*60 — bounded by design.
     const RESTART_POLL_BUDGET = 60;
+    // Eviction recovery: restart the build up to MAX_RESTARTS times when the
+    // container dies mid-build. Bumped 1→3 (2026-08-27): evictions RECUR in
+    // instance-pressure windows (fires 26-27 — builds ran slow ~10min then the
+    // container DO evicted mid-generation), and a SINGLE restart wasn't enough —
+    // fire-27 needed a 3rd MANUAL reset before a build stuck. 3 automatic
+    // restarts absorb a bad window without a human resetting each time.
+    const MAX_RESTARTS = 3;
     const POLL_INTERVAL_MS = 30_000;
     const STALE_THRESHOLD_MS = 8 * 60_000;
 
     let finalStatus: ContainerStatus | null = null;
-    // Eviction recovery: restart the build ONCE when the container dies mid-build.
-    let buildRestarted = false;
+    let restartCount = 0;
     // The effective poll budget — extends by RESTART_POLL_BUDGET on restart so
     // a restarted build gets a FULL window, not the leftover of the first.
     let pollBudget = MAX_POLLS;
@@ -1017,8 +1023,8 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         // instance pressure) — restart ONCE. The previous behavior errored the
         // whole site on any eviction; one clean restart recovers the common
         // case and the second eviction still errors (honest, no infinite loop).
-        if (!buildRestarted) {
-          buildRestarted = true;
+        if (restartCount < MAX_RESTARTS) {
+          restartCount++;
           await wfLog('workflow.container_evicted_restart', {
             poll: i,
             message: 'Container DO lost the job — restarting the build once',
@@ -1157,8 +1163,8 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         // freezes and the heartbeat goes stale. Restart ONCE; a second stale
         // still errors honestly. (Journey: my own mid-build deploys triggered
         // this on the verification build.)
-        if (!buildRestarted) {
-          buildRestarted = true;
+        if (restartCount < MAX_RESTARTS) {
+          restartCount++;
           await wfLog('workflow.container_stale_restart', {
             poll: i,
             age_ms: ageMs,
