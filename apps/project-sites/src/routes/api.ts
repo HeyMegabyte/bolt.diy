@@ -2136,8 +2136,12 @@ api.patch('/api/sites/:id', async (c) => {
    * Business-profile fields (migration 0025). Each follows the same
    * nullable-clear convention: explicit `null` clears the column, omission
    * leaves it untouched, non-empty string persists trimmed + length-capped.
-   * Length caps mirror `updateSiteSchema` so the validator + the SQL stay
-   * in lockstep — a value that survives Zod never overflows the column.
+   * Length caps MUST match the frontend validators in `settings.component.ts`
+   * (`validateBusiness`) + the input `maxlength` attrs, so the FE never lets a
+   * user enter MORE than the server persists — otherwise the surplus chars are
+   * silently `.slice(0, cap)`-truncated here (a lying-success / data-loss:
+   * "Saved" toast, but the stored value is shorter than what was typed).
+   * Current parity: name 200 · address 500 · phone 32 · email 254.
    */
   type BusinessField = {
     body_key:
@@ -2154,7 +2158,7 @@ api.patch('/api/sites/:id', async (c) => {
   };
   const businessFields: BusinessField[] = [
     { body_key: 'business_address', column: 'business_address', cap: 500, trim: true },
-    { body_key: 'business_phone', column: 'business_phone', cap: 20, trim: true },
+    { body_key: 'business_phone', column: 'business_phone', cap: 32, trim: true },
     { body_key: 'business_email', column: 'business_email', cap: 254, trim: true },
     { body_key: 'business_website', column: 'business_website', cap: 2048, trim: true },
     { body_key: 'original_prompt', column: 'original_prompt', cap: 8000, trim: false },
