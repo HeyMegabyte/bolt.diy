@@ -158,3 +158,67 @@ describe('SuperAdminComponent — cost-category mutations (request-shape parity)
     expect(body['markup_factor']).toBe(2.5);
   });
 });
+
+/**
+ * Load-error feedback contract (surf QA, 2026-08-27). A non-super-admin who
+ * navigates to /admin/super-admin gets a clean 403 from every /super-admin/*
+ * read. The component OWNS its feedback — it renders the on-page "Restricted"
+ * gate — so those reads MUST pass `{ silent: true }` to suppress ApiService's
+ * generic error toast, which otherwise (a) double-fires alongside the gate and
+ * (b) when a Cloudflare bot-challenge makes the XHR opaque status-0, LIES
+ * "Can't reach the server. Check your connection." A genuine non-403 failure
+ * still surfaces exactly one explicit, truthful message. Mirrors the
+ * silent-load pattern in snapshots / user-settings / domains / apps-instances.
+ */
+describe('SuperAdminComponent — load error feedback (silent 403 gate, no lying toast)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function makeWithGet(getSpy: jasmine.Spy, errSpy: jasmine.Spy): SuperAdminComponent {
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: ApiService, useValue: { get: getSpy } },
+        { provide: ToastService, useValue: { success: () => {}, error: errSpy } },
+      ],
+    });
+    TestBed.overrideComponent(SuperAdminComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(SuperAdminComponent).componentInstance;
+  }
+
+  type Loads = {
+    loadStats(): Promise<void>;
+    loadCategories(): Promise<void>;
+    loadWallets(q: string): Promise<void>;
+  };
+
+  it('403 on stats → forbidden set, call is { silent: true }, NO toast (gate is the only feedback)', async () => {
+    const err = jasmine.createSpy('error');
+    const get = jasmine.createSpy('get').and.returnValue({ toPromise: () => Promise.reject({ status: 403 }) });
+    const c = makeWithGet(get, err);
+    await (c as unknown as Loads).loadStats();
+    expect(get).toHaveBeenCalledWith('/super-admin/stats?days=30', undefined, { silent: true });
+    expect(c.forbidden()).toBe(true);
+    expect(err).withContext('403 → Restricted gate owns feedback; the generic toast must stay silent').not.toHaveBeenCalled();
+  });
+
+  it('non-403 (500) on stats → ONE explicit truthful toast, never generic "Can\'t reach the server"', async () => {
+    const err = jasmine.createSpy('error');
+    const get = jasmine.createSpy('get').and.returnValue({ toPromise: () => Promise.reject({ status: 500 }) });
+    const c = makeWithGet(get, err);
+    await (c as unknown as Loads).loadStats();
+    expect(c.forbidden()).toBe(false);
+    expect(err).toHaveBeenCalledTimes(1);
+    expect(err).toHaveBeenCalledWith('Could not load super-admin stats — try again');
+  });
+
+  it('cost-categories + wallets loads also pass { silent: true } and set the gate on 403', async () => {
+    const err = jasmine.createSpy('error');
+    const get = jasmine.createSpy('get').and.returnValue({ toPromise: () => Promise.reject({ status: 403 }) });
+    const c = makeWithGet(get, err);
+    await (c as unknown as Loads).loadCategories();
+    await (c as unknown as Loads).loadWallets('');
+    expect(get).toHaveBeenCalledWith('/super-admin/cost-categories', undefined, { silent: true });
+    expect(get).toHaveBeenCalledWith('/super-admin/wallets?limit=100', undefined, { silent: true });
+    expect(c.forbidden()).toBe(true);
+    expect(err).not.toHaveBeenCalled();
+  });
+});

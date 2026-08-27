@@ -372,7 +372,9 @@ export class SuperAdminComponent implements OnInit {
       // DERIVING spend/margin from by_category + topups from today's daily row. Every
       // field is coerced to a real number so no <app-rolling-counter [value]> is ever
       // undefined (which throws → crashes the section). See WorkerStatsResponse.
-      const raw = await this.api.get<WorkerStatsResponse>('/super-admin/stats?days=30').toPromise();
+      const raw = await this.api
+        .get<WorkerStatsResponse>('/super-admin/stats?days=30', undefined, { silent: true })
+        .toPromise();
       if (!raw?.totals) return;
       const byCat = raw.by_category ?? [];
       const sumCat = (k: 'gross_charged_cents' | 'net_margin_cents'): number =>
@@ -387,17 +389,26 @@ export class SuperAdminComponent implements OnInit {
         margin_30d_cents: sumCat('net_margin_cents'),
       });
     } catch (e) {
+      // 403 → the on-page "Restricted" gate is the single, truthful feedback, so
+      // the calls pass { silent: true } to suppress ApiService's generic toast
+      // (which double-fires with the gate, and — when a CF bot-challenge makes the
+      // XHR opaque status-0 — even lies "Can't reach the server"). A genuine
+      // non-403 failure still surfaces one explicit, truthful message.
       if (this.is403(e)) this.forbidden.set(true);
+      else this.toast.error('Could not load super-admin stats — try again');
     }
   }
 
   private async loadCategories(): Promise<void> {
     try {
       this.categoriesLoading.set(true);
-      const res = await this.api.get<{ categories: CostCategory[] }>('/super-admin/cost-categories').toPromise();
+      const res = await this.api
+        .get<{ categories: CostCategory[] }>('/super-admin/cost-categories', undefined, { silent: true })
+        .toPromise();
       this.categories.set(res?.categories || []);
     } catch (e) {
       if (this.is403(e)) this.forbidden.set(true);
+      else this.toast.error('Could not load cost categories — try again');
     } finally {
       this.categoriesLoading.set(false);
     }
@@ -406,9 +417,14 @@ export class SuperAdminComponent implements OnInit {
   private async loadWallets(q: string): Promise<void> {
     try {
       const url = q ? `/super-admin/wallets?q=${encodeURIComponent(q)}&limit=100` : '/super-admin/wallets?limit=100';
-      const res = await this.api.get<{ wallets: OrgWalletRow[] }>(url).toPromise();
+      const res = await this.api
+        .get<{ wallets: OrgWalletRow[] }>(url, undefined, { silent: true })
+        .toPromise();
       this.wallets.set(res?.wallets || []);
-    } catch (e) { if (this.is403(e)) this.forbidden.set(true); }
+    } catch (e) {
+      if (this.is403(e)) this.forbidden.set(true);
+      else this.toast.error('Could not load wallets — try again');
+    }
   }
 
   markDirty(slug: string): void {
@@ -428,7 +444,7 @@ export class SuperAdminComponent implements OnInit {
       return;
     }
     try {
-      await this.api.patch(`/super-admin/cost-categories/${c.slug}`, { markup_factor: factor }).toPromise();
+      await this.api.patch(`/super-admin/cost-categories/${c.slug}`, { markup_factor: factor }, { silent: true }).toPromise();
       const next = new Set(this.dirty()); next.delete(c.slug); this.dirty.set(next);
       this.toast.success(`Factor saved for ${c.label}`);
     } catch (e) {
@@ -443,7 +459,7 @@ export class SuperAdminComponent implements OnInit {
       // Worker `patchCategorySchema.billable` is `z.boolean()` — sending the raw
       // 0|1 NUMBER got Zod-rejected (400) on every toggle click (dead control).
       // Send a boolean; the worker coerces it back to 1|0 for storage.
-      await this.api.patch(`/super-admin/cost-categories/${c.slug}`, { billable: next === 1 }).toPromise();
+      await this.api.patch(`/super-admin/cost-categories/${c.slug}`, { billable: next === 1 }, { silent: true }).toPromise();
       c.billable = next;
       this.toast.success(`${c.label} ${next === 1 ? 'enabled' : 'disabled'}`);
     } catch (e) {
@@ -489,7 +505,7 @@ export class SuperAdminComponent implements OnInit {
     const w = this.adjustOpen();
     if (!w || !this.adjustValid()) return;
     try {
-      await this.api.post('/super-admin/manual-adjustment', { org_id: w.org_id, amount_cents: Number(this.adjustCents), reason: this.adjustReason.trim() }).toPromise();
+      await this.api.post('/super-admin/manual-adjustment', { org_id: w.org_id, amount_cents: Number(this.adjustCents), reason: this.adjustReason.trim() }, { silent: true }).toPromise();
       this.toast.success(`Adjusted ${w.org_name} by ${this.formatCents(Number(this.adjustCents))}`);
       this.closeAdjust();
       this.loadWallets(this.walletsQuery);
