@@ -126,7 +126,7 @@ interface GhStatus {
       <div class="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <div class="kicker">Time travel</div>
-          <h2 class="section-h text-lg font-bold text-white m-0">Snapshots</h2>
+          <h1 class="section-h text-lg font-bold text-white m-0">Snapshots</h1>
           <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
             Version history for
             <a

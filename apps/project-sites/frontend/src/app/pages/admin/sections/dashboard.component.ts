@@ -103,6 +103,7 @@ const RECENT_KEY = 'ps_dash_recents';
   ],
   template: `
     <section class="dash" aria-label="Getting started">
+      <h1 class="sr-only">Dashboard</h1>
       <!-- Site-quota chip (#35) — owner sees usage before a create-limit 403 -->
       <div class="flex justify-end mb-1"><app-quota-chip /></div>
       <!-- Onboarding activation checklist (feature: onboarding_copilot) — self-hides

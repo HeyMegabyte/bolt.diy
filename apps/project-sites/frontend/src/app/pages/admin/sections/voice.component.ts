@@ -71,7 +71,7 @@ const TABS: readonly TabSpec[] = [
       <!-- Header -->
       <header psReveal>
         <div class="kicker">Phone · SMS · Browser</div>
-        <h2 class="section-h text-lg font-bold text-white m-0 mt-1 flex items-center gap-3 flex-wrap">
+        <h1 class="section-h text-lg font-bold text-white m-0 mt-1 flex items-center gap-3 flex-wrap">
           Voice
           @if (state.selectedSite()) {
             <span class="header-pill" data-testid="voice-live-pill">
@@ -79,7 +79,7 @@ const TABS: readonly TabSpec[] = [
               Live for <strong class="ml-1">{{ state.selectedSite()!.business_name }}</strong>
             </span>
           }
-        </h2>
+        </h1>
         <p class="text-[0.78rem] text-text-secondary m-0 mt-1 max-w-prose leading-relaxed">
           Same AI persona that powers your web chat answers every call and text. Pick a vanity number,
           listen to recordings, tune the system prompt — without ever rewriting your agent.

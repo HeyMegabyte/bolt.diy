@@ -18,6 +18,7 @@ import { OnboardingChecklistComponent } from '../onboarding-checklist.component'
   standalone: true,
   imports: [OnboardingChecklistComponent],
   template: `
+    <h1 class="sr-only">Site editor</h1>
     @if (!state.selectedSite()) {
       <div class="p-7 max-w-[820px] mx-auto space-y-6">
         <app-onboarding-checklist />

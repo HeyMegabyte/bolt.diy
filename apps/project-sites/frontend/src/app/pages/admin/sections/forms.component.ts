@@ -125,7 +125,7 @@ const POLL_INTERVAL_MS = 10_000;
       <header appReveal>
         <div class="kicker">Inbox &amp; routing</div>
         <div class="flex items-center justify-between gap-4 flex-wrap mt-1">
-          <h2 class="section-h text-lg font-bold text-white m-0 flex items-center gap-2">
+          <h1 class="section-h text-lg font-bold text-white m-0 flex items-center gap-2">
             Forms
             @if (totalCount() > 0) {
               <span class="header-pill" [attr.aria-label]="totalCount() + ' submission' + (totalCount() === 1 ? '' : 's') + ' in inbox'" title="Total submissions stored (the inbox shows the most recent)">
@@ -134,7 +134,7 @@ const POLL_INTERVAL_MS = 10_000;
                 submission{{ totalCount() === 1 ? '' : 's' }}
               </span>
             }
-          </h2>
+          </h1>
           <div class="flex items-center gap-2 flex-wrap header-actions">
             <button class="btn-prompt-quiet"
                     type="button"

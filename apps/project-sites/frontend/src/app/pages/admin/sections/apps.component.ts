@@ -66,14 +66,14 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
       <header class="flex items-start justify-between gap-4 flex-wrap" appReveal>
         <div class="min-w-0">
           <div class="kicker">App store</div>
-          <h2 class="section-h text-lg font-bold text-white m-0 mt-1 flex items-center gap-2">
+          <h1 class="section-h text-lg font-bold text-white m-0 mt-1 flex items-center gap-2">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="text-accent"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
             Apps
             <span class="header-pill" aria-label="Catalog size" title="Apps in the catalog">
               <span class="header-pill-dot" aria-hidden="true"></span>
               <app-rolling-counter [value]="totalCount" />&nbsp;apps
             </span>
-          </h2>
+          </h1>
           <p class="text-[0.78rem] text-text-secondary m-0 mt-1 max-w-prose leading-relaxed">
             Self-hostable services launched on Cloudflare Workers Containers — pick, configure, deploy in &lt;5 min.
           </p>
