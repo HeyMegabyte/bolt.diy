@@ -200,6 +200,12 @@
   // to --ck-success; this :root value is the global fallback for surfaces that
   // aren't under [data-cockpit]. WCAG: ≥4.5:1 on #060610.
   --ps-success: #4dffb5;
+  // Tertiary/metadata text ("muted") — one step dimmer than --text-secondary,
+  // for timestamps, actor names, helper captions. AA-safe (≥4.5:1) over every
+  // admin elevation surface (--ps-elev-1..3 + the near-base widget panels).
+  // Referenced app-wide via var(--ps-text-muted); replaces the old hardcoded
+  // rgba(255,255,255,0.45) which composited to 4.46:1 — a WCAG 1.4.3 fail.
+  --ps-text-muted: rgba(255, 255, 255, 0.6);
   // Elevation surfaces derived in OKLCH space so they remain hue-true
   // across dark + light themes. ink-mix percentages stay below 18% so
   // contrast against --ps-ink never flips.
@@ -227,6 +233,7 @@ html[data-theme="light"] {
   --ps-surface-glass: rgba(255, 255, 255, 0.72);
   --border: rgba(20, 20, 30, 0.12);
   --text-secondary: rgba(20, 20, 30, 0.74);
+  --ps-text-muted: rgba(20, 20, 30, 0.68);
   background: #f7f7fb;
   color: #0a0a14;
   // Translucent dark cards turn into translucent light cards so contrast
@@ -260,6 +267,7 @@ html[data-theme="light"] {
     --ps-surface-glass: rgba(255, 255, 255, 0.72);
     --border: rgba(20, 20, 30, 0.12);
     --text-secondary: rgba(20, 20, 30, 0.74);
+    --ps-text-muted: rgba(20, 20, 30, 0.68);
     background: #f7f7fb;
     color: #0a0a14;
   }

@@ -84,7 +84,7 @@ interface ActivityFeedResponse {
     .ra-dot--danger { background: #f87171; }
     .ra-body { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
     .ra-summary { font-size: 0.84rem; color: var(--ps-ink, #f4f4ff); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .ra-meta { font-size: 0.68rem; color: rgba(255,255,255,0.45); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ra-meta { font-size: 0.68rem; color: var(--ps-text-muted, rgba(255,255,255,0.6)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   `],
 })
 export class RecentActivityComponent implements OnInit {
