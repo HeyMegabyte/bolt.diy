@@ -24,12 +24,22 @@ import { test, expect, type Page } from '@playwright/test';
 
 const KEY = process.env.E2E_API_KEY ?? '';
 
-/** Every real admin SECTION (the 13 nav destinations). */
+/**
+ * Every admin SECTION that must have exactly one h1 — the 13 nav destinations
+ * plus the secondary routes the same audit found lacking one (audit / billing /
+ * ai-endpoints / deliverability, fixed the same pass).
+ *
+ * Excluded (known double-h1, tracked follow-up): /admin/api-tokens and
+ * /admin/domains render a SECOND h1 from a conditional child in some states
+ * (2 h1s is HTML5-valid + not axe-flagged, unlike the zero-h1 defect this gate
+ * targets). Add them here once that second h1 is demoted to h2.
+ */
 const SECTIONS = [
   '/admin', '/admin/editor', '/admin/snapshots', '/admin/analytics',
   '/admin/forms', '/admin/apps', '/admin/site-features', '/admin/social',
   '/admin/voice', '/admin/logs', '/admin/docs', '/admin/settings',
   '/admin/super-admin',
+  '/admin/audit', '/admin/billing', '/admin/ai-endpoints', '/admin/deliverability',
 ];
 
 async function seed(page: Page): Promise<void> {

@@ -66,7 +66,7 @@ interface InlineEdit {
       <header class="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div class="kicker">Workers</div>
-          <h2 class="section-h text-lg font-bold text-white m-0">AI Agents</h2>
+          <h1 class="section-h text-lg font-bold text-white m-0">AI Agents</h1>
           <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
             Build your own backend at <code class="font-mono text-primary text-[0.78rem]">{{ baseUrl() }}/&#123;slug&#125;</code>.
             Pick an AI prompt or write JS / TS / Python / Rust-WASM.

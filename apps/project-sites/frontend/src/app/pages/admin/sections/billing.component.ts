@@ -73,13 +73,13 @@ interface ForecastBar {
     <div class="p-7 flex-1 overflow-y-auto animate-fade-in max-md:p-4 space-y-6">
       <header appReveal>
         <div class="kicker">Plan &amp; usage</div>
-        <h2 class="section-h text-lg font-bold text-white m-0 mt-1 flex items-center gap-2">
+        <h1 class="section-h text-lg font-bold text-white m-0 mt-1 flex items-center gap-2">
           Billing
           <span class="header-pill" [class.is-pro]="plan() === 'paid'" aria-label="Current plan">
             <span class="header-pill-dot" aria-hidden="true"></span>
             {{ planLabel() }}
           </span>
-        </h2>
+        </h1>
         <p class="text-[0.78rem] text-text-secondary m-0 mt-1 max-w-prose leading-relaxed">
           AI credits power form routing, chat, and your custom AI endpoints. Per-site cost breakdown + spend alerts below.
         </p>
