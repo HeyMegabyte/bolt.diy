@@ -40,7 +40,6 @@ export interface VerifyResult {
   readonly valid: boolean;
 }
 
-
 const encoder = new TextEncoder();
 
 /**

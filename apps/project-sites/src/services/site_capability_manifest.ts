@@ -162,7 +162,6 @@ async function hmacHex(secret: string, message: string): Promise<string> {
   return [...new Uint8Array(sigBuf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-
 /** Sign a manifest with HMAC-SHA256 over its canonical JSON. */
 export async function signManifest(
   m: SiteCapabilityManifest,

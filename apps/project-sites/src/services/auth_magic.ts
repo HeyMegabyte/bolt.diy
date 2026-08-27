@@ -166,4 +166,3 @@ export async function verifyMagicToken(token: string, secret: string): Promise<s
 
   return email;
 }
-

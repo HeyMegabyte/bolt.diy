@@ -190,4 +190,3 @@ function decodeBase64Url(input: string): string {
   const padded = base64.padEnd(base64.length + pad, '=');
   return new TextDecoder().decode(Uint8Array.from(atob(padded), (c) => c.charCodeAt(0)));
 }
-
