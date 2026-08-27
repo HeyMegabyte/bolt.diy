@@ -6,10 +6,11 @@
  */
 import {
   verifyWebhook,
-  timingSafeEqual,
   extractStripeSignature,
   extractGitHubSignature,
 } from '../services/inbound_webhook.js';
+// timingSafeEqual consolidated into the canonical util (was re-exported from inbound_webhook).
+import { timingSafeEqual } from '../lib/timing_safe_equal.js';
 
 // ── Known-answer tests ──────────────────────────────────────────
 // Pre-computed HMAC-SHA256 for deterministic assertions.

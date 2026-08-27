@@ -13,6 +13,8 @@
  * @packageDocumentation
  */
 
+import { timingSafeEqual } from '../lib/timing_safe_equal.js';
+
 /** Supported webhook providers and their signature schemes. */
 export type WebhookProvider = 'stripe' | 'listmonk' | 'ses' | 'github' | 'generic';
 
@@ -38,39 +40,6 @@ export interface VerifyResult {
   readonly valid: boolean;
 }
 
-/**
- * Constant-time string comparison. Returns true when both strings have
- * the same length and content. Never early-exits — uses a running OR of
- * XORs so every byte pair is compared regardless of match position.
- *
- * @param a - First string (expected).
- * @param b - Second string (actual).
- * @returns True when strings are identical.
- *
- * @example
- * timingSafeEqual('abc', 'abc'); // → true
- * timingSafeEqual('abc', 'xyz'); // → false
- * timingSafeEqual('abc', 'abcd'); // → false
- */
-export function timingSafeEqual(a: string, b: string): boolean {
-  // Lexicographic ordering is NOT const-time; we compare byte-by-byte manually.
-  const lenA = a.length;
-  const lenB = b.length;
-  // Shortest length constrains the loop; mismatch in |a| vs |b| folds into result.
-  const minLen = lenA < lenB ? lenA : lenB;
-  const ka = a;
-  const kb = b;
-
-  // Encode both to Uint8Array for byte-level comparison.
-  const bufA = encoder.encode(ka);
-  const bufB = encoder.encode(kb);
-
-  let diff = lenA ^ lenB; // XOR of lengths — non-zero when lengths differ
-  for (let i = 0; i < minLen; i++) {
-    diff |= bufA[i]! ^ bufB[i]!;
-  }
-  return diff === 0;
-}
 
 const encoder = new TextEncoder();
 

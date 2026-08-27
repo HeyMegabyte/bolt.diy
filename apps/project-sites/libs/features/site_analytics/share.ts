@@ -13,6 +13,8 @@
  * @packageDocumentation
  */
 
+import { timingSafeEqual } from '../../../src/lib/timing_safe_equal.js';
+
 /** Typed failure for share-token operations. */
 export class ShareTokenError extends Error {
   constructor(message: string) {
@@ -33,13 +35,6 @@ async function hmacHex(secret: string, message: string): Promise<string> {
   return [...new Uint8Array(sigBuf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-/** Constant-time string compare (avoids signature-timing leaks). */
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
 
 /**
  * Mint a signed share token for a site, valid until `expEpochMs`.

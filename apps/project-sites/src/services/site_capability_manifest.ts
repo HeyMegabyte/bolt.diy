@@ -13,6 +13,7 @@
  * @see docs/architecture/cloudflare-first.md §3
  */
 import { z } from 'zod';
+import { timingSafeEqual } from '../lib/timing_safe_equal.js';
 import type { Env } from '../types/env.js';
 
 export const PLANS = ['free', 'paid', 'pro', 'enterprise'] as const;
@@ -161,13 +162,6 @@ async function hmacHex(secret: string, message: string): Promise<string> {
   return [...new Uint8Array(sigBuf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-/** Constant-time string compare (avoids signature-timing leaks). */
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
 
 /** Sign a manifest with HMAC-SHA256 over its canonical JSON. */
 export async function signManifest(

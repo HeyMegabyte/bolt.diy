@@ -9,6 +9,8 @@
  * Default expiry: 7 days from generation.
  */
 
+import { timingSafeEqual } from '../lib/timing_safe_equal.js';
+
 const EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 export interface InvitePayload {
@@ -189,14 +191,3 @@ function decodeBase64Url(input: string): string {
   return new TextDecoder().decode(Uint8Array.from(atob(padded), (c) => c.charCodeAt(0)));
 }
 
-/**
- * Constant-time string comparison to prevent timing attacks on HMAC verification.
- */
-function timingSafeEqual(a: string, b: string): boolean {
-  let result = a.length ^ b.length;
-  const maxLen = Math.max(a.length, b.length);
-  for (let i = 0; i < maxLen; i++) {
-    result |= (a.charCodeAt(i) ?? 0) ^ (b.charCodeAt(i) ?? 0);
-  }
-  return result === 0;
-}

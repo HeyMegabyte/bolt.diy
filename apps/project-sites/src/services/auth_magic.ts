@@ -29,6 +29,7 @@
  */
 
 import { hmacSha256 } from '@project-sites/shared';
+import { timingSafeEqual } from '../lib/timing_safe_equal.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -166,18 +167,3 @@ export async function verifyMagicToken(token: string, secret: string): Promise<s
   return email;
 }
 
-/**
- * Constant-time string comparison to prevent timing side-channels.
- *
- * @param a - First string.
- * @param b - Second string.
- * @returns `true` if both strings are equal (length + content).
- */
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return result === 0;
-}
