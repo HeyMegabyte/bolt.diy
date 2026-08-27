@@ -408,6 +408,12 @@ function pickVerticalPreset(dir, promptText = '') {
     ['_brand.saas.json', /\b(saas|software|platform|api\b|startup|analytics|dashboard|developer tool|automation|machine learning|fintech|cybersecurity|app\b|web app)/],
     ['_brand.agency.json', /\b(agency|marketing|advertis|branding|design studio|creative studio|consult|pr firm|media agency|growth marketing|seo agency)/],
     ['_brand.portfolio.json', /\b(portfolio|photograph|artist|freelance|illustrat|filmmaker|musician|architect|videograph)/],
+    // Real-estate = its OWN vertical (dark, listings/buyers/sellers copy). No prior
+    // rule matched it ("real estate" ≠ legal's "estate planning") so a realtor
+    // scored 0 → default theme + no pack (fire-21 gap, sibling of fitness fire-20).
+    // Kept OUT of LIGHT_VERTICAL_PRESETS → DARK. Pairs with the template's
+    // examples/_brand.real-estate.json + _content.real-estate.json pack.
+    ['_brand.real-estate.json', /\b(real estate|real-estate|realtor|realty|home buyer|homebuyer|home seller|house hunting|open house|home valuation|buyer's agent|buyers agent|seller's agent|sellers agent|property listing|homes for sale|for sale by owner|mls\b)/],
   ];
   // SCORED, not first-match-by-order: count keyword hits per vertical; identity
   // (primary) hits weigh 10× the noisy research (secondary) hits. Highest score
