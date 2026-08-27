@@ -400,6 +400,9 @@ export class CommandPaletteComponent implements OnInit, OnDestroy, AfterViewInit
   private aiDebounce: ReturnType<typeof setTimeout> | null = null;
   private docsEndpoints: DocsEndpoint[] = [];
   private docsLoaded = false;
+  /** Element focused when the palette opened — focus returns here on close so a
+   *  keyboard user's position is never lost to <body> (WCAG 2.4.3 Focus Order). */
+  private previouslyFocused: HTMLElement | null = null;
 
   /** Inline SVG used when an action does not provide its own icon. */
   defaultIcon = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>';
@@ -472,6 +475,8 @@ export class CommandPaletteComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   openIt(): void {
+    const active = document.activeElement;
+    this.previouslyFocused = active instanceof HTMLElement && active !== document.body ? active : null;
     this.open.set(true);
     this.activeIndex.set(0);
     this.loadDocs();
@@ -487,6 +492,13 @@ export class CommandPaletteComponent implements OnInit, OnDestroy, AfterViewInit
     this.query.set('');
     this.abortAiStream();
     this.resetAiPane();
+    // Restore focus to the element that opened the palette (WCAG 2.4.3 Focus Order).
+    // Without this, Escape/backdrop-close drops focus on <body> and a keyboard user's
+    // position is lost (next Tab restarts from the top). Skipped when the opener has
+    // been removed — e.g. a command navigated away — so the new route keeps focus.
+    const prev = this.previouslyFocused;
+    this.previouslyFocused = null;
+    if (prev && prev.isConnected) requestAnimationFrame(() => prev.focus({ preventScroll: true }));
   }
 
   // ─── Keyboard ──────────────────────────────────────────────────
