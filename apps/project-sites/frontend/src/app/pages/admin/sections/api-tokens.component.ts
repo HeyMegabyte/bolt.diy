@@ -96,7 +96,7 @@ const ALL_SCOPES = [
         <div class="at-title-row">
           <div>
             <div class="at-eyebrow">Developer</div>
-            <h1 class="at-heading">API Tokens</h1>
+            <h2 class="at-heading">API Tokens</h2>
             <p class="at-sub">Authenticate programmatic access with scoped Bearer tokens.</p>
           </div>
           <div class="at-header-actions">

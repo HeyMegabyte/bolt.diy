@@ -27,12 +27,13 @@ const KEY = process.env.E2E_API_KEY ?? '';
 /**
  * Every admin SECTION that must have exactly one h1 — the 13 nav destinations
  * plus the secondary routes the same audit found lacking one (audit / billing /
- * ai-endpoints / deliverability, fixed the same pass).
+ * ai-endpoints / deliverability).
  *
- * Excluded (known double-h1, tracked follow-up): /admin/api-tokens and
- * /admin/domains render a SECOND h1 from a conditional child in some states
- * (2 h1s is HTML5-valid + not axe-flagged, unlike the zero-h1 defect this gate
- * targets). Add them here once that second h1 is demoted to h2.
+ * The Settings sub-tabs (Domains / API Tokens / Email→Deliverability) are covered
+ * by the separate `Settings tabs` describe below: they render inside the Settings
+ * shell (which owns the page <h1> "Settings"), so their panels must use <h2>. A
+ * 2026-08-27 surf found them adding their own <h1> → a double-h1 (fixed: panel
+ * h1→h2; deliverability takes a `level` input — h1 standalone / h2 in the tab).
  */
 const SECTIONS = [
   '/admin', '/admin/editor', '/admin/snapshots', '/admin/analytics',
@@ -72,6 +73,31 @@ test.describe('admin sections — exactly one <h1> (WCAG 2.4.6 page identity)', 
       const count = await page.locator('h1').count();
       const texts = await page.locator('h1').allTextContents();
       expect(count, `${path} → ${count} h1(s): ${JSON.stringify(texts)}`).toBe(1);
+    });
+  }
+});
+
+/** Settings sub-tabs render inside the Settings shell (which owns <h1>"Settings"),
+ *  so each tab PANEL must use <h2> — never its own <h1>. Guards the double-h1
+ *  regression class (Domains / API Tokens / Email→Deliverability). */
+const SETTINGS_TABS = ['General', 'Team', 'AI Chat', 'MCP', 'AI Env Vars', 'Webhooks', 'Email', 'Domains', 'API Tokens'];
+
+test.describe('Settings tabs — exactly one <h1> "Settings" (no tab-panel double-h1)', () => {
+  test.skip(!KEY, 'E2E_API_KEY not set');
+  test.describe.configure({ retries: 2 });
+
+  for (const label of SETTINGS_TABS) {
+    test(`Settings → ${label} tab — exactly one h1`, async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await seed(page);
+      await page.goto('/admin/settings', { waitUntil: 'load' });
+      await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 45000 });
+      await page.getByRole('tab', { name: label, exact: true }).click({ timeout: 10000 });
+      await page.locator('[aria-busy="true"]').first().waitFor({ state: 'detached', timeout: 10000 }).catch(() => {});
+      await page.waitForTimeout(600);
+      const count = await page.locator('h1').count();
+      const texts = await page.locator('h1').allTextContents();
+      expect(count, `Settings→${label} → ${count} h1(s): ${JSON.stringify(texts)}`).toBe(1);
     });
   }
 });

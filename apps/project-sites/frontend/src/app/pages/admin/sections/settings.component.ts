@@ -582,7 +582,7 @@ const PROVIDERS = MCP_PROVIDERS;
 
           <!-- Deliverability (SPF/DKIM/DMARC) — fully functional, embedded here. -->
           <section class="mt-4">
-            <app-admin-deliverability />
+            <app-admin-deliverability level="h2" />
           </section>
         </div>
       }

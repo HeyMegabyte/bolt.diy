@@ -13,7 +13,7 @@
  * this surface shows a friendly "not available" error (never leaks existence).
  */
 
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, Input, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../../services/api.service';
@@ -49,7 +49,11 @@ interface DeliverabilityResponse {
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
         <p class="font-mono uppercase tracking-wider text-[0.7rem] text-primary mb-1">Inbox placement</p>
-        <h1 class="text-2xl font-semibold text-light" data-testid="deliv-heading">Email Deliverability</h1>
+        @if (level === 'h2') {
+          <h2 class="text-2xl font-semibold text-light" data-testid="deliv-heading">Email Deliverability</h2>
+        } @else {
+          <h1 class="text-2xl font-semibold text-light" data-testid="deliv-heading">Email Deliverability</h1>
+        }
         <p class="text-text-secondary text-sm mt-1 max-w-prose">
           Check your sending domain's SPF, DKIM and DMARC records and get concrete fixes to stay out of spam.
         </p>
@@ -200,6 +204,10 @@ export class AdminDeliverabilityComponent {
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
   private readonly state = inject(AdminStateService);
+
+  /** 'h1' when standalone (/admin/deliverability); 'h2' when embedded in the
+   * Settings → Email tab, which already owns the page <h1> (avoids a double-h1). */
+  @Input() level: 'h1' | 'h2' = 'h1';
 
   readonly site = computed(() => this.state.selectedSite());
   readonly domainModel = signal('');
