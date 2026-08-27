@@ -125,6 +125,33 @@ describe('ApiService (auth header + 401 redirect + error mapping)', () => {
     expect(toastErr).not.toHaveBeenCalled();
   });
 
+  // Business/address TYPEAHEAD on the guest conversion funnel (/create, homepage
+  // hero, /search) owns its inline "search/address unavailable — type manually"
+  // nudge. When the Places provider is down the lookup 400s; the generic
+  // "Can't reach the server. Check your connection." toast firing per-keystroke
+  // ON TOP of that honest nudge is misleading (the server IS reachable; only the
+  // provider is down; manual entry works). The wrappers must forward { silent }.
+  it('searchBusinesses forwards { silent: true } — no per-keystroke network-blame toast (component owns the nudge)', () => {
+    const failingGet = jasmine.createSpy('get').and.callFake(() => throwError(() => new HttpErrorResponse({ status: 400, statusText: 'Bad Request' })));
+    const { api, toastErr } = make({ url: '/create', get: failingGet });
+    api.searchBusinesses('vito', undefined, undefined, { silent: true }).subscribe({ error: () => undefined, next: () => undefined });
+    expect(toastErr).withContext('typeahead owns its inline unavailable nudge; the global toast must not double-fire').not.toHaveBeenCalled();
+  });
+
+  it('searchAddress forwards { silent: true } — a failed address lookup never nags', () => {
+    const failingGet = jasmine.createSpy('get').and.callFake(() => throwError(() => new HttpErrorResponse({ status: 400, statusText: 'Bad Request' })));
+    const { api, toastErr } = make({ url: '/create', get: failingGet });
+    api.searchAddress('74 N Beverwyck', undefined, undefined, { silent: true }).subscribe({ error: () => undefined, next: () => undefined });
+    expect(toastErr).not.toHaveBeenCalled();
+  });
+
+  it('searchBusinesses WITHOUT { silent } still toasts (silence is strictly opt-in — the Auto-Populate button path keeps its feedback)', () => {
+    const failingGet = jasmine.createSpy('get').and.callFake(() => throwError(() => new HttpErrorResponse({ status: 400, statusText: 'Bad Request' })));
+    const { api, toastErr } = make({ url: '/create', get: failingGet });
+    api.searchBusinesses('vito').subscribe({ error: () => undefined, next: () => undefined });
+    expect(toastErr).toHaveBeenCalled();
+  });
+
   it('remaps a 2xx-with-non-JSON body (SPA fallthrough) to 404 so "endpoint unavailable" handling applies', () => {
     // Angular HttpClient surfaces a 200 whose body is HTML (JSON parse fails) as an
     // HttpErrorResponse with a 2xx status. The worker's SPA catch-all returns 200 +

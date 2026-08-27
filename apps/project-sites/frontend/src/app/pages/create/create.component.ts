@@ -487,7 +487,7 @@ export class CreateComponent implements OnInit, OnDestroy {
           }
           const lat = this.geo.lat() ?? undefined;
           const lng = this.geo.lng() ?? undefined;
-          return this.api.searchBusinesses(q, lat, lng);
+          return this.api.searchBusinesses(q, lat, lng, { silent: true });
         }),
         takeUntil(this.destroy$),
       )
@@ -520,7 +520,7 @@ export class CreateComponent implements OnInit, OnDestroy {
           }
           const lat = this.geo.lat() ?? undefined;
           const lng = this.geo.lng() ?? undefined;
-          return this.api.searchAddress(q, lat, lng);
+          return this.api.searchAddress(q, lat, lng, { silent: true });
         }),
         takeUntil(this.destroy$),
       )

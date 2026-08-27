@@ -308,13 +308,17 @@ export class ApiService {
     query: string,
     lat?: number,
     lng?: number,
+    opts?: { silent?: boolean },
   ): Observable<{ data: BusinessResult[]; _error?: SearchProviderError }> {
     const params: Record<string, string> = { q: query };
     if (lat != null && lng != null) {
       params['lat'] = lat.toString();
       params['lng'] = lng.toString();
     }
-    return this.get('/search/businesses', params);
+    // Typeahead callers own their inline "search unavailable" nudge, so they pass
+    // { silent: true } — a per-keystroke generic "Can't reach the server" toast is
+    // misleading (only the Places provider is down; manual entry still works).
+    return this.get('/search/businesses', params, opts);
   }
 
   searchSites(query: string): Observable<{ data: PreBuiltSite[] }> {
@@ -621,11 +625,12 @@ export class ApiService {
     return this.get('/admin/domains/summary');
   }
 
-  searchAddress(query: string, lat?: number, lng?: number): Observable<{ data: AddressResult[]; _error?: SearchProviderError }> {
+  searchAddress(query: string, lat?: number, lng?: number, opts?: { silent?: boolean }): Observable<{ data: AddressResult[]; _error?: SearchProviderError }> {
     const params: Record<string, string> = { q: query };
     if (lat != null) params['lat'] = lat.toString();
     if (lng != null) params['lng'] = lng.toString();
-    return this.get('/search/address', params);
+    // Typeahead: caller owns the inline "address lookup unavailable" nudge.
+    return this.get('/search/address', params, opts);
   }
 
   validateBusiness(body: unknown): Observable<{ data: { valid: boolean; message?: string } }> {

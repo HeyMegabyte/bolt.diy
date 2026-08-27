@@ -82,7 +82,7 @@ export class SearchComponent implements OnInit, OnDestroy {
           const lat = this.geo.lat() ?? undefined;
           const lng = this.geo.lng() ?? undefined;
           return forkJoin({
-            businesses: this.api.searchBusinesses(q, lat, lng),
+            businesses: this.api.searchBusinesses(q, lat, lng, { silent: true }),
             sites: this.api.searchSites(q),
           });
         }),

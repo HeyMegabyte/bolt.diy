@@ -155,7 +155,7 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
           const lat = this.geo.lat() ?? undefined;
           const lng = this.geo.lng() ?? undefined;
           return forkJoin({
-            businesses: this.api.searchBusinesses(query, lat, lng),
+            businesses: this.api.searchBusinesses(query, lat, lng, { silent: true }),
             sites: this.api.searchSites(query),
           });
         }),
