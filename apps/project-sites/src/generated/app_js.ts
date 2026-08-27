@@ -243,6 +243,12 @@ export const APP_JS = `/*! ProjectSites unified client — analytics + forms + u
   }
 
   function submitForm(form, ev) {
+    // ALWAYS stop the native submit FIRST — app.js fully owns this form. The two
+    // client-validation branches below \`return\` early; if preventDefault ran only
+    // after them (the old bug), an incomplete submit did a native GET reload that
+    // WIPED the inline error AND the visitor's typed input — a silent
+    // conversion-killer on the lead-gen form. Prevent unconditionally, then serialize.
+    if (ev) ev.preventDefault();
     var data = serialize(form);
     // The endpoint validates: name, email, message (>=10 chars). Give inline
     // feedback for the obvious cases before the round-trip.
@@ -254,7 +260,6 @@ export const APP_JS = `/*! ProjectSites unified client — analytics + forms + u
       setStatus(form, 'Please add a message (at least 10 characters).', false);
       return;
     }
-    if (ev) ev.preventDefault();
     setStatus(form, 'Sending…', true);
     track('form_start', { form: form.id || form.name || 'contact' });
 
