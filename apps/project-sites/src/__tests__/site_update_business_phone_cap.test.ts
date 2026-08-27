@@ -29,7 +29,9 @@ function makeRecordingDb(): { db: D1Database; bound: Array<{ sql: string; args: 
         // owned-site lookup must come back via `all`, not just `first`.
         return {
           first: jest.fn().mockResolvedValue(OWNED_SITE),
-          all: jest.fn().mockResolvedValue({ results: [OWNED_SITE], success: true, meta: { changes: 1 } }),
+          all: jest
+            .fn()
+            .mockResolvedValue({ results: [OWNED_SITE], success: true, meta: { changes: 1 } }),
           run: jest.fn().mockResolvedValue({ success: true, meta: { changes: 1 } }),
         };
       }),
@@ -54,7 +56,11 @@ function makeApp() {
 function patchPhone(app: ReturnType<typeof makeApp>, db: D1Database, phone: string) {
   return app.request(
     '/api/sites/site-1',
-    { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ business_phone: phone }) },
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ business_phone: phone }),
+    },
     { ENVIRONMENT: 'test', DB: db } as unknown as Env,
   );
 }
