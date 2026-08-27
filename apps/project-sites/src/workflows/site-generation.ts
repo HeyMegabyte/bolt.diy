@@ -1020,14 +1020,15 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         }
 
         // 2026-08-19: the container died mid-build (CF Containers wall-clock or
-        // instance pressure) — restart ONCE. The previous behavior errored the
-        // whole site on any eviction; one clean restart recovers the common
-        // case and the second eviction still errors (honest, no infinite loop).
+        // instance pressure) — restart up to MAX_RESTARTS times. The previous
+        // behavior errored the whole site on any eviction; automatic restarts
+        // recover the common case, and once the budget is spent the next
+        // eviction still errors (honest, no infinite loop).
         if (restartCount < MAX_RESTARTS) {
           restartCount++;
           await wfLog('workflow.container_evicted_restart', {
             poll: i,
-            message: 'Container DO lost the job — restarting the build once',
+            message: `Container DO lost the job — restarting the build (${restartCount}/${MAX_RESTARTS})`,
           });
           // FRESH DO — re-posting to the evicted container guarantees a
           // second eviction (its memory is gone). A new name-derived DO boots
@@ -1158,17 +1159,18 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       }
 
       if (ageMs > STALE_THRESHOLD_MS) {
-        // Staleness recovery (same one-shot policy as the unknown-job path):
-        // a worker deploy mid-build evicts the container — its KV lastUpdate
-        // freezes and the heartbeat goes stale. Restart ONCE; a second stale
-        // still errors honestly. (Journey: my own mid-build deploys triggered
-        // this on the verification build.)
+        // Staleness recovery (same restart-count policy as the unknown-job
+        // path): a worker deploy mid-build evicts the container — its KV
+        // lastUpdate freezes and the heartbeat goes stale. Restart while the
+        // MAX_RESTARTS budget lasts; once spent, a stale status still errors
+        // honestly. (Journey: my own mid-build deploys triggered this on the
+        // verification build.)
         if (restartCount < MAX_RESTARTS) {
           restartCount++;
           await wfLog('workflow.container_stale_restart', {
             poll: i,
             age_ms: ageMs,
-            message: `Status stale ${(ageMs / 1000) | 0}s — restarting the build once`,
+            message: `Status stale ${(ageMs / 1000) | 0}s — restarting the build (${restartCount}/${MAX_RESTARTS})`,
           });
           // FRESH DO — see the eviction restart's rationale + the
           // replay-safety note (mint OUTSIDE the callback).
