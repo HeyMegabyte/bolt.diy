@@ -391,7 +391,13 @@ function pickVerticalPreset(dir, promptText = '') {
   // "photography", charit→"charitable". Short/ambiguous tokens carry an explicit
   // trailing \b (spa\b not "space", law\b not "lawn", app\b not "apparel").
   const rules = [
-    ['_brand.medical.json', /\b(dentist|dental|orthodont|endodont|periodont|doctor|physician|clinic|medical|health|hospital|chiropract|dermatolog|pediatric|veterinar|optometr|ophthalmolog|physical therapy|physiotherap|physio|urgent care|family medicine|surgeon|cardiolog|pharmac)/],
+    // Dental = its OWN vertical (light, dentistry copy). Placed BEFORE medical so a
+    // tie favors it; dental terms were REMOVED from the medical regex below so a
+    // general family-medicine practice no longer renders dentistry copy — the medical
+    // pack WAS 100% dental ("Cleanings & Exams/Invisalign", fire-29). Pairs with the
+    // template's examples/_brand.dental.json + _content.dental.json. Both stay LIGHT.
+    ['_brand.dental.json', /\b(dentist|dental|orthodont|endodont|periodont|prosthodont|oral surgeon|oral surgery|dds\b|dmd\b|teeth|tooth|hygienist|smile makeover)/],
+    ['_brand.medical.json', /\b(doctor|physician|clinic|medical|health|hospital|chiropract|dermatolog|pediatric|veterinar|optometr|ophthalmolog|physical therapy|physiotherap|physio|urgent care|family medicine|primary care|internal medicine|surgeon|cardiolog|pharmac)/],
     // Fitness = its OWN vertical (dark, strength-gym copy), NOT wellness. Placed
     // before wellness so a tie favors it; gym/fitness/strength terms were REMOVED
     // from the wellness regex below so a strength gym no longer scores wellness
@@ -433,7 +439,7 @@ function pickVerticalPreset(dir, promptText = '') {
 // Presets whose colorScheme is light — Brian directive: healthcare/wellness/legal/
 // restaurant/local-service/nonprofit render LIGHT (white/cyan), never dark.
 const LIGHT_VERTICAL_PRESETS = new Set([
-  '_brand.medical.json', '_brand.wellness.json', '_brand.legal.json',
+  '_brand.medical.json', '_brand.dental.json', '_brand.wellness.json', '_brand.legal.json',
   '_brand.restaurant.json', '_brand.local-service.json', '_brand.nonprofit.json',
 ]);
 
