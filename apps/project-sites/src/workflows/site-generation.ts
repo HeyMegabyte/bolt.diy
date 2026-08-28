@@ -596,6 +596,13 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           description: tok((params.additionalContext || '').slice(0, 156), 'Meta description.'),
           url: tok(`https://${params.slug}${DOMAINS.SITES_SUFFIX}`, 'Canonical https URL.'),
           businessClass: tok('organization', 'storefront|restaurant|…|organization'),
+          // The user-declared vertical category — the container classifier
+          // (pickVerticalPreset) reads biz.category at 10× PRIMARY weight, so seeding
+          // it here makes the EXPLICIT category out-rank research-flavored name noise.
+          // Root cause of the fire-32 miss: this leaf was absent → a restaurant named
+          // "Harvest & Vine" fell back to its nonprofit-flavored name and shipped as a
+          // nonprofit. Additive + safe (empty when unset → classifier simply ignores it).
+          category: tok(params.businessCategory || '', 'User-declared vertical category (authoritative classifier signal).'),
           email: tok(''),
           phone: tok(params.businessPhone || ''),
           address: tok(params.businessAddress || ''),
