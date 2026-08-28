@@ -430,6 +430,37 @@
              home-icon + dropdown widget. The current section name stays
              to the right as the third breadcrumb segment. -->
           <app-domain-picker></app-domain-picker>
+          <!-- "View site" — opens the currently-selected site's LIVE website
+               (custom domain or {slug}.projectsites.dev) in a new tab. Sits directly
+               to the right of the domain picker; icon-only on mobile to preserve the
+               top-bar budget. Real <a> (middle-click / open-in-new-tab / keyboard). -->
+          @if (state.selectedSite(); as site) {
+            <a
+              class="top-btn top-btn-accent view-site-btn flex-shrink-0 max-md:px-2"
+              [href]="state.getSiteUrl(site)"
+              target="_blank"
+              rel="noopener noreferrer"
+              [brnTooltip]="'Open the live website in a new tab'"
+              aria-label="Open the live website in a new tab"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M15 3h6v6" />
+                <path d="M10 14 21 3" />
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              </svg>
+              <span class="max-md:hidden">View site</span>
+            </a>
+          }
           <!-- The section-name breadcrumb is redundant on mobile (every section
              renders its own visible heading directly below) and the wide domain
              picker squeezes it into a clipped 2-char wrap at 390px — so the

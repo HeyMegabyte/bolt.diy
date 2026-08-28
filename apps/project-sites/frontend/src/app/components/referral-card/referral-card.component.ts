@@ -62,7 +62,7 @@ interface ReferralCodeResponse {
   styles: [`
     :host { display: block; }
     .rc {
-      margin: 0 0 1.25rem; padding: 1.25rem 1.4rem;
+      margin: 1.5rem 0 1.25rem; padding: 1.25rem 1.4rem;
       border: 1px solid color-mix(in oklch, var(--ps-violet, #7c3aed) 22%, transparent);
       border-radius: var(--ps-radius-xl, 22px);
       background:
