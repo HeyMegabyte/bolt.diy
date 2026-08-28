@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal, type WritableSignal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { of, throwError, NEVER } from 'rxjs';
+import { of, throwError, NEVER, Subject } from 'rxjs';
 import { AdminAnalyticsComponent } from './analytics.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -521,5 +521,66 @@ describe('AdminAnalyticsComponent (deep-linkable range)', () => {
         replaceUrl: true,
       }),
     );
+  });
+});
+
+/**
+ * RACE REGRESSION (defect class found via live surf 2026-08-27; sibling of the
+ * Log Explorer race). `reload()` is fired by the constructor effect, the 60s poll,
+ * `setRange`, exclusion toggles + Retry — all writing the shared `envelope()` via a
+ * bare `forkJoin(...).subscribe()`. Rapidly switching ranges (24h↔90d, very common)
+ * races two range-parameterised reloads with NO cancellation: if the slower earlier
+ * range resolves LAST it clobbers the newer range's data (the KPIs show one range
+ * under another range's active pill — wrong data). Live-confirmed the window: the two
+ * ranges' /analytics/daily responses resolve in nondeterministic order with no guard.
+ * Fix: hold the forkJoin Subscription (reloadSub) + unsubscribe before each reload
+ * (last-write-wins). This deterministically reproduces the clobber (RED without the guard).
+ */
+describe('AdminAnalyticsComponent (range-switch race — last-write-wins)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('a slower earlier reload cannot clobber a newer range on the shared envelope (cancels in-flight)', () => {
+    const a1 = new Subject<{ data: unknown }>(); // earlier range's multi-url analytics
+    const a2 = new Subject<{ data: unknown }>(); // newer range's multi-url analytics
+    const getAnalytics = jasmine.createSpy('getMultiUrlAnalytics').and.returnValues(a1, a2);
+    TestBed.configureTestingModule({
+      imports: [AdminAnalyticsComponent],
+      providers: [
+        {
+          provide: ApiService,
+          useValue: {
+            getMultiUrlAnalytics: getAnalytics,
+            getSiteAnalytics: () => of(null),
+            getSiteAnalyticsDaily: () => of({ days: [] }),
+            listSiteUrls: () => of({ data: [] }),
+            getCloudflareCredentialStatus: () => of({ data: null }),
+          },
+        },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: PromptService, useValue: { prompt: () => Promise.resolve(null) } },
+        { provide: Router, useValue: { navigateByUrl: () => 0, navigate: () => Promise.resolve(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's' }) } },
+      ],
+    });
+    // No detectChanges → ngOnInit/poll + constructor effect stay dormant so the two
+    // reload() calls below map cleanly to a1 then a2.
+    const c = TestBed.createComponent(AdminAnalyticsComponent).componentInstance;
+
+    c.range.set('7d');
+    c.reload();               // reload #1 (7d) subscribes a1 (still in flight)
+    c.range.set('90d');
+    c.reload();               // reload #2 (90d) subscribes a2 — must cancel a1
+
+    // Newer 90d reload resolves FIRST…
+    a2.next({ data: { pageviews: 222, any_real_data: true } });
+    a2.complete();
+    // …then the SLOW earlier 7d reload resolves LAST — must be ignored (cancelled).
+    a1.next({ data: { pageviews: 111, any_real_data: true } });
+    a1.complete();
+
+    expect(c.envelope()?.pageviews)
+      .withContext('newer 90d envelope wins, not the stale 7d one')
+      .toBe(222);
   });
 });

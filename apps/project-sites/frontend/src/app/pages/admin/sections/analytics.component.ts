@@ -2,7 +2,7 @@ import { Component, inject, signal, computed, effect, type OnInit, type OnDestro
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { timeout, catchError } from 'rxjs/operators';
-import { forkJoin, of, TimeoutError } from 'rxjs';
+import { forkJoin, of, Subscription, TimeoutError } from 'rxjs';
 import { AdminStateService } from '../admin-state.service';
 import { HlmTablistDirective } from '../../../ui';
 import {
@@ -888,6 +888,15 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   readonly refreshIntervalSec = REFRESH_INTERVAL_SEC;
   private refreshTimer?: ReturnType<typeof setInterval>;
   private countdownTimer?: ReturnType<typeof setInterval>;
+  /**
+   * In-flight analytics forkJoin. `reload()` is fired by the constructor effect,
+   * the 60s poll, `setRange`, exclusion toggles, and Retry — all writing the
+   * shared `envelope()` signal. Cancelled before each new reload so a slower
+   * earlier response (e.g. a bigger 90d query, or a poll) can't resolve LAST and
+   * clobber a newer range's data (last-write-wins). Verified live: the daily
+   * responses for two ranges resolve in nondeterministic order with no guard.
+   */
+  private reloadSub?: Subscription;
   private lastSiteId: string | null = null;
   /** Guards the site-reactive load effect (see constructor). */
   private loadedSiteId: string | null = null;
@@ -1273,6 +1282,7 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.refreshTimer) clearInterval(this.refreshTimer);
     if (this.countdownTimer) clearInterval(this.countdownTimer);
+    this.reloadSub?.unsubscribe();
   }
 
   /** Fetch the org's CF credential status (fire-and-forget). */
@@ -1323,7 +1333,11 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
     this.notAvailable.set(false);
     this.secondsUntilRefresh.set(REFRESH_INTERVAL_SEC);
     const excludeArr = Array.from(this.excluded());
-    forkJoin({
+    // Cancel any in-flight reload so a slower earlier response (a bigger range,
+    // or the 60s poll) can't resolve last and clobber this reload's data on the
+    // shared envelope() signal (last-write-wins).
+    this.reloadSub?.unsubscribe();
+    this.reloadSub = forkJoin({
       analytics: this.api.getMultiUrlAnalytics(site.id, this.range(), excludeArr).pipe(
         timeout(AdminAnalyticsComponent.FETCH_TIMEOUT_MS),
         catchError((err: unknown) => {
