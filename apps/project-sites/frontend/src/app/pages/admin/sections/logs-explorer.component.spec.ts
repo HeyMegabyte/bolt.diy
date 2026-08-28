@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { of, throwError } from 'rxjs';
+import { of, throwError, Subject } from 'rxjs';
 import { AdminLogsExplorerComponent } from './logs-explorer.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
@@ -57,6 +57,36 @@ describe('AdminLogsExplorerComponent (search state)', () => {
     expect(c.featureDisabled()).toBe(true);
     expect(c.searchError()).toBeNull();
     expect(toastErr).not.toHaveBeenCalled();
+  });
+
+  // RACE REGRESSION (real defect found via live surf 2026-08-27): ngOnInit auto-runs
+  // search() with an empty (unfiltered) query on every visit. If the user searches a
+  // filter (e.g. `level:error`) BEFORE that slow auto-load settles, the two requests
+  // race on the shared rows() signal — with no cancellation the LATER-resolving
+  // (unfiltered) response clobbers the newer filtered result, so the user sees 100
+  // info rows despite searching for errors (a lying filter). search() must cancel any
+  // in-flight rows fetch so only the newest search can populate rows (last-write-wins).
+  it('a slow earlier search cannot clobber a newer search (cancels in-flight; last-write-wins)', () => {
+    const empty$ = new Subject<unknown>();
+    const filtered$ = new Subject<unknown>();
+    const post = jasmine.createSpy('post').and.returnValues(empty$, filtered$);
+    const { c } = make(post);
+
+    c.queryInput = '';
+    c.search();                    // empty-query auto-load (empty$) — still "in flight"
+    c.queryInput = 'level:error';
+    c.search();                    // user filter (filtered$) — must cancel empty$
+
+    // Newer filtered search resolves FIRST…
+    filtered$.next({ data: { items: [{ id: 'e1', level: 'error' }], next_cursor: null, total_returned: 1 } });
+    filtered$.complete();
+    // …then the SLOW empty search resolves LAST — must be ignored (subscription cancelled).
+    empty$.next({ data: { items: [{ id: 'i1', level: 'info' }, { id: 'i2', level: 'info' }], next_cursor: null, total_returned: 2 } });
+    empty$.complete();
+
+    expect(c.rows().length).withContext('newer filtered result wins, not the stale unfiltered one').toBe(1);
+    expect((c.rows()[0] as { id: string }).id).withContext('rows reflect the level:error search').toBe('e1');
+    expect(c.searchError()).toBeNull();
   });
 
   it('re-searching after an error clears the prior error', () => {

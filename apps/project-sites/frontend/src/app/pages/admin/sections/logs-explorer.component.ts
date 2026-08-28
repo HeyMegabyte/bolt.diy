@@ -19,8 +19,9 @@
  * @packageDocumentation
  */
 import {
-  Component, inject, signal, computed, effect, ChangeDetectionStrategy, OnInit,
+  Component, inject, signal, computed, effect, ChangeDetectionStrategy, OnInit, OnDestroy,
 } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
@@ -326,7 +327,7 @@ const LEVEL_COLORS: Record<string, string> = {
     .cost-bar-bg { background: rgba(255,255,255,.05); }
   `],
 })
-export class AdminLogsExplorerComponent implements OnInit {
+export class AdminLogsExplorerComponent implements OnInit, OnDestroy {
   protected readonly state = inject(AdminStateService);
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
@@ -356,7 +357,22 @@ export class AdminLogsExplorerComponent implements OnInit {
   /** True when the worker returns 404 feature_disabled (log_explorer flag off). */
   readonly featureDisabled = signal(false);
 
+  /**
+   * In-flight rows fetch. `search()` + `loadMore()` share the rows/searching/
+   * nextCursor signals, so the prior request is cancelled before a new one starts:
+   * a slower earlier response (e.g. the ngOnInit empty-query auto-load) can never
+   * resolve LAST and clobber a newer search's filtered results (last-write-wins).
+   */
+  private searchSub?: Subscription;
+  /** In-flight cost fetch — cancelled before a new one for the same race reason. */
+  private costsSub?: Subscription;
+
   ngOnInit() { this.search(); this.loadCosts(); }
+
+  ngOnDestroy(): void {
+    this.searchSub?.unsubscribe();
+    this.costsSub?.unsubscribe();
+  }
 
   setRange(r: LogRange) {
     this.range.set(r);
@@ -396,7 +412,11 @@ export class AdminLogsExplorerComponent implements OnInit {
   search() {
     this.searching.set(true);
     this.searchError.set(null);
-    this.api.post<SearchResponse>('/logs/search', {
+    // Cancel any in-flight rows fetch so a slower earlier response (e.g. the
+    // ngOnInit empty-query auto-load) can't resolve last and clobber this
+    // search's filtered results on the shared rows() signal (last-write-wins).
+    this.searchSub?.unsubscribe();
+    this.searchSub = this.api.post<SearchResponse>('/logs/search', {
       query: this.queryInput,
       range: this.range(),
       limit: 100,
@@ -441,7 +461,9 @@ export class AdminLogsExplorerComponent implements OnInit {
     const cursor = this.nextCursor();
     if (!cursor) return;
     this.searching.set(true);
-    this.api.post<SearchResponse>('/logs/search', {
+    // Same last-write-wins guard: a new page supersedes any in-flight rows fetch.
+    this.searchSub?.unsubscribe();
+    this.searchSub = this.api.post<SearchResponse>('/logs/search', {
       query: this.queryInput,
       range: this.range(),
       limit: 100,
@@ -468,7 +490,10 @@ export class AdminLogsExplorerComponent implements OnInit {
 
   loadCosts() {
     this.costLoading.set(true);
-    this.api.get<CostResponse>(`/logs/cost-by-route?range=${this.range()}`, undefined, { silent: true }).subscribe({
+    // Last-write-wins: a range change re-fires loadCosts; the prior in-flight
+    // cost fetch must not resolve last and overwrite the newer range's chart.
+    this.costsSub?.unsubscribe();
+    this.costsSub = this.api.get<CostResponse>(`/logs/cost-by-route?range=${this.range()}`, undefined, { silent: true }).subscribe({
       next: (res) => {
         // Stale-route guard: a 200-with-HTML body has no rows array → leave
         // costRows empty (the chart simply hides) and don't render a NaN total,
