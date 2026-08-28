@@ -602,7 +602,10 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           // Root cause of the fire-32 miss: this leaf was absent → a restaurant named
           // "Harvest & Vine" fell back to its nonprofit-flavored name and shipped as a
           // nonprofit. Additive + safe (empty when unset → classifier simply ignores it).
-          category: tok(params.businessCategory || '', 'User-declared vertical category (authoritative classifier signal).'),
+          category: tok(
+            params.businessCategory || '',
+            'User-declared vertical category (authoritative classifier signal).',
+          ),
           email: tok(''),
           phone: tok(params.businessPhone || ''),
           address: tok(params.businessAddress || ''),
