@@ -581,7 +581,17 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
     // CRITICAL SHAPE: the template's resolver is W3C DTCG — every leaf MUST
     // be `{ $value: ... }` (the resolver's isLeaf() checks for `$value`;
     // a plain-object leaf resolves undefined → the "Business" fallback).
-    const safeName = (params.businessName || 'Business').replace(/[^\w\s\-'.]/g, '').slice(0, 100);
+    // Allow `&`, `,`, and `+` — common, legitimate business-name punctuation
+    // ("Ember & Oak", "Smith, Jones & Assoc.", "R+D Labs"). They're HTML-escaped
+    // downstream in fillTemplateTokens, so they're injection-safe. Previously the
+    // regex stripped `&` → "Ember & Oak" rendered "Ember  Oak" (a double-space) in
+    // every title/nav across builds. Still strips `<`, `>`, `"`, and other unsafe chars.
+    // Collapse any resulting double-spaces so a stripped char never leaves a gap.
+    const safeName = (params.businessName || 'Business')
+      .replace(/[^\w\s\-'.,&+]/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+      .slice(0, 100);
     const tok = (value: string, description = '') => ({
       $value: value,
       $type: 'string',
