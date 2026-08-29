@@ -514,13 +514,7 @@ aiAdmin.post('/api/admin/org/export', async (c) => {
   c.executionCtx.waitUntil(
     (async () => {
       try {
-        const tables = [
-          'sites',
-          'site_snapshots',
-          'ai_site_settings',
-          'ai_form_logs',
-          'hostnames',
-        ];
+        const tables = ['sites', 'site_snapshots', 'ai_site_settings', 'ai_form_logs', 'hostnames'];
         const dump: Record<string, unknown[]> = {};
         for (const t of tables) {
           const rows = await c.env.DB.prepare(
