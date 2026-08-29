@@ -35,9 +35,7 @@ describe('filePathToRoutePattern', () => {
     expect(filePathToRoutePattern('api/users/[id].ts')).toBe('/api/users/:id');
   });
   it('handles a dynamic segment mid-path', () => {
-    expect(filePathToRoutePattern('api/blog/[slug]/comments.ts')).toBe(
-      '/api/blog/:slug/comments',
-    );
+    expect(filePathToRoutePattern('api/blog/[slug]/comments.ts')).toBe('/api/blog/:slug/comments');
   });
   it('converts [[path]] to a catch-all', () => {
     expect(filePathToRoutePattern('api/[[path]].ts')).toBe('/api/*');
@@ -147,15 +145,13 @@ describe('createFunctionsFetchHandler (end-to-end dispatch)', () => {
     {
       pattern: '/api/users/:id',
       module: {
-        onRequest: (ctx: { params: Record<string, string> }) =>
-          new Response(ctx.params.id),
+        onRequest: (ctx: { params: Record<string, string> }) => new Response(ctx.params.id),
       },
     },
     {
       pattern: '/api/echo-env',
       module: {
-        onRequest: (ctx: { env: { TOKEN?: string } }) =>
-          new Response(ctx.env.TOKEN ?? 'no-env'),
+        onRequest: (ctx: { env: { TOKEN?: string } }) => new Response(ctx.env.TOKEN ?? 'no-env'),
       },
     },
   ];

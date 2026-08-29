@@ -85,7 +85,10 @@ function escapeRegex(literal: string): string {
  * @example filePathToRoutePattern('api/[[path]].ts') // '/api/*'
  */
 export function filePathToRoutePattern(relPath: string): string {
-  const stripped = relPath.trim().replace(/^\.?\//, '').replace(CODE_EXT, '');
+  const stripped = relPath
+    .trim()
+    .replace(/^\.?\//, '')
+    .replace(CODE_EXT, '');
   const segs = stripped.split('/').filter(Boolean);
   if (segs.length && segs[segs.length - 1] === 'index') segs.pop();
   const out = segs.map((seg) => {
@@ -143,10 +146,7 @@ function normalizePath(pathname: string): string {
  * Match a pathname against compiled routes, returning the winning route and
  * its extracted (URL-decoded) params, or null when nothing matches.
  */
-export function matchCompiledRoutes(
-  routes: CompiledRoute[],
-  pathname: string,
-): RouteMatch | null {
+export function matchCompiledRoutes(routes: CompiledRoute[], pathname: string): RouteMatch | null {
   const path = normalizePath(pathname);
   for (const route of routes) {
     const m = route.regex.exec(path);

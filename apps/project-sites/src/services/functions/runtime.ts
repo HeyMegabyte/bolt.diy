@@ -26,7 +26,12 @@ export interface FunctionsFetchHandler {
   fetch(request: Request, env: unknown, ctx: ExecutionContext): Promise<Response>;
 }
 
-function jsonResponse(status: number, code: string, message: string, headers?: HeadersInit): Response {
+function jsonResponse(
+  status: number,
+  code: string,
+  message: string,
+  headers?: HeadersInit,
+): Response {
   return new Response(JSON.stringify({ error: { code, message } }), {
     status,
     headers: { 'content-type': 'application/json', ...headers },
@@ -71,7 +76,8 @@ export function createFunctionsFetchHandler(
         env,
         params: match.params,
         waitUntil: (promise) => ctx.waitUntil(promise),
-        next: async () => jsonResponse(404, 'NOT_FOUND', `No downstream handler for ${url.pathname}`),
+        next: async () =>
+          jsonResponse(404, 'NOT_FOUND', `No downstream handler for ${url.pathname}`),
       };
 
       try {
