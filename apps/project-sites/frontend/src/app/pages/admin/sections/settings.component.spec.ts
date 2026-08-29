@@ -131,6 +131,43 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     expect(save()!.disabled).withContext('valid name + dirty + valid email → Save enabled').toBeFalse();
   });
 
+  // Disabling Save on an empty required name is necessary but not SUFFICIENT — a
+  // silently-greyed Save with no reason is a confusing dead-control (WCAG 3.3.1
+  // Error Identification). markBusinessDirty (fires on every ngModelChange) must
+  // live-validate the one required field so #biz-err-name + aria-invalid appear
+  // the moment the name is cleared, mirroring Social's publishBlockReason pattern.
+  it('shows a live required-field error + aria-invalid when business_name is cleared', () => {
+    build({ id: 's', slug: 'demo' });
+    const c = fixture.componentInstance;
+    const el = fixture.nativeElement as HTMLElement;
+    const nameInput = () => el.querySelector('[data-testid="business-name"]') as HTMLInputElement | null;
+    const errText = () => (el.querySelector('#biz-err-name')?.textContent || '').trim();
+
+    // A valid name → no error.
+    c.business.business_name = 'Acme';
+    c.markBusinessDirty();
+    fixture.detectChanges();
+    expect(c.businessErrors().business_name).withContext('valid name → no error').toBeFalsy();
+
+    // Clearing the required name → live error + aria-invalid + rendered message.
+    c.business.business_name = '';
+    c.markBusinessDirty();
+    fixture.detectChanges();
+    expect(c.businessErrors().business_name)
+      .withContext('cleared required name surfaces a live error (explains the disabled Save)')
+      .toBe('Business name is required.');
+    expect(nameInput()?.getAttribute('aria-invalid'))
+      .withContext('empty required field is aria-invalid').toBe('true');
+    expect(errText()).withContext('#biz-err-name renders the message').toBe('Business name is required.');
+
+    // Typing a valid name again clears it live.
+    c.business.business_name = 'Acme Co';
+    c.markBusinessDirty();
+    fixture.detectChanges();
+    expect(c.businessErrors().business_name).withContext('valid again → error cleared').toBeFalsy();
+    expect(nameInput()?.getAttribute('aria-invalid')).withContext('valid → not aria-invalid').toBeNull();
+  });
+
   // Team + invite emails are reply targets ([[always]] mailto mandate). The team
   // rows aren't clickable, so a plain mailto link is the clean fix (no propagation).
   it('renders team member + pending-invite emails as mailto: links', () => {

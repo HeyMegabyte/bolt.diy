@@ -990,6 +990,18 @@ export class AdminSettingsComponent implements OnInit {
     const cur = JSON.stringify({ ...this.business, logoFile: this.business.logoFile?.name ?? null, iconFile: this.business.iconFile?.name ?? null });
     const snap = JSON.stringify({ ...JSON.parse(this.businessSnapshot), logoFile: null, iconFile: null });
     this.businessDirty.set(cur !== snap);
+    // Live-validate the one REQUIRED field so a cleared name EXPLAINS the disabled
+    // Save (WCAG 3.3.1 + Social's publishBlockReason pattern) instead of a silent
+    // grey-out. Fires on every ngModelChange, so #biz-err-name + aria-invalid
+    // appear/clear the moment the name goes empty/valid. Other errors (address /
+    // phone / logo / icon) stay untouched — they're still validated on save.
+    const name = this.business.business_name;
+    const nameErr = !name.trim()
+      ? 'Business name is required.'
+      : name.length > 200
+        ? 'Maximum 200 characters.'
+        : undefined;
+    this.businessErrors.update((e) => ({ ...e, business_name: nameErr }));
   }
 
   onBusinessLogo(files: FileList | null): void {
