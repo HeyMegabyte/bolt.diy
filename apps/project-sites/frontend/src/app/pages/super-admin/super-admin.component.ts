@@ -1,7 +1,16 @@
-import { Component, ChangeDetectionStrategy, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { ToastService } from '../../services/toast.service';
+import { AdminStateService } from '../admin/admin-state.service';
 import { RollingCounterComponent } from '../../components/rolling-counter/rolling-counter.component';
 import { RevealDirective } from '../../directives/reveal.directive';
 
@@ -341,6 +350,9 @@ export class SuperAdminComponent implements OnInit {
   protected readonly Math = Math;
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
+  private readonly state = inject(AdminStateService);
+  /** One-shot guard so the gate decision runs exactly once. */
+  private gated = false;
 
   forbidden = signal(false);
   categoriesLoading = signal(true);
@@ -356,8 +368,22 @@ export class SuperAdminComponent implements OnInit {
 
   private walletsDebounce: ReturnType<typeof setTimeout> | null = null;
 
+  constructor() {
+    // Gate the super-admin-only fetches on the client is_super_admin flag (hydrated
+    // from /api/auth/me once state.loading() resolves). A non-super-admin must NOT
+    // fire the 3 doomed /api/super-admin/* requests (each 403s) — show Restricted
+    // directly. Mirrors feature-flags.component's isSuperAdmin() gate.
+    effect(() => {
+      if (this.state.loading()) return; // wait for /me to resolve
+      if (this.gated) return; // decide once
+      this.gated = true;
+      if (this.state.isSuperAdmin()) this.loadAll();
+      else this.forbidden.set(true);
+    });
+  }
+
   ngOnInit(): void {
-    this.loadAll();
+    // Fetch gating is handled reactively in the constructor effect above.
   }
 
   private loadAll(): void {

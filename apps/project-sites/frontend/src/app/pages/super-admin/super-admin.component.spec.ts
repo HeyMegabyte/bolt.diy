@@ -8,16 +8,22 @@
  * calls) — we drive `adjustCents`/`adjustReason` directly and assert
  * `adjustError()` / `adjustValid()`.
  */
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { SuperAdminComponent } from './super-admin.component';
 import { ApiService } from '../../services/api.service';
 import { ToastService } from '../../services/toast.service';
+import { AdminStateService } from '../admin/admin-state.service';
+
+/** State mock that keeps the constructor gate effect a no-op (loading never resolves). */
+const IDLE_STATE = { loading: () => true, isSuperAdmin: () => false };
 
 function makeComponent(): SuperAdminComponent {
   TestBed.configureTestingModule({
     providers: [
       { provide: ApiService, useValue: {} },
       { provide: ToastService, useValue: { success: () => {}, error: () => {} } },
+      { provide: AdminStateService, useValue: IDLE_STATE },
     ],
   });
   // Override the template so no rendering / ngOnInit-triggered API calls run.
@@ -126,6 +132,7 @@ describe('SuperAdminComponent — cost-category mutations (request-shape parity)
       providers: [
         { provide: ApiService, useValue: { patch } },
         { provide: ToastService, useValue: { success: () => {}, error: () => {} } },
+        { provide: AdminStateService, useValue: IDLE_STATE },
       ],
     });
     TestBed.overrideComponent(SuperAdminComponent, { set: { template: '<div></div>', imports: [] } });
@@ -178,6 +185,7 @@ describe('SuperAdminComponent — load error feedback (silent 403 gate, no lying
       providers: [
         { provide: ApiService, useValue: { get: getSpy } },
         { provide: ToastService, useValue: { success: () => {}, error: errSpy } },
+        { provide: AdminStateService, useValue: IDLE_STATE },
       ],
     });
     TestBed.overrideComponent(SuperAdminComponent, { set: { template: '<div></div>', imports: [] } });
@@ -220,5 +228,56 @@ describe('SuperAdminComponent — load error feedback (silent 403 gate, no lying
     expect(get).toHaveBeenCalledWith('/super-admin/wallets?limit=100', undefined, { silent: true });
     expect(c.forbidden()).toBe(true);
     expect(err).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Super-admin fetch gate (surf QA, 2026-08-29). A non-super-admin owner who
+ * lands on /admin/super-admin must NOT fire the 3 doomed /api/super-admin/*
+ * reads (each 403s). The client already knows `is_super_admin` from
+ * /api/auth/me (hydrated into AdminStateService), so the component gates
+ * loadAll() on that flag in a constructor effect that waits for
+ * `state.loading()` to resolve, then shows Restricted directly. Mirrors
+ * feature-flags.component's isSuperAdmin() gate. Regression for the "owner
+ * fires unauthorized super-admin requests" defect.
+ */
+describe('SuperAdminComponent — fetch gate (no doomed 403s for non-super-admins)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function makeGated(opts: { isSuper: boolean; loading: boolean }) {
+    const get = jasmine
+      .createSpy('get')
+      .and.returnValue({ toPromise: () => Promise.resolve({ totals: {}, data: [] }) });
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: ApiService, useValue: { get } },
+        { provide: ToastService, useValue: { success: () => {}, error: () => {} } },
+        {
+          provide: AdminStateService,
+          useValue: { loading: signal(opts.loading), isSuperAdmin: signal(opts.isSuper) },
+        },
+      ],
+    });
+    TestBed.overrideComponent(SuperAdminComponent, { set: { template: '<div></div>', imports: [] } });
+    const fixture = TestBed.createComponent(SuperAdminComponent);
+    fixture.detectChanges(); // flush the constructor gate effect
+    return { fixture, get };
+  }
+
+  it('non-super-admin (me resolved) → Restricted, and ZERO /super-admin/* fetches fire', () => {
+    const { fixture, get } = makeGated({ isSuper: false, loading: false });
+    expect(fixture.componentInstance.forbidden()).toBe(true);
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it('super-admin (me resolved) → loadAll fires (fetches the operator surfaces)', () => {
+    const { get } = makeGated({ isSuper: true, loading: false });
+    expect(get).toHaveBeenCalledWith('/super-admin/stats?days=30', undefined, { silent: true });
+  });
+
+  it('while /me is still resolving → neither a fetch nor a premature Restricted', () => {
+    const { fixture, get } = makeGated({ isSuper: false, loading: true });
+    expect(get).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.forbidden()).toBe(false);
   });
 });
