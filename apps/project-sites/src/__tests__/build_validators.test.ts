@@ -7,6 +7,7 @@ import {
   validateUniquePageTitles,
   validateJsonLdCount,
   validateH1InShell,
+  validateNoDevSourceModules,
   validateColorScheme,
   validateCanonical,
   validateSitemapLastmod,
@@ -319,6 +320,52 @@ describe('validateH1InShell', () => {
       '<!DOCTYPE html><html><head><title>x</title></head><body><h1>real</h1><script>const s = "<h1>fake</h1>"</script></body></html>',
     );
     expect(validateH1InShell([f])).toEqual([]);
+  });
+});
+
+describe('validateNoDevSourceModules', () => {
+  it('flags an unbuilt Vite index.html referencing /src/main.tsx (renders blank — the class that shipped megabytespace)', () => {
+    const f = file(
+      'index.html',
+      '<!DOCTYPE html><html><body><h1>Site</h1><script type="module" src="/src/main.tsx"></script></body></html>',
+    );
+    const v = validateNoDevSourceModules([f]);
+    expect(v[0].code).toBe('html.dev_source_module');
+    expect(v[0].severity).toBe('error');
+    expect(v[0].detail).toBe('/src/main.tsx');
+  });
+
+  it('flags /src/main.ts and a bare /main.jsx dev entry too (browsers cannot execute TS/JSX)', () => {
+    expect(
+      validateNoDevSourceModules([
+        file('index.html', '<script type="module" src="/src/main.ts"></script>'),
+      ])[0].code,
+    ).toBe('html.dev_source_module');
+    expect(
+      validateNoDevSourceModules([file('a.html', '<script src="/main.jsx"></script>')])[0].code,
+    ).toBe('html.dev_source_module');
+  });
+
+  it('passes a correctly-built site referencing a hashed /assets/*.js bundle', () => {
+    const f = file(
+      'index.html',
+      '<!DOCTYPE html><html><body><h1>Site</h1><script type="module" src="/assets/index-a1b2c3.js"></script></body></html>',
+    );
+    expect(validateNoDevSourceModules([f])).toEqual([]);
+  });
+
+  it('ignores non-HTML files (a bundled .js may legitimately contain /src/ sourcemap refs)', () => {
+    expect(
+      validateNoDevSourceModules([file('assets/main-abc.js', 'import x from "/src/y.tsx";')]),
+    ).toEqual([]);
+  });
+
+  it('validateBuild surfaces the dev-source-module violation as an error', () => {
+    const report = validateBuild([
+      file('index.html', '<script type="module" src="/src/main.tsx"></script>'),
+    ]);
+    expect(report.ok).toBe(false);
+    expect(report.errors.some((e) => e.code === 'html.dev_source_module')).toBe(true);
   });
 });
 

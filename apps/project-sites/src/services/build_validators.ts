@@ -439,6 +439,37 @@ export const validateH1InShell = (files: BuildFile[]): Violation[] => {
   return out;
 };
 
+/**
+ * Shipped HTML must never reference a raw dev-source module (`.tsx`/`.ts`/`.jsx`/
+ * `.mts`/`.cts`) as a `<script src>`. Browsers can't execute TS/JSX, so this is
+ * the signature of an UNBUILT Vite dev `index.html` (points at `/src/main.tsx`)
+ * published instead of the `vite build` output — the module serves as
+ * `application/octet-stream` (or 404s), never executes, and the site renders a
+ * blank shell for every visitor. A correct build references hashed `/assets/*.js`.
+ *
+ * Reference incident: `megabytespace.projectsites.dev` shipped the dev index.html
+ * (`/src/main.tsx` → octet-stream 200) → 249-char blank shell, 0 images.
+ */
+export const validateNoDevSourceModules = (files: BuildFile[]): Violation[] => {
+  const out: Violation[] = [];
+  const DEV_MODULE = /<script[^>]+\bsrc=["']([^"']+\.(?:tsx|ts|jsx|mts|cts))(?:\?[^"']*)?["']/gi;
+  for (const file of files) {
+    if (!isHtml(file.path) || !file.text) continue;
+    DEV_MODULE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = DEV_MODULE.exec(file.text)) !== null) {
+      out.push({
+        code: 'html.dev_source_module',
+        severity: 'error',
+        message: `Shipped HTML references a raw dev-source module "${m[1]}" — browsers can't execute TS/JSX. This is an unbuilt Vite index.html; publish the "vite build" output (dist/, referencing /assets/*.js), not the source.`,
+        file: file.path,
+        detail: m[1],
+      });
+    }
+  }
+  return out;
+};
+
 /** color-scheme meta required so the browser paints the right chrome/scrollbars on dark sites. */
 export const validateColorScheme = (files: BuildFile[]): Violation[] => {
   const out: Violation[] = [];
@@ -920,6 +951,7 @@ export const validateBuild = (
     ...validateJsonLdCount(files),
     ...validateJsonLdStructure(files),
     ...validateH1InShell(files),
+    ...validateNoDevSourceModules(files),
     ...validateColorScheme(files),
     ...validateCanonical(files),
     ...validateSitemapLastmod(files),
