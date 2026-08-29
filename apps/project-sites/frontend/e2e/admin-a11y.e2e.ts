@@ -24,32 +24,26 @@ const KEY = process.env.E2E_API_KEY ?? '';
 const NAME_RULES = new Set(['label', 'select-name', 'aria-input-field-name']);
 const isBlocking = (impact: string | null | undefined, id: string): boolean =>
   impact === 'critical' || impact === 'serious' || NAME_RULES.has(id);
+// Only REAL sections + redirect-aliases that land on a real surface. A path that
+// renders the styled "This admin page doesn't exist" 404 card is trivially
+// axe-clean, so listing a DEAD route silently reports FALSE coverage — the
+// per-section 404-guard below now FAILS on any such entry. Pruned 2026-08-29
+// (surf): content-freshness / pseo / ai-endpoints (removed in the Functions
+// convergence) / sites / features / inbox / marketplace / trust / enterprise all
+// 404 now (no route, no component — site management moved to the dashboard +
+// site-switcher; Features lives at /admin/site-features). Redirect aliases KEPT
+// because they scan a DISTINCT real surface: feature-flags/seo → site-features,
+// api-tokens/domains/webhooks → the matching /admin/settings#tab, traces →
+// /admin/logs?tab=traces. The editor bolt.diy iframe is a separate origin
+// (excluded via .exclude('iframe')).
 const SECTIONS = [
   '/admin/snapshots', '/admin/forms', '/admin/analytics', '/admin/audit',
   '/admin/feature-flags', '/admin/api-tokens', '/admin/settings', '/admin/billing',
-  // Expanded to the primary-button-heavy sections to catch the global
-  // white-on-cyan PrimeNG contrast bug wherever it renders.
-  '/admin/voice', '/admin/social', '/admin/domains', '/admin/content-freshness',
-  '/admin/pseo', '/admin/ai-endpoints', '/admin/sites', '/admin/seo', '/admin/docs',
-  // Coverage expansion (round 117; gap re-audited + closed round 32 — see the
-  // two sections appended at the end). This list covers EVERY real admin SECTION
-  // component. The other /admin/* routes are intentionally NOT scanned because
-  // they aren't standalone sections (verified round 118): redirect aliases whose
-  // targets ARE scanned —
-  // dashboard→'', mcp→settings/mcp, github→snapshots, ai-chat→settings — and the
-  // welcome/editor bolt.diy iframe (separate origin, excluded via .exclude('iframe')).
-  '/admin/features', '/admin/traces', '/admin/apps',
-  '/admin/inbox', '/admin/marketplace', '/admin/trust', '/admin/enterprise',
-  '/admin/user', '/admin/logs',
-  // Coverage gap closed (round 32): these two routed admin sections had real
-  // components but ZERO e2e coverage. accept-invite renders its no-token error
-  // state ("Missing token in URL" + Go-to-admin); stripe-app-status renders the
-  // Stripe-connection status. Both verified axe-clean live before adding.
+  '/admin/voice', '/admin/social', '/admin/domains', '/admin/seo', '/admin/docs',
+  '/admin/traces', '/admin/apps', '/admin/user', '/admin/logs',
+  // accept-invite renders its no-token error state; stripe-app-status the Stripe
+  // connection status; bulk-ops / deliverability / webhooks are real settings surfaces.
   '/admin/accept-invite', '/admin/stripe-app-status',
-  // Coverage gap closed (this round): four routed admin sections that had real
-  // components but ZERO axe coverage in this suite. All verified axe-clean live
-  // (WCAG 2.0/2.1/2.2 AA, 0 violations) before adding — bulk-ops 26 passes,
-  // deliverability 28, webhooks 26.
   '/admin/bulk-ops', '/admin/deliverability', '/admin/webhooks',
 ];
 
@@ -80,6 +74,20 @@ test.describe('legacy /admin — WCAG 2.2 AA (axe-core)', () => {
       // axe load concurrently, so shell render can lag past a tighter budget
       // (contention, not a real failure — even stable sections flaked at 25s).
       await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 45000 });
+      // 404-guard (surf 2026-08-29): a removed section route renders the styled
+      // "This admin page doesn't exist" card, which is trivially axe-clean — so
+      // scanning it SILENTLY reports false coverage. Fail loudly instead: every
+      // listed path must resolve to a real section (or a redirect to one). This
+      // catches BOTH a stale SECTIONS entry AND a real section regressing to a
+      // 404 while the axe scan stays green. `.count()` is immediate (the content
+      // area has rendered once the sidebar is visible).
+      const deadRouteCard = await page
+        .getByRole('heading', { name: /this admin page doesn'?t exist/i })
+        .count();
+      expect(
+        deadRouteCard,
+        `${path} renders the "dead route" 404 card — remove it from SECTIONS or restore the route (a 404 is trivially axe-clean → false coverage).`,
+      ).toBe(0);
       // Settle async section content before scanning: skeleton loaders set
       // aria-busy="true" while fetching (e.g. inbox.component). Scanning during
       // that transient loading state caused a rare inbox flake — wait for the
