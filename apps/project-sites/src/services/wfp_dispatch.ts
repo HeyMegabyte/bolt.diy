@@ -124,3 +124,79 @@ export async function dispatchToUserWorker(
   const stub = env.USER_DISPATCH.get(scriptName);
   return stub.fetch(request);
 }
+
+// ─── Functions on WfP (ADR-0035) — one bundled `functions/` worker per site ───
+
+/**
+ * WfP script name for a site's bundled `functions/` worker — the SSOT shared by
+ * upload (Stage 2.2), the preview slot (Stage 2.3 → `-preview`), and dispatch
+ * (Stage 3.1 → `env.USER_DISPATCH.get(name)`). `site-<siteId>` per ADR-0035 §5,
+ * normalised to the WfP-legal charset (lowercase alphanumeric + hyphen).
+ *
+ * @example siteFunctionsScriptName('AbC-123')                 // 'site-abc-123'
+ * @example siteFunctionsScriptName('abc', { preview: true })  // 'site-abc-preview'
+ */
+export function siteFunctionsScriptName(siteId: string, opts: { preview?: boolean } = {}): string {
+  const base = `site-${siteId.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`;
+  return opts.preview ? `${base}-preview` : base;
+}
+
+/**
+ * Upload (overwrite) a site's bundled `functions/` worker into the dispatch
+ * namespace as `site-<siteId>` (or `-preview`). `script` is the single esbuild
+ * ESM bundle produced by `scripts/functions-build`. Returns the CF error body +
+ * status on a non-2xx (so a bad build is surfaced, never swallowed) and lets a
+ * network throw propagate. Entitlement gating (`customEndpoints`) is the
+ * caller's responsibility (the publish orchestration).
+ *
+ * @remarks Impure — issues a Cloudflare REST API PUT.
+ */
+export async function uploadSiteFunctionsWorker(
+  env: Env,
+  siteId: string,
+  script: string,
+  opts: { preview?: boolean } = {},
+): Promise<{ ok: true; scriptName: string } | { ok: false; error: string; status?: number }> {
+  if (!isWfpConfigured(env)) {
+    return { ok: false, error: 'Workers for Platforms not configured on this account' };
+  }
+  const scriptName = siteFunctionsScriptName(siteId, opts);
+  const url = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/workers/dispatch/namespaces/${env.WFP_NAMESPACE_NAME}/scripts/${scriptName}`;
+
+  const form = new FormData();
+  form.append(
+    'metadata',
+    new Blob([JSON.stringify({ main_module: 'worker.mjs', compatibility_date: '2026-05-01' })], {
+      type: 'application/json',
+    }),
+  );
+  form.append(
+    'worker.mjs',
+    new Blob([script], { type: 'application/javascript+module' }),
+    'worker.mjs',
+  );
+
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${env.CF_API_TOKEN}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    return { ok: false, error: body.slice(0, 800), status: res.status };
+  }
+  return { ok: true, scriptName };
+}
+
+/** Delete a site's functions worker (live or `-preview`). Best-effort; never throws. */
+export async function deleteSiteFunctionsWorker(
+  env: Env,
+  siteId: string,
+  opts: { preview?: boolean } = {},
+): Promise<void> {
+  if (!isWfpConfigured(env)) return;
+  await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/workers/dispatch/namespaces/${env.WFP_NAMESPACE_NAME}/scripts/${siteFunctionsScriptName(siteId, opts)}`,
+    { method: 'DELETE', headers: { Authorization: `Bearer ${env.CF_API_TOKEN}` } },
+  ).catch(() => {});
+}
