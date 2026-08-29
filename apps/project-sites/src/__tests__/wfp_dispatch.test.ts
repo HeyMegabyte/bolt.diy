@@ -347,14 +347,22 @@ describe('siteFunctionsScriptName', () => {
 
 describe('uploadSiteFunctionsWorker', () => {
   it('short-circuits (no network) when WfP is unconfigured', async () => {
-    const out = await uploadSiteFunctionsWorker(makeEnv({ CF_API_TOKEN: undefined }), 'abc', 'export default {}');
+    const out = await uploadSiteFunctionsWorker(
+      makeEnv({ CF_API_TOKEN: undefined }),
+      'abc',
+      'export default {}',
+    );
     expect(out.ok).toBe(false);
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('PUTs the bundled ESM to scripts/site-<id> with Bearer auth + multipart FormData', async () => {
     mockFetch.mockResolvedValueOnce(res(true, { status: 200 }));
-    const out = await uploadSiteFunctionsWorker(makeEnv(), 'abc-123', 'export default { async fetch() { return new Response("ok"); } }');
+    const out = await uploadSiteFunctionsWorker(
+      makeEnv(),
+      'abc-123',
+      'export default { async fetch() { return new Response("ok"); } }',
+    );
     expect(out).toEqual({ ok: true, scriptName: 'site-abc-123' });
     const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(
@@ -367,7 +375,9 @@ describe('uploadSiteFunctionsWorker', () => {
 
   it('uploads the -preview script name when preview:true', async () => {
     mockFetch.mockResolvedValueOnce(res(true, { status: 200 }));
-    const out = await uploadSiteFunctionsWorker(makeEnv(), 'abc', 'export default {}', { preview: true });
+    const out = await uploadSiteFunctionsWorker(makeEnv(), 'abc', 'export default {}', {
+      preview: true,
+    });
     expect(out).toEqual({ ok: true, scriptName: 'site-abc-preview' });
     expect((mockFetch.mock.calls[0] as [string])[0]).toContain('/scripts/site-abc-preview');
   });
@@ -380,7 +390,9 @@ describe('uploadSiteFunctionsWorker', () => {
 
   it('propagates a network throw (does not swallow it)', async () => {
     mockFetch.mockRejectedValueOnce(new Error('connection reset'));
-    await expect(uploadSiteFunctionsWorker(makeEnv(), 'x', 's')).rejects.toThrow('connection reset');
+    await expect(uploadSiteFunctionsWorker(makeEnv(), 'x', 's')).rejects.toThrow(
+      'connection reset',
+    );
   });
 });
 
@@ -395,7 +407,9 @@ describe('deleteSiteFunctionsWorker', () => {
     expect(init.method).toBe('DELETE');
   });
   it('is fire-and-forget — no throw when unconfigured or on network error', async () => {
-    await expect(deleteSiteFunctionsWorker(makeEnv({ CF_API_TOKEN: undefined }), 'x')).resolves.toBeUndefined();
+    await expect(
+      deleteSiteFunctionsWorker(makeEnv({ CF_API_TOKEN: undefined }), 'x'),
+    ).resolves.toBeUndefined();
     expect(mockFetch).not.toHaveBeenCalled();
     mockFetch.mockRejectedValueOnce(new Error('boom'));
     await expect(deleteSiteFunctionsWorker(makeEnv(), 'x')).resolves.toBeUndefined();
