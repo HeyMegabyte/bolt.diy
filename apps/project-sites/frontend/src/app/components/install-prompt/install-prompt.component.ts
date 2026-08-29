@@ -75,7 +75,7 @@ export function iosHintEligible(ua: string, visits: number, standalone: boolean)
   standalone: true,
   template: `
     @if (mode(); as m) {
-      <div class="install-chip" role="dialog" aria-label="Install Project Sites" data-testid="install-prompt">
+      <div class="install-chip" role="region" aria-label="Install Project Sites" data-testid="install-prompt">
         <span class="install-chip__icon" aria-hidden="true">{{ m === 'ios' ? '⎋' : '⤓' }}</span>
         <div class="install-chip__text">
           <strong>Install Project Sites</strong>

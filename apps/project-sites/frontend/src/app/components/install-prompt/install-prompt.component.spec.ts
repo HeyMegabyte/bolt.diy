@@ -69,6 +69,17 @@ describe('InstallPromptComponent', () => {
     expect(f.nativeElement.querySelector('[data-testid="install-prompt"]')).toBeTruthy();
   });
 
+  it('marks the install chip as a labeled region, NOT a dialog (a11y: it is a non-modal, non-focus-trapping, dismissible banner — role="dialog" is a semantic lie that announces a modal that does not exist and has no Escape/focus semantics)', () => {
+    const f = make();
+    window.dispatchEvent(makeBipEvent());
+    f.detectChanges();
+    const chip = f.nativeElement.querySelector('[data-testid="install-prompt"]');
+    expect(chip).toBeTruthy();
+    expect(chip.getAttribute('role')).toBe('region');
+    expect(chip.getAttribute('role')).not.toBe('dialog');
+    expect(chip.getAttribute('aria-label')).toBe('Install Project Sites');
+  });
+
   it('calls the native prompt() and hides the chip on Install', async () => {
     const f = make();
     const evt = makeBipEvent('accepted');
