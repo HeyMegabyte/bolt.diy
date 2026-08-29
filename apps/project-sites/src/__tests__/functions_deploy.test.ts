@@ -42,7 +42,11 @@ beforeEach(() => {
 describe('deploySiteFunctions', () => {
   it('short-circuits when WfP is unconfigured (no entitlement/upload calls)', async () => {
     mockConfigured.mockReturnValue(false);
-    const out = await deploySiteFunctions(env, { siteId: 'abc', orgId: 'org1', build: { ok: true, script: 'x' } });
+    const out = await deploySiteFunctions(env, {
+      siteId: 'abc',
+      orgId: 'org1',
+      build: { ok: true, script: 'x' },
+    });
     expect(out.status).toBe('wfp_unconfigured');
     expect(mockEnt).not.toHaveBeenCalled();
     expect(mockUpload).not.toHaveBeenCalled();
@@ -50,7 +54,11 @@ describe('deploySiteFunctions', () => {
 
   it('skips (no upload) when the org is not entitled to customEndpoints', async () => {
     entitled(false);
-    const out = await deploySiteFunctions(env, { siteId: 'abc', orgId: 'org1', build: { ok: true, script: 'x' } });
+    const out = await deploySiteFunctions(env, {
+      siteId: 'abc',
+      orgId: 'org1',
+      build: { ok: true, script: 'x' },
+    });
     expect(out.status).toBe('skipped_not_entitled');
     expect(mockUpload).not.toHaveBeenCalled();
     expect(mockDelete).not.toHaveBeenCalled();
@@ -58,7 +66,11 @@ describe('deploySiteFunctions', () => {
 
   it('on a bad build: keeps last-good (never touches WfP) + surfaces the error', async () => {
     entitled(true);
-    const out = await deploySiteFunctions(env, { siteId: 'abc', orgId: 'org1', build: { ok: false, error: 'Reserved path: api/events' } });
+    const out = await deploySiteFunctions(env, {
+      siteId: 'abc',
+      orgId: 'org1',
+      build: { ok: false, error: 'Reserved path: api/events' },
+    });
     expect(out.status).toBe('build_failed');
     if (out.status === 'build_failed') expect(out.error).toContain('Reserved path');
     expect(mockUpload).not.toHaveBeenCalled();
@@ -67,7 +79,11 @@ describe('deploySiteFunctions', () => {
 
   it('removes any stale script when functions/ is empty', async () => {
     entitled(true);
-    const out = await deploySiteFunctions(env, { siteId: 'abc', orgId: 'org1', build: { ok: true, empty: true } });
+    const out = await deploySiteFunctions(env, {
+      siteId: 'abc',
+      orgId: 'org1',
+      build: { ok: true, empty: true },
+    });
     expect(out.status).toBe('removed');
     expect(mockDelete).toHaveBeenCalledWith(env, 'abc');
     expect(mockUpload).not.toHaveBeenCalled();
@@ -75,7 +91,11 @@ describe('deploySiteFunctions', () => {
 
   it('uploads site-<siteId> on a good build', async () => {
     entitled(true);
-    const out = await deploySiteFunctions(env, { siteId: 'abc', orgId: 'org1', build: { ok: true, script: 'export default {}' } });
+    const out = await deploySiteFunctions(env, {
+      siteId: 'abc',
+      orgId: 'org1',
+      build: { ok: true, script: 'export default {}' },
+    });
     expect(out.status).toBe('deployed');
     if (out.status === 'deployed') expect(out.scriptName).toBe('site-abc');
     expect(mockUpload).toHaveBeenCalledWith(env, 'abc', 'export default {}');
@@ -84,7 +104,11 @@ describe('deploySiteFunctions', () => {
   it('surfaces an upload failure (last-good stays — PUT never overwrote)', async () => {
     entitled(true);
     mockUpload.mockResolvedValue({ ok: false, error: 'invalid module', status: 400 });
-    const out = await deploySiteFunctions(env, { siteId: 'abc', orgId: 'org1', build: { ok: true, script: 's' } });
+    const out = await deploySiteFunctions(env, {
+      siteId: 'abc',
+      orgId: 'org1',
+      build: { ok: true, script: 's' },
+    });
     expect(out.status).toBe('upload_failed');
     if (out.status === 'upload_failed') {
       expect(out.error).toBe('invalid module');
@@ -94,7 +118,11 @@ describe('deploySiteFunctions', () => {
 
   it('never throws — an entitlement lookup error degrades to a skip', async () => {
     mockEnt.mockRejectedValue(new Error('D1 down'));
-    const out = await deploySiteFunctions(env, { siteId: 'abc', orgId: 'org1', build: { ok: true, script: 's' } });
+    const out = await deploySiteFunctions(env, {
+      siteId: 'abc',
+      orgId: 'org1',
+      build: { ok: true, script: 's' },
+    });
     expect(out.status).toBe('skipped_not_entitled');
     expect(mockUpload).not.toHaveBeenCalled();
   });
