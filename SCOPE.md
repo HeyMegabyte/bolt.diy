@@ -82,7 +82,7 @@ not the engineering aesthetic.
 - **Reliability**: traceId/tenantId correlation ✅; Jest→Vitest migration (kills `@swc/jest` flake) is a dedicated session.
 
 ### Monumental initiatives (1–3 dev-months each — scope as dedicated arcs, not loop passes)
-1. Workers-for-Platforms CF-native full-stack hosting substrate.
+1. Workers-for-Platforms CF-native full-stack hosting substrate → **Functions** (IN PROGRESS): the removed "AI Agents" dashboard feature is replaced by a code-defined `functions/` folder in the site (file-based routing, JS/TS, npm) hosted on WfP + dispatched at `{slug}.projectsites.dev/api/*`. Spec: ADR-0035 (folder) / ADR-0055 (DECISIONS.md); ledger: `apps/project-sites/docs/FUNCTIONS-CONVERGENCE.md`.
 2. Public Developer API platform (native `api_tokens` + Scalar + Stainless SDKs).
 3. AI-powered visual site builder (Puck + React Flow).
 4. Site Analytics Suite (CF Analytics Engine-first).

@@ -86,7 +86,7 @@ src/
 │   │   │   ├── admin.component.ts      # Owns the persistent <iframe #boltFrame>
 │   │   │   ├── admin-state.service.ts  # Sites + analytics + polling (visibility-aware)
 │   │   │   └── sections/               # forms, snapshots, billing, audit, docs,
-│   │   │                               # ai-endpoints, ai-logs, settings, analytics,
+│   │   │                               # ai-logs, settings, analytics,
 │   │   │                               # mcp, user-settings, editor (iframe-host),
 │   │   │                               # apps, social,
 │   │   │                               # voice, dashboard, domains, seo, sites,

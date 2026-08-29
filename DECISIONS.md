@@ -463,3 +463,15 @@ Child sites, the AI concierge, and platform admin need search; the Angular admin
 **Install homes:** Angular admin `frontend/package.json`: `@floating-ui/dom`, `embla-carousel-angular`, `ngx-sonner`. Worker `apps/project-sites/package.json`: `typesense`. React template repo: `@orama/orama`, `@orama/plugin-data-persistence`, `sonner`, `embla-carousel-react`, `@floating-ui/react`.
 
 ⚠️ `npm install` uses `--legacy-peer-deps`; never symlink+install in a worktree (corrupts main).
+
+---
+
+## ADR-0055 — Code Functions on Workers-for-Platforms (AI Agents section removed)
+
+- **Status:** Accepted · **Date:** 2026-08-28 (Brian directive) · **Deciders:** Brian Zalewski · **Series:** convergence
+
+The UI-authored "AI Agents" admin section (`/admin/ai-endpoints`, D1 `ai_endpoints`, `routes/ai_endpoints_public.ts` dispatcher, `libs/features/ai_endpoints/`) let owners define AI-backed API endpoints via a dashboard form. Brian's directive: owners should define endpoints **in their site code** instead.
+
+**Decision:** Remove "AI Agents"; replace with code-defined **Functions** — a `functions/` folder in the site (Pages-Functions-style file-based routing, JS/TS, npm allowed) bundled + hosted on **Cloudflare Workers for Platforms** (`USER_DISPATCH` namespace), dispatched at `{slug}.projectsites.dev/api/*` (platform reserves `/api/contact-form` + `/api/_ps/*`). Paid-plan entitlement-gated; bindings `env.AI`/`env.DATA`/`env.KV`/`env.R2`/`env.SECRETS`; deploy on Publish; preview at `/api/test-publish`; versioned via snapshots; logs → Traces. **Full spec:** `apps/project-sites/docs/decisions/0035-custom-code-endpoints-wfp.md` (folder ADR — referenced here BY PATH; the folder-ADR "0035" is a SEPARATE artifact from this file's OTel-0035, per the dual-series note at the top). **Convergence ledger:** `apps/project-sites/docs/FUNCTIONS-CONVERGENCE.md`.
+
+**Consequences:** endpoint authoring moves from a dashboard CRUD form to the in-editor `functions/` folder (more powerful — real code + npm deps — but requires code). WfP plumbing (`services/wfp_dispatch.ts` + `ai_endpoints_ide.test.ts`) is KEPT — reused by the Functions build (Stages 1-4). Removal shipped: Stage 0.1 frontend (`fb522f12`) + 0.2 backend (`1c87f17c`), both deployed + prod-verified; `DROP TABLE ai_endpoints` (Stage 0.3) is approval-gated test-data-only cleanup (6 test rows, 0 real customers). `token_burn_meter` flag KEPT (not ai-endpoints-specific).
