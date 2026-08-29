@@ -257,7 +257,9 @@ describe('applyServedRouteTitle (SPA per-route <title> for the non-JS crawl)', (
 
   it('uses the LAST segment for nested routes (blog posts)', () => {
     const out = applyServedRouteTitle(T(HOME), '/blog/local-seo-checklist-2026');
-    expect(out).toContain('<title>Local Seo Checklist 2026 — Ironside Strength &amp; Conditioning</title>');
+    expect(out).toContain(
+      '<title>Local Seo Checklist 2026 — Ironside Strength &amp; Conditioning</title>',
+    );
   });
 
   it('leaves the HOMEPAGE title untouched', () => {
