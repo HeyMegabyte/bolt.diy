@@ -10,6 +10,8 @@
 
 **Status:** 🟡 in progress · **Started:** 2026-08-28 · **Owner:** convergence loop
 
+> **⚠️ Critical path BLOCKED on 2.2(a)** (container bundle-on-publish). All worker-side building blocks are shipped — Stage 1 (bundler/router/codegen/scaffold), 2.1 (entitlement), 2.2 worker-side (reserved-guard + WfP upload/delete + orchestrator + deploy-state signal), 3.1 (dispatch, live + prod-verified), 5.2 (observability, schema-verified). The remaining ACs (2.2a, 2.3, 4.1, 4.2, 5.1, 6.1) ALL need a **deployed functions worker** to build/verify correctly, which needs: (1) a **Docker/container session** to run `scripts/functions-build/bundle.ts` in the build container + wire the publish path, and (2) the concurrent-held **`api.ts`** (publish path) to clear (dirty across 6+ convergence fires). Isolated dormant slices are exhausted; the next real slice is 2.2(a) in a container session. Un-gate 0.3 with an explicit "drop it".
+
 ---
 
 ## STAGE 0 — Remove "AI Agents" (clean break)
@@ -40,6 +42,7 @@
 
 ## STAGE 4 — Binding injection + runtime
 - [ ] **4.1 Bindings.** Inject `env.AI` (Workers AI, **debits `ai_credits_balance`**, clear error when out), `env.DATA` (typed read-only helpers `forms.list({limit})` + `site()`, tenant-scoped), `env.KV` (per-site namespace), `env.R2` (per-site prefix), `env.SECRETS.<KEY>` (site+org env-vars, site wins).
+  - **⚠️ DESIGN NOTE — do NOT shortcut with raw WfP bindings.** A raw `{type:'kv_namespace'|'r2_bucket'|'ai'}` binding in the upload metadata would grant the user worker FULL-namespace KV + FULL-bucket R2 (**cross-tenant read/write**) + **unmetered AI** (no `ai_credits_balance` debit) — a security + billing hole. 4.1 MUST inject **tenant-scoping SHIMS** bundled via codegen: `env.KV` = siteId-prefixed over a shared namespace, `env.R2` = site-prefixed over `SITES_BUCKET`, `env.AI` = debit-then-call, `env.DATA`/`env.SECRETS` = read-only scoped. The shims reach platform data via a service binding OR a signed-token internal fetch to a platform `/api/_ps/data/*` endpoint. That internal contract + shim wiring are decided WITH 2.2(a) (a deployed worker is needed to verify scoping), so **4.1 is gated on 2.2(a)** — build the shims, never raw bindings.
 - [ ] **4.2 Guardrails + helpers.** Optional auth helpers (`ctx.verifyOwnerSession()` + Turnstile-verify); default per-IP edge rate-limit + Turnstile opt-in; **~25 MB** body cap; limits **50 ms CPU/req · 50 subrequests · 100k req/day per site** → 429 past it.
 
 ## STAGE 5 — Versioning + observability
