@@ -55,7 +55,8 @@ describe('resolveFunctionsDispatch', () => {
 
   it('passthrough when entitled but no functions worker is deployed yet', () => {
     expect(
-      resolveFunctionsDispatch({ ...base, hasDeployedScript: false, pathname: '/api/quote' }).action,
+      resolveFunctionsDispatch({ ...base, hasDeployedScript: false, pathname: '/api/quote' })
+        .action,
     ).toBe('passthrough');
   });
 
