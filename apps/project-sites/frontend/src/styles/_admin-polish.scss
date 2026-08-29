@@ -266,6 +266,14 @@ main > div > h2 + p + button.btn-accent {
 [class*="-card"]:not(.density-card):not(.card-light):not(.site-favicon-tile) {
   border-radius: 0 !important;
   border: none !important;
+}
+// box-shadow reset is EXEMPTED for :focus-visible — otherwise this
+// `box-shadow: none !important` (specificity 0,4,0) beat the global
+// `*:focus-visible` glow ring (styles.scss, 0,1,0 no-!important), so any
+// focusable flat card (e.g. the dashboard `.sec-card` nav anchors) showed NO
+// keyboard focus indicator (WCAG 2.4.7 fail). Skipping the reset when focused
+// lets the global glow ring land. Non-focus appearance is unchanged.
+[class*="-card"]:not(.density-card):not(.card-light):not(.site-favicon-tile):not(:focus-visible) {
   box-shadow: none !important;
 }
 @media (prefers-reduced-motion: no-preference) {

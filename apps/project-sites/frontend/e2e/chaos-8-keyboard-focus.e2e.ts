@@ -12,6 +12,8 @@
  */
 import { test, expect } from '@playwright/test';
 
+const KEY = process.env.E2E_API_KEY ?? '';
+
 test.describe('CHAOS 8 — Keyboard focus visibility (WCAG 2.4.7)', () => {
   test('homepage hero search shows a visible focus ring when keyboard-focused', async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
@@ -67,4 +69,73 @@ test.describe('CHAOS 8 — Keyboard focus visibility (WCAG 2.4.7)', () => {
       expect(hasRing, `no keyboard focus ring on the first form input of ${url}`).toBe(true);
     });
   }
+});
+
+/**
+ * Admin dashboard SECTION CARDS focus ring (WCAG 2.4.7).
+ *
+ * The `/admin` dashboard hub navigates via `.sec-card` anchors (Editor, Snapshots,
+ * Domains, Analytics, SEO, Social…). The global admin "flat generic cards" rule
+ * (`[class*="-card"]:not(...) { box-shadow: none !important }` in _admin-polish.scss)
+ * matched `.sec-card` (it contains "-card") and forced box-shadow to none in EVERY
+ * state — beating the global `*:focus-visible` glow ring — while `outline: 0 !important`
+ * (styles.scss) killed the outline. Net: keyboard focus on the primary dashboard nav
+ * was INVISIBLE. Fix: exempt `:focus-visible` from the flat-card box-shadow reset so
+ * the global glow ring reaches every focused flat card. Real Chrome only — headless
+ * chromium under-reports :focus-visible for anchors.
+ */
+test.describe('CHAOS 8 — admin dashboard section cards focus ring (WCAG 2.4.7)', () => {
+  test.skip(!KEY, 'E2E_API_KEY not set');
+
+  test('a keyboard-focused dashboard .sec-card shows a visible ring', async ({ page }, testInfo) => {
+    // :focus-visible on Tab-focused ANCHORS is reliable only in real Chrome — headless
+    // chromium under-reports it, so this assertion runs under the `chrome` project.
+    test.skip(testInfo.project.name !== 'chrome', 'needs real Chrome for anchor :focus-visible');
+
+    await page.addInitScript((k: string) => {
+      try {
+        localStorage.setItem(
+          'ps_session',
+          JSON.stringify({ token: k, identifier: 'test@megabyte.space', createdAt: Date.now() }),
+        );
+      } catch {
+        /* private mode */
+      }
+    }, KEY);
+
+    await page.goto('/admin', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('nav[aria-label="Admin sections"]', { timeout: 20000 });
+    const firstCard = page.locator('[data-testid^="dash-sec-"]').first();
+    await expect(firstCard).toBeVisible({ timeout: 15000 });
+
+    // Keyboard-Tab from the top until the active element IS a dashboard section card,
+    // so the card enters genuine :focus-visible state (not heuristic programmatic focus).
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    let reached = false;
+    for (let i = 0; i < 60 && !reached; i++) {
+      await page.keyboard.press('Tab');
+      reached = await page.evaluate(() =>
+        (document.activeElement?.getAttribute('data-testid') ?? '').startsWith('dash-sec-'),
+      );
+    }
+    expect(reached, 'could not Tab-focus a dashboard section card').toBe(true);
+
+    const ind = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement;
+      const cs = getComputedStyle(el);
+      return {
+        testid: el.getAttribute('data-testid'),
+        matchesFocusVisible: el.matches(':focus-visible'),
+        hasRing:
+          (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0) ||
+          (cs.boxShadow !== 'none' && cs.boxShadow.trim() !== ''),
+        outline: `${cs.outlineStyle} ${cs.outlineWidth}`,
+        boxShadow: cs.boxShadow.slice(0, 60),
+      };
+    });
+    expect(
+      ind.hasRing,
+      `dashboard section card has NO visible keyboard focus ring (${JSON.stringify(ind)})`,
+    ).toBe(true);
+  });
 });
