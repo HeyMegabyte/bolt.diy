@@ -80,9 +80,14 @@ export function resolveFunctionsDispatch(input: {
  * read BEFORE the entitlement — a site with no functions worker (the common
  * case) costs exactly one D1 read, never the entitlement lookup or a dispatch.
  *
+ * Observability (ADR §13): a successful dispatch emits a `functions.invoke` Trace
+ * event and a failure a `functions.dispatch_error` event (tenant-tagged with
+ * orgId/siteId), so owners see invocations + errors in the Log Explorer / Traces.
+ *
  * Fail-soft: any error — a D1 read, the entitlement lookup, or the dispatch
- * itself — returns `null` so the caller falls through to normal R2 / 404 serving.
- * A functions failure must NEVER take down static site serving.
+ * itself — is LOGGED (never silently swallowed — that would hide an outage) then
+ * returns `null` so the caller falls through to normal R2 / 404 serving. A
+ * functions failure must NEVER take down static site serving.
  *
  * @returns the worker's `Response` when dispatched, else `null` (passthrough)
  * @remarks Impure — reads D1 + issues a subrequest to the dispatch namespace.
@@ -99,6 +104,7 @@ export async function maybeDispatchFunctions(
   // Cheap pre-gate — only non-reserved /api/* paths are dispatch candidates;
   // everything else (static assets, reserved platform routes) skips all D1 reads.
   if (!pathname.startsWith('/api/') || isReservedFunctionRoute(pathname)) return null;
+  const startedAt = Date.now();
   try {
     // Deployed-script gate first: most sites have none → one D1 read → passthrough,
     // never paying for the entitlement lookup or a doomed dispatch.
@@ -111,9 +117,42 @@ export async function maybeDispatchFunctions(
       hasDeployedScript: true,
     });
     if (decision.action !== 'dispatch') return null;
-    return await dispatchToUserWorker(env, decision.scriptName, request);
-  } catch {
-    // Fail-soft: a functions failure must never break static serving.
+    const res = await dispatchToUserWorker(env, decision.scriptName, request);
+    // 5.2 (ADR §13): emit a tenant-tagged invocation Trace event → Workers
+    // observability / Log Explorer. console.warn (console.log is ESLint-blocked).
+    console.warn(
+      JSON.stringify({
+        level: 'info',
+        ts: startedAt,
+        msg: 'functions.invoke',
+        feature: 'functions',
+        orgId: site.orgId,
+        siteId: site.siteId,
+        scriptName: decision.scriptName,
+        method: request.method,
+        path: pathname,
+        status: res.status,
+        durationMs: Date.now() - startedAt,
+        cfRay: request.headers.get('cf-ray') ?? undefined,
+      }),
+    );
+    return res;
+  } catch (err) {
+    // 5.2 + fail-soft: log the failure as an error Trace event (never silently
+    // swallow — that hides outages from monitoring) THEN degrade to static serving.
+    console.warn(
+      JSON.stringify({
+        level: 'error',
+        ts: startedAt,
+        msg: 'functions.dispatch_error',
+        feature: 'functions',
+        orgId: site.orgId,
+        siteId: site.siteId,
+        path: pathname,
+        error: (err instanceof Error ? err.message : String(err)).slice(0, 200),
+        durationMs: Date.now() - startedAt,
+      }),
+    );
     return null;
   }
 }
