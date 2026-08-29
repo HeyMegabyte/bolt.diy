@@ -233,7 +233,8 @@ const ALL_SCOPES = [
 
     <!-- Create Token Dialog (Spartan DialogShell) -->
     @if (createModalVisible) {
-    <app-dialog-shell title="New API Token" (closed)="closeCreateModal()">
+    <app-dialog-shell (closed)="closeCreateModal()">
+      <span dialogTitle>New API Token</span>
       <div class="at-dialog-body">
         <div class="at-field">
           <label class="at-label" for="token-name">Token name *</label>
@@ -279,7 +280,7 @@ const ALL_SCOPES = [
           }
         </div>
       </div>
-      <div footer>
+      <div dialogFooter class="px-6 py-4 border-t border-white/[0.06] flex items-center justify-end gap-3">
         <button hlmBtn variant="ghost" size="sm" type="button" (click)="closeCreateModal()">Cancel</button>
         <button hlmBtn variant="primary" size="sm" type="button" data-testid="at-create-submit"
           [disabled]="creating() || !newName.trim() || expiryInvalid()" (click)="createToken()">
@@ -292,7 +293,8 @@ const ALL_SCOPES = [
 
     <!-- Reveal Dialog (one-time plaintext) -->
     @if (createdToken() !== null) {
-    <app-dialog-shell title="Token created" (closed)="clearCreatedToken()">
+    <app-dialog-shell (closed)="clearCreatedToken()">
+      <span dialogTitle>Token created</span>
       <div class="at-dialog-body">
         <div class="at-warning-box" role="alert">
           <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:#ffd166"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
@@ -305,7 +307,7 @@ const ALL_SCOPES = [
           </button>
         </div>
       </div>
-      <div footer>
+      <div dialogFooter class="px-6 py-4 border-t border-white/[0.06] flex items-center justify-end gap-3">
         <button hlmBtn variant="primary" size="sm" type="button" data-testid="at-reveal-done" (click)="clearCreatedToken()">Done — I've saved this token</button>
       </div>
     </app-dialog-shell>
@@ -313,11 +315,12 @@ const ALL_SCOPES = [
 
     <!-- Revoke confirm Dialog -->
     @if (revokeTarget() !== null) {
-    <app-dialog-shell [title]="'Revoke ' + (revokeTarget()?.name ?? '') + '?'" (closed)="revokeTarget.set(null)">
+    <app-dialog-shell (closed)="revokeTarget.set(null)">
+      <span dialogTitle>Revoke {{ revokeTarget()?.name ?? '' }}?</span>
       <div class="at-dialog-body">
         <p class="at-revoke-warn">Any integrations using this token will stop working immediately.</p>
       </div>
-      <div footer>
+      <div dialogFooter class="px-6 py-4 border-t border-white/[0.06] flex items-center justify-end gap-3">
         <button hlmBtn variant="ghost" size="sm" type="button" (click)="revokeTarget.set(null)">Cancel</button>
         <button hlmBtn variant="destructive" size="sm" type="button" data-testid="at-revoke-confirm"
           [disabled]="revoking()" (click)="revokeToken()">
