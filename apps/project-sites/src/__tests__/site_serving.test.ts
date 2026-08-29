@@ -352,10 +352,13 @@ describe('parseSitemapRoutes', () => {
 
 describe('generateTopBar', () => {
   it('generates valid HTML with CTA', () => {
+    // generateTopBar delegates to generateConversionFlow; the CTA copy is
+    // "Register Now" + a "$50" price (was "Claim"/"$50/mo" before the
+    // Conversion-Flow-v2 rename in 586b4169c).
     const html = generateTopBar('my-biz');
     expect(html).toContain('ps-bar');
-    expect(html).toContain('Claim');
-    expect(html).toContain('$50/mo');
+    expect(html).toContain('Register Now');
+    expect(html).toContain('$50');
   });
 
   it('includes edit link with slug', () => {
