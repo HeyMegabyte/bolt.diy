@@ -250,7 +250,7 @@ export function generateConversionFlow(slug: string): string {
     </div>
     <p id="ps-bar-msg"><strong>This website is yours</strong> — make it official</p>
     <div id="ps-bar-right">
-      <button id="ps-claim-btn" aria-haspopup="dialog">Claim for $50/mo</button>
+      <button id="ps-claim-btn" aria-haspopup="dialog">Register Now</button>
       <button id="ps-bar-x" aria-label="Dismiss">&times;</button>
     </div>
   </div>
@@ -892,12 +892,16 @@ export async function serveSiteFromR2(
  * @returns HTML `<script>` block to inject before `</head>`.
  */
 function generateGtmHeadSnippet(containerId: string): string {
-  return `<!-- Google Tag Manager -->
-<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','${containerId}');</script>`;
+  // DEFERRED: the dataLayer is created immediately (early pushes queue), but the
+  // heavy gtm.js DOWNLOAD + tag EXECUTION are held off the critical rendering path
+  // until the browser is idle (requestIdleCallback, 6s cap) or the visitor first
+  // interacts — whichever comes first. GTM's tag execution was the dominant TBT
+  // contributor (Lighthouse: TBT 3.68s, Perf 32) on every served site; deferring it
+  // recovers the main thread for the initial paint without losing any analytics.
+  return `<!-- Google Tag Manager (deferred off the critical path) -->
+<script>window.dataLayer=window.dataLayer||[];(function(w,d,s,l,i){function g(){if(w.__gtmL)return;w.__gtmL=1;w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);}
+if('requestIdleCallback'in w){w.requestIdleCallback(g,{timeout:6000});}else{w.addEventListener('load',function(){setTimeout(g,3000);});}
+['pointerdown','keydown','scroll','touchstart'].forEach(function(e){w.addEventListener(e,g,{once:true,passive:true});});})(window,document,'script','dataLayer','${containerId}');</script>`;
 }
 
 /**
@@ -923,8 +927,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
  * @returns HTML `<script>` block to inject before `</head>`.
  */
 function generateGa4Snippet(measurementId: string, slug: string): string {
-  return `<!-- Google Analytics 4 -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=${measurementId}"></script>
+  // DEFERRED: the gtag() config runs immediately (queues into dataLayer), but the
+  // gtag.js DOWNLOAD (which processes the queue + sends the pageview) is deferred to
+  // idle/first-interaction so it doesn't block the initial paint. First-party
+  // pageviews are already captured synchronously by app.js → /api/events, so nothing
+  // is lost by holding the Google tag until the main thread is free.
+  return `<!-- Google Analytics 4 (deferred off the critical path) -->
 <script>
 window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}
 gtag('js',new Date());
@@ -933,6 +941,9 @@ gtag('config','${measurementId}',{
   custom_map:{'dimension1':'site_slug'},
   site_slug:'${slug}'
 });
+(function(w,d){function g(){if(w.__ga4L)return;w.__ga4L=1;var j=d.createElement('script');j.async=true;j.src='https://www.googletagmanager.com/gtag/js?id=${measurementId}';d.head.appendChild(j);}
+if('requestIdleCallback'in w){w.requestIdleCallback(g,{timeout:6000});}else{w.addEventListener('load',function(){setTimeout(g,3000);});}
+['pointerdown','keydown','scroll','touchstart'].forEach(function(e){w.addEventListener(e,g,{once:true,passive:true});});})(window,document);
 </script>`;
 }
 

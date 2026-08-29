@@ -350,8 +350,9 @@ export const APP_JS = `/*! ProjectSites unified client — analytics + forms + u
     style.textContent = css;
     document.head.appendChild(style);
 
-    var bar = document.createElement('div');
+    var bar = document.createElement('aside');
     bar.id = 'ps-upgrade-bar';
+    bar.setAttribute('aria-label', 'Register this website');
     bar.innerHTML =
       '<div id="ps-ub-inner">' +
       '<div id="ps-ub-left">' +
@@ -366,7 +367,7 @@ export const APP_JS = `/*! ProjectSites unified client — analytics + forms + u
       '<div id="ps-ub-right">' +
       '<a id="ps-ub-claim" href="' +
       editUrl +
-      '" data-ps-cta="claim">Claim for $50/mo</a>' +
+      '" data-ps-cta="claim">Register Now</a>' +
       '<button id="ps-ub-x" aria-label="Dismiss">&times;</button>' +
       '</div></div>';
     document.body.appendChild(bar);
