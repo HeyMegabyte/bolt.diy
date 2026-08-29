@@ -4,6 +4,7 @@ import {
   asyncifyRenderBlockingFonts,
   absolutizeSocialImages,
   applyServedRouteCanonical,
+  applyServedRouteTitle,
   parseSitemapRoutes,
   injectAppShellHero,
   isServedSiteCookieless,
@@ -236,6 +237,58 @@ describe('applyServedRouteCanonical (SPA sub-page de-index fix)', () => {
     expect(out).toContain('data-x="1"');
     expect(out).toContain('data-y="2"');
     expect(out).toContain('href="https://megabyte.space/pricing"');
+  });
+});
+
+describe('applyServedRouteTitle (SPA per-route <title> for the non-JS crawl)', () => {
+  const T = (t: string) => `<head><title>${t}</title></head>`;
+  // The homepage title the SPA bakes into EVERY route's shell (& is entity-encoded).
+  const HOME = 'Ironside Strength &amp; Conditioning — Train Hard, Get Strong';
+
+  it('derives a distinct per-route title from the path segment + brand (was the homepage title on every route)', () => {
+    const out = applyServedRouteTitle(T(HOME), '/services');
+    expect(out).toContain('<title>Services — Ironside Strength &amp; Conditioning</title>');
+  });
+
+  it('title-cases + de-hyphenates multi-word segments', () => {
+    const out = applyServedRouteTitle(T(HOME), '/case-studies');
+    expect(out).toContain('<title>Case Studies — Ironside Strength &amp; Conditioning</title>');
+  });
+
+  it('uses the LAST segment for nested routes (blog posts)', () => {
+    const out = applyServedRouteTitle(T(HOME), '/blog/local-seo-checklist-2026');
+    expect(out).toContain('<title>Local Seo Checklist 2026 — Ironside Strength &amp; Conditioning</title>');
+  });
+
+  it('leaves the HOMEPAGE title untouched', () => {
+    const html = T(HOME);
+    expect(applyServedRouteTitle(html, '/')).toBe(html);
+  });
+
+  it('preserves an existing HTML entity in the brand (never double-encodes &amp;)', () => {
+    const out = applyServedRouteTitle(T(HOME), '/team');
+    expect(out).toContain('Ironside Strength &amp; Conditioning');
+    expect(out).not.toContain('&amp;amp;');
+  });
+
+  it('mirrors the title’s own separator (pipe)', () => {
+    const out = applyServedRouteTitle(T('Acme Co | Widgets'), '/about');
+    expect(out).toContain('<title>About | Acme Co</title>');
+  });
+
+  it('falls back to the whole title as brand when there is no separator', () => {
+    const out = applyServedRouteTitle(T('Acme Co'), '/pricing');
+    expect(out).toContain('<title>Pricing — Acme Co</title>');
+  });
+
+  it('returns HTML verbatim when there is no <title>', () => {
+    const html = '<head><meta charset="utf-8"></head>';
+    expect(applyServedRouteTitle(html, '/about')).toBe(html);
+  });
+
+  it('trailing-slash tolerant', () => {
+    const out = applyServedRouteTitle(T(HOME), '/services/');
+    expect(out).toContain('<title>Services — Ironside Strength &amp; Conditioning</title>');
   });
 });
 

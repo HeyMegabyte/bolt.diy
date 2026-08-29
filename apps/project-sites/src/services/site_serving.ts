@@ -1124,6 +1124,61 @@ export function applyServedRouteCanonical(html: string, requestPath: string): st
 }
 
 /**
+ * Rewrite a served SPA page's `<title>` to a per-route title for the NON-JS crawl.
+ *
+ * The generated site is a single-shell SPA: every route serves the same
+ * `index.html`, whose baked `<title>` is the HOMEPAGE title. The client sets a
+ * per-route `document.title` after hydration, but that is invisible to non-JS
+ * crawlers + social scrapers — so 20+ sub-pages all ship the homepage title
+ * (a duplicate-title SEO penalty). {@link applyServedRouteCanonical} already
+ * fixes the canonical the same way; this closes the companion `<title>` gap so
+ * the per-route `<head>` is server-owned (project doctrine), not client-only.
+ *
+ * Derivation: `"<Segment Title-Case><sep><brand>"`, where `brand` is the
+ * homepage title's pre-separator part and `sep` mirrors the title's own
+ * separator (— – | ·, else " — "). The path segment is HTML-escaped; the brand
+ * keeps its existing entity encoding (sliced from the already-encoded title, so
+ * `&amp;` is never double-escaped). Homepage (`/`) + title-less HTML are
+ * returned verbatim. Google (which runs the SPA) still uses the richer client
+ * title — this is a fallback that only helps non-JS agents, never a regression.
+ *
+ * @param html - The served page HTML.
+ * @param requestPath - The request pathname (e.g. `/services`, `/blog/post-1`).
+ * @returns HTML with a per-route `<title>` for non-root routes.
+ *
+ * @example
+ * applyServedRouteTitle('<title>Acme — Best widgets</title>', '/services');
+ * // → '<title>Services — Acme</title>'
+ */
+export function applyServedRouteTitle(html: string, requestPath: string): string {
+  const route = normalizeRoute(requestPath);
+  if (route === '/') return html; // homepage — its baked title is already correct
+  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (!titleMatch) return html;
+  const current = titleMatch[1].trim();
+  if (!current) return html;
+  // Recover the brand = the homepage title's pre-separator part. Prefer a STRONG
+  // separator (em/en dash, pipe, middot); fall back to " - "; else whole title.
+  const sepMatch = current.match(/\s+[—–|·]\s+/) ?? current.match(/\s+-\s+/);
+  const sep = sepMatch ? sepMatch[0] : ' — ';
+  const brand = (sepMatch ? current.slice(0, sepMatch.index) : current).trim();
+  const seg = route.split('/').filter(Boolean).pop() ?? '';
+  if (!seg) return html;
+  const label = seg
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  if (!label) return html;
+  const next = `${label}${sep}${brand}`;
+  if (next === current) return html; // already per-route — no-op
+  return html.replace(/(<title[^>]*>)[\s\S]*?(<\/title>)/i, `$1${next}$2`);
+}
+
+/**
  * Normalize a URL path for route-set membership: collapse trailing slashes so
  * `/services` and `/services/` compare equal; the root stays `/`.
  *
@@ -1462,6 +1517,7 @@ async function buildSiteResponse(
     // Correct a homepage-claiming canonical/og:url to the served route (surgical:
     // only when the declared canonical is the site root AND this is a non-root path).
     html = applyServedRouteCanonical(html, requestPath);
+    html = applyServedRouteTitle(html, requestPath);
 
     // Inject analytics + error tracking before </head> (for all sites, paid and free)
     if (env) {
