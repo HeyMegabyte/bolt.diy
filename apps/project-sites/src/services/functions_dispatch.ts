@@ -20,10 +20,14 @@
  *      reveal a gated capability, per the feature-flags doctrine)
  */
 import type { Env } from '../types/env.js';
+import { log } from '../lib/log.js';
 import { getOrgEntitlements } from './billing.js';
 import { siteHasDeployedFunctions } from './functions_deploy.js';
 import { isReservedFunctionRoute } from './functions/router.js';
 import { dispatchToUserWorker, siteFunctionsScriptName } from './wfp_dispatch.js';
+
+/** Scoped structured logger — its JSON lines feed Workers Observability → the Log Explorer. */
+const fnLog = log.child('functions');
 
 /** What `site_serving` should do with a child-host request. */
 export type FunctionsDispatchDecision =
@@ -118,41 +122,35 @@ export async function maybeDispatchFunctions(
     });
     if (decision.action !== 'dispatch') return null;
     const res = await dispatchToUserWorker(env, decision.scriptName, request);
-    // 5.2 (ADR §13): emit a tenant-tagged invocation Trace event → Workers
-    // observability / Log Explorer. console.warn (console.log is ESLint-blocked).
-    console.warn(
-      JSON.stringify({
-        level: 'info',
-        ts: startedAt,
-        msg: 'functions.invoke',
-        feature: 'functions',
-        orgId: site.orgId,
-        siteId: site.siteId,
-        scriptName: decision.scriptName,
-        method: request.method,
-        path: pathname,
-        status: res.status,
-        durationMs: Date.now() - startedAt,
-        cfRay: request.headers.get('cf-ray') ?? undefined,
-      }),
-    );
+    // 5.2 (ADR §13): emit a tenant-tagged invocation event via the canonical
+    // structured logger → Workers Observability → the Log Explorer (`/admin/logs`).
+    // Field names match `logs_explorer.mapEvent` (msg/method/path/status/durationMs/
+    // requestId) so the invocation renders as a real log row; orgId/siteId land in
+    // the row `meta` for per-site filtering. `requestId` (not `cfRay`) is the field
+    // mapEvent reads.
+    // (scriptName is omitted — it is `site-<siteId>`, fully derivable from siteId,
+    // and not in the logger's SAFE_FIELD_ALLOWLIST; siteId is the queryable key.)
+    fnLog.info('functions.invoke', {
+      orgId: site.orgId,
+      siteId: site.siteId,
+      method: request.method,
+      path: pathname,
+      status: res.status,
+      durationMs: Date.now() - startedAt,
+      requestId: request.headers.get('cf-ray') ?? undefined,
+    });
     return res;
   } catch (err) {
-    // 5.2 + fail-soft: log the failure as an error Trace event (never silently
-    // swallow — that hides outages from monitoring) THEN degrade to static serving.
-    console.warn(
-      JSON.stringify({
-        level: 'error',
-        ts: startedAt,
-        msg: 'functions.dispatch_error',
-        feature: 'functions',
-        orgId: site.orgId,
-        siteId: site.siteId,
-        path: pathname,
-        error: (err instanceof Error ? err.message : String(err)).slice(0, 200),
-        durationMs: Date.now() - startedAt,
-      }),
-    );
+    // 5.2 + fail-soft: log the failure as an error event (never silently swallow —
+    // that hides outages from monitoring) THEN degrade to static serving.
+    fnLog.error('functions.dispatch_error', {
+      orgId: site.orgId,
+      siteId: site.siteId,
+      path: pathname,
+      error: (err instanceof Error ? err.message : String(err)).slice(0, 200),
+      durationMs: Date.now() - startedAt,
+      requestId: request.headers.get('cf-ray') ?? undefined,
+    });
     return null;
   }
 }

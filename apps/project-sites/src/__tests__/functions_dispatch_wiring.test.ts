@@ -82,19 +82,30 @@ describe('maybeDispatchFunctions', () => {
   });
 
   // ── 5.2 Observability (ADR §13): invocations + errors → Traces / Log Explorer ──
-  it('emits a tenant-tagged functions.invoke Trace event on a successful dispatch', async () => {
+  // Field names MUST match logs_explorer.mapEvent (msg/method/path/status/durationMs/
+  // requestId + ISO ts + eventName alias) so the row renders in /admin/logs.
+  it('emits a functions.invoke event matching the Log Explorer mapEvent schema', async () => {
     mockHas.mockResolvedValue(true);
     mockEnt.mockResolvedValue({ customEndpoints: true });
     mockDispatch.mockResolvedValue(new Response('ok', { status: 201 }));
-    await maybeDispatchFunctions(env, site, req('/api/quote'), '/api/quote');
+    const r = new Request('https://abc.projectsites.dev/api/quote', {
+      headers: { 'cf-ray': 'ray-abc-123' },
+    });
+    await maybeDispatchFunctions(env, site, r, '/api/quote');
     const ev = traceEvent('functions.invoke');
     expect(ev).toBeTruthy();
+    // meta (per-site filtering)
     expect(ev.siteId).toBe('abc');
     expect(ev.orgId).toBe('org1');
-    expect(ev.scriptName).toBe('site-abc');
+    // mapEvent-read fields
+    expect(ev.method).toBe('GET');
     expect(ev.path).toBe('/api/quote');
     expect(ev.status).toBe(201);
     expect(typeof ev.durationMs).toBe('number');
+    expect(ev.requestId).toBe('ray-abc-123'); // was `cfRay` (ignored by mapEvent) — now `requestId`
+    expect(ev.level).toBe('info');
+    expect(ev.eventName).toBe('functions.invoke'); // canonical-logger alias
+    expect(typeof ev.ts).toBe('string'); // ISO, not an epoch number
   });
 
   it('logs functions.dispatch_error instead of silently swallowing (still fail-soft null)', async () => {
