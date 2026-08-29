@@ -44,6 +44,8 @@ export const ENTITLEMENTS = {
     maxCustomDomains: 0,
     chatEnabled: true,
     analyticsEnabled: false,
+    // Code endpoints (a `functions/` folder on Workers for Platforms) — paid-only (ADR-0035).
+    customEndpoints: false,
     // Team seat cap. `-1` means unlimited. Free orgs are a solo seat.
     maxTeamSeats: 1,
   },
@@ -52,6 +54,8 @@ export const ENTITLEMENTS = {
     maxCustomDomains: 10,
     chatEnabled: true,
     analyticsEnabled: true,
+    // Code endpoints unlock on ANY paid plan (ADR-0035).
+    customEndpoints: true,
     // Paid plan ships a 10-seat team; raise here (not via a new table/flag)
     // when a higher tier lands.
     maxTeamSeats: 10,

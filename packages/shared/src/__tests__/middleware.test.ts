@@ -113,6 +113,7 @@ describe('getEntitlements', () => {
     expect(ent.maxCustomDomains).toBe(0);
     expect(ent.chatEnabled).toBe(true);
     expect(ent.analyticsEnabled).toBe(false);
+    expect(ent.customEndpoints).toBe(false);
     expect(ent.plan).toBe('free');
     expect(ent.org_id).toBe(orgId);
   });
@@ -123,6 +124,7 @@ describe('getEntitlements', () => {
     expect(ent.maxCustomDomains).toBe(10);
     expect(ent.chatEnabled).toBe(true);
     expect(ent.analyticsEnabled).toBe(true);
+    expect(ent.customEndpoints).toBe(true);
     expect(ent.plan).toBe('paid');
   });
 });
@@ -146,6 +148,14 @@ describe('requireEntitlement', () => {
 
   it('paid plan has analyticsEnabled', () => {
     expect(requireEntitlement('paid', 'analyticsEnabled')).toBe(true);
+  });
+
+  it('free plan does not have customEndpoints', () => {
+    expect(requireEntitlement('free', 'customEndpoints')).toBe(false);
+  });
+
+  it('paid plan has customEndpoints', () => {
+    expect(requireEntitlement('paid', 'customEndpoints')).toBe(true);
   });
 
   it('free plan maxCustomDomains is falsy (0)', () => {

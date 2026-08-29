@@ -696,6 +696,7 @@ describe('getOrgEntitlements', () => {
       maxCustomDomains: 10,
       chatEnabled: true,
       analyticsEnabled: true,
+      customEndpoints: true,
       maxTeamSeats: 10,
     });
   });
@@ -736,6 +737,7 @@ describe('getOrgEntitlements', () => {
       maxCustomDomains: 0,
       chatEnabled: true,
       analyticsEnabled: false,
+      customEndpoints: false,
       maxTeamSeats: 1,
     });
   });
@@ -752,6 +754,7 @@ describe('getOrgEntitlements', () => {
       maxCustomDomains: 0,
       chatEnabled: true,
       analyticsEnabled: false,
+      customEndpoints: false,
       maxTeamSeats: 1,
     });
   });

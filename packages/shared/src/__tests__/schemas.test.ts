@@ -413,9 +413,11 @@ describe('entitlementsSchema', () => {
       maxCustomDomains: 0,
       chatEnabled: true,
       analyticsEnabled: false,
+      customEndpoints: false,
       maxTeamSeats: 1,
     });
     expect(result.topBarHidden).toBe(false);
+    expect(result.customEndpoints).toBe(false);
   });
 
   it('accepts valid paid entitlements', () => {
@@ -426,10 +428,12 @@ describe('entitlementsSchema', () => {
       maxCustomDomains: 10,
       chatEnabled: true,
       analyticsEnabled: true,
+      customEndpoints: true,
       maxTeamSeats: 10,
     });
     expect(result.topBarHidden).toBe(true);
     expect(result.maxCustomDomains).toBe(10);
+    expect(result.customEndpoints).toBe(true);
     expect(result.maxTeamSeats).toBe(10);
   });
 });

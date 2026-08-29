@@ -98,6 +98,7 @@ src/
 | `maxCustomDomains` | 0 | 10 |
 | `chatEnabled` | true | true |
 | `analyticsEnabled` | false | true |
+| `customEndpoints` | false | true |
 | `maxTeamSeats` | 1 | 10 |
 
 ### DOMAINS
