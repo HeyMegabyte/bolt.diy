@@ -17,10 +17,6 @@ import { aiAdmin } from '../routes/ai_admin.js';
 // `billing` module. Mount it BEFORE `aiAdmin` (mirrors src/index.ts) so the malformed-
 // body path exercises the real moved handler, not a 404.
 import { billing } from '../../libs/features/billing/handlers.js';
-// Route-decomposition installment 15: POST/PUT /api/sites/:siteId/ai-endpoints[/*] moved to
-// the `aiEndpoints` module. Mount it BEFORE `aiAdmin` (mirrors src/index.ts) so the
-// malformed-body path exercises the real moved handlers, not a 404.
-import { aiEndpoints } from '../../libs/features/ai_endpoints/handlers.js';
 // Route-decomposition installment 16: POST /api/sites/:siteId/ai/drive/select-folder (+ the rest of
 // the ai-chat context-files / ai/context / ai/drive surface) moved to the `aiContext` module. Mount
 // it BEFORE `aiAdmin` (mirrors src/index.ts) so the malformed-body path exercises the real moved
@@ -34,18 +30,7 @@ import { aiSettings } from '../../libs/features/ai_settings/handlers.js';
 const mockDb = {
   prepare: jest.fn((sql: string) => {
     const isSites = /FROM sites/i.test(sql);
-    const isEndpoints = /FROM ai_endpoints/i.test(sql);
-    const row = isSites
-      ? { slug: 'nsk', business_name: 'NSK' }
-      : isEndpoints
-        ? {
-            id: 'ep-1',
-            endpoint_slug: 'hello',
-            kind: 'prompt',
-            wfp_script_name: null,
-            language: null,
-          }
-        : null;
+    const row = isSites ? { slug: 'nsk', business_name: 'NSK' } : null;
     return {
       bind: jest.fn(() => ({
         first: jest.fn().mockResolvedValue(row),
@@ -67,8 +52,6 @@ app.use('*', async (c, next) => {
 });
 // billing owns the moved /api/billing/credits/topup route; mount it ahead of aiAdmin.
 app.route('/', billing);
-// aiEndpoints owns the moved /api/sites/:siteId/ai-endpoints[/*] routes; mount ahead of aiAdmin.
-app.route('/', aiEndpoints);
 // aiContext owns the moved /api/sites/:siteId/ai/drive/select-folder (+ context-files) routes; mount ahead of aiAdmin.
 app.route('/', aiContext);
 // aiSettings owns the moved /api/sites/:siteId/ai-settings routes; mount ahead of aiAdmin.
@@ -99,8 +82,6 @@ function send(method: string, path: string) {
 describe('malformed JSON body is never a 5xx on no-catch ai_admin.ts handlers', () => {
   it.each([
     ['PUT', '/api/sites/site-1/ai-settings'],
-    ['POST', '/api/sites/site-1/ai-endpoints'],
-    ['PUT', '/api/sites/site-1/ai-endpoints/ep-1'],
     ['POST', '/api/billing/credits/topup'],
     ['POST', '/api/sites/site-1/ai/drive/select-folder'],
   ])('handles a malformed body to %s %s without a 5xx', async (method, path) => {

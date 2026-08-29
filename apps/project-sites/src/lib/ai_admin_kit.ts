@@ -2,13 +2,12 @@
  * @module lib/ai_admin_kit
  * @description Shared error/auth scaffolding for the AI admin route family.
  *
- * The authenticated AI-admin surface is split across three files that were all
+ * The authenticated AI-admin surface is split across two files that were both
  * extracted VERBATIM from the original `routes/ai_admin.ts` monolith
- * (route-decomposition installments 15 + 16):
+ * (route-decomposition installment 16):
  *
  * - `src/routes/ai_admin.ts`                     — form submissions, AI logs, chat,
  *   credits, team, org, API keys, MCP connections.
- * - `libs/features/ai_endpoints/handlers.ts`     — per-site AI endpoints CRUD + deploy.
  * - `libs/features/ai_context/handlers.ts`       — AI context files + Google Drive sync.
  *
  * Each of those files previously carried a BYTE-IDENTICAL copy of the same

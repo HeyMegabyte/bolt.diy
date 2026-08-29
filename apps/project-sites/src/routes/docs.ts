@@ -817,7 +817,6 @@ export function buildAppOverviewMarkdown(): string {
     '  - `/admin/analytics` — Workers Analytics Engine',
     '  - `/admin/forms` — form submissions + AI routing',
     '  - `/admin/traces` — AI logs (`ai-logs` redirects here)',
-    '  - `/admin/ai-endpoints` — custom AI endpoints',
     '  - `/admin/audit` — audit log',
     '  - `/admin/billing` — Stripe billing',
     '  - `/admin/settings` — settings + MCP + theme',

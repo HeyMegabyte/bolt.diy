@@ -812,12 +812,6 @@ const CHECK_REGISTRY: Readonly<Record<string, readonly E2eCheck[]>> = {
   ],
   token_burn_meter: [
     {
-      kind: 'browser',
-      label: 'AI Endpoints admin shell renders (passes today, flag-independent)',
-      selector: '[data-testid=ai-endpoints-page]',
-      url: '/admin/ai-endpoints',
-    },
-    {
       expectStatus: 404,
       kind: 'http',
       label: 'Burn endpoint gated — 404 when token_burn_meter OFF (default)',

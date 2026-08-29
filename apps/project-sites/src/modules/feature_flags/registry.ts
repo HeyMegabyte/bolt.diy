@@ -409,7 +409,7 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     default_enabled: false,
     default_rollout_percent: 0,
     description:
-      "Live monthly AI-token spend meter surfaced in the editor and the AI Endpoints admin section, tracking per-model burn against the tier cap.\n\n• Worker routes GET /api/usage/burn (used_usd, projected_monthly_usd, by_model, 80%/100% thresholds) and POST /api/usage/record, both behind requireFlag('token_burn_meter').\n• site-generation workflow gates its token accounting on the flag (services/build_budget.ts records feature_slug 'token_burn_meter').\n• The /admin/ai-endpoints section renders a spend-vs-cap budget meter tied to this feature.\n• Off (default) → both usage endpoints 404 (no existence leak).",
+      "Live monthly AI-token spend meter surfaced in the editor, tracking per-model burn against the tier cap.\n\n• Worker routes GET /api/usage/burn (used_usd, projected_monthly_usd, by_model, 80%/100% thresholds) and POST /api/usage/record, both behind requireFlag('token_burn_meter').\n• site-generation workflow gates its token accounting on the flag (services/build_budget.ts records feature_slug 'token_burn_meter').\n• Off (default) → both usage endpoints 404 (no existence leak).",
     key: 'token_burn_meter',
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',

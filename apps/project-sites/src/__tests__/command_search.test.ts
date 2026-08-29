@@ -74,7 +74,6 @@ describe('matchCommandCatalog — advertised routes must resolve (no admin-404 d
     '/admin/webhooks',
     '/admin/ai-logs',
     '/admin/audit',
-    '/admin/ai-endpoints',
     '/admin/super-admin',
     '/admin/system-services',
     '/admin/editor',

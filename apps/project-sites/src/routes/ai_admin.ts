@@ -4,9 +4,8 @@
  *
  * Mounted by `index.ts`. Every route requires both an `orgId` and a
  * `userId` on the request context — the {@link need} helper throws
- * `HTTPError(401)` when either is missing. Public counterparts (form
- * ingest, `/api/ai/:slug/:endpoint`) live in `forms.ts` +
- * `ai_endpoints_public.ts`.
+ * `HTTPError(401)` when either is missing. The public form-ingest
+ * counterpart lives in `forms.ts`.
  *
  * @packageDocumentation
  */
@@ -519,7 +518,6 @@ aiAdmin.post('/api/admin/org/export', async (c) => {
           'sites',
           'site_snapshots',
           'ai_site_settings',
-          'ai_endpoints',
           'ai_form_logs',
           'hostnames',
         ];

@@ -304,7 +304,7 @@ adminAi.post('/api/admin/ai/stream/palette', async (c) => {
   const systemPrompt = [
     "You are the AI assistant inside the Project Sites admin dashboard's command palette.",
     'Answer concisely (≤4 sentences).',
-    'When the user asks how to do something in the dashboard, suggest the specific admin route (e.g. /admin/forms, /admin/snapshots, /admin/billing, /admin/audit, /admin/ai-endpoints) AND offer to navigate them there in your response.',
+    'When the user asks how to do something in the dashboard, suggest the specific admin route (e.g. /admin/forms, /admin/snapshots, /admin/billing, /admin/audit) AND offer to navigate them there in your response.',
     ctxSite,
     ctxRoute,
   ]
@@ -573,7 +573,7 @@ adminAi.post('/api/admin/ai/stream/chat', async (c) => {
       : 'You are the AI assistant inside the Project Sites admin dashboard. Answer concisely (≤6 sentences unless asked for more).',
     'You can call dashboard tools by emitting EXACTLY this XML-style envelope inline in your response: <tool>{"name":"<tool_name>","args":{…}}</tool>. The user will see a confirmation card before any dashboard tool fires — never auto-execute.',
     'Available dashboard tools:',
-    '  - navigate({"to": "/admin/<route>"}) — push a router URL. Examples: /admin/forms, /admin/snapshots, /admin/billing, /admin/audit, /admin/ai-endpoints.',
+    '  - navigate({"to": "/admin/<route>"}) — push a router URL. Examples: /admin/forms, /admin/snapshots, /admin/billing, /admin/audit.',
     '  - set_theme({"theme": "dark" | "light"}) — flip the dashboard color scheme.',
     '  - open_help_topic({"topic": "<slug>"}) — open the shortcuts overlay or docs anchor.',
     'Always explain WHY you are suggesting a dashboard tool BEFORE emitting the envelope. Emit at most one dashboard tool per response.',

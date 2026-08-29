@@ -90,7 +90,6 @@ import { aiAdmin } from './routes/ai_admin.js';
 import { apiTokensAdmin } from './routes/api_tokens_admin.js'; // account psk_ token CRUD for /admin/api-tokens (flag: public_api)
 import { authSessions } from './routes/auth_sessions.js'; // custom-auth Active Sessions for /admin/auth-security (Better Auth is dark)
 import { authOrg } from './routes/auth_org.js'; // custom-auth Organization/Team for /admin/team (Better Auth is dark)
-import { aiEndpointsPublic } from './routes/ai_endpoints_public.js';
 import { mcpOauth } from './routes/mcp_oauth.js';
 import { envVarsRoutes } from './routes/env_vars.js';
 import { docs } from './routes/docs.js';
@@ -148,7 +147,6 @@ import { siteBySlug } from '../libs/features/site_by_slug/handlers.js'; // publi
 import { feedback } from '../libs/features/feedback/handlers.js'; // user feedback: POST/GET /api/feedback (submit rating + list approved testimonials) — extracted from api.ts (route-decomposition installment 13)
 import { auditLogs } from '../libs/features/audit_logs/handlers.js'; // audit-log read + editor-error ingest: GET /api/audit-logs + POST /api/audit-logs/editor-error — extracted from api.ts (route-decomposition installment 13)
 import { analytics } from '../libs/features/analytics/handlers.js'; // analytics: POST /api/analytics/track + GET /api/analytics/overview (from ai_admin.ts) + GET /api/analytics/:siteId (from api.ts) — extracted route-decomposition installment 14; MUST mount before both api and aiAdmin
-import { aiEndpoints } from '../libs/features/ai_endpoints/handlers.js'; // AI endpoint management (CRUD + deploy/logs/duplicate/ai-helper/suggest) for /api/sites/:siteId/ai-endpoints/* — extracted from ai_admin.ts (route-decomposition installment 15); MUST mount before both api and aiAdmin
 import { aiContext } from '../libs/features/ai_context/handlers.js'; // AI context/knowledge management (context files + Google Drive sync) for /api/sites/:siteId/{ai-chat/context-files,ai/context,ai/drive}/* — extracted from ai_admin.ts (route-decomposition installment 16); MUST mount before both api and aiAdmin
 import { aiSettings } from '../libs/features/ai_settings/handlers.js'; // per-site AI config + credit cap for /api/sites/:siteId/{ai-settings,ai-settings/improve,credit-cap} — extracted from ai_admin.ts (route-decomposition installment 18); MUST mount before both api and aiAdmin
 import { adminAi } from '../libs/features/admin_ai/handlers.js'; // admin AI assistant tools (ai-chat + trace-explain + NL search + 2 SSE streams) for /api/admin/{ai-chat,traces/:traceId/explain,search/ai,ai/stream/palette,ai/stream/chat} — extracted from ai_admin.ts (route-decomposition installment 18); MUST mount before both api and aiAdmin
@@ -772,11 +770,9 @@ app.route('/', autofill); // POST /api/sites/autofill — must come before api s
 app.route('/', assets); // Asset uploads + build-assets listing
 app.route('/', forms); // Public form ingest + auth-gated submissions/integrations CRUD
 app.route('/', analyticsRoutes); // Unified Analytics ingestion: POST /api/events (202 fast-ack) + /api/analytics-debug (Plane H)
-app.route('/', aiEndpointsPublic); // Public /api/ai/:slug/:endpoint dispatcher
 app.route('/', mcpOauth); // MCP OAuth start + callback (MailChimp/Stripe/Resend/HubSpot)
 app.route('/', envVarsRoutes); // /api/env-vars — per-org/site/MCP customizable env vars for AI + MCP dispatch
 app.route('/', analytics); // /api/analytics/{track,overview,:siteId} — analytics surface extracted from ai_admin.ts + api.ts (route-decomposition installment 14); MUST precede aiAdmin AND api so its /api/analytics/* routes win over both
-app.route('/', aiEndpoints); // /api/sites/:siteId/ai-endpoints/* — AI endpoint management (CRUD + deploy/logs/duplicate/ai-helper/suggest) extracted from ai_admin.ts (route-decomposition installment 15); MUST precede aiAdmin AND api
 app.route('/', aiContext); // /api/sites/:siteId/{ai-chat/context-files,ai/context,ai/drive}/* — AI context/knowledge management (context files + Google Drive sync) extracted from ai_admin.ts (route-decomposition installment 16); MUST precede aiAdmin AND api
 app.route('/', aiSettings); // /api/sites/:siteId/{ai-settings,ai-settings/improve,credit-cap} — per-site AI config + credit cap extracted from ai_admin.ts (route-decomposition installment 18); MUST precede aiAdmin AND api
 app.route('/', adminAi); // /api/admin/{ai-chat,traces/:traceId/explain,search/ai,ai/stream/palette,ai/stream/chat} — admin AI assistant tools (incl. SSE streaming) extracted from ai_admin.ts (route-decomposition installment 18); MUST precede aiAdmin AND api
