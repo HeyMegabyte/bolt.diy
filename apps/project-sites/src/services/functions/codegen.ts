@@ -10,7 +10,7 @@
  * Pure string generation — no esbuild/Node imports, so it is Jest-testable and
  * Workers-compatible.
  */
-import { filePathToRoutePattern } from './router.js';
+import { filePathToRoutePattern, isReservedFunctionRoute } from './router.js';
 
 /** Thrown when the `functions/` folder can't produce a valid router (e.g. a route collision). */
 export class FunctionsBuildError extends Error {
@@ -54,6 +54,12 @@ export function generateFunctionsWorkerEntry(
 
   for (const file of files) {
     const pattern = filePathToRoutePattern(file);
+    if (isReservedFunctionRoute(pattern)) {
+      throw new FunctionsBuildError(
+        `Reserved path: "${file}" maps to ${pattern}, which the platform owns — rename this file.`,
+        { pattern, file, reserved: true },
+      );
+    }
     const prior = seen.get(pattern);
     if (prior) {
       throw new FunctionsBuildError(

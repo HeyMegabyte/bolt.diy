@@ -102,6 +102,30 @@ export function filePathToRoutePattern(relPath: string): string {
 }
 
 /**
+ * `/api/*` prefixes the platform owns on child hosts — a `functions/` file may
+ * NOT define these (ADR-0035 §3). Enumerated from the current child-subdomain
+ * platform routes: `/api/contact-form/<slug>` (form hijack) + `/api/events`
+ * (app.js pageview beacon), plus the reserved `/api/_ps/*` namespace for future
+ * platform internals. Shared SSOT: build-time collision rejection (this module +
+ * codegen) AND the runtime reserved-path dispatch guard (Stage 3.1 site_serving).
+ * Reserved-path policy is a one-way door — never shrink this set silently.
+ */
+export const RESERVED_FUNCTION_PATH_PREFIXES = ['/api/contact-form', '/api/_ps', '/api/events'];
+
+/**
+ * Whether a route pattern falls under a platform-reserved `/api/*` prefix
+ * (exact match or a `/`-bounded descendant), so a user function can't shadow it.
+ *
+ * @example isReservedFunctionRoute('/api/contact-form/:slug') // true
+ * @example isReservedFunctionRoute('/api/eventsy')            // false (prefix substring only)
+ */
+export function isReservedFunctionRoute(pattern: string): boolean {
+  return RESERVED_FUNCTION_PATH_PREFIXES.some(
+    (prefix) => pattern === prefix || pattern.startsWith(prefix + '/'),
+  );
+}
+
+/**
  * Compile a single route pattern into a matcher with a specificity score.
  * Static segments score higher than dynamic; catch-all sorts last.
  */

@@ -13,6 +13,7 @@ import {
   handlerNameForMethod,
   selectHandler,
   resolveRequest,
+  isReservedFunctionRoute,
 } from '../router.js';
 import { createFunctionsFetchHandler } from '../runtime.js';
 import { generateFunctionsWorkerEntry, FunctionsBuildError } from '../codegen.js';
@@ -211,5 +212,36 @@ describe('generateFunctionsWorkerEntry (codegen)', () => {
         runtimeImportPath: '/abs/runtime.js',
       }),
     ).toThrow(FunctionsBuildError);
+  });
+  it('throws a build error when a file maps to a platform-reserved path', () => {
+    for (const reserved of ['api/contact-form.ts', 'api/_ps/beacon.ts', 'api/events.ts', 'api/contact-form/[slug].ts']) {
+      expect(() =>
+        generateFunctionsWorkerEntry([reserved], { runtimeImportPath: '/abs/runtime.js' }),
+      ).toThrow(FunctionsBuildError);
+    }
+  });
+  it('allows non-reserved paths that merely share a prefix substring', () => {
+    // /api/eventsy is NOT under the reserved /api/events
+    expect(() =>
+      generateFunctionsWorkerEntry(['api/eventsy.ts', 'api/quote.ts'], {
+        runtimeImportPath: '/abs/runtime.js',
+      }),
+    ).not.toThrow();
+  });
+});
+
+describe('isReservedFunctionRoute (platform-owned /api paths)', () => {
+  it('reserves the exact platform routes', () => {
+    expect(isReservedFunctionRoute('/api/contact-form')).toBe(true);
+    expect(isReservedFunctionRoute('/api/events')).toBe(true);
+  });
+  it('reserves anything under a reserved prefix', () => {
+    expect(isReservedFunctionRoute('/api/contact-form/:slug')).toBe(true);
+    expect(isReservedFunctionRoute('/api/_ps/anything/deep')).toBe(true);
+  });
+  it('does NOT reserve user routes that only share a prefix substring', () => {
+    expect(isReservedFunctionRoute('/api/eventsy')).toBe(false);
+    expect(isReservedFunctionRoute('/api/contact')).toBe(false);
+    expect(isReservedFunctionRoute('/api/quote')).toBe(false);
   });
 });
