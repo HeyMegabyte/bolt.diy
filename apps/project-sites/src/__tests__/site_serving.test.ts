@@ -292,6 +292,32 @@ describe('applyServedRouteTitle (SPA per-route <title> for the non-JS crawl)', (
     const out = applyServedRouteTitle(T(HOME), '/services/');
     expect(out).toContain('<title>Services — Ironside Strength &amp; Conditioning</title>');
   });
+
+  const HEAD = (t: string) =>
+    `<head><title>${t}</title><meta property="og:title" content="${t}"><meta name="twitter:title" content="${t}"></head>`;
+
+  it('mirrors the derived title to og:title + twitter:title (fixes homepage social title on sub-pages)', () => {
+    const out = applyServedRouteTitle(HEAD(HOME), '/services');
+    expect(out).toContain(
+      '<meta property="og:title" content="Services — Ironside Strength &amp; Conditioning">',
+    );
+    expect(out).toContain(
+      '<meta name="twitter:title" content="Services — Ironside Strength &amp; Conditioning">',
+    );
+  });
+
+  it('respects a deliberate per-page og:title (only rewrites the baked homepage value)', () => {
+    const html = `<head><title>${HOME}</title><meta property="og:title" content="Bespoke Services OG"></head>`;
+    const out = applyServedRouteTitle(html, '/services');
+    expect(out).toContain('content="Bespoke Services OG"');
+    expect(out).not.toContain('content="Services — Ironside');
+  });
+
+  it('tolerates content-before-property attribute order', () => {
+    const html = `<head><title>${HOME}</title><meta content="${HOME}" property="og:title"></head>`;
+    const out = applyServedRouteTitle(html, '/team');
+    expect(out).toContain('Team — Ironside Strength &amp; Conditioning');
+  });
 });
 
 describe('parseSitemapRoutes', () => {

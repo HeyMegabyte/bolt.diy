@@ -1171,11 +1171,49 @@ export function applyServedRouteTitle(html: string, requestPath: string): string
     .replace(/\b\w/g, (c) => c.toUpperCase())
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
   if (!label) return html;
   const next = `${label}${sep}${brand}`;
-  if (next === current) return html; // already per-route — no-op
-  return html.replace(/(<title[^>]*>)[\s\S]*?(<\/title>)/i, `$1${next}$2`);
+  let out = html;
+  if (next !== current) {
+    out = out.replace(/(<title[^>]*>)[\s\S]*?(<\/title>)/i, `$1${next}$2`);
+  }
+  // Mirror the per-route title to og:title + twitter:title — the same single-shell
+  // SPA gap leaves social shares of a sub-page carrying the HOMEPAGE title. Only a
+  // tag still holding the baked homepage title (`current`) is rewritten; a deliberate
+  // per-page value is respected.
+  out = rewriteServedMetaTitle(out, 'og:title', current, next);
+  out = rewriteServedMetaTitle(out, 'twitter:title', current, next);
+  return out;
+}
+
+/**
+ * Rewrite a single social-title `<meta>` tag's `content` to `toValue`, but ONLY
+ * when it currently equals `fromValue` (the baked homepage title) — a deliberate
+ * per-page value already set is left untouched. Attribute order (property/name vs
+ * content) is tolerated. Helper for {@link applyServedRouteTitle}.
+ *
+ * @param html - The served page HTML.
+ * @param prop - The meta identifier, e.g. `og:title` or `twitter:title`.
+ * @param fromValue - The value to match (the homepage `<title>`).
+ * @param toValue - The per-route title to write.
+ * @returns HTML with the matched meta tag's content rewritten, else unchanged.
+ */
+function rewriteServedMetaTitle(
+  html: string,
+  prop: string,
+  fromValue: string,
+  toValue: string,
+): string {
+  const tag = html.match(
+    new RegExp(`<meta\\b[^>]*\\b(?:property|name)=["']${prop}["'][^>]*>`, 'i'),
+  )?.[0];
+  if (!tag) return html;
+  const contentRe = /content=["']([^"']*)["']/i;
+  const cm = tag.match(contentRe);
+  if (!cm || cm[1].trim() !== fromValue) return html;
+  return html.replace(tag, tag.replace(contentRe, `content="${toValue}"`));
 }
 
 /**
