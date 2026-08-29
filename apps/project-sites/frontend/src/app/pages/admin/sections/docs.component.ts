@@ -330,41 +330,6 @@ export const ENDPOINT_META: Record<string, EndpointMeta> = {
     responseShape: `{ "data": FormSubmission[], "meta": { "total": 218 } }`,
   },
 
-  // ─── ai endpoints ───
-  'GET /api/sites/{siteId}/ai-endpoints': {
-    description:
-      "List custom AI endpoints attached to a site. Each endpoint maps an input schema to a prompt template + model, exposing a single callable URL at `{slug}.projectsites.dev/api/ai/{endpoint_slug}` for the site's own frontend.",
-    auth: 'yes',
-    responseShape: `{ "data": AiEndpoint[] }`,
-  },
-  'POST /api/sites/{siteId}/ai-endpoints': {
-    description:
-      'Create a new AI endpoint. Body takes `name`, `slug`, `system_prompt`, `input_schema` (Zod-JSON), `model` (`claude-sonnet-4-6` | `claude-haiku-4-5` | `gpt-4o-mini`), and optional `rate_limit_per_min`. Returns the new endpoint with its public invoke URL.',
-    auth: 'yes',
-    responseShape: `{ "data": { "id": "uuid", "slug": "summarize-review", "invoke_url": "https://{slug}.projectsites.dev/api/ai/summarize-review" } }`,
-    errorCodes: ['CONFLICT', 'VALIDATION_ERROR'],
-  },
-  'PUT /api/sites/{siteId}/ai-endpoints/{endpointId}': {
-    description:
-      'Update an existing AI endpoint — prompt, schema, model, or rate limit. The slug is immutable; rename means creating a new endpoint + deleting the old one. Versioned: every update creates an audit-log entry with the prompt diff.',
-    auth: 'yes',
-    responseShape: `{ "data": AiEndpoint }`,
-  },
-  'DELETE /api/sites/{siteId}/ai-endpoints/{endpointId}': {
-    description:
-      'Permanently delete an AI endpoint. The public invoke URL starts returning 404 immediately. Past invocations remain in the log table for 90 days.',
-    auth: 'yes',
-    responseShape: `{ "data": { "deleted_at": "ISO-8601" } }`,
-    errorCodes: ['NOT_FOUND'],
-  },
-  'POST /api/sites/{siteId}/ai-endpoints/{endpointId}/invoke': {
-    description:
-      'Server-side test invocation — runs the endpoint against a JSON input from inside the admin without leaving the dashboard. Returns the model output plus token usage + estimated cost. Useful for prompt tuning before exposing the public URL.',
-    auth: 'yes',
-    responseShape: `{ "data": { "output": "string|object", "tokens": { "input": 240, "output": 89 }, "cost_usd": 0.0021 } }`,
-    errorCodes: ['AI_GENERATION_ERROR'],
-  },
-
   // ─── mcp ───
   'GET /api/mcp/{provider}/connect': {
     description:

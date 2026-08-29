@@ -26,7 +26,6 @@ export const ADMIN_ROUTE_HINTS: AdminRouteHint[] = [
   { path: 'apps', label: 'Apps' },
   { path: 'docs', label: 'API Docs' },
   { path: 'traces', label: 'AI Traces' },
-  { path: 'ai-endpoints', label: 'AI Agents' },
   { path: 'settings', label: 'Settings' },
   { path: 'user', label: 'Account' },
   { path: 'logs', label: 'Logs' },

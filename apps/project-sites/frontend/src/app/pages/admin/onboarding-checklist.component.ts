@@ -113,7 +113,7 @@ export class OnboardingChecklistComponent implements OnInit {
     { id: 'connect-mcp',      title: 'Connect at least one MCP',      hint: 'MailChimp, Slack, Resend — the AI router uses these to dispatch',     route: '/admin/settings#mcp', done: false },
     { id: 'tune-router',      title: 'Edit the form router prompt',   hint: 'Forms tab — single prompt routes every submission',                  route: '/admin/forms',      done: false },
     { id: 'set-spend',        title: 'Set a spend alert',             hint: 'Get emailed if your AI credit balance drops below a threshold',       route: '/admin/billing',    done: false },
-    { id: 'install-appjs',    title: 'Drop app.js on your website',   hint: 'Press ⌘K → "Copy app.js install snippet"',                            route: '/admin/ai-endpoints', done: false },
+    { id: 'install-appjs',    title: 'Drop app.js on your website',   hint: 'Press ⌘K → "Copy app.js install snippet"',                            route: '/admin',           done: false },
     { id: 'invite-team',      title: 'Invite a teammate (optional)',  hint: 'Settings → Team — owner / editor / viewer roles',                    route: '/admin/settings#team', done: false },
   ]);
 

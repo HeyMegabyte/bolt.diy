@@ -444,36 +444,6 @@ export class ApiService {
     return this.get(`/sites/${siteId}/ai-logs`, { limit: limit.toString() });
   }
 
-  /** List a site's custom AI endpoints (user-defined AI-backed API routes) */
-  getAiEndpoints(siteId: string): Observable<{ data: AiEndpointRow[] }> {
-    return this.get(`/sites/${siteId}/ai-endpoints`);
-  }
-
-  /** Full detail for one endpoint (incl. the editable `files` map) */
-  getAiEndpointDetail(siteId: string, endpointId: string): Observable<{ data: AiEndpointDetail }> {
-    return this.get(`/sites/${siteId}/ai-endpoints/${endpointId}`);
-  }
-
-  updateAiEndpoint(
-    siteId: string,
-    endpointId: string,
-    body: Partial<AiEndpointDetail>,
-  ): Observable<{ data: AiEndpointDetail }> {
-    return this.put(`/sites/${siteId}/ai-endpoints/${endpointId}`, body);
-  }
-
-  /** Deploy an endpoint to its Worker-for-Platforms script */
-  deployAiEndpoint(siteId: string, endpointId: string): Observable<{ data: unknown }> {
-    return this.post(`/sites/${siteId}/ai-endpoints/${endpointId}/deploy`, {});
-  }
-
-  createAiEndpoint(
-    siteId: string,
-    body: { endpoint_slug: string; display_name?: string; language?: string },
-  ): Observable<{ data: AiEndpointRow }> {
-    return this.post(`/sites/${siteId}/ai-endpoints`, body);
-  }
-
   /** The full app catalog (~68 self-hostable apps) — browsable, install-able */
   getAppCatalog(): Observable<{ apps: CatalogApp[]; count: number }> {
     return this.get(`/apps/catalog`);
@@ -1236,36 +1206,6 @@ export interface AppInstance {
   status: string;
   last_started_at?: string | null;
   last_error?: string | null;
-  created_at: string;
-  updated_at?: string | null;
-}
-
-/** Full editable detail for one AI endpoint (from the detail GET). */
-export interface AiEndpointDetail {
-  id: string;
-  endpoint_slug: string;
-  display_name?: string | null;
-  description?: string | null;
-  language?: string | null;
-  auth_mode?: string | null;
-  files: Record<string, string>;
-  deploy_status?: string | null;
-}
-
-/** A user-defined AI endpoint (custom AI-backed API route) on a site. */
-export interface AiEndpointRow {
-  id: string;
-  endpoint_slug: string;
-  display_name?: string | null;
-  description?: string | null;
-  kind?: string | null;
-  method?: string | null;
-  language?: string | null;
-  worker_language?: string | null;
-  enabled?: number | boolean | null;
-  auth_mode?: string | null;
-  deploy_status?: string | null;
-  deployed_at?: string | null;
   created_at: string;
   updated_at?: string | null;
 }

@@ -451,14 +451,6 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./pages/admin/sections/audit.component').then((m) => m.AdminAuditComponent),
       },
-      {
-        // AI Endpoints — standalone section (AdminAiEndpointsComponent); Forms +
-        // onboarding checklist + command palette link here for the app.js install.
-        // Route was lost → 404. Restore it (`compact` input optional).
-        path: 'ai-endpoints',
-        loadComponent: () =>
-          import('./pages/admin/sections/ai-endpoints.component').then((m) => m.AdminAiEndpointsComponent),
-      },
       // ─── Multimodal AI Site Copilot (#25) ────────────────────────
       // Per-site copilot admin: enable toggle + intent distribution + sessions.
       // Flag-gated: multimodal_copilot. Shows gate notice when off.

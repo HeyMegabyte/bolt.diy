@@ -16,7 +16,7 @@ export const ADMIN_SECTION_LABELS: Readonly<Record<string, string>> = {
   '': 'Dashboard', admin: 'Dashboard', editor: 'Editor',
   snapshots: 'Snapshots', analytics: 'Analytics',
   forms: 'Forms', traces: 'AI Traces', 'ai-logs': 'AI Traces',
-  'ai-endpoints': 'AI Agents', domains: 'Domains', docs: 'Docs',
+  domains: 'Domains', docs: 'Docs',
   user: 'User Settings', apps: 'Apps', instances: 'App Instances',
   billing: 'Billing', settings: 'Settings',
   voice: 'Voice',

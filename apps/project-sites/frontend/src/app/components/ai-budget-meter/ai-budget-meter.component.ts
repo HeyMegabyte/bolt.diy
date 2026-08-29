@@ -19,8 +19,8 @@ interface OrgBudgetResponse {
 
 /**
  * AI budget meter — the client for the `token_burn_meter` feature. Surfaces the
- * org's AI spend against its period cap (with the budget killswitch state) atop
- * the AI Agents page, so an owner sees their burn before a request is blocked.
+ * org's AI spend against its period cap (with the budget killswitch state), so
+ * an owner sees their burn before a request is blocked.
  *
  * @remarks
  * The API IS the flag gate: `GET /api/usage/budget` returns 404 when the

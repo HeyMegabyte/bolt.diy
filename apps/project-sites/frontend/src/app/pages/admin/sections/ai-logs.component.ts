@@ -480,15 +480,6 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
                           <div class="det-actions">
                             <button
                               type="button"
-                              class="det-action"
-                              [disabled]="!canRerunOf(d)"
-                              [title]="canRerunOf(d) ? 'Re-invoke this endpoint with the same input' : 'Cannot re-run: input or endpoint not captured'"
-                              [attr.data-testid]="'traces-rerun-' + row.original.id"
-                              (click)="rerunTrace(d)">
-                              <span aria-hidden="true">↻</span> Re-run
-                            </button>
-                            <button
-                              type="button"
                               class="det-action violet"
                               [disabled]="explainingFor(row.original.id)"
                               [attr.data-testid]="'traces-explain-' + row.original.id"
@@ -505,14 +496,6 @@ const NUMBER_FORMATTER = new Intl.NumberFormat('en-US');
                               [attr.data-testid]="'traces-copy-json-' + row.original.id"
                               (click)="copyTrace(d)">
                               <span aria-hidden="true">⧉</span> Copy JSON
-                            </button>
-                            <button
-                              type="button"
-                              class="det-action ghost"
-                              [disabled]="!d.endpoint_slug"
-                              [attr.data-testid]="'traces-open-endpoint-' + row.original.id"
-                              (click)="openEndpoint(d)">
-                              <span aria-hidden="true">↗</span> Open endpoint
                             </button>
                           </div>
                         </div>
@@ -1393,32 +1376,6 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
     });
   }
 
-  /**
-   * Replay the trace by POSTing its captured input back to its endpoint slug.
-   * Disabled when either field is missing — the rerun button surfaces that
-   * via a tooltip and a disabled state.
-   */
-  rerunTrace(detail: TraceDetail): void {
-    if (!detail.endpoint_slug || !detail.input_json) {
-      this.toast.warning('Cannot re-run: input or endpoint missing');
-      return;
-    }
-    const s = this.state.selectedSite();
-    if (!s) return;
-    let payload: unknown;
-    try { payload = JSON.parse(detail.input_json); } catch { payload = detail.input_json; }
-    this.api.post<{ data?: unknown }>(`/sites/${s.id}/ai-endpoints/${detail.endpoint_slug}/invoke`, payload as Record<string, unknown>, { silent: true }).subscribe({
-      next: () => { this.toast.success('Endpoint re-run queued — refreshing traces'); setTimeout(() => this.reload(), 800); },
-      error: () => this.toast.error('Re-run failed'),
-    });
-  }
-
-  /** Navigate to the AI Endpoints page with the trace's endpoint highlighted. */
-  openEndpoint(detail: TraceDetail): void {
-    if (!detail.endpoint_slug) return;
-    void this.router.navigate(['/admin/ai-endpoints'], { queryParams: { slug: detail.endpoint_slug } });
-  }
-
   // ─── Hotkeys: `/` focuses the filter input (mirrors sidebar pattern) ─
   @HostListener('document:keydown', ['$event'])
   onKeydown(ev: KeyboardEvent): void {
@@ -1517,11 +1474,6 @@ export class AdminAiLogsComponent implements OnInit, OnDestroy {
   /** Whether an explain request is in flight for this trace id. */
   explainingFor(id: string): boolean {
     return this.explainLoading().has(id);
-  }
-
-  /** Re-run is possible only when both the endpoint slug and input were captured. */
-  canRerunOf(d: TraceDetail): boolean {
-    return !!(d.endpoint_slug && d.input_json);
   }
 
   /** The output body: text first, then JSON; '' when neither was captured. */

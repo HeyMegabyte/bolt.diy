@@ -61,26 +61,6 @@ describe('CommandPaletteActionsService (Cmd+K command set)', () => {
     expect(go).toHaveBeenCalledWith('/admin/editor');
   });
 
-  // Naming consistency (defect found via surf 2026-08-27): the section was renamed
-  // "AI Endpoints" → "AI Agents" (admin-section-labels + the page <h1> both say "AI Agents"),
-  // but the command-palette nav/action labels still said "AI Endpoints" — a user ran
-  // "Go to AI Endpoints" and landed on a page titled "AI Agents". The palette label MUST
-  // match the destination's canonical name, while KEEPING the old term "endpoint" as a
-  // search keyword so power-users who know the old name still find it across the rename.
-  it('AI Agents palette entries match the renamed section + keep "endpoint" discoverable', () => {
-    const { actions, go } = build();
-    const nav = actions.find((a) => a.id === 'nav-endpoints');
-    expect(nav).withContext('AI Agents nav entry exists').toBeTruthy();
-    expect(nav!.title).withContext('label matches the renamed section, not stale "AI Endpoints"').toBe('Go to AI Agents');
-    expect(nav!.keywords).withContext('old term stays searchable across the rename').toContain('endpoint');
-    nav!.run();
-    expect(go).toHaveBeenCalledWith('/admin/ai-endpoints');
-
-    const add = actions.find((a) => a.id === 'act-add-endpoint');
-    expect(add!.title).withContext('action label uses the "agent" noun, not "endpoint"').toBe('Add AI agent');
-    expect(add!.keywords).withContext('old term stays searchable').toContain('endpoint');
-  });
-
   it('wires a sign-out command to the signOut dep', () => {
     const { actions, signOut } = build();
     const out = actions.find((a) => /sign\s*out/i.test(a.title));

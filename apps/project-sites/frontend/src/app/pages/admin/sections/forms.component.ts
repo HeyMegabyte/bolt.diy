@@ -467,7 +467,7 @@ const POLL_INTERVAL_MS = 10_000;
               <path d="M4 4h16v12H5.5L4 18z"/><path d="M8 9h8M8 13h5"/>
             </svg>
             <h4 class="empty-title">No submissions yet</h4>
-            <p class="empty-body">Drop the snippet on your site and form replies will stream in here. See <a routerLink="/admin/ai-endpoints" class="text-primary underline">AI Agents</a> for the app.js install.</p>
+            <p class="empty-body">Drop the snippet on your site and form replies will stream in here. Press ⌘K → "Copy app.js install snippet" to get started.</p>
             <!--
               Card-style CTA pulled out of the page header so the call-to-action
               to open the Prompt Designer is front-and-centre while there are no

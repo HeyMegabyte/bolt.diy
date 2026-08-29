@@ -2,8 +2,8 @@ import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { EmptyStateComponent } from './empty-state.component';
 
 /**
- * The admin-local empty-state primitive is shared by 5 sections (ai-endpoints,
- * apps, apps-instances, domains, marketplace). Bring it to a11y parity with the
+ * The admin-local empty-state primitive is shared by admin sections (apps,
+ * apps-instances, domains, marketplace). Bring it to a11y parity with the
  * components/states kit: the root is a status region (announces the empty
  * condition once) and the decorative icon glyph is aria-hidden (so SR users
  * don't hear the raw emoji/glyph — e.g. "▦" — before the real title).

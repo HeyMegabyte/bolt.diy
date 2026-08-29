@@ -290,7 +290,7 @@ describe('AdminAiLogsComponent (TanStack table state)', () => {
 });
 
 /**
- * Double-toast guard: explainTrace + rerunTrace each show their OWN specific
+ * Double-toast guard: explainTrace shows its OWN specific
  * toast.error in the error callback, so the api.post must pass {silent:true} or
  * a failure fires TWO toasts (generic ApiService + the section-specific one).
  */
@@ -316,14 +316,6 @@ describe('AdminAiLogsComponent (mutations are {silent} — no double-toast)', ()
     const c = makePost(post);
     c.explainTrace('t1');
     expect(post).toHaveBeenCalledWith('/admin/traces/t1/explain', {}, { silent: true });
-  });
-
-  it('rerunTrace POSTs {silent:true}', () => {
-    const post = jasmine.createSpy('post').and.returnValue(of({ data: {} }));
-    const c = makePost(post);
-    c.rerunTrace({ id: 't1', endpoint_slug: 'greet', input_json: '{"a":1}' } as never);
-    expect(post.calls.mostRecent().args[0]).toBe('/sites/s1/ai-endpoints/greet/invoke');
-    expect(post.calls.mostRecent().args[2]).toEqual({ silent: true });
   });
 });
 
