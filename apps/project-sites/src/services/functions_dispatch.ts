@@ -4,12 +4,13 @@
  * Pure resolution of what `site_serving` should do with a CHILD-HOST request:
  * hand it to the platform's own handler (reserved paths), dispatch it to the
  * site's bundled `functions/` worker on Workers-for-Platforms, or fall through
- * to normal R2 static / 404 serving. Kept pure (no env/DB) so the ordering is
- * unit-tested in isolation; the caller resolves the two signals —
- * `entitled` from `getOrgEntitlements(...).customEndpoints` and
- * `hasDeployedScript` from the deploy signal the publish path (Stage 2.2)
- * records. Reuses the shared reserved-prefix + script-name SSOT so the runtime
- * dispatch guard can never drift from the build-time collision check.
+ * to normal R2 static / 404 serving. The core decision (`resolveFunctionsDispatch`)
+ * is PURE so the ordering is unit-tested in isolation; `maybeDispatchFunctions`
+ * (below) is the impure orchestrator the `site_serving` catch-all calls — it
+ * resolves the two signals (`entitled` from `getOrgEntitlements(...).customEndpoints`
+ * and `hasDeployedScript` from the deploy signal Stage 2.2 records) and dispatches.
+ * Reuses the shared reserved-prefix + script-name SSOT so the runtime dispatch
+ * guard can never drift from the build-time collision check.
  *
  * Ordering (first match wins):
  *   1. not `/api/*`                      → passthrough (static content)
@@ -18,8 +19,11 @@
  *   4. otherwise                         → passthrough (404 not 403 — never
  *      reveal a gated capability, per the feature-flags doctrine)
  */
+import type { Env } from '../types/env.js';
+import { getOrgEntitlements } from './billing.js';
+import { siteHasDeployedFunctions } from './functions_deploy.js';
 import { isReservedFunctionRoute } from './functions/router.js';
-import { siteFunctionsScriptName } from './wfp_dispatch.js';
+import { dispatchToUserWorker, siteFunctionsScriptName } from './wfp_dispatch.js';
 
 /** What `site_serving` should do with a child-host request. */
 export type FunctionsDispatchDecision =
@@ -63,4 +67,53 @@ export function resolveFunctionsDispatch(input: {
     return { action: 'dispatch', scriptName: siteFunctionsScriptName(input.siteId) };
   }
   return { action: 'passthrough' };
+}
+
+/**
+ * Impure dispatch orchestrator the `site_serving` catch-all calls after
+ * resolving the site: for a CHILD-HOST request, resolve the entitlement +
+ * deployed-script signals and, if {@link resolveFunctionsDispatch} says so, hand
+ * the request to the site's WfP `functions/` worker.
+ *
+ * Hot-path discipline: the cheap checks run first (a non-`/api/*` or reserved
+ * path returns immediately with ZERO D1 reads), and the deployed-script gate is
+ * read BEFORE the entitlement — a site with no functions worker (the common
+ * case) costs exactly one D1 read, never the entitlement lookup or a dispatch.
+ *
+ * Fail-soft: any error — a D1 read, the entitlement lookup, or the dispatch
+ * itself — returns `null` so the caller falls through to normal R2 / 404 serving.
+ * A functions failure must NEVER take down static site serving.
+ *
+ * @returns the worker's `Response` when dispatched, else `null` (passthrough)
+ * @remarks Impure — reads D1 + issues a subrequest to the dispatch namespace.
+ * @example
+ * const fn = await maybeDispatchFunctions(env, { siteId, orgId }, req, path);
+ * if (fn) return fn; // else fall through to serveSiteFromR2
+ */
+export async function maybeDispatchFunctions(
+  env: Env,
+  site: { siteId: string; orgId: string },
+  request: Request,
+  pathname: string,
+): Promise<Response | null> {
+  // Cheap pre-gate — only non-reserved /api/* paths are dispatch candidates;
+  // everything else (static assets, reserved platform routes) skips all D1 reads.
+  if (!pathname.startsWith('/api/') || isReservedFunctionRoute(pathname)) return null;
+  try {
+    // Deployed-script gate first: most sites have none → one D1 read → passthrough,
+    // never paying for the entitlement lookup or a doomed dispatch.
+    if (!(await siteHasDeployedFunctions(env.DB, site.siteId))) return null;
+    const entitled = (await getOrgEntitlements(env.DB, site.orgId)).customEndpoints;
+    const decision = resolveFunctionsDispatch({
+      pathname,
+      siteId: site.siteId,
+      entitled,
+      hasDeployedScript: true,
+    });
+    if (decision.action !== 'dispatch') return null;
+    return await dispatchToUserWorker(env, decision.scriptName, request);
+  } catch {
+    // Fail-soft: a functions failure must never break static serving.
+    return null;
+  }
 }

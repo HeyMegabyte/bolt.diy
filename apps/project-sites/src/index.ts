@@ -181,6 +181,7 @@ import { cmdkAiActionsRouter } from '../libs/features/cmdk_ai_actions/handlers.j
 import { proxyToContainer } from './services/container_dispatcher.js';
 import { resolveAppHost } from './services/app_host_resolver.js';
 import { getContentType, resolveSite, serveSiteFromR2 } from './services/site_serving.js';
+import { maybeDispatchFunctions } from './services/functions_dispatch.js'; // Stage 3.1: child-host /api/* → site's WfP functions worker (ADR-0035 §30)
 import { dbQueryOne, dbUpdate } from './services/db.js';
 import { registerAllPrompts } from './services/ai_workflows.js';
 import { DOMAINS, escapeHtml } from '@project-sites/shared';
@@ -1312,8 +1313,33 @@ a{color:#00e5ff;text-decoration:none}a:hover{text-decoration:underline}
 // API-shape tests entered the executed set. Registered AFTER every /api route
 // mount and BEFORE the site-serving catch-all, so only truly-unknown API
 // paths land here.
-app.all('/api/*', (c) =>
-  c.json(
+app.all('/api/*', async (c) => {
+  // ── Functions dispatch (ADR-0035 §30) ──
+  // On a CHILD-SITE host, an unmatched /api/* may be a code-defined endpoint —
+  // the site's functions/ worker on WfP (reserved platform routes like
+  // /api/contact-form already matched above). This guard fires for /api/* on
+  // ALL hosts and precedes the site-serving catch-all, so the dispatch attempt
+  // belongs HERE. Skip platform hosts (base/www/localhost) so their unmatched
+  // /api/* pays no extra resolve; maybeDispatchFunctions is a no-op (one D1 read)
+  // for child sites without a deployed functions worker.
+  const hostname = (c.req.header('host') ?? '').toLowerCase();
+  const isPlatformHost =
+    hostname === DOMAINS.SITES_BASE ||
+    hostname === `www.${DOMAINS.SITES_BASE}` ||
+    hostname.startsWith('localhost');
+  if (!isPlatformHost) {
+    const site = await resolveSite(c.env, c.env.DB, hostname);
+    if (site) {
+      const fnResponse = await maybeDispatchFunctions(
+        c.env,
+        { siteId: site.site_id, orgId: site.org_id },
+        c.req.raw,
+        new URL(c.req.url).pathname,
+      );
+      if (fnResponse) return fnResponse;
+    }
+  }
+  return c.json(
     {
       error: {
         code: 'NOT_FOUND',
@@ -1322,8 +1348,8 @@ app.all('/api/*', (c) =>
       },
     },
     404,
-  ),
-);
+  );
+});
 
 // ─── Site Serving (catch-all for subdomain routing) ──────────
 
