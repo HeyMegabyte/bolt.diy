@@ -214,7 +214,12 @@ describe('generateFunctionsWorkerEntry (codegen)', () => {
     ).toThrow(FunctionsBuildError);
   });
   it('throws a build error when a file maps to a platform-reserved path', () => {
-    for (const reserved of ['api/contact-form.ts', 'api/_ps/beacon.ts', 'api/events.ts', 'api/contact-form/[slug].ts']) {
+    for (const reserved of [
+      'api/contact-form.ts',
+      'api/_ps/beacon.ts',
+      'api/events.ts',
+      'api/contact-form/[slug].ts',
+    ]) {
       expect(() =>
         generateFunctionsWorkerEntry([reserved], { runtimeImportPath: '/abs/runtime.js' }),
       ).toThrow(FunctionsBuildError);
