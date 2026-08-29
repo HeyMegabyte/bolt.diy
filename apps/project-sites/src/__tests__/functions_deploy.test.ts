@@ -19,10 +19,7 @@ jest.mock('../services/wfp_dispatch.js', () => ({
 jest.mock('../services/billing.js', () => ({ getOrgEntitlements: jest.fn() }));
 jest.mock('../services/db.js', () => ({ dbUpdate: jest.fn(), dbQueryOne: jest.fn() }));
 
-import {
-  deploySiteFunctions,
-  siteHasDeployedFunctions,
-} from '../services/functions_deploy.js';
+import { deploySiteFunctions, siteHasDeployedFunctions } from '../services/functions_deploy.js';
 import { getOrgEntitlements } from '../services/billing.js';
 import {
   isWfpConfigured,
