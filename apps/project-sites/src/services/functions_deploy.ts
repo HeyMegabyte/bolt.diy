@@ -16,6 +16,7 @@
 import type { Env } from '../types/env.js';
 import { getOrgEntitlements } from './billing.js';
 import { resolveEnvVarsForFunctions } from './ai_env_vars.js';
+import { signFunctionToken } from './functions/internal.js';
 import { dbUpdate, dbQueryOne } from './db.js';
 import {
   isWfpConfigured,
@@ -96,6 +97,20 @@ export async function deploySiteFunctions(
   // prefixes `sites-data/<siteId>/` so the raw bucket is never reachable. Same
   // narrow-cast pattern (avoids the concurrent-dirty `env.ts`). Absent → no env.R2.
   const r2BucketName = (env as unknown as { FUNCTIONS_R2_BUCKET?: string }).FUNCTIONS_R2_BUCKET;
+  // Stage 4.1(d) — env.AI: sign a per-site token (HMAC of siteId) + the platform
+  // internal URL the shim POSTs to (/api/_ps/ai/run). Both from cast-read config
+  // (env.ts concurrent-dirty). Absent secret/url → no token → no env.AI (fail-soft).
+  const fnUrl = (env as unknown as { FUNCTIONS_INTERNAL_URL?: string }).FUNCTIONS_INTERNAL_URL;
+  const fnSecret = (env as unknown as { FUNCTIONS_INTERNAL_SECRET?: string })
+    .FUNCTIONS_INTERNAL_SECRET;
+  let fnToken: string | undefined;
+  if (fnSecret && fnUrl) {
+    try {
+      fnToken = await signFunctionToken(fnSecret, opts.siteId);
+    } catch {
+      /* fail-soft — deploy without env.AI rather than block the publish */
+    }
+  }
 
   // Good build → upload. An upload failure leaves the previous script in place
   // (the PUT never overwrote), so last-good is preserved either way. Preview
@@ -106,6 +121,8 @@ export async function deploySiteFunctions(
     secretsJson,
     kvNamespaceId,
     r2BucketName,
+    fnToken,
+    fnUrl,
   });
   if (res.ok) {
     if (!preview) {

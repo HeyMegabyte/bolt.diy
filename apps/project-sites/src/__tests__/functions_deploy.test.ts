@@ -19,6 +19,9 @@ jest.mock('../services/wfp_dispatch.js', () => ({
 jest.mock('../services/billing.js', () => ({ getOrgEntitlements: jest.fn() }));
 jest.mock('../services/db.js', () => ({ dbUpdate: jest.fn(), dbQueryOne: jest.fn() }));
 jest.mock('../services/ai_env_vars.js', () => ({ resolveEnvVarsForFunctions: jest.fn() }));
+jest.mock('../services/functions/internal.js', () => ({
+  signFunctionToken: jest.fn(async (secret: string, siteId: string) => `${siteId}.sig-${secret}`),
+}));
 
 import {
   deploySiteFunctions,
@@ -29,6 +32,7 @@ import {
 } from '../services/functions_deploy.js';
 import { getOrgEntitlements } from '../services/billing.js';
 import { resolveEnvVarsForFunctions } from '../services/ai_env_vars.js';
+import { signFunctionToken } from '../services/functions/internal.js';
 import {
   isWfpConfigured,
   uploadSiteFunctionsWorker,
@@ -44,6 +48,7 @@ const mockDelete = deleteSiteFunctionsWorker as unknown as jest.Mock;
 const mockDbUpdate = dbUpdate as unknown as jest.Mock;
 const mockQueryOne = dbQueryOne as unknown as jest.Mock;
 const mockResolveSecrets = resolveEnvVarsForFunctions as unknown as jest.Mock;
+const mockSign = signFunctionToken as unknown as jest.Mock;
 
 const env = { DB: {} } as unknown as Env;
 const entitled = (v: boolean) => mockEnt.mockResolvedValue({ customEndpoints: v });
@@ -56,6 +61,7 @@ beforeEach(() => {
   mockDbUpdate.mockReset().mockResolvedValue({ error: null, changes: 1 });
   mockQueryOne.mockReset();
   mockResolveSecrets.mockReset().mockResolvedValue({});
+  mockSign.mockClear(); // clear calls, KEEP the mocked impl (a mockReset would drop it)
 });
 
 describe('deploySiteFunctions', () => {
@@ -301,6 +307,36 @@ describe('deploySiteFunctions', () => {
     });
     const opts = mockUpload.mock.calls.at(-1)![3] as { r2BucketName?: string };
     expect(opts.r2BucketName).toBe('bkt-prod');
+  });
+
+  // Stage 4.1(d) — env.AI: sign + pass a per-site token + the internal URL.
+  it('signs + passes fnToken + fnUrl when the internal secret + url are set', async () => {
+    entitled(true);
+    const envAi = {
+      DB: {},
+      FUNCTIONS_INTERNAL_SECRET: 'sek',
+      FUNCTIONS_INTERNAL_URL: 'https://p.test',
+    } as unknown as Env;
+    await deploySiteFunctions(envAi, {
+      siteId: 'abc',
+      orgId: 'org1',
+      build: { ok: true, script: 's' },
+    });
+    expect(mockSign).toHaveBeenCalledWith('sek', 'abc');
+    const opts = mockUpload.mock.calls.at(-1)![3] as { fnToken?: string; fnUrl?: string };
+    expect(opts.fnToken).toBe('abc.sig-sek');
+    expect(opts.fnUrl).toBe('https://p.test');
+  });
+
+  it('passes NO fnToken when the internal secret is unset (env.AI not configured)', async () => {
+    entitled(true);
+    await deploySiteFunctions(env, {
+      siteId: 'abc',
+      orgId: 'org1',
+      build: { ok: true, script: 's' },
+    });
+    const opts = mockUpload.mock.calls.at(-1)![3] as { fnToken?: string };
+    expect(opts.fnToken).toBeUndefined();
   });
 });
 

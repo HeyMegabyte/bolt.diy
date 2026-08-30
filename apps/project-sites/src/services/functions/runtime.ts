@@ -137,6 +137,40 @@ export function makeScopedR2(bucket: ScopedR2Backing, siteId: string): ScopedR2B
   };
 }
 
+/** The `env.AI` facade — a debit-then-call over the platform internal endpoint. */
+export interface ScopedAI {
+  run(model: string, inputs?: unknown): Promise<unknown>;
+}
+
+/**
+ * `env.AI` — a METERED Workers-AI facade (ADR-0035 §6/§8, Stage 4.1(d)). Rather
+ * than a RAW (unmetered) `ai` binding, `run()` POSTs the platform's signed internal
+ * endpoint (`__PS_FN_URL` + `/api/_ps/ai/run`) with the per-site token; the platform
+ * checks credits, runs the model, and debits. Throws a clear Error when out of
+ * credits / on any non-2xx. Pure over `fetch`.
+ *
+ * @param token - the per-site function token (`__PS_FN_TOKEN`, `<siteId>.<hmac>`)
+ * @param internalUrl - the platform internal base (`__PS_FN_URL`)
+ * @example await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', { prompt: 'hi' })
+ */
+export function makeScopedAI(token: string, internalUrl: string): ScopedAI {
+  return {
+    run: async (model, inputs) => {
+      const res = await fetch(`${internalUrl}/api/_ps/ai/run`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+        body: JSON.stringify({ model, inputs: inputs ?? {} }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        result?: unknown;
+        error?: { message?: string };
+      };
+      if (!res.ok) throw new Error(data?.error?.message || `env.AI.run failed (${res.status})`);
+      return data.result;
+    },
+  };
+}
+
 /**
  * Build the SCOPED env every user handler receives (ADR-0035 §6, Stage 4.1).
  *
@@ -192,6 +226,15 @@ export function buildFunctionsEnv(rawEnv: unknown): Record<string, unknown> {
   // site can NEVER read/write another site's objects. Absent bindings → no env.R2.
   if (env.__PS_R2 && siteId) {
     scoped.R2 = makeScopedR2(env.__PS_R2 as ScopedR2Backing, siteId);
+  }
+
+  // Stage 4.1(d) — env.AI: a metered Workers-AI facade over the platform's signed
+  // internal endpoint (`__PS_FN_TOKEN` + `__PS_FN_URL`). No raw `ai` binding → every
+  // call is credit-debited server-side. Absent bindings → no env.AI (fail-soft).
+  const fnToken = typeof env.__PS_FN_TOKEN === 'string' ? env.__PS_FN_TOKEN : '';
+  const fnUrl = typeof env.__PS_FN_URL === 'string' ? env.__PS_FN_URL : '';
+  if (fnToken && fnUrl) {
+    scoped.AI = makeScopedAI(fnToken, fnUrl);
   }
 
   return scoped;

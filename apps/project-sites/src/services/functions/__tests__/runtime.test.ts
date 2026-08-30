@@ -6,7 +6,7 @@
  * later env.KV/R2/AI/DATA shims plug into), and passes the rest through. Fail-soft
  * on a malformed/absent/non-object blob (→ empty SECRETS, never a throw). Pure — no I/O.
  */
-import { buildFunctionsEnv, makeScopedKV, makeScopedR2 } from '../runtime.js';
+import { buildFunctionsEnv, makeScopedKV, makeScopedR2, makeScopedAI } from '../runtime.js';
 
 /** A recording KV backing — captures the (prefixed) keys the facade forwards. */
 function fakeKv() {
@@ -150,6 +150,20 @@ describe('buildFunctionsEnv', () => {
   it('no env.R2 when the R2 binding is absent', () => {
     expect(buildFunctionsEnv({ __PS_SITE_ID: 'abc' }).R2).toBeUndefined();
   });
+
+  // ── Stage 4.1(d) — env.AI wiring ──
+  it('exposes env.AI when __PS_FN_TOKEN + __PS_FN_URL are present', () => {
+    const env = buildFunctionsEnv({ __PS_FN_TOKEN: 'abc.sig', __PS_FN_URL: 'https://p.test' });
+    expect(env.AI).toBeDefined();
+    expect(typeof (env.AI as { run: unknown }).run).toBe('function');
+    expect(env.__PS_FN_TOKEN).toBeUndefined(); // internal bindings stripped
+    expect(env.__PS_FN_URL).toBeUndefined();
+  });
+
+  it('no env.AI when the token or the url is missing', () => {
+    expect(buildFunctionsEnv({ __PS_FN_TOKEN: 'abc.sig' }).AI).toBeUndefined();
+    expect(buildFunctionsEnv({ __PS_FN_URL: 'https://p.test' }).AI).toBeUndefined();
+  });
 });
 
 describe('makeScopedKV (Stage 4.1b — per-site key isolation)', () => {
@@ -227,5 +241,40 @@ describe('makeScopedR2 (Stage 4.1c — per-site object isolation)', () => {
       ['get', 'sites-data/siteA/k'],
       ['get', 'sites-data/siteB/k'],
     ]);
+  });
+});
+
+describe('makeScopedAI (Stage 4.1d — metered debit-then-call)', () => {
+  const realFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = realFetch;
+  });
+
+  it('POSTs /api/_ps/ai/run with the Bearer token + returns the result', async () => {
+    const calls: [string, RequestInit | undefined][] = [];
+    global.fetch = (async (url: string, init?: RequestInit) => {
+      calls.push([url, init]);
+      return new Response(JSON.stringify({ result: { text: 'ok' }, credits_remaining: 4 }), {
+        status: 200,
+      });
+    }) as unknown as typeof fetch;
+
+    const out = await makeScopedAI('site-abc.sig', 'https://p.test').run('@cf/x', { prompt: 'hi' });
+    expect(out).toEqual({ text: 'ok' });
+    expect(calls[0][0]).toBe('https://p.test/api/_ps/ai/run');
+    const init = calls[0][1]!;
+    expect(init.method).toBe('POST');
+    expect((init.headers as Record<string, string>).authorization).toBe('Bearer site-abc.sig');
+    expect(JSON.parse(init.body as string)).toEqual({ model: '@cf/x', inputs: { prompt: 'hi' } });
+  });
+
+  it('throws the platform error message on a non-2xx (e.g. 402 out of credits)', async () => {
+    global.fetch = (async () =>
+      new Response(JSON.stringify({ error: { message: 'AI credits exhausted' } }), {
+        status: 402,
+      })) as unknown as typeof fetch;
+    await expect(makeScopedAI('t', 'https://p.test').run('@cf/x')).rejects.toThrow(
+      'AI credits exhausted',
+    );
   });
 });

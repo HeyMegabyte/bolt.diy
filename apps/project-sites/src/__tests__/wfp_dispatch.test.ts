@@ -436,6 +436,26 @@ describe('uploadSiteFunctionsWorker', () => {
     });
   });
 
+  it('adds __PS_FN_TOKEN (secret_text) + __PS_FN_URL (plain_text) when provided (Stage 4.1d)', async () => {
+    mockFetch.mockResolvedValueOnce(res(true, { status: 200 }));
+    await uploadSiteFunctionsWorker(makeEnv(), 'abc', 'export default {}', {
+      fnToken: 'abc.sig',
+      fnUrl: 'https://p.test',
+    });
+    const init = mockFetch.mock.calls.at(-1)![1] as RequestInit;
+    const metadata = JSON.parse(await blobText((init.body as FormData).get('metadata')));
+    expect(metadata.bindings).toContainEqual({
+      type: 'secret_text',
+      name: '__PS_FN_TOKEN',
+      text: 'abc.sig',
+    });
+    expect(metadata.bindings).toContainEqual({
+      type: 'plain_text',
+      name: '__PS_FN_URL',
+      text: 'https://p.test',
+    });
+  });
+
   it('omits __PS_KV when no kvNamespaceId is provided (only __PS_SITE_ID present)', async () => {
     mockFetch.mockResolvedValueOnce(res(true, { status: 200 }));
     await uploadSiteFunctionsWorker(makeEnv(), 'abc', 'export default {}');

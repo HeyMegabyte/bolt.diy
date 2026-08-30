@@ -160,6 +160,8 @@ export async function uploadSiteFunctionsWorker(
     secretsJson?: string;
     kvNamespaceId?: string;
     r2BucketName?: string;
+    fnToken?: string;
+    fnUrl?: string;
   } = {},
 ): Promise<{ ok: true; scriptName: string } | { ok: false; error: string; status?: number }> {
   if (!isWfpConfigured(env)) {
@@ -176,6 +178,9 @@ export async function uploadSiteFunctionsWorker(
   //    prefixes `site:<id>:` so a site can only reach its OWN keys (never raw).
   //  · `__PS_R2` (r2_bucket) — the platform R2 bucket; the shim prefixes
   //    `sites-data/<id>/` so a site can only reach its OWN objects (never raw).
+  //  · `__PS_FN_TOKEN` (secret_text) + `__PS_FN_URL` (plain_text) — the signed
+  //    per-site token + platform URL the `env.AI` shim POSTs to /api/_ps/ai/run
+  //    (metered debit-then-call; no raw `ai` binding). Also backs env.DATA next.
   const bindings: Record<string, unknown>[] = [
     { type: 'plain_text', name: '__PS_SITE_ID', text: siteId },
   ];
@@ -187,6 +192,12 @@ export async function uploadSiteFunctionsWorker(
   }
   if (opts.r2BucketName) {
     bindings.push({ type: 'r2_bucket', name: '__PS_R2', bucket_name: opts.r2BucketName });
+  }
+  if (opts.fnToken) {
+    bindings.push({ type: 'secret_text', name: '__PS_FN_TOKEN', text: opts.fnToken });
+  }
+  if (opts.fnUrl) {
+    bindings.push({ type: 'plain_text', name: '__PS_FN_URL', text: opts.fnUrl });
   }
   const metadata: Record<string, unknown> = {
     main_module: 'worker.mjs',

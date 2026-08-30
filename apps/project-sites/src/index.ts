@@ -184,6 +184,7 @@ import { getContentType, resolveSite, serveSiteFromR2 } from './services/site_se
 import { maybeDispatchFunctions } from './services/functions_dispatch.js'; // Stage 3.1: child-host /api/* → site's WfP functions worker (ADR-0035 §30)
 import { dbQueryOne, dbUpdate } from './services/db.js';
 import { deploySiteFunctions, type FunctionsBuildResult } from './services/functions_deploy.js';
+import { handleFunctionAiRun } from './services/functions/internal.js'; // Stage 4.1(d): env.AI metered debit-then-call backend (POST /api/_ps/ai/run)
 import { registerAllPrompts } from './services/ai_workflows.js';
 import { DOMAINS, escapeHtml } from '@project-sites/shared';
 import { parseEnv } from './lib/env.js';
@@ -1004,6 +1005,12 @@ app.post('/api/diag/container-minimal', async (c) => {
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   return c.json({ workerElapsedMs: Date.now() - t0, ...data });
 });
+
+// Functions env.AI backend (ADR-0035 §6/§8, Stage 4.1(d)) — the metered
+// debit-then-call a site's `functions/` worker reaches via its `env.AI` shim
+// (signed per-site token → verify → check credits → Workers AI → debit). Reserved
+// under /api/_ps/*; registered before the /api/* dispatch catch-all so it wins.
+app.post('/api/_ps/ai/run', handleFunctionAiRun);
 
 // Container→worker build status callback (HMAC-protected, KV-backed).
 // Container POSTs status updates here. Worker writes to CACHE_KV at key
