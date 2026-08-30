@@ -92,6 +92,10 @@ export async function deploySiteFunctions(
   // owned by a concurrent session this pass). Absent → no `__PS_KV` binding → the
   // shim yields no `env.KV` (fail-soft).
   const kvNamespaceId = (env as unknown as { FUNCTIONS_KV_ID?: string }).FUNCTIONS_KV_ID;
+  // Stage 4.1(c) — the platform R2 bucket name (a `wrangler.toml` var). The shim
+  // prefixes `sites-data/<siteId>/` so the raw bucket is never reachable. Same
+  // narrow-cast pattern (avoids the concurrent-dirty `env.ts`). Absent → no env.R2.
+  const r2BucketName = (env as unknown as { FUNCTIONS_R2_BUCKET?: string }).FUNCTIONS_R2_BUCKET;
 
   // Good build → upload. An upload failure leaves the previous script in place
   // (the PUT never overwrote), so last-good is preserved either way. Preview
@@ -101,6 +105,7 @@ export async function deploySiteFunctions(
     preview,
     secretsJson,
     kvNamespaceId,
+    r2BucketName,
   });
   if (res.ok) {
     if (!preview) {

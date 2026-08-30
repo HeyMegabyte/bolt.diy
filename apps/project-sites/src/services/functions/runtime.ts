@@ -81,6 +81,57 @@ export function makeScopedKV(kv: ScopedKvBacking, siteId: string): ScopedKvBacki
   };
 }
 
+/** The subset of the Workers R2 bucket binding the per-site facade wraps. */
+export interface ScopedR2Backing {
+  get(key: string, options?: unknown): Promise<unknown>;
+  put(key: string, value: unknown, options?: unknown): Promise<unknown>;
+  head(key: string): Promise<unknown>;
+  delete(keys: string | string[]): Promise<void>;
+  list(options?: { prefix?: string; limit?: number; cursor?: string; delimiter?: string }): Promise<{
+    objects: { key: string; [k: string]: unknown }[];
+    truncated: boolean;
+    cursor?: string;
+    delimitedPrefixes?: string[];
+  }>;
+}
+
+/**
+ * Wrap the platform R2 bucket in a per-site OBJECT-prefix facade
+ * (`sites-data/<siteId>/`) so a site's `env.R2` can only read/write its OWN
+ * objects — cross-tenant isolation at the key layer (ADR-0035 §6, Stage 4.1(c)).
+ * `get`/`put`/`head`/`delete` transparently prefix the key (delete also maps an
+ * array); `list()` scopes to the site prefix AND strips it from returned object
+ * keys + delimited prefixes so the owner sees a clean namespace. The raw bucket
+ * (holding every site's assets) is NEVER exposed — only this facade. Pure over
+ * the backing binding.
+ *
+ * @param bucket - the raw platform R2 binding (`__PS_R2`)
+ * @param siteId - the owner site id (`__PS_SITE_ID`) — the isolation boundary
+ * @example makeScopedR2(bucket, 'abc').put('report.json', body) // writes 'sites-data/abc/report.json'
+ */
+export function makeScopedR2(bucket: ScopedR2Backing, siteId: string): ScopedR2Backing {
+  const prefix = `sites-data/${siteId}/`;
+  const strip = (k: string): string => (k.startsWith(prefix) ? k.slice(prefix.length) : k);
+  return {
+    get: (key, options) => bucket.get(prefix + key, options),
+    put: (key, value, options) => bucket.put(prefix + key, value, options),
+    head: (key) => bucket.head(prefix + key),
+    delete: (keys) =>
+      bucket.delete(Array.isArray(keys) ? keys.map((k) => prefix + k) : prefix + keys),
+    list: async (options = {}) => {
+      const res = await bucket.list({ ...options, prefix: prefix + (options.prefix ?? '') });
+      return {
+        ...res,
+        objects: res.objects.map((o) => {
+          const rec = o as unknown as Record<string, unknown>;
+          return { ...rec, key: strip(String(rec.key)) };
+        }),
+        delimitedPrefixes: res.delimitedPrefixes?.map(strip),
+      };
+    },
+  };
+}
+
 /**
  * Build the SCOPED env every user handler receives (ADR-0035 §6, Stage 4.1).
  *
@@ -129,6 +180,13 @@ export function buildFunctionsEnv(rawEnv: unknown): Record<string, unknown> {
   const siteId = typeof env.__PS_SITE_ID === 'string' ? env.__PS_SITE_ID : '';
   if (env.__PS_KV && siteId) {
     scoped.KV = makeScopedKV(env.__PS_KV as ScopedKvBacking, siteId);
+  }
+
+  // Stage 4.1(c) — env.R2: a per-site OBJECT-prefix facade (`sites-data/<siteId>/`)
+  // over the platform R2 bucket (`__PS_R2`). Every object key is namespaced so a
+  // site can NEVER read/write another site's objects. Absent bindings → no env.R2.
+  if (env.__PS_R2 && siteId) {
+    scoped.R2 = makeScopedR2(env.__PS_R2 as ScopedR2Backing, siteId);
   }
 
   return scoped;

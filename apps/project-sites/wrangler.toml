@@ -204,6 +204,11 @@ WFP_NAMESPACE_NAME = "project-sites-endpoints"
 # every key `site:<siteId>:` so a site can only reach its OWN keys (tenant
 # isolation, never a raw namespace). Non-sensitive (a namespace id) → a var.
 FUNCTIONS_KV_ID = "4cb559cb6d544cbd8be7c46da11f576b"
+# Platform R2 bucket for user Functions (Stage 4.1(c) env.R2). The generated
+# worker gets an `r2_bucket` binding to THIS bucket; the runtime shim prefixes
+# every object key `sites-data/<siteId>/` so a site can only reach its OWN
+# objects (never the raw bucket). Reuses the prod site bucket (prefix-isolated).
+FUNCTIONS_R2_BUCKET = "project-sites-production"
 # Novu workflow trigger identifier for `ps-notify` (the dashboard notification
 # bell backbone). Novu auto-suffixes identifiers on creation, so the real value
 # lives here rather than a hardcoded literal. Non-sensitive (a trigger id).

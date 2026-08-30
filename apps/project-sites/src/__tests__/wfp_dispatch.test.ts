@@ -422,6 +422,20 @@ describe('uploadSiteFunctionsWorker', () => {
     });
   });
 
+  it('adds a __PS_R2 r2_bucket binding when r2BucketName is provided (Stage 4.1c)', async () => {
+    mockFetch.mockResolvedValueOnce(res(true, { status: 200 }));
+    await uploadSiteFunctionsWorker(makeEnv(), 'abc', 'export default {}', {
+      r2BucketName: 'bkt-prod',
+    });
+    const init = mockFetch.mock.calls.at(-1)![1] as RequestInit;
+    const metadata = JSON.parse(await blobText((init.body as FormData).get('metadata')));
+    expect(metadata.bindings).toContainEqual({
+      type: 'r2_bucket',
+      name: '__PS_R2',
+      bucket_name: 'bkt-prod',
+    });
+  });
+
   it('omits __PS_KV when no kvNamespaceId is provided (only __PS_SITE_ID present)', async () => {
     mockFetch.mockResolvedValueOnce(res(true, { status: 200 }));
     await uploadSiteFunctionsWorker(makeEnv(), 'abc', 'export default {}');

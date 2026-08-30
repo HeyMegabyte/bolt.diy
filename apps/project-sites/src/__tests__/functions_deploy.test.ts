@@ -289,6 +289,19 @@ describe('deploySiteFunctions', () => {
     const opts = mockUpload.mock.calls.at(-1)![3] as { kvNamespaceId?: string };
     expect(opts.kvNamespaceId).toBeUndefined();
   });
+
+  // Stage 4.1(c) — the platform R2 bucket name (env.FUNCTIONS_R2_BUCKET) → r2BucketName.
+  it('passes the R2 bucket name (env.FUNCTIONS_R2_BUCKET) as r2BucketName', async () => {
+    entitled(true);
+    const envR2 = { DB: {}, FUNCTIONS_R2_BUCKET: 'bkt-prod' } as unknown as Env;
+    await deploySiteFunctions(envR2, {
+      siteId: 'abc',
+      orgId: 'org1',
+      build: { ok: true, script: 's' },
+    });
+    const opts = mockUpload.mock.calls.at(-1)![3] as { r2BucketName?: string };
+    expect(opts.r2BucketName).toBe('bkt-prod');
+  });
 });
 
 describe('functions bundle persistence (Stage 2.3 preview source)', () => {

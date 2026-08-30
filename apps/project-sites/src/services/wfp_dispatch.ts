@@ -155,7 +155,12 @@ export async function uploadSiteFunctionsWorker(
   env: Env,
   siteId: string,
   script: string,
-  opts: { preview?: boolean; secretsJson?: string; kvNamespaceId?: string } = {},
+  opts: {
+    preview?: boolean;
+    secretsJson?: string;
+    kvNamespaceId?: string;
+    r2BucketName?: string;
+  } = {},
 ): Promise<{ ok: true; scriptName: string } | { ok: false; error: string; status?: number }> {
   if (!isWfpConfigured(env)) {
     return { ok: false, error: 'Workers for Platforms not configured on this account' };
@@ -169,6 +174,8 @@ export async function uploadSiteFunctionsWorker(
   //  · `__PS_SECRETS_JSON` (secret_text) — site+org env-vars → `env.SECRETS`.
   //  · `__PS_KV` (kv_namespace) — the SHARED functions KV namespace; the shim
   //    prefixes `site:<id>:` so a site can only reach its OWN keys (never raw).
+  //  · `__PS_R2` (r2_bucket) — the platform R2 bucket; the shim prefixes
+  //    `sites-data/<id>/` so a site can only reach its OWN objects (never raw).
   const bindings: Record<string, unknown>[] = [
     { type: 'plain_text', name: '__PS_SITE_ID', text: siteId },
   ];
@@ -177,6 +184,9 @@ export async function uploadSiteFunctionsWorker(
   }
   if (opts.kvNamespaceId) {
     bindings.push({ type: 'kv_namespace', name: '__PS_KV', namespace_id: opts.kvNamespaceId });
+  }
+  if (opts.r2BucketName) {
+    bindings.push({ type: 'r2_bucket', name: '__PS_R2', bucket_name: opts.r2BucketName });
   }
   const metadata: Record<string, unknown> = {
     main_module: 'worker.mjs',
