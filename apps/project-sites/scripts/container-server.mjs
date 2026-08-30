@@ -958,18 +958,31 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
           encoding: 'utf-8',
           timeout: 120000,
           maxBuffer: 8 * 1024 * 1024,
+          // ROOT-CAUSE FIX (2026-08-30): bundle.ts does a bare `import 'esbuild'`, which
+          // Node resolves relative to the IMPORTING file (/home/cuser/scripts/functions-build/),
+          // NOT `cwd` — so cwd:dir never helped. esbuild is installed GLOBALLY in the image
+          // (`npm i -g … esbuild`), so point NODE_PATH there (+ the build dir's node_modules
+          // as a fallback). Without this cli.ts silently produced no stdout → functionsBuild
+          // stayed null → deploySiteFunctions never ran (the 2.2a positive-dispatch miss).
+          env: { ...process.env, NODE_PATH: `/usr/local/lib/node_modules:${dir}/node_modules` },
         });
         const stdout = (out.stdout || '').trim();
         if (stdout) {
           functionsBuild = JSON.parse(stdout);
         } else {
-          console.warn(`[${jobId}] functions-build no stdout (status=${out.status}) stderr:`, (out.stderr || '').slice(-300));
+          // Surface WHY (status/signal/stderr) in the callback — not null — so the build
+          // record is self-diagnosing. {ok:false} → deploySiteFunctions keeps last-good.
+          const why = `no stdout (status=${out.status} signal=${out.signal || ''}) ${(out.stderr || out.error?.message || '').slice(-240)}`;
+          console.warn(`[${jobId}] functions-build ${why}`);
+          functionsBuild = { ok: false, error: why };
         }
       } else {
         functionsBuild = { ok: true, empty: true };
       }
     } catch (fe) {
-      console.warn(`[${jobId}] functions-build failed:`, fe.message.slice(0, 300));
+      const why = `threw: ${fe.message.slice(0, 240)}`;
+      console.warn(`[${jobId}] functions-build ${why}`);
+      functionsBuild = { ok: false, error: why };
     }
 
     setStatus(jobId, {
