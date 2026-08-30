@@ -1027,7 +1027,12 @@ app.post('/api/internal/build-status', async (c) => {
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
   if (sig !== expected) return c.json({ error: 'invalid signature' }, 401);
-  let payload: { jobId?: string; status?: string; step?: string; functionsBuild?: FunctionsBuildResult };
+  let payload: {
+    jobId?: string;
+    status?: string;
+    step?: string;
+    functionsBuild?: FunctionsBuildResult;
+  };
   try {
     payload = JSON.parse(body);
   } catch {
@@ -1079,7 +1084,11 @@ app.post('/api/internal/build-status', async (c) => {
           [jobId],
         );
         if (site?.org_id) {
-          await deploySiteFunctions(c.env, { siteId: jobId, orgId: site.org_id, build: functionsBuild });
+          await deploySiteFunctions(c.env, {
+            siteId: jobId,
+            orgId: site.org_id,
+            build: functionsBuild,
+          });
         }
       } catch (e) {
         console.warn(
