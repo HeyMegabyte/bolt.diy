@@ -183,6 +183,7 @@ import { resolveAppHost } from './services/app_host_resolver.js';
 import { getContentType, resolveSite, serveSiteFromR2 } from './services/site_serving.js';
 import { maybeDispatchFunctions } from './services/functions_dispatch.js'; // Stage 3.1: child-host /api/* → site's WfP functions worker (ADR-0035 §30)
 import { dbQueryOne, dbUpdate } from './services/db.js';
+import { deploySiteFunctions, type FunctionsBuildResult } from './services/functions_deploy.js';
 import { registerAllPrompts } from './services/ai_workflows.js';
 import { DOMAINS, escapeHtml } from '@project-sites/shared';
 import { parseEnv } from './lib/env.js';
@@ -1026,7 +1027,7 @@ app.post('/api/internal/build-status', async (c) => {
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
   if (sig !== expected) return c.json({ error: 'invalid signature' }, 401);
-  let payload: { jobId?: string; status?: string; step?: string };
+  let payload: { jobId?: string; status?: string; step?: string; functionsBuild?: FunctionsBuildResult };
   try {
     payload = JSON.parse(body);
   } catch {
@@ -1063,6 +1064,37 @@ app.post('/api/internal/build-status', async (c) => {
   });
   if (ec) ec.waitUntil(finalize);
   else await finalize;
+
+  // Functions (Stage 2.2a): the container bundles the site's functions/ folder and carries
+  // the result here. Deploy (or remove) the site's WfP functions worker — deploySiteFunctions
+  // is entitlement-gated + non-throwing; waitUntil'd + fail-soft so it never delays or breaks
+  // the callback's {ok:true}. Only present on a terminal, successful build callback.
+  const functionsBuild = payload.functionsBuild;
+  if (functionsBuild) {
+    const deployFns = (async () => {
+      try {
+        const site = await dbQueryOne<{ org_id: string }>(
+          c.env.DB,
+          'SELECT org_id FROM sites WHERE id = ? AND deleted_at IS NULL',
+          [jobId],
+        );
+        if (site?.org_id) {
+          await deploySiteFunctions(c.env, { siteId: jobId, orgId: site.org_id, build: functionsBuild });
+        }
+      } catch (e) {
+        console.warn(
+          JSON.stringify({
+            level: 'error',
+            service: 'functions_deploy',
+            job_id: jobId,
+            message: e instanceof Error ? e.message : String(e),
+          }),
+        );
+      }
+    })();
+    if (ec) ec.waitUntil(deployFns);
+    else await deployFns;
+  }
 
   return c.json({ ok: true });
 });

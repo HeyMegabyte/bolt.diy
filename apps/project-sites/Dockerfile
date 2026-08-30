@@ -57,6 +57,14 @@ COPY scripts/container-server.mjs /home/cuser/container-server.mjs
 COPY scripts/run-validators.mjs /home/cuser/run-validators.mjs
 COPY src/services/build_validators.ts /home/cuser/build_validators.ts
 
+# Functions (Stage 2.2a): the functions-build CLI bundles a published site's functions/
+# folder into one WfP-ready worker script; container-server.mjs spawns it via tsx after a
+# successful build and carries the result in the HMAC callback → the worker deploys it to
+# Workers-for-Platforms. cli.ts → build-site-functions.ts → bundle.ts → codegen.ts, so BOTH
+# dirs must be present (functions_deploy.ts is import-type-only, erased by tsx at runtime).
+COPY scripts/functions-build /home/cuser/scripts/functions-build
+COPY src/services/functions /home/cuser/src/services/functions
+
 # Sync universal agents (visual-qa, performance-profiler, completeness-checker,
 # seo-auditor, accessibility-auditor, content-writer, security-reviewer, test-writer,
 # etc.) from ~/.agentskills/agents/ to ~/.claude/agents/ so the orchestrator can

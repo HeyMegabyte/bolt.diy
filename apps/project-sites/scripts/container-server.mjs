@@ -13,7 +13,7 @@
  * were running when the container restarted are marked errored on boot
  * (the spawned Claude Code child died with the container).
  */
-import { execSync as x, spawn as sp } from 'child_process';
+import { execSync as x, spawn as sp, spawnSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import http from 'http';
@@ -168,6 +168,7 @@ function pushStatus(jobId) {
     fileCount: finalCount || liveCount,
     error: j.error ? String(j.error).slice(0, 500) : null,
     uploadResult: j.uploadResult || null,
+    functionsBuild: j.functionsBuild ?? null,
   };
   const body = JSON.stringify(payload);
   const sig = crypto.createHmac('sha256', j.callbackSecret).update(body).digest('hex');
@@ -941,9 +942,40 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
     setStatus(jobId, { step: 'collecting' });
     const files = collectFiles(dir);
     console.warn(`[${jobId}] Collected ${files.length} source files`);
+
+    // Functions (Stage 2.2a): if the built site ships a functions/ folder, bundle it via
+    // the container's functions-build CLI and carry the result in the terminal callback →
+    // the worker's deploySiteFunctions deploys/removes the site's WfP worker (entitlement-
+    // gated, non-throwing). Fail-soft: any spawn/parse fault leaves it null (no functions
+    // deploy this build) and NEVER blocks the site from publishing. No functions/ folder →
+    // signal `empty` so the worker removes any stale WfP worker (cheap no-op when none).
+    let functionsBuild = null;
+    try {
+      if (fs.existsSync(path.join(dir, 'functions'))) {
+        const cliPath = '/home/cuser/scripts/functions-build/cli.ts';
+        const out = spawnSync('tsx', [cliPath, dir], {
+          cwd: dir,
+          encoding: 'utf-8',
+          timeout: 120000,
+          maxBuffer: 8 * 1024 * 1024,
+        });
+        const stdout = (out.stdout || '').trim();
+        if (stdout) {
+          functionsBuild = JSON.parse(stdout);
+        } else {
+          console.warn(`[${jobId}] functions-build no stdout (status=${out.status}) stderr:`, (out.stderr || '').slice(-300));
+        }
+      } else {
+        functionsBuild = { ok: true, empty: true };
+      }
+    } catch (fe) {
+      console.warn(`[${jobId}] functions-build failed:`, fe.message.slice(0, 300));
+    }
+
     setStatus(jobId, {
       files,
       uploadResult,
+      functionsBuild,
       status: 'complete',
       step: 'done',
     });
