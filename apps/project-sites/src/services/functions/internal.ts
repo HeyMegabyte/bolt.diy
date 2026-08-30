@@ -183,9 +183,12 @@ export async function handleFunctionDataForms(
     created_at: string;
   }>(
     c.env.DB,
+    // NOTE: form_submissions has NO deleted_at column (it is NOT soft-deleted, unlike
+    // most tables) — filtering on it errors in D1 + gets swallowed into a lying-empty
+    // result. Scope by site_id alone (the tenant boundary from the token).
     `SELECT id, form_name, email, payload, status, created_at
        FROM form_submissions
-      WHERE site_id = ? AND deleted_at IS NULL
+      WHERE site_id = ?
       ORDER BY created_at DESC
       LIMIT ?`,
     [siteId, limit],

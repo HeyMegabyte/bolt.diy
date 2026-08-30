@@ -214,9 +214,11 @@ describe('GET /api/_ps/data/forms (handleFunctionDataForms)', () => {
     expect(json.items[1].fields).toEqual({});
     expect(json.items[0]).not.toHaveProperty('ip_address');
     expect(json.items[0]).not.toHaveProperty('user_agent');
-    // scoped to the token's siteId, newest-first
+    // scoped to the token's siteId, newest-first. form_submissions has NO deleted_at
+    // column — the query must NOT reference it (doing so errors → lying-empty).
     const [, sql, params] = mockQuery.mock.calls[0];
-    expect(sql).toMatch(/WHERE site_id = \? AND deleted_at IS NULL/);
+    expect(sql).toMatch(/WHERE site_id = \?/);
+    expect(sql).not.toMatch(/deleted_at/);
     expect(sql).toMatch(/ORDER BY created_at DESC/);
     expect(params[0]).toBe('site-abc');
   });
