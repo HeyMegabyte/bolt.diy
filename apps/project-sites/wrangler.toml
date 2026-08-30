@@ -199,6 +199,11 @@ INTERNAL_CALLBACK_URL = "https://project-sites.manhattan.workers.dev/api/interna
 # they're not sensitive and the dispatch binding below pins this namespace.
 CF_ACCOUNT_ID = "84fa0d1b16ff8086dd958c468ce7fd59"
 WFP_NAMESPACE_NAME = "project-sites-endpoints"
+# Shared KV namespace for user Functions (Stage 4.1(b) env.KV). The generated
+# worker gets a `kv_namespace` binding to THIS id; the runtime shim prefixes
+# every key `site:<siteId>:` so a site can only reach its OWN keys (tenant
+# isolation, never a raw namespace). Non-sensitive (a namespace id) → a var.
+FUNCTIONS_KV_ID = "4cb559cb6d544cbd8be7c46da11f576b"
 # Novu workflow trigger identifier for `ps-notify` (the dashboard notification
 # bell backbone). Novu auto-suffixes identifiers on creation, so the real value
 # lives here rather than a hardcoded literal. Non-sensitive (a trigger id).

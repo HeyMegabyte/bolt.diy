@@ -87,6 +87,12 @@ export async function deploySiteFunctions(
     /* fail-soft — deploy without secrets rather than block the publish */
   }
 
+  // Stage 4.1(b) — the shared functions KV namespace id (a `wrangler.toml` var,
+  // read via a narrow cast so this never depends on the Env type — `env.ts` is
+  // owned by a concurrent session this pass). Absent → no `__PS_KV` binding → the
+  // shim yields no `env.KV` (fail-soft).
+  const kvNamespaceId = (env as unknown as { FUNCTIONS_KV_ID?: string }).FUNCTIONS_KV_ID;
+
   // Good build → upload. An upload failure leaves the previous script in place
   // (the PUT never overwrote), so last-good is preserved either way. Preview
   // uploads to `site-<id>-preview` and NEVER touches the live deploy signal or the
@@ -94,6 +100,7 @@ export async function deploySiteFunctions(
   const res = await uploadSiteFunctionsWorker(env, opts.siteId, build.script, {
     preview,
     secretsJson,
+    kvNamespaceId,
   });
   if (res.ok) {
     if (!preview) {

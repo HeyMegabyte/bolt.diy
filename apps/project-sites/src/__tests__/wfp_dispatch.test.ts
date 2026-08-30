@@ -382,23 +382,50 @@ describe('uploadSiteFunctionsWorker', () => {
     expect((mockFetch.mock.calls[0] as [string])[0]).toContain('/scripts/site-abc-preview');
   });
 
-  it('adds a __PS_SECRETS_JSON secret_text binding when secretsJson is provided (Stage 4.1)', async () => {
+  it('always injects the __PS_SITE_ID plain_text binding (the KV/R2 isolation boundary)', async () => {
+    mockFetch.mockResolvedValueOnce(res(true, { status: 200 }));
+    await uploadSiteFunctionsWorker(makeEnv(), 'abc', 'export default {}');
+    const init = mockFetch.mock.calls.at(-1)![1] as RequestInit;
+    const metadata = JSON.parse(await blobText((init.body as FormData).get('metadata')));
+    expect(metadata.bindings).toEqual([{ type: 'plain_text', name: '__PS_SITE_ID', text: 'abc' }]);
+  });
+
+  it('adds the __PS_SECRETS_JSON secret_text binding when secretsJson is provided (Stage 4.1a)', async () => {
     mockFetch.mockResolvedValueOnce(res(true, { status: 200 }));
     const secretsJson = JSON.stringify({ API_KEY: 'x', TOKEN: 'y' });
     await uploadSiteFunctionsWorker(makeEnv(), 'abc', 'export default {}', { secretsJson });
     const init = mockFetch.mock.calls.at(-1)![1] as RequestInit;
     const metadata = JSON.parse(await blobText((init.body as FormData).get('metadata')));
-    expect(metadata.bindings).toEqual([
-      { type: 'secret_text', name: '__PS_SECRETS_JSON', text: secretsJson },
-    ]);
+    expect(metadata.bindings).toContainEqual({
+      type: 'secret_text',
+      name: '__PS_SECRETS_JSON',
+      text: secretsJson,
+    });
+    expect(metadata.bindings).toContainEqual({
+      type: 'plain_text',
+      name: '__PS_SITE_ID',
+      text: 'abc',
+    });
   });
 
-  it('omits the bindings key entirely when no secretsJson is provided', async () => {
+  it('adds a __PS_KV kv_namespace binding when kvNamespaceId is provided (Stage 4.1b)', async () => {
+    mockFetch.mockResolvedValueOnce(res(true, { status: 200 }));
+    await uploadSiteFunctionsWorker(makeEnv(), 'abc', 'export default {}', { kvNamespaceId: 'ns-123' });
+    const init = mockFetch.mock.calls.at(-1)![1] as RequestInit;
+    const metadata = JSON.parse(await blobText((init.body as FormData).get('metadata')));
+    expect(metadata.bindings).toContainEqual({
+      type: 'kv_namespace',
+      name: '__PS_KV',
+      namespace_id: 'ns-123',
+    });
+  });
+
+  it('omits __PS_KV when no kvNamespaceId is provided (only __PS_SITE_ID present)', async () => {
     mockFetch.mockResolvedValueOnce(res(true, { status: 200 }));
     await uploadSiteFunctionsWorker(makeEnv(), 'abc', 'export default {}');
     const init = mockFetch.mock.calls.at(-1)![1] as RequestInit;
     const metadata = JSON.parse(await blobText((init.body as FormData).get('metadata')));
-    expect(metadata.bindings).toBeUndefined();
+    expect((metadata.bindings as { name: string }[]).some((b) => b.name === '__PS_KV')).toBe(false);
   });
 
   it('returns the CF error body + status on a non-2xx (bad build surfaced, not swallowed)', async () => {

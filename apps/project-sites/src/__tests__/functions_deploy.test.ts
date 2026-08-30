@@ -265,6 +265,22 @@ describe('deploySiteFunctions', () => {
       secretsJson: JSON.stringify({ API_KEY: 'x' }),
     });
   });
+
+  // Stage 4.1(b) — the shared KV namespace id (env.FUNCTIONS_KV_ID) → kvNamespaceId.
+  it('passes the shared KV namespace id (env.FUNCTIONS_KV_ID) as kvNamespaceId', async () => {
+    entitled(true);
+    const envKv = { DB: {}, FUNCTIONS_KV_ID: 'ns-shared-123' } as unknown as Env;
+    await deploySiteFunctions(envKv, { siteId: 'abc', orgId: 'org1', build: { ok: true, script: 's' } });
+    const opts = mockUpload.mock.calls.at(-1)![3] as { kvNamespaceId?: string };
+    expect(opts.kvNamespaceId).toBe('ns-shared-123');
+  });
+
+  it('passes NO kvNamespaceId when FUNCTIONS_KV_ID is unset (KV not configured)', async () => {
+    entitled(true);
+    await deploySiteFunctions(env, { siteId: 'abc', orgId: 'org1', build: { ok: true, script: 's' } });
+    const opts = mockUpload.mock.calls.at(-1)![3] as { kvNamespaceId?: string };
+    expect(opts.kvNamespaceId).toBeUndefined();
+  });
 });
 
 describe('functions bundle persistence (Stage 2.3 preview source)', () => {

@@ -155,7 +155,7 @@ export async function uploadSiteFunctionsWorker(
   env: Env,
   siteId: string,
   script: string,
-  opts: { preview?: boolean; secretsJson?: string } = {},
+  opts: { preview?: boolean; secretsJson?: string; kvNamespaceId?: string } = {},
 ): Promise<{ ok: true; scriptName: string } | { ok: false; error: string; status?: number }> {
   if (!isWfpConfigured(env)) {
     return { ok: false, error: 'Workers for Platforms not configured on this account' };
@@ -163,19 +163,26 @@ export async function uploadSiteFunctionsWorker(
   const scriptName = siteFunctionsScriptName(siteId, opts);
   const url = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/workers/dispatch/namespaces/${env.WFP_NAMESPACE_NAME}/scripts/${scriptName}`;
 
-  // Stage 4.1 (ADR-0035 §6) — inject the site+org env-vars as a single
-  // `secret_text` binding `__PS_SECRETS_JSON` that the runtime shim
-  // (`buildFunctionsEnv`) parses into `env.SECRETS`. Only attached when the caller
-  // resolved secrets (absent/'' → no binding → the shim yields `env.SECRETS = {}`).
+  // Stage 4.1 (ADR-0035 §6) — inject the runtime-shim bindings the generated
+  // worker's `buildFunctionsEnv` folds into the tenant-scoped `env`:
+  //  · `__PS_SITE_ID` (plain_text) — the isolation boundary the KV/R2 shims key on.
+  //  · `__PS_SECRETS_JSON` (secret_text) — site+org env-vars → `env.SECRETS`.
+  //  · `__PS_KV` (kv_namespace) — the SHARED functions KV namespace; the shim
+  //    prefixes `site:<id>:` so a site can only reach its OWN keys (never raw).
+  const bindings: Record<string, unknown>[] = [
+    { type: 'plain_text', name: '__PS_SITE_ID', text: siteId },
+  ];
+  if (opts.secretsJson && opts.secretsJson.length > 0) {
+    bindings.push({ type: 'secret_text', name: '__PS_SECRETS_JSON', text: opts.secretsJson });
+  }
+  if (opts.kvNamespaceId) {
+    bindings.push({ type: 'kv_namespace', name: '__PS_KV', namespace_id: opts.kvNamespaceId });
+  }
   const metadata: Record<string, unknown> = {
     main_module: 'worker.mjs',
     compatibility_date: '2026-05-01',
+    bindings,
   };
-  if (opts.secretsJson && opts.secretsJson.length > 0) {
-    metadata.bindings = [
-      { type: 'secret_text', name: '__PS_SECRETS_JSON', text: opts.secretsJson },
-    ];
-  }
 
   const form = new FormData();
   form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
