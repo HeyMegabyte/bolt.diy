@@ -108,6 +108,8 @@
 import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
+import { gatherProfileContext } from '../services/profile_context.js';
+import { knowledgeForVertical } from '../services/concierge_knowledge.js';
 import { getMemory, setMemory } from '../services/anthropic_memory.js';
 import { isSafeWebhookUrl } from '../services/outbound_webhooks.js';
 import { SYS_ADMIN_EMAILS } from '../services/sysadmin.js';
@@ -2517,12 +2519,22 @@ api.post('/api/sites/:id/reset', async (c) => {
   }
 
   let body: {
-    business?: { name?: string; address?: string; place_id?: string; website?: string };
+    business?: {
+      name?: string;
+      address?: string;
+      place_id?: string;
+      website?: string;
+      types?: string[];
+    };
     // v1 flat aliases — create-from-search accepts both formats; reset accepted
     // ONLY the nested form, so flat-format callers (the journey) silently kept
     // the STALE site name on every rebuild. Normalized below.
     business_name?: string;
     business_address?: string;
+    // Authoritative vertical (fire-55) — reset previously dropped businessCategory
+    // entirely, so a reset build had NO category signal → misclassification (fire-54:
+    // reset restaurant → dark saas). Threaded to the workflow below.
+    business_type?: string;
     additional_context?: string;
     /**
      * Convergence loop hint: 1-indexed iteration number. When > 1, the workflow
@@ -2611,6 +2623,7 @@ api.post('/api/sites/:id/reset', async (c) => {
           businessName: resolvedBusiness.name || site.business_name || '',
           businessAddress: resolvedBusiness.address || site.business_address || '',
           businessWebsite: body.business?.website || '',
+          businessCategory: body.business?.types?.[0] || body.business_type || undefined,
           googlePlaceId: body.business?.place_id || site.google_place_id || '',
           additionalContext: body.additional_context || body.expert_notes || '',
           isReset: true,
@@ -2634,6 +2647,7 @@ api.post('/api/sites/:id/reset', async (c) => {
             slug: site.slug,
             businessName: resolvedBusiness.name || site.business_name || '',
             businessAddress: resolvedBusiness.address || site.business_address || '',
+            businessCategory: body.business?.types?.[0] || body.business_type || undefined,
             additionalContext: body.additional_context || body.expert_notes || '',
             isReset: true,
             iteration,
@@ -3316,6 +3330,117 @@ api.post('/api/contact', async (c) => {
     .catch(() => {});
 
   return c.json({ data: { success: true } });
+});
+
+/**
+ * Concierge chat — the 4th piece of the universal `app.js` runtime. A published
+ * site's edge-injected chat widget POSTs here; we answer with Workers AI
+ * (Llama 3.3 70B) grounded ONLY in the site's own research profile (RAG), so the
+ * assistant never invents facts about the business.
+ *
+ * @route POST /api/chat/:slug
+ * @auth None — public; generated sites call this for anonymous visitors. A
+ *   per-slug+IP KV rate limit (20/min) caps Workers AI spend; the operator can
+ *   kill the whole feature by setting `CONCIERGE_CHAT_DISABLED=true` (→ 404).
+ * @body `{ message: string(1-2000), history?: {role,content}[] }`.
+ * @returns 200 `{ data: { reply: string } }`. Fail-open: any RAG/AI error
+ *   returns a friendly fallback reply, never a 5xx — a broken chat must not
+ *   look broken to a visitor.
+ */
+api.post('/api/chat/:slug', async (c) => {
+  if (c.env.CONCIERGE_CHAT_DISABLED === 'true') return c.notFound(); // operator killswitch
+  const slug = c.req.param('slug');
+
+  const ChatSchema = z.object({
+    message: z.string().trim().min(1).max(2000),
+    history: z
+      .array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(4000) }))
+      .max(12)
+      .optional(),
+  });
+  const parsed = ChatSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) {
+    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid chat message.' } }, 400);
+  }
+
+  // Per-slug+IP rate limit — cap Workers AI spend from a single visitor/bot.
+  const ip = c.req.header('cf-connecting-ip') || 'anon';
+  const rlKey = `chatrl:${slug}:${ip}`;
+  const used = parseInt((await c.env.CACHE_KV.get(rlKey)) || '0', 10);
+  if (used >= 20) {
+    return c.json({
+      data: { reply: 'You have sent a lot of messages — please try again in a minute.' },
+    });
+  }
+  c.executionCtx.waitUntil(
+    c.env.CACHE_KV.put(rlKey, String(used + 1), { expirationTtl: 60 }).catch(() => {}),
+  );
+
+  // RAG context — the site's own research profile (business, services, USPs).
+  // gatherProfileContext keys on site_id, so resolve the public slug to an id first.
+  const siteRow = await dbQueryOne<{ id: string }>(
+    c.env.DB,
+    'SELECT id FROM sites WHERE slug = ? AND deleted_at IS NULL',
+    [slug],
+  ).catch(() => null);
+  const ctx = siteRow ? await gatherProfileContext(c.env, siteRow.id).catch(() => null) : null;
+  if (!ctx) {
+    return c.json({
+      data: { reply: 'I could not load this business yet — please use the contact form.' },
+    });
+  }
+  // Per-vertical knowledge — the deterministic build renders a vertical content
+  // pack, so the site's real services/FAQ facts are known from its vertical even
+  // when the per-site research is thin. This is what lets the concierge answer
+  // "what do you offer?" / "free consultation?" instead of deferring on everything.
+  const vk = knowledgeForVertical(ctx.business_type, ctx.category, ctx.business_name);
+  const info = [
+    `Business name: ${ctx.business_name}`,
+    ctx.business_type ? `Type: ${ctx.business_type}` : ctx.category ? `Type: ${ctx.category}` : '',
+    ctx.business_description ? `About: ${ctx.business_description}` : '',
+    ctx.homepage_summary ? `Summary: ${ctx.homepage_summary}` : '',
+    ctx.services?.length ? `Services: ${ctx.services.join('; ')}` : vk ? `Services: ${vk.services}` : '',
+    ctx.usps?.length ? `What sets us apart: ${ctx.usps.join('; ')}` : '',
+    vk ? `Good to know: ${vk.faqs}` : '',
+    ctx.location
+      ? `Location: ${ctx.location}`
+      : ctx.business_address
+        ? `Address: ${ctx.business_address}`
+        : '',
+    ctx.business_phone ? `Phone: ${ctx.business_phone}` : '',
+    ctx.business_email ? `Email: ${ctx.business_email}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const system =
+    `You are the friendly website concierge for ${ctx.business_name}. Answer the visitor using ONLY the business information below. ` +
+    `Keep replies to 1-3 short, warm sentences. Never invent prices, hours, or facts that are not in the information; ` +
+    `if you do not know, say so briefly and suggest the contact form or phone.\n\nBUSINESS INFORMATION:\n${info}`;
+
+  const messages = [
+    { role: 'system', content: system },
+    ...(parsed.data.history || []).slice(-6),
+    { role: 'user', content: parsed.data.message },
+  ];
+
+  try {
+    const result = (await c.env.AI.run(
+      '@cf/meta/llama-3.3-70b-instruct-fp8-fast' as Parameters<typeof c.env.AI.run>[0],
+      { messages, max_tokens: 300, temperature: 0.3 },
+    )) as { response?: string };
+    const reply =
+      (result.response || '').trim() ||
+      'I am not certain about that — the contact form is the best way to reach the team.';
+    return c.json({ data: { reply } });
+  } catch {
+    return c.json({
+      data: {
+        reply:
+          'I am having trouble right now. Please use the contact form and the team will get back to you.',
+      },
+    });
+  }
 });
 
 /**

@@ -407,7 +407,7 @@ function pickVerticalPreset(dir, promptText = '') {
     ['_brand.fitness.json', /\b(gym\b|crossfit|cross-fit|fitness|strength training|strength and conditioning|barbell|powerlifting|power lifting|weightlifting|weight lifting|olympic lifting|personal trainer|personal training|bootcamp|boot camp|kettlebell|calisthenics|athletic club|hiit\b)/],
     ['_brand.wellness.json', /\b(yoga|pilates|spa\b|massage|wellness|meditation|salon|beaut|nail|barber|acupunctur|reiki|nutrition|wellbeing|well-being)/],
     ['_brand.legal.json', /\b(law\b|lawyer|attorney|legal|counsel|litigation|paralegal|notary|estate planning|llp\b)/],
-    ['_brand.restaurant.json', /\b(restaurant|farm-to-table|farm to table|cafe|café|coffee|bakery|bar\b|bistro|dining|gastropub|osteria|trattoria|ramen|sushi|diner|eatery|catering|pizzeria|brewery|food truck|grill|steakhouse|winery|vineyard|taqueria|deli\b)/],
+    ['_brand.restaurant.json', /\b(restaurant|restaurateur|farm-to-table|farm to table|cafe|café|coffee|bakery|bar\b|bistro|dining|gastropub|osteria|trattoria|ramen|sushi|diner|eatery|catering|pizzeria|brewery|food truck|kitchen|chophouse|smokehouse|noodle|burger|barbecue|bbq\b|tavern|pub\b|creamery|gelato|grill|steakhouse|winery|vineyard|taqueria|deli\b)/],
     ['_brand.local-service.json', /\b(local service|local-service|home services?|plumb|hvac|electric|roofing|roofer|landscap|lawn|cleaning|janitor|contractor|handyman|pest control|locksmith|moving|movers|garage door|paint|construction|remodel|flooring|fencing|paving|towing|auto repair|mechanic)/],
     ['_brand.nonprofit.json', /\b(nonprofit|non-profit|charit|foundation|ministry|church|synagogue|mosque|temple|community center|volunteer|shelter|soup kitchen|food bank|outreach|humanitarian|advocacy|ngo\b)/],
     ['_brand.retail.json', /\b(shop|store|retail|boutique|apparel|clothing|jewelr|goods|merchandise|marketplace|e-commerce|ecommerce|outfitter)/],
@@ -421,6 +421,20 @@ function pickVerticalPreset(dir, promptText = '') {
     // examples/_brand.real-estate.json + _content.real-estate.json pack.
     ['_brand.real-estate.json', /\b(real estate|real-estate|realtor|realty|home buyer|homebuyer|home seller|house hunting|open house|home valuation|buyer's agent|buyers agent|seller's agent|sellers agent|property listing|homes for sale|for sale by owner|mls\b)/],
   ];
+  // AUTHORITATIVE SHORT-CIRCUIT (fire-55): the user-declared category (Google Places
+  // type / explicit business_type) is threaded to the container as _category.txt — a
+  // file the orchestrator NEVER writes, so (unlike _brand.json, which it rewrites) it
+  // survives an orchestrator hallucination. If it maps to a vertical, it WINS outright.
+  // Root cause it fixes (fire-54): a RESET restaurant ("Blackbird Kitchen") shipped as
+  // a full DARK saas site — the reset path carried no category AND the orchestrator
+  // clobbered _brand.json's category with saas copy, so the fuzzy scorer followed the
+  // hallucination. First-match respects rule ORDER (dental>medical, fitness>wellness).
+  const declared = read('_category.txt').trim().toLowerCase();
+  if (declared) {
+    for (const [file, re] of rules) {
+      if (new RegExp(re.source, 'i').test(declared)) return file;
+    }
+  }
   // SCORED, not first-match-by-order: count keyword hits per vertical; identity
   // (primary) hits weigh 10× the noisy research (secondary) hits. Highest score
   // wins — a stray restaurant term in research no longer beats a real saas identity.
@@ -547,6 +561,7 @@ function guardAgainstStubPages(dir, templateDir, force = false) {
   try {
     const homePath = path.join(dir, 'src', 'pages', 'Home.tsx');
     let refCount = 0;
+    let stubReason = 'refs<3';
     if (fs.existsSync(homePath)) {
       const home = fs.readFileSync(homePath, 'utf-8');
       refCount = STUB_SECTION_COMPONENTS.filter((c) => new RegExp(`\\b${c}\\b`).test(home)).length;
@@ -555,15 +570,23 @@ function guardAgainstStubPages(dir, templateDir, force = false) {
       // 2026-08-26: Home had ≥3 sections but an EMPTY <h1>/hero) still needs the
       // clean template pages so the freshly re-applied content pack fills every
       // token (HERO_HEADLINE included), not just the sections the orchestrator kept.
-      if (!force && refCount >= 3) return `pages-ok (Home references ${refCount} sections)`;
+      // Even with ≥3 sections, a Home that renders NO <h1> is a broken build (fire-54:
+      // an orchestrator-rewritten saas Home had ~4 sections but 0 <h1> — the custom
+      // hero used neither HeroSplit/HeroCenter nor a literal <h1>, shipping a page with
+      // no H1, a hard SEO defect). Detect from source: no hero component AND no literal
+      // <h1> tag ⇒ 0 rendered H1 ⇒ restore the template pages (which always emit one).
+      const willRenderH1 = /\b(HeroSplit|HeroCenter)\b/.test(home) || /<h1[\s>]/.test(home);
+      if (!force && refCount >= 3 && willRenderH1)
+        return `pages-ok (Home references ${refCount} sections, H1 present)`;
+      if (!force && refCount >= 3 && !willRenderH1) stubReason = 'no <h1> (0 rendered H1)';
     }
-    // STUB (or Home missing) → restore the template's page render layer.
+    // STUB (or Home missing / no-H1) → restore the template's page render layer.
     if (!templateDir) return `stub-detected (refs=${refCount}) but no TEMPLATE_DIR to restore from`;
     const srcPages = path.join(templateDir, 'src', 'pages');
     if (!fs.existsSync(srcPages)) return `stub-detected (refs=${refCount}) but template src/pages missing`;
     const dstPages = path.join(dir, 'src', 'pages');
     x(`rm -rf ${dstPages} && cp -r ${srcPages} ${dstPages}`, { shell: true, stdio: 'pipe' });
-    return `STUB DETECTED (Home referenced ${refCount} sections) → restored src/pages/ from template`;
+    return `STUB DETECTED (Home referenced ${refCount} sections, ${stubReason}) → restored src/pages/ from template`;
   } catch (e) {
     return `stub-guard error: ${String(e && e.message).slice(0, 140)}`;
   }

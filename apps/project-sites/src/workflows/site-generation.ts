@@ -626,6 +626,17 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       2,
     );
 
+    // IMMUTABLE category signal (fire-55). The seeded _brand.json.business.category
+    // is CLOBBERABLE — the orchestrator rewrites _brand.json (fire-54: a reset
+    // restaurant shipped as dark saas because the orchestrator overwrote the category
+    // with saas copy). So the authoritative declared vertical ALSO ships as a
+    // standalone _category.txt (container writes contextFiles['category.txt'] → the
+    // orchestrator never touches a file it doesn't know about). pickVerticalPreset
+    // short-circuits on it → the declared vertical wins regardless of hallucination.
+    if (params.businessCategory && params.businessCategory.trim()) {
+      contextFiles['category.txt'] = params.businessCategory.trim().slice(0, 120);
+    }
+
     // ── Optional: Human-in-the-loop logo approval (Workflows v2 elicitation) ──
     //
     // CANONICAL human-in-loop pattern for future workflows. Pauses the workflow

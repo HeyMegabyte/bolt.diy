@@ -181,7 +181,14 @@ siteCreation.post('/api/sites/create-from-search', async (c) => {
         businessName: sanitizedName,
         businessAddress: businessAddress ?? undefined,
         businessPhone: businessPhone ?? undefined,
-        businessCategory: body.business?.types?.[0] ?? undefined,
+        // Authoritative vertical signal (fire-55): Google Places type, else a plain
+        // `business_type` the caller declares (the loop + any typed-create path). Threaded
+        // to the container as the immutable _category.txt so pickVerticalPreset short-
+        // circuits on it — orchestrator-proof, unlike the clobberable _brand.json category.
+        businessCategory:
+          body.business?.types?.[0] ??
+          ((body as Record<string, unknown>).business_type as string | undefined) ??
+          undefined,
         googlePlaceId: googlePlaceId ?? undefined,
         additionalContext: additionalContext ?? undefined,
         uploadId: (body as Record<string, unknown>).upload_id as string | undefined,
