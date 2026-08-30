@@ -170,7 +170,9 @@ export async function handleFunctionDataForms(
   if (!siteId) return c.json({ error: { message: 'invalid function token' } }, 401);
 
   const raw = Number.parseInt(c.req.query('limit') ?? '', 10);
-  const limit = Number.isFinite(raw) ? Math.max(1, Math.min(FORMS_LIST_MAX, raw)) : FORMS_LIST_DEFAULT;
+  const limit = Number.isFinite(raw)
+    ? Math.max(1, Math.min(FORMS_LIST_MAX, raw))
+    : FORMS_LIST_DEFAULT;
 
   const rows = await dbQuery<{
     id: string;

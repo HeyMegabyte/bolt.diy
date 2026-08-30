@@ -182,11 +182,23 @@ describe('GET /api/_ps/data/forms (handleFunctionDataForms)', () => {
           status: 'received',
           created_at: '2026-08-30T00:00:00Z',
         },
-        { id: 'f2', form_name: 'quote', email: null, payload: 'not-json', status: 'forwarded', created_at: '2026-08-29T00:00:00Z' },
+        {
+          id: 'f2',
+          form_name: 'quote',
+          email: null,
+          payload: 'not-json',
+          status: 'forwarded',
+          created_at: '2026-08-29T00:00:00Z',
+        },
       ],
     });
     const { app, env } = makeDataApp();
-    const res = await dataReq(app, env, '/api/_ps/data/forms', await signFunctionToken(SECRET, 'site-abc'));
+    const res = await dataReq(
+      app,
+      env,
+      '/api/_ps/data/forms',
+      await signFunctionToken(SECRET, 'site-abc'),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as { items: Record<string, unknown>[] };
     expect(json.items).toHaveLength(2);
@@ -239,7 +251,12 @@ describe('GET /api/_ps/data/site (handleFunctionDataSite)', () => {
     };
     mockQueryOne.mockResolvedValue(row);
     const { app, env } = makeDataApp();
-    const res = await dataReq(app, env, '/api/_ps/data/site', await signFunctionToken(SECRET, 'site-abc'));
+    const res = await dataReq(
+      app,
+      env,
+      '/api/_ps/data/site',
+      await signFunctionToken(SECRET, 'site-abc'),
+    );
     expect(res.status).toBe(200);
     expect((await res.json()) as unknown).toEqual({ site: row });
     expect(mockQueryOne.mock.calls.at(-1)![2][0]).toBe('site-abc');
@@ -248,6 +265,9 @@ describe('GET /api/_ps/data/site (handleFunctionDataSite)', () => {
   it('404 when the site is missing / soft-deleted', async () => {
     mockQueryOne.mockResolvedValue(null);
     const { app, env } = makeDataApp();
-    expect((await dataReq(app, env, '/api/_ps/data/site', await signFunctionToken(SECRET, 'ghost'))).status).toBe(404);
+    expect(
+      (await dataReq(app, env, '/api/_ps/data/site', await signFunctionToken(SECRET, 'ghost')))
+        .status,
+    ).toBe(404);
   });
 });
