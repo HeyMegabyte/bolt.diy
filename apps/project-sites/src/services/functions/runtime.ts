@@ -39,6 +39,49 @@ function jsonResponse(
 }
 
 /**
+ * Build the SCOPED env every user handler receives (ADR-0035 §6, Stage 4.1).
+ *
+ * The platform passes the raw WfP script bindings as `env`; this wraps them into
+ * the namespaced runtime contract the ADR promises — starting with **`env.SECRETS`**:
+ * the site+org env-vars, injected at deploy time as a single `secret_text` binding
+ * `__PS_SECRETS_JSON` and parsed here (once per request) into a frozen object so
+ * user code reads `env.SECRETS.<KEY>`. Internal `__PS_*` bindings are STRIPPED so
+ * they never reach user code — this same seam later hosts the tenant-scoping
+ * `env.KV`/`env.R2`/`env.AI`/`env.DATA` shims. Fail-soft: a malformed/absent blob
+ * yields `env.SECRETS = {}`, never a throw.
+ *
+ * @param rawEnv - the raw WfP script env (bindings)
+ * @returns a NEW env object exposing the scoped bindings; the platform env is never mutated
+ * @example buildFunctionsEnv({ __PS_SECRETS_JSON: '{"API_KEY":"x"}' }).SECRETS // { API_KEY: 'x' }
+ */
+export function buildFunctionsEnv(rawEnv: unknown): Record<string, unknown> {
+  const env = (rawEnv && typeof rawEnv === 'object' ? rawEnv : {}) as Record<string, unknown>;
+
+  let secrets: Record<string, string> = {};
+  const raw = env.__PS_SECRETS_JSON;
+  if (typeof raw === 'string' && raw.length > 0) {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        secrets = parsed as Record<string, string>;
+      }
+    } catch {
+      /* fail-soft — a malformed blob yields an empty SECRETS, never a crash */
+    }
+  }
+
+  const scoped: Record<string, unknown> = {};
+  for (const key of Object.keys(env)) {
+    // Internal platform bindings (`__PS_*`) are the raw values the scoped shims
+    // wrap — never expose them to user code.
+    if (key.startsWith('__PS_')) continue;
+    scoped[key] = env[key];
+  }
+  scoped.SECRETS = Object.freeze(secrets);
+  return scoped;
+}
+
+/**
  * Build a Worker fetch handler that dispatches requests across a functions
  * manifest: matches the path, extracts params, and invokes the method handler.
  * Returns 404 (no route), 405 (route but wrong method), or 500 (handler threw).
@@ -73,7 +116,9 @@ export function createFunctionsFetchHandler(
 
       const context: FunctionContext = {
         request,
-        env,
+        // Stage 4.1 — hand the SCOPED env (env.SECRETS + future KV/R2/AI/DATA
+        // shims), never the raw platform bindings.
+        env: buildFunctionsEnv(env),
         params: match.params,
         waitUntil: (promise) => ctx.waitUntil(promise),
         next: async () =>

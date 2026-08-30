@@ -18,6 +18,7 @@ jest.mock('../services/wfp_dispatch.js', () => ({
 }));
 jest.mock('../services/billing.js', () => ({ getOrgEntitlements: jest.fn() }));
 jest.mock('../services/db.js', () => ({ dbUpdate: jest.fn(), dbQueryOne: jest.fn() }));
+jest.mock('../services/ai_env_vars.js', () => ({ resolveEnvVarsForFunctions: jest.fn() }));
 
 import {
   deploySiteFunctions,
@@ -27,6 +28,7 @@ import {
   readFunctionsBundle,
 } from '../services/functions_deploy.js';
 import { getOrgEntitlements } from '../services/billing.js';
+import { resolveEnvVarsForFunctions } from '../services/ai_env_vars.js';
 import {
   isWfpConfigured,
   uploadSiteFunctionsWorker,
@@ -41,6 +43,7 @@ const mockUpload = uploadSiteFunctionsWorker as unknown as jest.Mock;
 const mockDelete = deleteSiteFunctionsWorker as unknown as jest.Mock;
 const mockDbUpdate = dbUpdate as unknown as jest.Mock;
 const mockQueryOne = dbQueryOne as unknown as jest.Mock;
+const mockResolveSecrets = resolveEnvVarsForFunctions as unknown as jest.Mock;
 
 const env = { DB: {} } as unknown as Env;
 const entitled = (v: boolean) => mockEnt.mockResolvedValue({ customEndpoints: v });
@@ -52,6 +55,7 @@ beforeEach(() => {
   mockEnt.mockReset();
   mockDbUpdate.mockReset().mockResolvedValue({ error: null, changes: 1 });
   mockQueryOne.mockReset();
+  mockResolveSecrets.mockReset().mockResolvedValue({});
 });
 
 describe('deploySiteFunctions', () => {
@@ -203,6 +207,63 @@ describe('deploySiteFunctions', () => {
     expect(out.status).toBe('removed');
     expect(mockDelete).toHaveBeenCalledWith(env, 'abc', { preview: true });
     expect(mockDbUpdate).not.toHaveBeenCalled();
+  });
+
+  // Stage 4.1 — env.SECRETS: resolved site+org env-vars injected as `secretsJson`.
+  it('injects resolved site+org env-vars as secretsJson on the upload', async () => {
+    entitled(true);
+    mockResolveSecrets.mockResolvedValue({ API_KEY: 'x', TOKEN: 'y' });
+    await deploySiteFunctions(env, {
+      siteId: 'abc',
+      orgId: 'org1',
+      build: { ok: true, script: 'export default {}' },
+    });
+    expect(mockResolveSecrets).toHaveBeenCalledWith(env, 'org1', 'abc');
+    expect(mockUpload).toHaveBeenCalledWith(env, 'abc', 'export default {}', {
+      preview: undefined,
+      secretsJson: JSON.stringify({ API_KEY: 'x', TOKEN: 'y' }),
+    });
+  });
+
+  it('passes NO secretsJson when the site has no env-vars', async () => {
+    entitled(true);
+    mockResolveSecrets.mockResolvedValue({});
+    await deploySiteFunctions(env, {
+      siteId: 'abc',
+      orgId: 'org1',
+      build: { ok: true, script: 's' },
+    });
+    const opts = mockUpload.mock.calls.at(-1)![3] as { secretsJson?: string };
+    expect(opts.secretsJson).toBeUndefined();
+  });
+
+  it('fail-soft — a secrets-resolve failure still deploys (no secretsJson)', async () => {
+    entitled(true);
+    mockResolveSecrets.mockRejectedValue(new Error('D1 down'));
+    const out = await deploySiteFunctions(env, {
+      siteId: 'abc',
+      orgId: 'org1',
+      build: { ok: true, script: 's' },
+    });
+    expect(out.status).toBe('deployed');
+    const opts = mockUpload.mock.calls.at(-1)![3] as { secretsJson?: string };
+    expect(opts.secretsJson).toBeUndefined();
+  });
+
+  it('preview deploy ALSO carries the resolved secrets', async () => {
+    entitled(true);
+    mockResolveSecrets.mockResolvedValue({ API_KEY: 'x' });
+    mockUpload.mockResolvedValue({ ok: true, scriptName: 'site-abc-preview' });
+    await deploySiteFunctions(env, {
+      siteId: 'abc',
+      orgId: 'org1',
+      build: { ok: true, script: 's' },
+      preview: true,
+    });
+    expect(mockUpload).toHaveBeenCalledWith(env, 'abc', 's', {
+      preview: true,
+      secretsJson: JSON.stringify({ API_KEY: 'x' }),
+    });
   });
 });
 

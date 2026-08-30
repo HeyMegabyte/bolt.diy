@@ -20,6 +20,7 @@ import {
   setEnvVar,
   listEnvVars,
   resolveEnvVarsForAI,
+  resolveEnvVarsForFunctions,
   injectIntoSystemPrompt,
   type EnvVarScope,
 } from '../services/ai_env_vars.js';
@@ -385,5 +386,78 @@ describe('injectIntoSystemPrompt', () => {
     const idxZ = out.indexOf('Z=');
     expect(idxA).toBeLessThan(idxM);
     expect(idxM).toBeLessThan(idxZ);
+  });
+});
+
+// ────────────────────────────────────────────────────────────
+// resolveEnvVarsForFunctions — Stage 4.1 env.SECRETS (org→site, no AI filter)
+// ────────────────────────────────────────────────────────────
+describe('resolveEnvVarsForFunctions (Stage 4.1 — env.SECRETS)', () => {
+  /** Build a full-ish EnvVarRow with defaults; `data` is typed `unknown[]` in the mock. */
+  function fnRow(over: Record<string, unknown>): Record<string, unknown> {
+    return {
+      id: 'row-1',
+      org_id: 'org-A',
+      scope: 'org',
+      site_id: null,
+      mcp_provider: null,
+      endpoint_id: null,
+      agent_id: null,
+      key: 'K',
+      value_encrypted: '',
+      description: null,
+      is_secret: 1,
+      exposed_to_ai: 1,
+      created_by: null,
+      created_at: 1,
+      updated_at: 1,
+      deleted_at: null,
+      ...over,
+    };
+  }
+
+  it('merges org → site (site overrides org) with NO exposed_to_ai filter', async () => {
+    const env = makeEnv();
+    const rows = [
+      fnRow({ key: 'API_KEY', value_encrypted: await encrypt(env, 'org-key'), exposed_to_ai: 0 }),
+      fnRow({ key: 'ORG_ONLY', value_encrypted: await encrypt(env, 'org-val') }),
+      fnRow({
+        scope: 'site',
+        site_id: 'site-1',
+        key: 'API_KEY',
+        value_encrypted: await encrypt(env, 'site-key'),
+        exposed_to_ai: 0,
+      }),
+    ];
+    mockQuery.mockResolvedValueOnce({ data: rows, error: null });
+    const out = await resolveEnvVarsForFunctions(env, 'org-A', 'site-1');
+    // site overrides org; the exposed_to_ai=0 rows are STILL included (owner code).
+    expect(out).toEqual({ API_KEY: 'site-key', ORG_ONLY: 'org-val' });
+    // the SQL must NOT filter on exposed_to_ai (unlike resolveEnvVarsForAI).
+    expect(mockQuery.mock.calls.at(-1)![1]).not.toContain('exposed_to_ai');
+  });
+
+  it('queries only org-scope + THIS site (no cross-site rows leak)', async () => {
+    const env = makeEnv();
+    mockQuery.mockResolvedValueOnce({ data: [], error: null });
+    await resolveEnvVarsForFunctions(env, 'org-A', 'site-1');
+    const [, sql, params] = mockQuery.mock.calls.at(-1)!;
+    expect(sql).toContain("scope = 'org'");
+    expect(sql).toContain("scope = 'site' AND site_id = ?");
+    expect(sql).toContain('deleted_at IS NULL');
+    expect(params).toEqual(['org-A', 'site-1']);
+  });
+
+  it('skips a row that fails to decrypt (fail-soft) + keeps the rest', async () => {
+    const env = makeEnv();
+    const rows = [
+      fnRow({ key: 'GOOD', value_encrypted: await encrypt(env, 'good') }),
+      fnRow({ key: 'BAD', value_encrypted: 'not-valid-ciphertext' }),
+    ];
+    mockQuery.mockResolvedValueOnce({ data: rows, error: null });
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const out = await resolveEnvVarsForFunctions(env, 'org-A', 'site-1');
+    warnSpy.mockRestore();
+    expect(out).toEqual({ GOOD: 'good' });
   });
 });

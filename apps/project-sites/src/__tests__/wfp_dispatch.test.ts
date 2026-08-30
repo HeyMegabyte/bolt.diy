@@ -382,6 +382,25 @@ describe('uploadSiteFunctionsWorker', () => {
     expect((mockFetch.mock.calls[0] as [string])[0]).toContain('/scripts/site-abc-preview');
   });
 
+  it('adds a __PS_SECRETS_JSON secret_text binding when secretsJson is provided (Stage 4.1)', async () => {
+    mockFetch.mockResolvedValueOnce(res(true, { status: 200 }));
+    const secretsJson = JSON.stringify({ API_KEY: 'x', TOKEN: 'y' });
+    await uploadSiteFunctionsWorker(makeEnv(), 'abc', 'export default {}', { secretsJson });
+    const init = mockFetch.mock.calls.at(-1)![1] as RequestInit;
+    const metadata = JSON.parse(await blobText((init.body as FormData).get('metadata')));
+    expect(metadata.bindings).toEqual([
+      { type: 'secret_text', name: '__PS_SECRETS_JSON', text: secretsJson },
+    ]);
+  });
+
+  it('omits the bindings key entirely when no secretsJson is provided', async () => {
+    mockFetch.mockResolvedValueOnce(res(true, { status: 200 }));
+    await uploadSiteFunctionsWorker(makeEnv(), 'abc', 'export default {}');
+    const init = mockFetch.mock.calls.at(-1)![1] as RequestInit;
+    const metadata = JSON.parse(await blobText((init.body as FormData).get('metadata')));
+    expect(metadata.bindings).toBeUndefined();
+  });
+
   it('returns the CF error body + status on a non-2xx (bad build surfaced, not swallowed)', async () => {
     mockFetch.mockResolvedValueOnce(res(false, { status: 400, text: 'invalid module' }));
     const out = await uploadSiteFunctionsWorker(makeEnv(), 'x', 's');

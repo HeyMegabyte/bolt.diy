@@ -498,6 +498,53 @@ export async function resolveEnvVarsForAI(
 }
 
 /**
+ * Resolve the effective env-var set for a site's **Functions** endpoints
+ * (ADR-0035 §6, Stage 4.1) — the `env.SECRETS.<KEY>` map the runtime injects.
+ *
+ * Merges **org → site** (site overrides org on a key clash). Unlike
+ * {@link resolveEnvVarsForAI}, it does NOT filter on `exposed_to_ai`: a site's
+ * `functions/` code is the OWNER's own code, so it receives ALL of the org+site
+ * env-vars, not only those flagged for the AI context. Values are decrypted; a
+ * per-row decrypt failure is logged + skipped (fail-soft) so one bad row can't
+ * strand the rest.
+ *
+ * @returns `{ KEY: value }`, decrypted, org-then-site merged
+ * @example await resolveEnvVarsForFunctions(env, orgId, siteId) // { STRIPE_KEY: 'sk_…' }
+ */
+export async function resolveEnvVarsForFunctions(
+  env: Env,
+  orgId: string,
+  siteId: string,
+): Promise<Record<string, string>> {
+  const sql = `SELECT * FROM ai_env_vars
+     WHERE org_id = ? AND deleted_at IS NULL
+       AND (scope = 'org' OR (scope = 'site' AND site_id = ?))`;
+  const { data } = await dbQuery<EnvVarRow>(env.DB, sql, [orgId, siteId]);
+  const merged: Record<string, string> = {};
+  // org first, site second → site overrides org on a key clash.
+  for (const scope of ['org', 'site'] as const) {
+    for (const row of data) {
+      if (row.scope !== scope) continue;
+      try {
+        merged[row.key] = await decrypt(env, row.value_encrypted);
+      } catch (err) {
+        console.warn(
+          JSON.stringify({
+            service: 'ai_env_vars',
+            event: 'functions_resolve_decrypt_failed',
+            id: row.id,
+            scope: row.scope,
+            key: row.key,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
+    }
+  }
+  return merged;
+}
+
+/**
  * Append a `## Custom environment` block to a system prompt listing each
  * resolved key as `KEY=VALUE`. Returns the augmented system prompt unchanged
  * when `resolved` is empty (so callers can chain unconditionally).

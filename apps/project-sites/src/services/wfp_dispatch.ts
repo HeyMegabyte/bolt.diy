@@ -155,7 +155,7 @@ export async function uploadSiteFunctionsWorker(
   env: Env,
   siteId: string,
   script: string,
-  opts: { preview?: boolean } = {},
+  opts: { preview?: boolean; secretsJson?: string } = {},
 ): Promise<{ ok: true; scriptName: string } | { ok: false; error: string; status?: number }> {
   if (!isWfpConfigured(env)) {
     return { ok: false, error: 'Workers for Platforms not configured on this account' };
@@ -163,13 +163,22 @@ export async function uploadSiteFunctionsWorker(
   const scriptName = siteFunctionsScriptName(siteId, opts);
   const url = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/workers/dispatch/namespaces/${env.WFP_NAMESPACE_NAME}/scripts/${scriptName}`;
 
+  // Stage 4.1 (ADR-0035 §6) — inject the site+org env-vars as a single
+  // `secret_text` binding `__PS_SECRETS_JSON` that the runtime shim
+  // (`buildFunctionsEnv`) parses into `env.SECRETS`. Only attached when the caller
+  // resolved secrets (absent/'' → no binding → the shim yields `env.SECRETS = {}`).
+  const metadata: Record<string, unknown> = {
+    main_module: 'worker.mjs',
+    compatibility_date: '2026-05-01',
+  };
+  if (opts.secretsJson && opts.secretsJson.length > 0) {
+    metadata.bindings = [
+      { type: 'secret_text', name: '__PS_SECRETS_JSON', text: opts.secretsJson },
+    ];
+  }
+
   const form = new FormData();
-  form.append(
-    'metadata',
-    new Blob([JSON.stringify({ main_module: 'worker.mjs', compatibility_date: '2026-05-01' })], {
-      type: 'application/json',
-    }),
-  );
+  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
   form.append(
     'worker.mjs',
     new Blob([script], { type: 'application/javascript+module' }),

@@ -15,6 +15,7 @@
  */
 import type { Env } from '../types/env.js';
 import { getOrgEntitlements } from './billing.js';
+import { resolveEnvVarsForFunctions } from './ai_env_vars.js';
 import { dbUpdate, dbQueryOne } from './db.js';
 import {
   isWfpConfigured,
@@ -74,11 +75,26 @@ export async function deploySiteFunctions(
     return { status: 'removed' };
   }
 
+  // Stage 4.1 — resolve the site+org env-vars into the `env.SECRETS` blob the
+  // runtime shim reads. Fail-soft: a resolve/decrypt failure deploys WITHOUT
+  // secrets (empty `env.SECRETS`) rather than blocking the publish. Both the live
+  // AND preview slots carry the secrets so the owner tests against real values.
+  let secretsJson: string | undefined;
+  try {
+    const secrets = await resolveEnvVarsForFunctions(env, opts.orgId, opts.siteId);
+    if (Object.keys(secrets).length > 0) secretsJson = JSON.stringify(secrets);
+  } catch {
+    /* fail-soft — deploy without secrets rather than block the publish */
+  }
+
   // Good build → upload. An upload failure leaves the previous script in place
   // (the PUT never overwrote), so last-good is preserved either way. Preview
   // uploads to `site-<id>-preview` and NEVER touches the live deploy signal or the
   // persisted last-good bundle (Stage 2.3 — the owner tests it before promoting).
-  const res = await uploadSiteFunctionsWorker(env, opts.siteId, build.script, { preview });
+  const res = await uploadSiteFunctionsWorker(env, opts.siteId, build.script, {
+    preview,
+    secretsJson,
+  });
   if (res.ok) {
     if (!preview) {
       // Record the deploy so Stage 3.1 dispatch knows a script is live. Fail-soft:
