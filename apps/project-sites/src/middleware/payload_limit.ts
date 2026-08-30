@@ -14,12 +14,30 @@
 import type { MiddlewareHandler } from 'hono';
 import { DEFAULT_CAPS, payloadTooLarge } from '@project-sites/shared';
 import type { Env, Variables } from '../types/env.js';
+import { isReservedFunctionRoute } from '../services/functions/router.js';
 
 /** 100 MB limit for upload endpoints (ZIP deploys, bolt publish). */
 const UPLOAD_MAX_BYTES = 100 * 1024 * 1024;
 
 /** Paths that allow the larger upload limit. */
 const UPLOAD_PATHS = ['/api/publish/bolt', '/api/sites/'];
+
+/**
+ * The platform's OWN hosts — where `/api/*` is a PLATFORM route bound by the
+ * 256 KB default. Every OTHER host is a SITE (child subdomain or custom domain),
+ * whose non-reserved `/api/*` dispatches to the site's `functions/` worker and so
+ * gets the generous upload ceiling (the Stage 4.2 dispatch guardrail enforces the
+ * real ~25 MB functions cap + returns 413, per ADR-0035 §110).
+ */
+const PLATFORM_HOSTS = new Set([
+  'projectsites.dev',
+  'www.projectsites.dev',
+  'analytics.projectsites.dev',
+  'logs.projectsites.dev',
+  'webhooks.projectsites.dev',
+  'links.projectsites.dev',
+  'project-sites.manhattan.workers.dev',
+]);
 
 /**
  * Self-hosted-app subdomains proxied wholesale to CF Workers Containers
@@ -76,8 +94,17 @@ export const payloadLimitMiddleware: MiddlewareHandler<{
       url.pathname === '/api/assets/upload' ||
       url.pathname === '/api/media/upload' ||
       url.pathname.endsWith('/publish-bolt');
+    // Stage 4.2 — a non-reserved `/api/*` on a SITE host is a Functions dispatch:
+    // grant the upload ceiling so endpoints can accept large uploads (streamed to
+    // env.R2); the dispatch guardrail (functions_guardrails) enforces the real
+    // ~25 MB cap + returns a 413 with the functions error shape. Reserved platform
+    // `/api/*` (contact-form / events / _ps) + the platform hosts stay at 256 KB.
+    const isFunctionsDispatch =
+      url.pathname.startsWith('/api/') &&
+      !isReservedFunctionRoute(url.pathname) &&
+      !PLATFORM_HOSTS.has(hostname);
     const maxBytes =
-      isUpload || CONTAINER_APP_HOSTS.has(hostname)
+      isUpload || CONTAINER_APP_HOSTS.has(hostname) || isFunctionsDispatch
         ? UPLOAD_MAX_BYTES
         : DEFAULT_CAPS.MAX_REQUEST_BODY_BYTES;
 

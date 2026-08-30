@@ -60,3 +60,38 @@ describe('payloadLimitMiddleware', () => {
     expect(res.status).toBe(200);
   });
 });
+
+describe('payloadLimitMiddleware — Functions dispatch exemption (Stage 4.2)', () => {
+  const TWENTY_SIX_MB = String(26 * 1024 * 1024);
+  const TWO_HUNDRED_MB = String(200 * 1024 * 1024);
+
+  it('exempts a non-reserved /api/* on a SITE host (2 MB → 200; the 256 KB default would 413)', async () => {
+    const res = await post('https://ada-co.projectsites.dev/api/x', TWO_MB);
+    expect(res.status).toBe(200);
+  });
+
+  it('allows a 26 MB body on a site functions path (the dispatch guardrail — not this middleware — enforces the real 25 MB cap)', async () => {
+    const res = await post('https://ada-co.projectsites.dev/api/x', TWENTY_SIX_MB);
+    expect(res.status).toBe(200);
+  });
+
+  it('still 413s a >100 MB body on a site functions path (hard backstop)', async () => {
+    const res = await post('https://ada-co.projectsites.dev/api/x', TWO_HUNDRED_MB);
+    expect(res.status).toBe(413);
+  });
+
+  it('does NOT exempt a RESERVED /api/* on a site host (contact-form stays 256 KB → 413 at 2 MB)', async () => {
+    const res = await post('https://ada-co.projectsites.dev/api/contact-form', TWO_MB);
+    expect(res.status).toBe(413);
+  });
+
+  it('does NOT exempt the platform host /api/* (stays 256 KB → 413 at 2 MB)', async () => {
+    const res = await post('https://projectsites.dev/api/x', TWO_MB);
+    expect(res.status).toBe(413);
+  });
+
+  it('does NOT exempt a non-/api path on a site host (static → 256 KB → 413 at 2 MB)', async () => {
+    const res = await post('https://ada-co.projectsites.dev/about', TWO_MB);
+    expect(res.status).toBe(413);
+  });
+});
