@@ -116,6 +116,27 @@ export function robotsForUrl(url: string | null | undefined): 'noindex, nofollow
   return path === '/admin' || path.startsWith('/admin/') ? 'noindex, nofollow' : 'index, follow';
 }
 
+/**
+ * Dynamic detail routes whose per-record meta is owned by their COMPONENT
+ * (stamped imperatively in `ngOnInit` via {@link MetaService.setMeta}), not by
+ * the router-driven `PAGE_META` lookup. The `blog/<slug>` path has no `PAGE_META`
+ * entry, so without this guard {@link MetaService.init} would fall back to the
+ * homepage meta and clobber the post's title/og:title on every navigation (and
+ * again on hydration, since `NavigationEnd` fires after the component's
+ * `ngOnInit`). Currently only blog-post detail pages qualify — the `/blog` index
+ * itself IS in `PAGE_META` and is intentionally excluded.
+ *
+ * @param path - Joined leaf-route path (e.g. `blog/my-post`), no leading slash.
+ * @returns true when the route's component owns its own per-record meta.
+ * @example
+ * isComponentOwnedMetaRoute('blog/my-post'); // => true
+ * isComponentOwnedMetaRoute('blog');         // => false (the index)
+ */
+export function isComponentOwnedMetaRoute(path: string | null | undefined): boolean {
+  if (!path) return false;
+  return path.startsWith('blog/');
+}
+
 @Injectable({ providedIn: 'root' })
 export class MetaService {
   private title = inject(Title);
@@ -143,6 +164,9 @@ export class MetaService {
       mergeMap(route => route.url),
     ).subscribe(segments => {
       const path = segments.map(s => s.path).join('/') || '';
+      // Blog posts (and future dynamic detail routes) stamp their own per-record
+      // meta in ngOnInit — never overwrite it with the homepage PAGE_META fallback.
+      if (isComponentOwnedMetaRoute(path)) return;
       const pageMeta = PAGE_META[path] || PAGE_META[''];
       this.updateMeta(pageMeta, path);
     });

@@ -2,6 +2,7 @@ import { Component, type OnInit, type OnDestroy, inject, signal, PLATFORM_ID } f
 import { isPlatformBrowser } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { BlogService, type BlogPost } from '../../services/blog.service';
+import { MetaService } from '../../services/meta.service';
 
 interface TocItem {
   readonly id: string;
@@ -415,6 +416,7 @@ export class BlogPostComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private blogService = inject(BlogService);
   private platformId = inject(PLATFORM_ID);
+  private meta = inject(MetaService);
 
   post = signal<BlogPost | undefined>(undefined);
   renderedHtml = signal('');
@@ -433,7 +435,30 @@ export class BlogPostComponent implements OnInit, OnDestroy {
       this.renderedHtml.set(html);
       this.toc.set(this.extractToc(html));
       this.injectJsonLd(foundPost);
+      this.applyMeta(foundPost);
+    } else {
+      // Never leave the generic homepage meta on a missing post.
+      this.meta.setMeta({
+        title: 'Post Not Found | ProjectSites Blog',
+        description:
+          'The blog post you are looking for does not exist. Browse the ProjectSites blog for AI website-building guides.',
+        canonical: 'https://projectsites.dev/blog',
+      });
     }
+  }
+
+  /**
+   * Stamp the loaded post's title/description/canonical into the document head.
+   * The router-driven {@link MetaService} skips `blog/<slug>` (via
+   * {@link isComponentOwnedMetaRoute}), so this component is the SOLE authority
+   * for a post's SEO/social meta — without this the page kept the homepage title.
+   */
+  private applyMeta(p: BlogPost): void {
+    this.meta.setMeta({
+      title: `${p.title} | ProjectSites Blog`,
+      description: p.excerpt,
+      canonical: `https://projectsites.dev/blog/${p.slug}`,
+    });
   }
 
   ngOnDestroy(): void {

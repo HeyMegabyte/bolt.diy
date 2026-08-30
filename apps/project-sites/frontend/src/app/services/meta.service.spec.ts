@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { Title, Meta } from '@angular/platform-browser';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
-import { MetaService, robotsForUrl } from './meta.service';
+import { MetaService, robotsForUrl, isComponentOwnedMetaRoute } from './meta.service';
 
 /**
  * Authed /admin/* routes must be noindex (private dashboards); marketing routes
@@ -20,6 +20,25 @@ describe('robotsForUrl', () => {
     expect(robotsForUrl('/pricing')).toBe('index, follow');
     expect(robotsForUrl('/blog/post')).toBe('index, follow');
     expect(robotsForUrl('/administrator')).toBe('index, follow');
+  });
+});
+
+/**
+ * Dynamic detail routes (blog posts) carry per-record meta the OWNING COMPONENT
+ * stamps in ngOnInit — the router-driven handler must NOT clobber them with the
+ * homepage fallback (the `blog/<slug>` path isn't in PAGE_META). Pure helper so
+ * the guard is locked without a Router.
+ */
+describe('isComponentOwnedMetaRoute', () => {
+  it('is true ONLY for blog-post detail routes (not the /blog index)', () => {
+    expect(isComponentOwnedMetaRoute('blog/how-ai-is-changing-web-design')).toBe(true);
+    expect(isComponentOwnedMetaRoute('blog/any-slug')).toBe(true);
+  });
+  it('is false for the blog index and every static route', () => {
+    expect(isComponentOwnedMetaRoute('blog')).toBe(false);
+    expect(isComponentOwnedMetaRoute('')).toBe(false);
+    expect(isComponentOwnedMetaRoute('pricing')).toBe(false);
+    expect(isComponentOwnedMetaRoute('roadmap')).toBe(false);
   });
 });
 
