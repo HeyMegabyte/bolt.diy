@@ -240,8 +240,9 @@ export function buildFunctionsEnv(rawEnv: unknown): Record<string, unknown> {
   }
 
   // Stage 4.1(d) — env.AI: a metered Workers-AI facade over the platform's signed
-  // internal endpoint (`__PS_FN_TOKEN` + `__PS_FN_URL`). No raw `ai` binding → every
-  // call is credit-debited server-side. Absent bindings → no env.AI (fail-soft).
+  // internal endpoint, reached via the `__PS_SVC` SERVICE binding + `__PS_FN_TOKEN`
+  // (in-process, not a public fetch — workers.dev reentry 522s). No raw `ai` binding
+  // → every call is credit-debited server-side. Absent bindings → no env.AI (fail-soft).
   const fnToken = typeof env.__PS_FN_TOKEN === 'string' ? env.__PS_FN_TOKEN : '';
   const svc = env.__PS_SVC as ScopedAIService | undefined;
   if (fnToken && svc && typeof svc.fetch === 'function') {
