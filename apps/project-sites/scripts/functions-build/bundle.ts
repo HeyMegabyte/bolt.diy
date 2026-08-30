@@ -15,6 +15,7 @@ import { build } from 'esbuild';
 import { existsSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { generateFunctionsWorkerEntry } from '../../src/services/functions/codegen.js';
 
 const CODE_EXT = /\.(?:ts|js|mts|cts|mjs|cjs)$/;
@@ -85,8 +86,15 @@ export function listFunctionFiles(functionsDir: string): string[] {
  */
 export async function bundleFunctions(opts: BundleOptions): Promise<BundleResult> {
   const functionsDir = resolve(opts.functionsDir);
+  // Resolve the runtime relative to THIS file (scripts/functions-build/), NOT process.cwd():
+  // cli.ts spawns with cwd=<site build dir>, whose cloned template has no src/services/functions.
+  // The container COPYs the runtime to /home/cuser/src/services/functions/ (the same `../../`
+  // layout as the codegen import above). Bug #3 (2026-08-30): the cwd-based default made the
+  // generated entry import `<buildDir>/src/services/...` → esbuild "Could not resolve" →
+  // functionsBuild {ok:false}. Tests are unaffected (their cwd == the worker root == same path).
   const runtimePath = resolve(
-    opts.runtimePath ?? resolve(process.cwd(), 'src/services/functions/runtime.ts'),
+    opts.runtimePath ??
+      resolve(dirname(fileURLToPath(import.meta.url)), '../../src/services/functions/runtime.ts'),
   );
   const format = opts.format ?? 'esm';
 
