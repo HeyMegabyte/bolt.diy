@@ -309,13 +309,13 @@ describe('deploySiteFunctions', () => {
     expect(opts.r2BucketName).toBe('bkt-prod');
   });
 
-  // Stage 4.1(d) — env.AI: sign + pass a per-site token + the internal URL.
-  it('signs + passes fnToken + fnUrl when the internal secret + url are set', async () => {
+  // Stage 4.1(d) — env.AI: sign + pass a per-site token + the internal service binding.
+  it('signs + passes fnToken + fnService when the internal secret + service are set', async () => {
     entitled(true);
     const envAi = {
       DB: {},
       FUNCTIONS_INTERNAL_SECRET: 'sek',
-      FUNCTIONS_INTERNAL_URL: 'https://p.test',
+      FUNCTIONS_INTERNAL_SERVICE: 'project-sites',
     } as unknown as Env;
     await deploySiteFunctions(envAi, {
       siteId: 'abc',
@@ -323,20 +323,26 @@ describe('deploySiteFunctions', () => {
       build: { ok: true, script: 's' },
     });
     expect(mockSign).toHaveBeenCalledWith('sek', 'abc');
-    const opts = mockUpload.mock.calls.at(-1)![3] as { fnToken?: string; fnUrl?: string };
+    const opts = mockUpload.mock.calls.at(-1)![3] as { fnToken?: string; fnService?: string };
     expect(opts.fnToken).toBe('abc.sig-sek');
-    expect(opts.fnUrl).toBe('https://p.test');
+    expect(opts.fnService).toBe('project-sites');
   });
 
   it('passes NO fnToken when the internal secret is unset (env.AI not configured)', async () => {
     entitled(true);
-    await deploySiteFunctions(env, {
+    const envSvcOnly = {
+      DB: {},
+      FUNCTIONS_INTERNAL_SERVICE: 'project-sites',
+    } as unknown as Env;
+    await deploySiteFunctions(envSvcOnly, {
       siteId: 'abc',
       orgId: 'org1',
       build: { ok: true, script: 's' },
     });
-    const opts = mockUpload.mock.calls.at(-1)![3] as { fnToken?: string };
+    const opts = mockUpload.mock.calls.at(-1)![3] as { fnToken?: string; fnService?: string };
     expect(opts.fnToken).toBeUndefined();
+    // fnService is still threaded through even without a token (harmless; shim needs BOTH)
+    expect(opts.fnService).toBe('project-sites');
   });
 });
 

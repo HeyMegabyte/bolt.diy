@@ -97,14 +97,16 @@ export async function deploySiteFunctions(
   // prefixes `sites-data/<siteId>/` so the raw bucket is never reachable. Same
   // narrow-cast pattern (avoids the concurrent-dirty `env.ts`). Absent → no env.R2.
   const r2BucketName = (env as unknown as { FUNCTIONS_R2_BUCKET?: string }).FUNCTIONS_R2_BUCKET;
-  // Stage 4.1(d) — env.AI: sign a per-site token (HMAC of siteId) + the platform
-  // internal URL the shim POSTs to (/api/_ps/ai/run). Both from cast-read config
-  // (env.ts concurrent-dirty). Absent secret/url → no token → no env.AI (fail-soft).
-  const fnUrl = (env as unknown as { FUNCTIONS_INTERNAL_URL?: string }).FUNCTIONS_INTERNAL_URL;
+  // Stage 4.1(d) — env.AI: sign a per-site token (HMAC of siteId) + name the platform
+  // SERVICE binding the shim calls (/api/_ps/ai/run, in-process — a public fetch to
+  // the platform's own workers.dev reenters the account + 522s). Both from cast-read
+  // config (env.ts concurrent-dirty). Absent secret/service → no env.AI (fail-soft).
+  const fnService = (env as unknown as { FUNCTIONS_INTERNAL_SERVICE?: string })
+    .FUNCTIONS_INTERNAL_SERVICE;
   const fnSecret = (env as unknown as { FUNCTIONS_INTERNAL_SECRET?: string })
     .FUNCTIONS_INTERNAL_SECRET;
   let fnToken: string | undefined;
-  if (fnSecret && fnUrl) {
+  if (fnSecret && fnService) {
     try {
       fnToken = await signFunctionToken(fnSecret, opts.siteId);
     } catch {
@@ -122,7 +124,7 @@ export async function deploySiteFunctions(
     kvNamespaceId,
     r2BucketName,
     fnToken,
-    fnUrl,
+    fnService,
   });
   if (res.ok) {
     if (!preview) {

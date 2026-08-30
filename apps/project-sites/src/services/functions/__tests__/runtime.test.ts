@@ -152,17 +152,20 @@ describe('buildFunctionsEnv', () => {
   });
 
   // ── Stage 4.1(d) — env.AI wiring ──
-  it('exposes env.AI when __PS_FN_TOKEN + __PS_FN_URL are present', () => {
-    const env = buildFunctionsEnv({ __PS_FN_TOKEN: 'abc.sig', __PS_FN_URL: 'https://p.test' });
+  it('exposes env.AI when __PS_FN_TOKEN + __PS_SVC (service binding) are present', () => {
+    const svc = { fetch: async () => new Response('{}') };
+    const env = buildFunctionsEnv({ __PS_FN_TOKEN: 'abc.sig', __PS_SVC: svc });
     expect(env.AI).toBeDefined();
     expect(typeof (env.AI as { run: unknown }).run).toBe('function');
     expect(env.__PS_FN_TOKEN).toBeUndefined(); // internal bindings stripped
-    expect(env.__PS_FN_URL).toBeUndefined();
+    expect(env.__PS_SVC).toBeUndefined();
   });
 
-  it('no env.AI when the token or the url is missing', () => {
+  it('no env.AI when the token or the service binding is missing', () => {
     expect(buildFunctionsEnv({ __PS_FN_TOKEN: 'abc.sig' }).AI).toBeUndefined();
-    expect(buildFunctionsEnv({ __PS_FN_URL: 'https://p.test' }).AI).toBeUndefined();
+    expect(
+      buildFunctionsEnv({ __PS_SVC: { fetch: async () => new Response('{}') } }).AI,
+    ).toBeUndefined();
   });
 });
 
@@ -244,37 +247,33 @@ describe('makeScopedR2 (Stage 4.1c — per-site object isolation)', () => {
   });
 });
 
-describe('makeScopedAI (Stage 4.1d — metered debit-then-call)', () => {
-  const realFetch = global.fetch;
-  afterEach(() => {
-    global.fetch = realFetch;
-  });
-
-  it('POSTs /api/_ps/ai/run with the Bearer token + returns the result', async () => {
-    const calls: [string, RequestInit | undefined][] = [];
-    global.fetch = (async (url: string, init?: RequestInit) => {
-      calls.push([url, init]);
-      return new Response(JSON.stringify({ result: { text: 'ok' }, credits_remaining: 4 }), {
-        status: 200,
-      });
-    }) as unknown as typeof fetch;
-
-    const out = await makeScopedAI('site-abc.sig', 'https://p.test').run('@cf/x', { prompt: 'hi' });
+describe('makeScopedAI (Stage 4.1d — metered debit-then-call over a service binding)', () => {
+  it('calls the service binding /api/_ps/ai/run with the Bearer token + returns result', async () => {
+    const reqs: Request[] = [];
+    const svc = {
+      fetch: async (req: Request) => {
+        reqs.push(req);
+        return new Response(JSON.stringify({ result: { text: 'ok' }, credits_remaining: 4 }), {
+          status: 200,
+        });
+      },
+    };
+    const out = await makeScopedAI('site-abc.sig', svc).run('@cf/x', { prompt: 'hi' });
     expect(out).toEqual({ text: 'ok' });
-    expect(calls[0][0]).toBe('https://p.test/api/_ps/ai/run');
-    const init = calls[0][1]!;
-    expect(init.method).toBe('POST');
-    expect((init.headers as Record<string, string>).authorization).toBe('Bearer site-abc.sig');
-    expect(JSON.parse(init.body as string)).toEqual({ model: '@cf/x', inputs: { prompt: 'hi' } });
+    const req = reqs[0];
+    expect(new URL(req.url).pathname).toBe('/api/_ps/ai/run');
+    expect(req.method).toBe('POST');
+    expect(req.headers.get('authorization')).toBe('Bearer site-abc.sig');
+    expect(await req.json()).toEqual({ model: '@cf/x', inputs: { prompt: 'hi' } });
   });
 
   it('throws the platform error message on a non-2xx (e.g. 402 out of credits)', async () => {
-    global.fetch = (async () =>
-      new Response(JSON.stringify({ error: { message: 'AI credits exhausted' } }), {
-        status: 402,
-      })) as unknown as typeof fetch;
-    await expect(makeScopedAI('t', 'https://p.test').run('@cf/x')).rejects.toThrow(
-      'AI credits exhausted',
-    );
+    const svc = {
+      fetch: async () =>
+        new Response(JSON.stringify({ error: { message: 'AI credits exhausted' } }), {
+          status: 402,
+        }),
+    };
+    await expect(makeScopedAI('t', svc).run('@cf/x')).rejects.toThrow('AI credits exhausted');
   });
 });

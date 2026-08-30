@@ -209,11 +209,12 @@ FUNCTIONS_KV_ID = "4cb559cb6d544cbd8be7c46da11f576b"
 # every object key `sites-data/<siteId>/` so a site can only reach its OWN
 # objects (never the raw bucket). Reuses the prod site bucket (prefix-isolated).
 FUNCTIONS_R2_BUCKET = "project-sites-production"
-# Platform internal base URL the Functions runtime shims POST to (env.AI →
-# /api/_ps/ai/run; env.DATA next). workers.dev bypasses the zone bot-fight for
-# these server-to-server subrequests. Paired with the FUNCTIONS_INTERNAL_SECRET
-# worker secret that signs/verifies the per-site token. Non-sensitive (a URL).
-FUNCTIONS_INTERNAL_URL = "https://project-sites.manhattan.workers.dev"
+# Platform worker NAME the Functions runtime shims call via a SERVICE binding
+# (env.AI → /api/_ps/ai/run; env.DATA next) — in-process worker→worker, NOT a
+# public URL (a WfP user script fetching the platform's own workers.dev reenters
+# the account + 522s). Paired with the FUNCTIONS_INTERNAL_SECRET worker secret
+# that signs/verifies the per-site token. Non-sensitive (a worker name).
+FUNCTIONS_INTERNAL_SERVICE = "project-sites"
 # Novu workflow trigger identifier for `ps-notify` (the dashboard notification
 # bell backbone). Novu auto-suffixes identifiers on creation, so the real value
 # lives here rather than a hardcoded literal. Non-sensitive (a trigger id).

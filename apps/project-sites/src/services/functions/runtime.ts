@@ -142,25 +142,36 @@ export interface ScopedAI {
   run(model: string, inputs?: unknown): Promise<unknown>;
 }
 
+/** The platform SERVICE binding (`__PS_SVC`) the `env.AI` shim calls in-process. */
+export interface ScopedAIService {
+  fetch(request: Request): Promise<Response>;
+}
+
 /**
  * `env.AI` — a METERED Workers-AI facade (ADR-0035 §6/§8, Stage 4.1(d)). Rather
- * than a RAW (unmetered) `ai` binding, `run()` POSTs the platform's signed internal
- * endpoint (`__PS_FN_URL` + `/api/_ps/ai/run`) with the per-site token; the platform
- * checks credits, runs the model, and debits. Throws a clear Error when out of
- * credits / on any non-2xx. Pure over `fetch`.
+ * than a RAW (unmetered) `ai` binding, `run()` calls the platform's signed internal
+ * endpoint `/api/_ps/ai/run` — over a SERVICE BINDING (`__PS_SVC`), in-process, NOT
+ * a public fetch (a WfP user script fetching the platform's own workers.dev reenters
+ * the account + 522s). The platform verifies the per-site token, checks credits, runs
+ * the model, and debits. Throws a clear Error when out of credits / on any non-2xx.
  *
  * @param token - the per-site function token (`__PS_FN_TOKEN`, `<siteId>.<hmac>`)
- * @param internalUrl - the platform internal base (`__PS_FN_URL`)
+ * @param svc - the platform service binding (`__PS_SVC`)
  * @example await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', { prompt: 'hi' })
  */
-export function makeScopedAI(token: string, internalUrl: string): ScopedAI {
+export function makeScopedAI(token: string, svc: ScopedAIService): ScopedAI {
   return {
     run: async (model, inputs) => {
-      const res = await fetch(`${internalUrl}/api/_ps/ai/run`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
-        body: JSON.stringify({ model, inputs: inputs ?? {} }),
-      });
+      // In-process service-binding call — host is a placeholder; the platform
+      // routes on the PATH (`/api/_ps/ai/run`), which is registered before the
+      // /api/* dispatch catch-all so it wins.
+      const res = await svc.fetch(
+        new Request('https://ps-internal/api/_ps/ai/run', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+          body: JSON.stringify({ model, inputs: inputs ?? {} }),
+        }),
+      );
       const data = (await res.json().catch(() => ({}))) as {
         result?: unknown;
         error?: { message?: string };
@@ -232,9 +243,9 @@ export function buildFunctionsEnv(rawEnv: unknown): Record<string, unknown> {
   // internal endpoint (`__PS_FN_TOKEN` + `__PS_FN_URL`). No raw `ai` binding → every
   // call is credit-debited server-side. Absent bindings → no env.AI (fail-soft).
   const fnToken = typeof env.__PS_FN_TOKEN === 'string' ? env.__PS_FN_TOKEN : '';
-  const fnUrl = typeof env.__PS_FN_URL === 'string' ? env.__PS_FN_URL : '';
-  if (fnToken && fnUrl) {
-    scoped.AI = makeScopedAI(fnToken, fnUrl);
+  const svc = env.__PS_SVC as ScopedAIService | undefined;
+  if (fnToken && svc && typeof svc.fetch === 'function') {
+    scoped.AI = makeScopedAI(fnToken, svc);
   }
 
   return scoped;
