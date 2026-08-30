@@ -124,7 +124,9 @@ describe('deploySiteFunctions', () => {
     });
     expect(out.status).toBe('deployed');
     if (out.status === 'deployed') expect(out.scriptName).toBe('site-abc');
-    expect(mockUpload).toHaveBeenCalledWith(env, 'abc', 'export default {}', { preview: undefined });
+    expect(mockUpload).toHaveBeenCalledWith(env, 'abc', 'export default {}', {
+      preview: undefined,
+    });
     // signal set → functions_deployed_at = a timestamp string, scoped to the site
     const call = mockDbUpdate.mock.calls.at(-1);
     expect(call[0]).toBe(env.DB);
