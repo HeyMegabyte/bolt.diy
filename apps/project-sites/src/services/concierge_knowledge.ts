@@ -103,9 +103,18 @@ const VERTICAL_MATCHERS: ReadonlyArray<readonly [RegExp, string]> = [
   [/doctor|clinic|medical|family medicine|primary care|physician|pediatr|urgent care/i, 'medical'],
   [/yoga|pilates|\bspa\b|massage|meditation|wellness/i, 'wellness'],
   [/\blaw\b|attorney|legal|counsel|advocate|\bcpa\b|accountant/i, 'legal'],
-  [/restaurant|cafe|bakery|\bbar\b|brewery|catering|grill|kitchen|dining|bistro|eatery/i, 'restaurant'],
-  [/plumb|electric|hvac|roof|landscap|cleaning|contractor|handyman|heating|auto repair/i, 'local-service'],
-  [/nonprofit|\bngo\b|charity|foundation|church|501c3|outreach|food bank|soup kitchen/i, 'nonprofit'],
+  [
+    /restaurant|cafe|bakery|\bbar\b|brewery|catering|grill|kitchen|dining|bistro|eatery/i,
+    'restaurant',
+  ],
+  [
+    /plumb|electric|hvac|roof|landscap|cleaning|contractor|handyman|heating|auto repair/i,
+    'local-service',
+  ],
+  [
+    /nonprofit|\bngo\b|charity|foundation|church|501c3|outreach|food bank|soup kitchen/i,
+    'nonprofit',
+  ],
   [/real estate|realty|realtor|homes for sale|properties|brokerage/i, 'real-estate'],
   [/fitness|\bgym\b|crossfit|strength|conditioning|personal training/i, 'fitness'],
   [/software|\bsaas\b|\bapp\b|platform|analytics|startup|dev tool|\bapi\b/i, 'saas'],
