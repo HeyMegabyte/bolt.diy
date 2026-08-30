@@ -87,7 +87,12 @@ export interface ScopedR2Backing {
   put(key: string, value: unknown, options?: unknown): Promise<unknown>;
   head(key: string): Promise<unknown>;
   delete(keys: string | string[]): Promise<void>;
-  list(options?: { prefix?: string; limit?: number; cursor?: string; delimiter?: string }): Promise<{
+  list(options?: {
+    prefix?: string;
+    limit?: number;
+    cursor?: string;
+    delimiter?: string;
+  }): Promise<{
     objects: { key: string; [k: string]: unknown }[];
     truncated: boolean;
     cursor?: string;
