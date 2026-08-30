@@ -41,7 +41,11 @@ function call(
 ) {
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (token) headers.authorization = `Bearer ${token}`;
-  return app.request('/api/_ps/ai/run', { method: 'POST', headers, body: JSON.stringify(body) }, env);
+  return app.request(
+    '/api/_ps/ai/run',
+    { method: 'POST', headers, body: JSON.stringify(body) },
+    env,
+  );
 }
 
 beforeEach(() => {
@@ -94,7 +98,12 @@ describe('POST /api/_ps/ai/run (handleFunctionAiRun)', () => {
     expect(aiRun).toHaveBeenCalledWith('@cf/meta/llama', { prompt: 'hi' });
     expect(mockDebit).toHaveBeenCalledWith(
       env,
-      expect.objectContaining({ orgId: 'org1', siteId: 'site-abc', amount: 1, reason: 'function.ai' }),
+      expect.objectContaining({
+        orgId: 'org1',
+        siteId: 'site-abc',
+        amount: 1,
+        reason: 'function.ai',
+      }),
     );
   });
 
