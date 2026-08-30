@@ -177,7 +177,8 @@ const RECENT_KEY = 'ps_dash_recents';
       } @else {
         <!-- ── Site status command-center strip (P4) ──────────────
              Real data from the already-loaded sites list; each tile is a
-             metric→record link into the filtered /admin/sites view. -->
+             metric→record link into the FIRST matching site's detail
+             (/admin/sites/:id) — the drill-in the tile's styling + copy promise. -->
         @if (hasSites() && siteStatusSummary().length > 0) {
           <section class="group" appReveal aria-labelledby="grp-status">
             <h2 class="group-title" id="grp-status">
@@ -187,16 +188,18 @@ const RECENT_KEY = 'ps_dash_recents';
             <ul class="status-strip" aria-label="Site status summary">
               @for (b of siteStatusSummary(); track b.key) {
                 <li>
-                  <span
+                  <a
                     class="status-tile"
                     [class]="'tone-' + b.tone"
-                    [attr.aria-label]="b.count + ' ' + b.label + ' — ' + b.interp"
+                    [routerLink]="['/admin/sites', b.siteId]"
+                    (click)="recordOpen('/admin/sites/' + b.siteId)"
+                    [attr.aria-label]="b.count + ' ' + b.label + ' — ' + b.interp + '. Open site.'"
                   >
                     <span class="status-dot" aria-hidden="true"></span>
                     <app-rolling-counter class="status-count" [value]="b.count" />
                     <span class="status-label">{{ b.label }}</span>
                     <span class="status-interp">{{ b.interp }}</span>
-                  </span>
+                  </a>
                 </li>
               }
             </ul>
@@ -836,6 +839,8 @@ const RECENT_KEY = 'ps_dash_recents';
         gap: 4px 8px;
         padding: 12px 14px;
         text-decoration: none;
+        color: inherit;
+        cursor: pointer;
         background: var(--ps-surface-1, rgba(255, 255, 255, 0.03));
         border: 1px solid var(--ps-hairline, rgba(255, 255, 255, 0.08));
         border-radius: var(--ps-radius-lg, 14px);
@@ -1066,11 +1071,15 @@ export class AdminDashboardComponent {
   /**
    * Command-center site-status summary (P4) — derived from the ALREADY-loaded
    * `state.sites()` (no new fetch), bucketed via the shared `getStatusClass`
-   * map. Each bucket is a metric→record link to `/admin/sites?status=<bucket>`.
+   * map. Each bucket is a metric→record link to the FIRST matching site's detail
+   * (`/admin/sites/:id`): this single-site admin has no `/admin/sites` LIST route
+   * (that path soft-404s), so the tile drills straight into the site itself —
+   * where a failed build is retried, fulfilling the "open to retry" affordance.
    * Only non-zero buckets render; `attention` (error/failed) is surfaced first.
    */
   readonly siteStatusSummary = computed(() => {
     const buckets: Record<string, number> = { published: 0, building: 0, draft: 0, error: 0 };
+    const firstId: Record<string, string | undefined> = {};
     for (const s of this.state.sites()) {
       let cls = this.state.getStatusClass(s.status);
       // A 'published' site with NO build serves the branded 503 ("the last build
@@ -1079,6 +1088,7 @@ export class AdminDashboardComponent {
       // site that 503s). Mirrors the public-search lying-published guard.
       if (cls === 'published' && !s.current_build_version) cls = 'error';
       buckets[cls] = (buckets[cls] ?? 0) + 1;
+      firstId[cls] ??= s.id; // first site in the bucket = the tile's drill-in target
     }
     const defs: { key: string; label: string; interp: string; tone: string }[] = [
       {
@@ -1091,7 +1101,11 @@ export class AdminDashboardComponent {
       { key: 'building', label: 'Building', interp: 'generating or deploying', tone: 'building' },
       { key: 'draft', label: 'Draft', interp: 'not yet published', tone: 'draft' },
     ];
-    return defs.filter((d) => buckets[d.key] > 0).map((d) => ({ ...d, count: buckets[d.key] }));
+    // siteId is non-null for every emitted bucket: a bucket only survives the
+    // count>0 filter when ≥1 site set firstId for it in the loop above.
+    return defs
+      .filter((d) => buckets[d.key] > 0)
+      .map((d) => ({ ...d, count: buckets[d.key], siteId: firstId[d.key] as string }));
   });
 
   /** Live search query. Empty → grouped view; non-empty → flat filtered results. */

@@ -129,6 +129,16 @@ describe('AdminDashboardComponent (site-status command-center strip)', () => {
     expect(c.siteStatusSummary().map((b) => b.key)).toEqual(['published']);
   });
 
+  // Each tile links to the FIRST matching site's detail (/admin/sites/:id) — the
+  // "metric→record" drill-in. Without a siteId every tile would 404 at the
+  // non-existent /admin/sites list route. Fixtures get ids s0..sN in order.
+  it('carries the first matching site id per bucket for the /admin/sites/:id drill-in', () => {
+    // s0,s1=published(v1) · s2=generating · s3=draft · s4=error
+    const c = buildWith(['published', 'published', 'generating', 'draft', 'error']);
+    const byKey = Object.fromEntries(c.siteStatusSummary().map((b) => [b.key, b.siteId]));
+    expect(byKey).toEqual({ error: 's4', published: 's0', building: 's2', draft: 's3' });
+  });
+
   it('surfaces "Needs attention" (error) first', () => {
     const c = buildWith(['published', 'failed']);
     expect(c.siteStatusSummary()[0].key).toBe('error');
