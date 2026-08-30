@@ -13,7 +13,7 @@
 import type { Context } from 'hono';
 import type { Env, Variables } from '../../types/env.js';
 import { getBalance, debitCredits, maybeFireAlerts } from '../credits.js';
-import { dbQueryOne } from '../db.js';
+import { dbQuery, dbQueryOne } from '../db.js';
 import { safeWaitUntil } from '../../lib/wait-until.js';
 
 /** HMAC-SHA256(secret, message) as lowercase hex. */
@@ -137,4 +137,109 @@ export async function handleFunctionAiRun(
   safeWaitUntil(c, maybeFireAlerts(c.env, site.org_id, fresh).catch(() => {}) as Promise<unknown>);
 
   return c.json({ result, credits_remaining: fresh });
+}
+
+/** Verify the per-site function token from the `Authorization: Bearer` header. */
+async function siteIdFromAuth(
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+): Promise<string | null> {
+  const auth = c.req.header('authorization') ?? '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  return verifyFunctionToken(internalSecret(c.env), token);
+}
+
+/** Max rows `env.DATA.forms.list` returns; the shim also clamps, defense-in-depth. */
+export const FORMS_LIST_MAX = 100;
+/** Default rows when the caller omits `limit`. */
+export const FORMS_LIST_DEFAULT = 20;
+
+/**
+ * `GET /api/_ps/data/forms?limit=N` — the read backend for `env.DATA.forms.list`
+ * (Stage 4.1(e)). Verifies the site token → returns THIS site's `form_submissions`
+ * (newest first, `limit` clamped to [1, {@link FORMS_LIST_MAX}]) as a safe read-only
+ * shape (id, form_name, email, parsed `fields`, status, created_at). Tenant-scoped by
+ * `site_id` from the token — NEVER cross-site; no raw SQL reaches user code; visitor
+ * `ip_address`/`user_agent` are deliberately withheld. 401 on a bad token.
+ *
+ * @remarks Impure — reads D1.
+ */
+export async function handleFunctionDataForms(
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+): Promise<Response> {
+  const siteId = await siteIdFromAuth(c);
+  if (!siteId) return c.json({ error: { message: 'invalid function token' } }, 401);
+
+  const raw = Number.parseInt(c.req.query('limit') ?? '', 10);
+  const limit = Number.isFinite(raw) ? Math.max(1, Math.min(FORMS_LIST_MAX, raw)) : FORMS_LIST_DEFAULT;
+
+  const rows = await dbQuery<{
+    id: string;
+    form_name: string;
+    email: string | null;
+    payload: string | null;
+    status: string | null;
+    created_at: string;
+  }>(
+    c.env.DB,
+    `SELECT id, form_name, email, payload, status, created_at
+       FROM form_submissions
+      WHERE site_id = ? AND deleted_at IS NULL
+      ORDER BY created_at DESC
+      LIMIT ?`,
+    [siteId, limit],
+  );
+
+  const items = (rows.data ?? []).map((r) => {
+    let fields: unknown = {};
+    if (r.payload) {
+      try {
+        fields = JSON.parse(r.payload);
+      } catch {
+        fields = {};
+      }
+    }
+    return {
+      id: r.id,
+      form_name: r.form_name,
+      email: r.email,
+      fields,
+      status: r.status,
+      created_at: r.created_at,
+    };
+  });
+
+  return c.json({ items });
+}
+
+/**
+ * `GET /api/_ps/data/site` — the read backend for `env.DATA.site()` (Stage 4.1(e)).
+ * Verifies the site token → returns THIS site's own read-only metadata (id, slug,
+ * business_name, business_address, status, created_at). Tenant-scoped by the token;
+ * no org-wide or cross-site data, no internal columns. 401 on a bad token, 404 when
+ * the site is missing/soft-deleted.
+ *
+ * @remarks Impure — reads D1.
+ */
+export async function handleFunctionDataSite(
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+): Promise<Response> {
+  const siteId = await siteIdFromAuth(c);
+  if (!siteId) return c.json({ error: { message: 'invalid function token' } }, 401);
+
+  const site = await dbQueryOne<{
+    id: string;
+    slug: string;
+    business_name: string | null;
+    business_address: string | null;
+    status: string | null;
+    created_at: string;
+  }>(
+    c.env.DB,
+    `SELECT id, slug, business_name, business_address, status, created_at
+       FROM sites WHERE id = ? AND deleted_at IS NULL`,
+    [siteId],
+  );
+  if (!site) return c.json({ error: { message: 'site not found' } }, 404);
+
+  return c.json({ site });
 }

@@ -182,6 +182,52 @@ export function makeScopedAI(token: string, svc: ScopedAIService): ScopedAI {
   };
 }
 
+/** The `env.DATA` facade — read-only, tenant-scoped access to the site's own data. */
+export interface ScopedData {
+  /** The site's form submissions, newest first (`limit` clamped to [1,100], default 20). */
+  forms: { list(opts?: { limit?: number }): Promise<unknown[]> };
+  /** The site's own read-only metadata (id, slug, business name/address, status). */
+  site(): Promise<unknown>;
+}
+
+/**
+ * `env.DATA` — READ-ONLY, tenant-scoped site data (ADR-0035 §9, Stage 4.1(e)). Like
+ * `env.AI` it calls the platform's signed internal endpoints over the `__PS_SVC` SERVICE
+ * binding (in-process, not a public fetch): `forms.list({limit})` → GET
+ * `/api/_ps/data/forms`, `site()` → GET `/api/_ps/data/site`. The platform scopes every
+ * read to the token's siteId — user code gets NO raw SQL and can NEVER read another
+ * site's data. Throws a clear Error on any non-2xx.
+ *
+ * @param token - the per-site function token (`__PS_FN_TOKEN`, `<siteId>.<hmac>`)
+ * @param svc - the platform service binding (`__PS_SVC`)
+ * @example await env.DATA.forms.list({ limit: 10 }); await env.DATA.site();
+ */
+export function makeScopedData(token: string, svc: ScopedAIService): ScopedData {
+  const get = async (path: string): Promise<Record<string, unknown>> => {
+    const res = await svc.fetch(
+      new Request('https://ps-internal' + path, {
+        method: 'GET',
+        headers: { authorization: `Bearer ${token}` },
+      }),
+    );
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown> & {
+      error?: { message?: string };
+    };
+    if (!res.ok) throw new Error(data?.error?.message || `env.DATA failed (${res.status})`);
+    return data;
+  };
+  return {
+    forms: {
+      list: async (opts = {}) => {
+        const limit = Math.max(1, Math.min(100, opts.limit ?? 20));
+        const data = await get(`/api/_ps/data/forms?limit=${limit}`);
+        return Array.isArray(data.items) ? data.items : [];
+      },
+    },
+    site: async () => (await get('/api/_ps/data/site')).site ?? null,
+  };
+}
+
 /**
  * Build the SCOPED env every user handler receives (ADR-0035 §6, Stage 4.1).
  *
@@ -247,6 +293,9 @@ export function buildFunctionsEnv(rawEnv: unknown): Record<string, unknown> {
   const svc = env.__PS_SVC as ScopedAIService | undefined;
   if (fnToken && svc && typeof svc.fetch === 'function') {
     scoped.AI = makeScopedAI(fnToken, svc);
+    // Stage 4.1(e) — env.DATA rides the SAME token + service binding as env.AI
+    // (read-only tenant-scoped forms + site metadata via `/api/_ps/data/*`).
+    scoped.DATA = makeScopedData(fnToken, svc);
   }
 
   return scoped;

@@ -13,16 +13,23 @@ jest.mock('../../credits.js', () => ({
   debitCredits: jest.fn(),
   maybeFireAlerts: jest.fn(async () => {}),
 }));
-jest.mock('../../db.js', () => ({ dbQueryOne: jest.fn() }));
+jest.mock('../../db.js', () => ({ dbQuery: jest.fn(), dbQueryOne: jest.fn() }));
 
 import { Hono } from 'hono';
-import { signFunctionToken, verifyFunctionToken, handleFunctionAiRun } from '../internal.js';
+import {
+  signFunctionToken,
+  verifyFunctionToken,
+  handleFunctionAiRun,
+  handleFunctionDataForms,
+  handleFunctionDataSite,
+} from '../internal.js';
 import { getBalance, debitCredits } from '../../credits.js';
-import { dbQueryOne } from '../../db.js';
+import { dbQuery, dbQueryOne } from '../../db.js';
 
 const mockBalance = getBalance as unknown as jest.Mock;
 const mockDebit = debitCredits as unknown as jest.Mock;
 const mockQueryOne = dbQueryOne as unknown as jest.Mock;
+const mockQuery = dbQuery as unknown as jest.Mock;
 
 const SECRET = 'test-secret-123';
 
@@ -140,5 +147,107 @@ describe('POST /api/_ps/ai/run (handleFunctionAiRun)', () => {
     const res = await call(app, env, await signFunctionToken(SECRET, 'site-abc'));
     expect(res.status).toBe(502);
     expect(mockDebit).not.toHaveBeenCalled();
+  });
+});
+
+// ── Stage 4.1(e) — env.DATA read backends ──
+function makeDataApp() {
+  const app = new Hono();
+  app.get('/api/_ps/data/forms', handleFunctionDataForms);
+  app.get('/api/_ps/data/site', handleFunctionDataSite);
+  return { app, env: { DB: {}, FUNCTIONS_INTERNAL_SECRET: SECRET } };
+}
+
+function dataReq(app: Hono, env: Record<string, unknown>, path: string, token?: string) {
+  const headers: Record<string, string> = {};
+  if (token) headers.authorization = `Bearer ${token}`;
+  return app.request(path, { method: 'GET', headers }, env);
+}
+
+describe('GET /api/_ps/data/forms (handleFunctionDataForms)', () => {
+  it('401 on a missing or bogus token', async () => {
+    const { app, env } = makeDataApp();
+    expect((await dataReq(app, env, '/api/_ps/data/forms')).status).toBe(401);
+    expect((await dataReq(app, env, '/api/_ps/data/forms', 'bogus.sig')).status).toBe(401);
+  });
+
+  it('returns THIS site’s submissions as a safe shape (parsed fields, no ip/ua)', async () => {
+    mockQuery.mockResolvedValue({
+      data: [
+        {
+          id: 'f1',
+          form_name: 'contact',
+          email: 'a@b.co',
+          payload: '{"name":"Ada","msg":"hi"}',
+          status: 'received',
+          created_at: '2026-08-30T00:00:00Z',
+        },
+        { id: 'f2', form_name: 'quote', email: null, payload: 'not-json', status: 'forwarded', created_at: '2026-08-29T00:00:00Z' },
+      ],
+    });
+    const { app, env } = makeDataApp();
+    const res = await dataReq(app, env, '/api/_ps/data/forms', await signFunctionToken(SECRET, 'site-abc'));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { items: Record<string, unknown>[] };
+    expect(json.items).toHaveLength(2);
+    expect(json.items[0]).toEqual({
+      id: 'f1',
+      form_name: 'contact',
+      email: 'a@b.co',
+      fields: { name: 'Ada', msg: 'hi' },
+      status: 'received',
+      created_at: '2026-08-30T00:00:00Z',
+    });
+    // malformed payload → {} (never throws), and NO ip_address/user_agent leak
+    expect(json.items[1].fields).toEqual({});
+    expect(json.items[0]).not.toHaveProperty('ip_address');
+    expect(json.items[0]).not.toHaveProperty('user_agent');
+    // scoped to the token's siteId, newest-first
+    const [, sql, params] = mockQuery.mock.calls[0];
+    expect(sql).toMatch(/WHERE site_id = \? AND deleted_at IS NULL/);
+    expect(sql).toMatch(/ORDER BY created_at DESC/);
+    expect(params[0]).toBe('site-abc');
+  });
+
+  it('clamps limit to [1,100] and defaults to 20', async () => {
+    mockQuery.mockResolvedValue({ data: [] });
+    const { app, env } = makeDataApp();
+    const token = await signFunctionToken(SECRET, 'site-abc');
+    await dataReq(app, env, '/api/_ps/data/forms?limit=9999', token);
+    expect(mockQuery.mock.calls.at(-1)![2][1]).toBe(100);
+    await dataReq(app, env, '/api/_ps/data/forms?limit=0', token);
+    expect(mockQuery.mock.calls.at(-1)![2][1]).toBe(1);
+    await dataReq(app, env, '/api/_ps/data/forms', token);
+    expect(mockQuery.mock.calls.at(-1)![2][1]).toBe(20);
+  });
+});
+
+describe('GET /api/_ps/data/site (handleFunctionDataSite)', () => {
+  it('401 on a bogus token', async () => {
+    const { app, env } = makeDataApp();
+    expect((await dataReq(app, env, '/api/_ps/data/site', 'bogus.sig')).status).toBe(401);
+  });
+
+  it('returns the site’s own read-only metadata (scoped by token siteId)', async () => {
+    const row = {
+      id: 'site-abc',
+      slug: 'ada-co',
+      business_name: 'Ada Co',
+      business_address: '1 Main St',
+      status: 'published',
+      created_at: '2026-08-01T00:00:00Z',
+    };
+    mockQueryOne.mockResolvedValue(row);
+    const { app, env } = makeDataApp();
+    const res = await dataReq(app, env, '/api/_ps/data/site', await signFunctionToken(SECRET, 'site-abc'));
+    expect(res.status).toBe(200);
+    expect((await res.json()) as unknown).toEqual({ site: row });
+    expect(mockQueryOne.mock.calls.at(-1)![2][0]).toBe('site-abc');
+  });
+
+  it('404 when the site is missing / soft-deleted', async () => {
+    mockQueryOne.mockResolvedValue(null);
+    const { app, env } = makeDataApp();
+    expect((await dataReq(app, env, '/api/_ps/data/site', await signFunctionToken(SECRET, 'ghost'))).status).toBe(404);
   });
 });

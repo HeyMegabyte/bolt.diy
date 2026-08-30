@@ -6,7 +6,13 @@
  * later env.KV/R2/AI/DATA shims plug into), and passes the rest through. Fail-soft
  * on a malformed/absent/non-object blob (→ empty SECRETS, never a throw). Pure — no I/O.
  */
-import { buildFunctionsEnv, makeScopedKV, makeScopedR2, makeScopedAI } from '../runtime.js';
+import {
+  buildFunctionsEnv,
+  makeScopedKV,
+  makeScopedR2,
+  makeScopedAI,
+  makeScopedData,
+} from '../runtime.js';
 
 /** A recording KV backing — captures the (prefixed) keys the facade forwards. */
 function fakeKv() {
@@ -151,21 +157,25 @@ describe('buildFunctionsEnv', () => {
     expect(buildFunctionsEnv({ __PS_SITE_ID: 'abc' }).R2).toBeUndefined();
   });
 
-  // ── Stage 4.1(d) — env.AI wiring ──
-  it('exposes env.AI when __PS_FN_TOKEN + __PS_SVC (service binding) are present', () => {
+  // ── Stage 4.1(d/e) — env.AI + env.DATA wiring (same token + service binding) ──
+  it('exposes env.AI AND env.DATA when __PS_FN_TOKEN + __PS_SVC are present', () => {
     const svc = { fetch: async () => new Response('{}') };
     const env = buildFunctionsEnv({ __PS_FN_TOKEN: 'abc.sig', __PS_SVC: svc });
     expect(env.AI).toBeDefined();
     expect(typeof (env.AI as { run: unknown }).run).toBe('function');
+    expect(env.DATA).toBeDefined();
+    expect(typeof (env.DATA as { site: unknown }).site).toBe('function');
+    expect(typeof (env.DATA as { forms: { list: unknown } }).forms.list).toBe('function');
     expect(env.__PS_FN_TOKEN).toBeUndefined(); // internal bindings stripped
     expect(env.__PS_SVC).toBeUndefined();
   });
 
-  it('no env.AI when the token or the service binding is missing', () => {
+  it('no env.AI/env.DATA when the token or the service binding is missing', () => {
     expect(buildFunctionsEnv({ __PS_FN_TOKEN: 'abc.sig' }).AI).toBeUndefined();
-    expect(
-      buildFunctionsEnv({ __PS_SVC: { fetch: async () => new Response('{}') } }).AI,
-    ).toBeUndefined();
+    expect(buildFunctionsEnv({ __PS_FN_TOKEN: 'abc.sig' }).DATA).toBeUndefined();
+    const svcOnly = buildFunctionsEnv({ __PS_SVC: { fetch: async () => new Response('{}') } });
+    expect(svcOnly.AI).toBeUndefined();
+    expect(svcOnly.DATA).toBeUndefined();
   });
 });
 
@@ -275,5 +285,49 @@ describe('makeScopedAI (Stage 4.1d — metered debit-then-call over a service bi
         }),
     };
     await expect(makeScopedAI('t', svc).run('@cf/x')).rejects.toThrow('AI credits exhausted');
+  });
+});
+
+describe('makeScopedData (Stage 4.1e — read-only tenant-scoped data over a service binding)', () => {
+  function recordingSvc(body: unknown, status = 200) {
+    const reqs: Request[] = [];
+    const svc = {
+      fetch: async (req: Request) => {
+        reqs.push(req);
+        return new Response(JSON.stringify(body), { status });
+      },
+    };
+    return { svc, reqs };
+  }
+
+  it('forms.list GETs /api/_ps/data/forms with the Bearer token + clamped limit, returns items', async () => {
+    const { svc, reqs } = recordingSvc({ items: [{ id: 'f1' }, { id: 'f2' }] });
+    const out = await makeScopedData('site-abc.sig', svc).forms.list({ limit: 9999 });
+    expect(out).toEqual([{ id: 'f1' }, { id: 'f2' }]);
+    const url = new URL(reqs[0].url);
+    expect(url.pathname).toBe('/api/_ps/data/forms');
+    expect(url.searchParams.get('limit')).toBe('100'); // clamped
+    expect(reqs[0].method).toBe('GET');
+    expect(reqs[0].headers.get('authorization')).toBe('Bearer site-abc.sig');
+  });
+
+  it('forms.list defaults limit to 20 and tolerates a missing items array', async () => {
+    const { svc, reqs } = recordingSvc({});
+    const out = await makeScopedData('t', svc).forms.list();
+    expect(out).toEqual([]);
+    expect(new URL(reqs[0].url).searchParams.get('limit')).toBe('20');
+  });
+
+  it('site() GETs /api/_ps/data/site and returns the site object', async () => {
+    const site = { id: 'site-abc', slug: 'ada-co' };
+    const { svc, reqs } = recordingSvc({ site });
+    const out = await makeScopedData('t', svc).site();
+    expect(out).toEqual(site);
+    expect(new URL(reqs[0].url).pathname).toBe('/api/_ps/data/site');
+  });
+
+  it('throws the platform error message on a non-2xx', async () => {
+    const { svc } = recordingSvc({ error: { message: 'invalid function token' } }, 401);
+    await expect(makeScopedData('t', svc).site()).rejects.toThrow('invalid function token');
   });
 });

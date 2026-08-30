@@ -184,7 +184,11 @@ import { getContentType, resolveSite, serveSiteFromR2 } from './services/site_se
 import { maybeDispatchFunctions } from './services/functions_dispatch.js'; // Stage 3.1: child-host /api/* → site's WfP functions worker (ADR-0035 §30)
 import { dbQueryOne, dbUpdate } from './services/db.js';
 import { deploySiteFunctions, type FunctionsBuildResult } from './services/functions_deploy.js';
-import { handleFunctionAiRun } from './services/functions/internal.js'; // Stage 4.1(d): env.AI metered debit-then-call backend (POST /api/_ps/ai/run)
+import {
+  handleFunctionAiRun,
+  handleFunctionDataForms,
+  handleFunctionDataSite,
+} from './services/functions/internal.js'; // Stage 4.1(d/e): env.AI + env.DATA backends (/api/_ps/ai/run, /api/_ps/data/*)
 import { registerAllPrompts } from './services/ai_workflows.js';
 import { DOMAINS, escapeHtml } from '@project-sites/shared';
 import { parseEnv } from './lib/env.js';
@@ -1011,6 +1015,9 @@ app.post('/api/diag/container-minimal', async (c) => {
 // (signed per-site token → verify → check credits → Workers AI → debit). Reserved
 // under /api/_ps/*; registered before the /api/* dispatch catch-all so it wins.
 app.post('/api/_ps/ai/run', handleFunctionAiRun);
+// Stage 4.1(e) — env.DATA read backends (signed per-site token; read-only, tenant-scoped).
+app.get('/api/_ps/data/forms', handleFunctionDataForms);
+app.get('/api/_ps/data/site', handleFunctionDataSite);
 
 // Container→worker build status callback (HMAC-protected, KV-backed).
 // Container POSTs status updates here. Worker writes to CACHE_KV at key
