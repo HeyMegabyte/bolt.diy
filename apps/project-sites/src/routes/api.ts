@@ -3399,7 +3399,11 @@ api.post('/api/chat/:slug', async (c) => {
     ctx.business_type ? `Type: ${ctx.business_type}` : ctx.category ? `Type: ${ctx.category}` : '',
     ctx.business_description ? `About: ${ctx.business_description}` : '',
     ctx.homepage_summary ? `Summary: ${ctx.homepage_summary}` : '',
-    ctx.services?.length ? `Services: ${ctx.services.join('; ')}` : vk ? `Services: ${vk.services}` : '',
+    ctx.services?.length
+      ? `Services: ${ctx.services.join('; ')}`
+      : vk
+        ? `Services: ${vk.services}`
+        : '',
     ctx.usps?.length ? `What sets us apart: ${ctx.usps.join('; ')}` : '',
     vk ? `Good to know: ${vk.faqs}` : '',
     ctx.location
