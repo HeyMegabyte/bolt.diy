@@ -309,7 +309,10 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
     if (item.type === 'custom') {
       this.auth.setMode('custom');
       this.auth.clearSelectedBusiness();
-      this.navigateToDetailsOrSignin();
+      // The user already typed a business name in the active search box — carry it
+      // forward so /create doesn't ask for it again (redundant-entry, WCAG 3.3.7).
+      const typed = (this.activeSource() === 'cta' ? this.ctaQuery : this.heroQuery).trim();
+      this.navigateToDetailsOrSignin(typed || undefined);
       return;
     }
 
@@ -329,9 +332,12 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
     this.navigateToDetailsOrSignin();
   }
 
-  private navigateToDetailsOrSignin(): void {
+  private navigateToDetailsOrSignin(name?: string): void {
     if (this.auth.isLoggedIn()) {
-      this.router.navigate(['/create']);
+      // Redundant-entry win (WCAG 3.3.7): carry the typed business name into
+      // /create's business-name field (its ngOnInit reads ?name=) so a repeat
+      // owner never re-types it. Selected real businesses ride setSelectedBusiness.
+      this.router.navigate(['/create'], name ? { queryParams: { name } } : {});
     } else {
       this.router.navigate(['/signin']);
     }

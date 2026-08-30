@@ -41,7 +41,9 @@ const PAGE_META: Record<string, PageMeta> = {
     description: 'Tell us about your business and our AI builds a professional, SEO-ready website in minutes — hosted, SSL secured, and live. No coding required.',
   },
   'signin': {
-    title: 'Sign In — Manage Your AI-Built Website | ProjectSites',
+    // Mirrors server MARKETING_META['/auth/sign-in'] (the /signin route is the app's
+    // 401-redirect target; /auth/sign-in redirects here).
+    title: 'Sign In — Manage Your AI Website | ProjectSites',
     description: 'Sign in to manage your AI-generated website — edit content, connect a custom domain, view analytics, and handle billing. Magic link, no password.',
   },
   'waiting': {
@@ -53,12 +55,14 @@ const PAGE_META: Record<string, PageMeta> = {
     description: 'Manage your websites, domains, files, and billing from one dashboard.',
   },
   'privacy': {
-    title: 'Privacy Policy — Your Data, Rights & Choices | ProjectSites',
+    // Mirrors server MARKETING_META['/privacy'].
+    title: 'Privacy Policy — Your Data & Rights | ProjectSites',
     description: 'How ProjectSites collects, uses, stores, and protects your personal data — plus your rights to access, export, and delete it at any time.',
   },
   'terms': {
-    title: 'Terms of Service — Plans, Usage & Conduct | ProjectSites',
-    description: 'The terms and conditions for using ProjectSites: account rules, acceptable use, billing, intellectual property, and service commitments.',
+    // Mirrors server MARKETING_META['/terms'].
+    title: 'Terms of Service — Usage & Billing | ProjectSites',
+    description: 'The terms for using ProjectSites: account rules, acceptable use, billing, intellectual property, and service commitments for your AI-built site.',
   },
   'content': {
     title: 'Content Policy — Acceptable Use Guidelines | ProjectSites',
@@ -95,8 +99,23 @@ const PAGE_META: Record<string, PageMeta> = {
     description: 'Real-time status of ProjectSites infrastructure, API, and build services.',
   },
   'search': {
-    title: 'Search - ProjectSites',
-    description: 'Find businesses, browse pre-built sites, and discover what AI can build for you.',
+    // Mirrors the server MARKETING_META['/search'] (marketing_routes.ts) so the
+    // hydrated tab title matches what crawlers/social unfurlers already read.
+    title: 'Find Your Business — Start an AI Website | ProjectSites',
+    description: 'Search for your business and get a professional, SEO-ready website built by AI in minutes — hosted, SSL secured, and live. No coding required.',
+  },
+  'pricing': {
+    // Was MISSING → client nav to /pricing fell back to the homepage title on the
+    // hydrated tab (crawlers were fine — the server injects this). Mirrors
+    // MARKETING_META['/pricing'].
+    title: 'Pricing — Plans for Your AI-Built Website | ProjectSites',
+    description: 'Simple pricing for AI-generated websites: a free tier to start, then one flat plan with hosting, SSL, a custom domain, and analytics all included.',
+  },
+  'auth/sign-up': {
+    // Was MISSING → /auth/sign-up client nav showed the homepage title. Mirrors
+    // MARKETING_META['/auth/sign-up'].
+    title: 'Sign Up — Build Your AI Website Free | ProjectSites',
+    description: 'Create your free ProjectSites account and build a professional, SEO-ready website with AI in minutes — hosted, SSL secured, and live in four minutes.',
   },
 };
 
@@ -137,6 +156,26 @@ export function isComponentOwnedMetaRoute(path: string | null | undefined): bool
   return path.startsWith('blog/');
 }
 
+/**
+ * Resolve the {@link PageMeta} for a joined leaf-route path (no leading slash),
+ * falling back to the homepage entry when the route has no dedicated copy.
+ *
+ * This is the SINGLE lookup point the router-driven {@link MetaService.init}
+ * uses — exported + pure so route coverage is unit-testable without a Router.
+ * A route present in `app.routes.ts` but MISSING from `PAGE_META` here silently
+ * inherits the homepage title on the hydrated tab (the bug that hid `/pricing`
+ * + `/auth/sign-up` under the homepage title); the coverage test locks it.
+ *
+ * @param path - Joined leaf-route path, e.g. `'pricing'`, `'auth/sign-up'`, `''`.
+ * @returns the route's PageMeta, or the homepage entry when unmapped.
+ * @example
+ * resolvePageMeta('pricing').title; // => 'Pricing — Plans for Your AI-Built Website | ProjectSites'
+ * resolvePageMeta('nope-xyz').title; // => the homepage title (fallback)
+ */
+export function resolvePageMeta(path: string | null | undefined): PageMeta {
+  return PAGE_META[path ?? ''] ?? PAGE_META[''];
+}
+
 @Injectable({ providedIn: 'root' })
 export class MetaService {
   private title = inject(Title);
@@ -167,8 +206,7 @@ export class MetaService {
       // Blog posts (and future dynamic detail routes) stamp their own per-record
       // meta in ngOnInit — never overwrite it with the homepage PAGE_META fallback.
       if (isComponentOwnedMetaRoute(path)) return;
-      const pageMeta = PAGE_META[path] || PAGE_META[''];
-      this.updateMeta(pageMeta, path);
+      this.updateMeta(resolvePageMeta(path), path);
     });
   }
 

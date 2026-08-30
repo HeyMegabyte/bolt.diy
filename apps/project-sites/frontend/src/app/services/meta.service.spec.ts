@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { Title, Meta } from '@angular/platform-browser';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
-import { MetaService, robotsForUrl, isComponentOwnedMetaRoute } from './meta.service';
+import { MetaService, robotsForUrl, isComponentOwnedMetaRoute, resolvePageMeta } from './meta.service';
 
 /**
  * Authed /admin/* routes must be noindex (private dashboards); marketing routes
@@ -39,6 +39,39 @@ describe('isComponentOwnedMetaRoute', () => {
     expect(isComponentOwnedMetaRoute('')).toBe(false);
     expect(isComponentOwnedMetaRoute('pricing')).toBe(false);
     expect(isComponentOwnedMetaRoute('roadmap')).toBe(false);
+  });
+});
+
+/**
+ * Route coverage: every marketing route that a user can CLIENT-navigate to must
+ * resolve its OWN title — not silently inherit the homepage title on the hydrated
+ * tab. Regression guard for /pricing + /auth/sign-up (both were missing → homepage
+ * title) and for the search entry that had drifted from the authoritative server
+ * copy (marketing_routes.ts MARKETING_META). Unmapped routes still fall back home.
+ */
+describe('resolvePageMeta (route coverage + server parity)', () => {
+  const HOME = resolvePageMeta('').title;
+
+  it('gives /pricing its own title (was missing → homepage fallback)', () => {
+    const m = resolvePageMeta('pricing');
+    expect(m.title).toContain('Pricing');
+    expect(m.title).not.toBe(HOME);
+  });
+
+  it('gives /auth/sign-up its own title (was missing → homepage fallback)', () => {
+    const m = resolvePageMeta('auth/sign-up');
+    expect(m.title).toContain('Sign Up');
+    expect(m.title).not.toBe(HOME);
+  });
+
+  it('search mirrors the authoritative server title (not the weak "Search - ProjectSites")', () => {
+    const m = resolvePageMeta('search');
+    expect(m.title).toBe('Find Your Business — Start an AI Website | ProjectSites');
+  });
+
+  it('falls back to the homepage entry for an unmapped route', () => {
+    expect(resolvePageMeta('this-route-does-not-exist').title).toBe(HOME);
+    expect(resolvePageMeta(undefined).title).toBe(HOME);
   });
 });
 
