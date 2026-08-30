@@ -901,6 +901,14 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           if (result.error) throw new Error(`Container start error: ${result.error}`);
           if (!result.jobId) throw new Error('Container did not return jobId');
 
+          // The container job id (`job-<ts>-<rand>`) is NOT the siteId. The
+          // `/api/internal/build-status` callback needs the siteId to deploy the site's
+          // WfP functions worker — map jobId → siteId in KV so the callback can resolve
+          // it (root-cause fix for the 2.2a positive-dispatch miss, 2026-08-30).
+          await env.CACHE_KV.put(`job2site:${result.jobId}`, params.siteId, {
+            expirationTtl: 7200,
+          });
+
           await wfLog('workflow.build_started', {
             jobId: result.jobId,
             prompt_length: prompt.length,
@@ -1107,6 +1115,9 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
               const result = (await res.json()) as { jobId?: string; error?: string };
               if (result.error) throw new Error(`Restart error: ${result.error}`);
               if (!result.jobId) throw new Error('Restart returned no jobId');
+              await env.CACHE_KV.put(`job2site:${result.jobId}`, params.siteId, {
+                expirationTtl: 7200,
+              });
               return result.jobId;
             },
           );
@@ -1245,6 +1256,9 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
               const result = (await res.json()) as { jobId?: string; error?: string };
               if (result.error) throw new Error(`Restart error: ${result.error}`);
               if (!result.jobId) throw new Error('Restart returned no jobId');
+              await env.CACHE_KV.put(`job2site:${result.jobId}`, params.siteId, {
+                expirationTtl: 7200,
+              });
               return result.jobId;
             },
           );

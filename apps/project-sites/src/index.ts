@@ -1078,14 +1078,20 @@ app.post('/api/internal/build-status', async (c) => {
   if (functionsBuild) {
     const deployFns = (async () => {
       try {
+        // The callback's jobId is the CONTAINER job id (`job-<ts>-<rand>`), NOT the
+        // siteId — so a `WHERE id = jobId` lookup never matched and deploySiteFunctions
+        // never ran (root cause of the 2.2a positive-dispatch miss, 2026-08-30). The
+        // SITE_WORKFLOW writes a `job2site:{jobId}` → siteId KV mapping at build start;
+        // resolve it here, falling back to jobId for claim builds where jobId == siteId.
+        const siteId = (await c.env.CACHE_KV.get(`job2site:${jobId}`)) || jobId;
         const site = await dbQueryOne<{ org_id: string }>(
           c.env.DB,
           'SELECT org_id FROM sites WHERE id = ? AND deleted_at IS NULL',
-          [jobId],
+          [siteId],
         );
         if (site?.org_id) {
           await deploySiteFunctions(c.env, {
-            siteId: jobId,
+            siteId,
             orgId: site.org_id,
             build: functionsBuild,
           });
