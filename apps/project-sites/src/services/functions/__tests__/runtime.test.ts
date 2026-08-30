@@ -368,7 +368,9 @@ describe('makeCtxAuthHelpers (Stage 4.2b — opt-in auth over the service bindin
 
   it('verifyOwnerSession posts the request session token (Bearer) + maps the platform answer', async () => {
     const { svc, reqs } = recordingSvc({ authenticated: true, userId: 'u1', orgId: 'o1' });
-    const request = new Request('https://x/api/p', { headers: { authorization: 'Bearer sess-123' } });
+    const request = new Request('https://x/api/p', {
+      headers: { authorization: 'Bearer sess-123' },
+    });
     const out = await makeCtxAuthHelpers('site.sig', svc, request).verifyOwnerSession();
     expect(out).toEqual({ authenticated: true, userId: 'u1', orgId: 'o1' });
     const req = reqs[0];
@@ -379,7 +381,9 @@ describe('makeCtxAuthHelpers (Stage 4.2b — opt-in auth over the service bindin
 
   it('verifyOwnerSession extracts the `session` cookie + maps a not-authenticated answer', async () => {
     const { svc, reqs } = recordingSvc({ authenticated: false });
-    const request = new Request('https://x/api/p', { headers: { cookie: 'a=1; session=cook-9; b=2' } });
+    const request = new Request('https://x/api/p', {
+      headers: { cookie: 'a=1; session=cook-9; b=2' },
+    });
     const out = await makeCtxAuthHelpers('t', svc, request).verifyOwnerSession();
     expect(out).toEqual({ authenticated: false, userId: undefined, orgId: undefined });
     expect(await reqs[0].json()).toEqual({ session_token: 'cook-9' });
@@ -387,7 +391,9 @@ describe('makeCtxAuthHelpers (Stage 4.2b — opt-in auth over the service bindin
 
   it('verifyTurnstile posts the token + client IP and maps success', async () => {
     const { svc, reqs } = recordingSvc({ success: true });
-    const request = new Request('https://x/api/p', { headers: { 'cf-connecting-ip': '203.0.113.7' } });
+    const request = new Request('https://x/api/p', {
+      headers: { 'cf-connecting-ip': '203.0.113.7' },
+    });
     const out = await makeCtxAuthHelpers('t', svc, request).verifyTurnstile('ts-token');
     expect(out).toEqual({ success: true });
     expect(new URL(reqs[0].url).pathname).toBe('/api/_ps/turnstile/verify');

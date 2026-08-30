@@ -285,7 +285,12 @@ function makeAuthApp() {
   app.post('/api/_ps/auth/verify-session', handleFunctionAuthVerifySession);
   return { app, env: { DB: {}, FUNCTIONS_INTERNAL_SECRET: SECRET } };
 }
-function authReq(app: Hono, env: Record<string, unknown>, token: string | undefined, body: unknown) {
+function authReq(
+  app: Hono,
+  env: Record<string, unknown>,
+  token: string | undefined,
+  body: unknown,
+) {
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (token) headers.authorization = `Bearer ${token}`;
   return app.request(
@@ -304,7 +309,9 @@ describe('POST /api/_ps/auth/verify-session (handleFunctionAuthVerifySession)', 
   it('404 when the site is unknown', async () => {
     mockQueryOne.mockResolvedValue(null); // sites lookup
     const { app, env } = makeAuthApp();
-    expect((await authReq(app, env, await signFunctionToken(SECRET, 'ghost'), {})).status).toBe(404);
+    expect((await authReq(app, env, await signFunctionToken(SECRET, 'ghost'), {})).status).toBe(
+      404,
+    );
   });
 
   it('{authenticated:false} when no session_token is forwarded (no getSession call)', async () => {
@@ -396,7 +403,9 @@ describe('POST /api/_ps/turnstile/verify (handleFunctionTurnstileVerify)', () =>
     global.fetch = (async () =>
       new Response(JSON.stringify({ success: true }), { status: 200 })) as unknown as typeof fetch;
     const { app, env } = makeTsApp();
-    const res = await tsReq(app, env, await signFunctionToken(SECRET, 'site-abc'), { token: 'good' });
+    const res = await tsReq(app, env, await signFunctionToken(SECRET, 'site-abc'), {
+      token: 'good',
+    });
     expect(await res.json()).toEqual({ success: true });
   });
 
@@ -406,7 +415,9 @@ describe('POST /api/_ps/turnstile/verify (handleFunctionTurnstileVerify)', () =>
         status: 200,
       })) as unknown as typeof fetch;
     const { app, env } = makeTsApp();
-    const res = await tsReq(app, env, await signFunctionToken(SECRET, 'site-abc'), { token: 'bad' });
+    const res = await tsReq(app, env, await signFunctionToken(SECRET, 'site-abc'), {
+      token: 'bad',
+    });
     expect(await res.json()).toEqual({ success: false });
   });
 
