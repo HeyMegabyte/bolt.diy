@@ -14,6 +14,7 @@ import type { Context } from 'hono';
 import type { Env, Variables } from '../../types/env.js';
 import { getBalance, debitCredits, maybeFireAlerts } from '../credits.js';
 import { dbQuery, dbQueryOne } from '../db.js';
+import { getSession } from '../auth.js';
 import { safeWaitUntil } from '../../lib/wait-until.js';
 
 /** HMAC-SHA256(secret, message) as lowercase hex. */
@@ -247,4 +248,96 @@ export async function handleFunctionDataSite(
   if (!site) return c.json({ error: { message: 'site not found' } }, 404);
 
   return c.json({ site });
+}
+
+/**
+ * `POST /api/_ps/auth/verify-session` — the backend for `ctx.verifyOwnerSession()`
+ * (Stage 4.2b, ADR-0035 §108). Verifies the site token → resolves the site's org,
+ * then checks whether the FORWARDED end-user session token (from the request that
+ * hit the user endpoint) belongs to a MEMBER of that org (the site owner). Returns
+ * `{authenticated, userId?, orgId?}` — an unauthenticated caller is a VALID
+ * `{authenticated:false}` answer, never an error status. 401 only on a bad SITE
+ * token; 404 unknown site. Never exposes any data beyond the yes/no + the owner's id.
+ *
+ * @remarks Impure — reads D1 (sessions + memberships).
+ */
+export async function handleFunctionAuthVerifySession(
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+): Promise<Response> {
+  const siteId = await siteIdFromAuth(c);
+  if (!siteId) return c.json({ error: { message: 'invalid function token' } }, 401);
+
+  const site = await dbQueryOne<{ org_id: string }>(
+    c.env.DB,
+    'SELECT org_id FROM sites WHERE id = ? AND deleted_at IS NULL',
+    [siteId],
+  );
+  if (!site) return c.json({ error: { message: 'site not found' } }, 404);
+
+  let body: { session_token?: unknown };
+  try {
+    body = (await c.req.json()) as typeof body;
+  } catch {
+    body = {};
+  }
+  const token = typeof body.session_token === 'string' ? body.session_token : '';
+  if (!token) return c.json({ authenticated: false });
+
+  const session = await getSession(c.env.DB, token);
+  if (!session) return c.json({ authenticated: false });
+
+  // Owner = a member of the site's org. A valid session for a NON-member is
+  // authenticated-but-not-owner → `{authenticated:false}` (the helper is
+  // "owner session", not "any session").
+  const member = await dbQueryOne<{ org_id: string }>(
+    c.env.DB,
+    'SELECT org_id FROM memberships WHERE org_id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1',
+    [site.org_id, session.user_id],
+  );
+  if (!member) return c.json({ authenticated: false });
+  return c.json({ authenticated: true, userId: session.user_id, orgId: site.org_id });
+}
+
+/**
+ * `POST /api/_ps/turnstile/verify` — the backend for `ctx.verifyTurnstile(token)`
+ * (Stage 4.2b, ADR-0035 §109). Verifies the site token, then calls Cloudflare's
+ * Turnstile siteverify with the PLATFORM secret (`TURNSTILE_SECRET_KEY`) + the
+ * caller's token. Returns `{success}`. A missing platform secret or a siteverify
+ * fault → `{success:false}` (graceful — never a crash). 401 on a bad site token.
+ *
+ * @remarks Impure — issues a siteverify subrequest.
+ */
+export async function handleFunctionTurnstileVerify(
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+): Promise<Response> {
+  const siteId = await siteIdFromAuth(c);
+  if (!siteId) return c.json({ error: { message: 'invalid function token' } }, 401);
+
+  let body: { token?: unknown; remoteip?: unknown };
+  try {
+    body = (await c.req.json()) as typeof body;
+  } catch {
+    body = {};
+  }
+  const token = typeof body.token === 'string' ? body.token : '';
+  const secret = c.env.TURNSTILE_SECRET_KEY ?? '';
+  if (!token || !secret) return c.json({ success: false });
+
+  const form = new FormData();
+  form.set('secret', secret);
+  form.set('response', token);
+  if (typeof body.remoteip === 'string') form.set('remoteip', body.remoteip);
+
+  let ok = false;
+  try {
+    const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      body: form,
+    });
+    const data = (await res.json().catch(() => ({}))) as { success?: boolean };
+    ok = res.ok && data.success === true;
+  } catch {
+    ok = false;
+  }
+  return c.json({ success: ok });
 }

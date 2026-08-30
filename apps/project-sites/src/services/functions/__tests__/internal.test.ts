@@ -14,6 +14,7 @@ jest.mock('../../credits.js', () => ({
   maybeFireAlerts: jest.fn(async () => {}),
 }));
 jest.mock('../../db.js', () => ({ dbQuery: jest.fn(), dbQueryOne: jest.fn() }));
+jest.mock('../../auth.js', () => ({ getSession: jest.fn() }));
 
 import { Hono } from 'hono';
 import {
@@ -22,14 +23,18 @@ import {
   handleFunctionAiRun,
   handleFunctionDataForms,
   handleFunctionDataSite,
+  handleFunctionAuthVerifySession,
+  handleFunctionTurnstileVerify,
 } from '../internal.js';
 import { getBalance, debitCredits } from '../../credits.js';
 import { dbQuery, dbQueryOne } from '../../db.js';
+import { getSession } from '../../auth.js';
 
 const mockBalance = getBalance as unknown as jest.Mock;
 const mockDebit = debitCredits as unknown as jest.Mock;
 const mockQueryOne = dbQueryOne as unknown as jest.Mock;
 const mockQuery = dbQuery as unknown as jest.Mock;
+const mockGetSession = getSession as unknown as jest.Mock;
 
 const SECRET = 'test-secret-123';
 
@@ -271,5 +276,146 @@ describe('GET /api/_ps/data/site (handleFunctionDataSite)', () => {
       (await dataReq(app, env, '/api/_ps/data/site', await signFunctionToken(SECRET, 'ghost')))
         .status,
     ).toBe(404);
+  });
+});
+
+// ── Stage 4.2(b) — ctx.verifyOwnerSession() backend ──
+function makeAuthApp() {
+  const app = new Hono();
+  app.post('/api/_ps/auth/verify-session', handleFunctionAuthVerifySession);
+  return { app, env: { DB: {}, FUNCTIONS_INTERNAL_SECRET: SECRET } };
+}
+function authReq(app: Hono, env: Record<string, unknown>, token: string | undefined, body: unknown) {
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (token) headers.authorization = `Bearer ${token}`;
+  return app.request(
+    '/api/_ps/auth/verify-session',
+    { method: 'POST', headers, body: JSON.stringify(body) },
+    env,
+  );
+}
+
+describe('POST /api/_ps/auth/verify-session (handleFunctionAuthVerifySession)', () => {
+  it('401 on a bad site token', async () => {
+    const { app, env } = makeAuthApp();
+    expect((await authReq(app, env, 'bogus.sig', {})).status).toBe(401);
+  });
+
+  it('404 when the site is unknown', async () => {
+    mockQueryOne.mockResolvedValue(null); // sites lookup
+    const { app, env } = makeAuthApp();
+    expect((await authReq(app, env, await signFunctionToken(SECRET, 'ghost'), {})).status).toBe(404);
+  });
+
+  it('{authenticated:false} when no session_token is forwarded (no getSession call)', async () => {
+    mockQueryOne.mockResolvedValueOnce({ org_id: 'org1' }); // sites
+    const { app, env } = makeAuthApp();
+    const res = await authReq(app, env, await signFunctionToken(SECRET, 'site-abc'), {});
+    expect(await res.json()).toEqual({ authenticated: false });
+    expect(mockGetSession).not.toHaveBeenCalled();
+  });
+
+  it('{authenticated:false} when the session token is invalid/expired', async () => {
+    mockQueryOne.mockResolvedValueOnce({ org_id: 'org1' }); // sites
+    mockGetSession.mockResolvedValue(null);
+    const { app, env } = makeAuthApp();
+    const res = await authReq(app, env, await signFunctionToken(SECRET, 'site-abc'), {
+      session_token: 'x',
+    });
+    expect(await res.json()).toEqual({ authenticated: false });
+  });
+
+  it('{authenticated:false} when the session user is NOT a member of the site org', async () => {
+    mockQueryOne.mockResolvedValueOnce({ org_id: 'org1' }); // sites
+    mockGetSession.mockResolvedValue({ id: 's1', user_id: 'user-x', expires_at: '2099-01-01' });
+    mockQueryOne.mockResolvedValueOnce(null); // memberships → not a member
+    const { app, env } = makeAuthApp();
+    const res = await authReq(app, env, await signFunctionToken(SECRET, 'site-abc'), {
+      session_token: 'x',
+    });
+    expect(await res.json()).toEqual({ authenticated: false });
+  });
+
+  it('{authenticated:true, userId, orgId} when the session user IS a member (the owner)', async () => {
+    mockQueryOne.mockResolvedValueOnce({ org_id: 'org1' }); // sites
+    mockGetSession.mockResolvedValue({ id: 's1', user_id: 'user-owner', expires_at: '2099-01-01' });
+    mockQueryOne.mockResolvedValueOnce({ org_id: 'org1' }); // memberships → member
+    const { app, env } = makeAuthApp();
+    const res = await authReq(app, env, await signFunctionToken(SECRET, 'site-abc'), {
+      session_token: 'x',
+    });
+    expect(await res.json()).toEqual({ authenticated: true, userId: 'user-owner', orgId: 'org1' });
+  });
+});
+
+// ── Stage 4.2(b) — ctx.verifyTurnstile() backend ──
+function tsReq(app: Hono, env: Record<string, unknown>, token: string | undefined, body: unknown) {
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (token) headers.authorization = `Bearer ${token}`;
+  return app.request(
+    '/api/_ps/turnstile/verify',
+    { method: 'POST', headers, body: JSON.stringify(body) },
+    env,
+  );
+}
+function makeTsApp(withSecret = true) {
+  const app = new Hono();
+  app.post('/api/_ps/turnstile/verify', handleFunctionTurnstileVerify);
+  const env: Record<string, unknown> = { DB: {}, FUNCTIONS_INTERNAL_SECRET: SECRET };
+  if (withSecret) env.TURNSTILE_SECRET_KEY = 'ts-secret';
+  return { app, env };
+}
+
+describe('POST /api/_ps/turnstile/verify (handleFunctionTurnstileVerify)', () => {
+  const realFetch = global.fetch;
+  afterEach(() => {
+    global.fetch = realFetch;
+  });
+
+  it('401 on a bad site token', async () => {
+    const { app, env } = makeTsApp();
+    expect((await tsReq(app, env, 'bogus.sig', { token: 't' })).status).toBe(401);
+  });
+
+  it('{success:false} when no token is provided (no siteverify call)', async () => {
+    const spy = jest.fn();
+    global.fetch = spy as unknown as typeof fetch;
+    const { app, env } = makeTsApp();
+    const res = await tsReq(app, env, await signFunctionToken(SECRET, 'site-abc'), {});
+    expect(await res.json()).toEqual({ success: false });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('{success:false} when the platform Turnstile secret is unset', async () => {
+    const { app, env } = makeTsApp(false);
+    const res = await tsReq(app, env, await signFunctionToken(SECRET, 'site-abc'), { token: 't' });
+    expect(await res.json()).toEqual({ success: false });
+  });
+
+  it('{success:true} when siteverify accepts the token', async () => {
+    global.fetch = (async () =>
+      new Response(JSON.stringify({ success: true }), { status: 200 })) as unknown as typeof fetch;
+    const { app, env } = makeTsApp();
+    const res = await tsReq(app, env, await signFunctionToken(SECRET, 'site-abc'), { token: 'good' });
+    expect(await res.json()).toEqual({ success: true });
+  });
+
+  it('{success:false} when siteverify rejects the token', async () => {
+    global.fetch = (async () =>
+      new Response(JSON.stringify({ success: false, 'error-codes': ['invalid-input-response'] }), {
+        status: 200,
+      })) as unknown as typeof fetch;
+    const { app, env } = makeTsApp();
+    const res = await tsReq(app, env, await signFunctionToken(SECRET, 'site-abc'), { token: 'bad' });
+    expect(await res.json()).toEqual({ success: false });
+  });
+
+  it('{success:false} when siteverify throws (fail-closed)', async () => {
+    global.fetch = (async () => {
+      throw new Error('network');
+    }) as unknown as typeof fetch;
+    const { app, env } = makeTsApp();
+    const res = await tsReq(app, env, await signFunctionToken(SECRET, 'site-abc'), { token: 'x' });
+    expect(await res.json()).toEqual({ success: false });
   });
 });

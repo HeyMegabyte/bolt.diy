@@ -188,7 +188,9 @@ import {
   handleFunctionAiRun,
   handleFunctionDataForms,
   handleFunctionDataSite,
-} from './services/functions/internal.js'; // Stage 4.1(d/e): env.AI + env.DATA backends (/api/_ps/ai/run, /api/_ps/data/*)
+  handleFunctionAuthVerifySession,
+  handleFunctionTurnstileVerify,
+} from './services/functions/internal.js'; // Stage 4.1(d/e)+4.2(b): env.AI/DATA + ctx auth-helper backends (/api/_ps/*)
 import { registerAllPrompts } from './services/ai_workflows.js';
 import { DOMAINS, escapeHtml } from '@project-sites/shared';
 import { parseEnv } from './lib/env.js';
@@ -1018,6 +1020,9 @@ app.post('/api/_ps/ai/run', handleFunctionAiRun);
 // Stage 4.1(e) — env.DATA read backends (signed per-site token; read-only, tenant-scoped).
 app.get('/api/_ps/data/forms', handleFunctionDataForms);
 app.get('/api/_ps/data/site', handleFunctionDataSite);
+// Stage 4.2(b) — opt-in ctx auth-helper backends (signed per-site token).
+app.post('/api/_ps/auth/verify-session', handleFunctionAuthVerifySession);
+app.post('/api/_ps/turnstile/verify', handleFunctionTurnstileVerify);
 
 // Container→worker build status callback (HMAC-protected, KV-backed).
 // Container POSTs status updates here. Worker writes to CACHE_KV at key

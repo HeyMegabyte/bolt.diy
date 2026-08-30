@@ -228,6 +228,77 @@ export function makeScopedData(token: string, svc: ScopedAIService): ScopedData 
   };
 }
 
+/** Extract a platform session token from the incoming request (Bearer or `session` cookie). */
+export function extractSessionToken(request: Request): string {
+  const auth = request.headers.get('authorization') ?? '';
+  if (auth.startsWith('Bearer ')) return auth.slice(7);
+  const cookie = request.headers.get('cookie') ?? '';
+  const m = cookie.match(/(?:^|;\s*)session=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
+/** The opt-in `ctx.verifyOwnerSession()` + `ctx.verifyTurnstile()` helpers (Stage 4.2b). */
+export interface CtxAuthHelpers {
+  verifyOwnerSession: () => Promise<{ authenticated: boolean; userId?: string; orgId?: string }>;
+  verifyTurnstile: (token: string) => Promise<{ success: boolean }>;
+}
+
+/**
+ * Build the opt-in `ctx` auth helpers (ADR-0035 §108/§109, Stage 4.2b) over the
+ * signed-token + `__PS_SVC` service binding plane. `verifyOwnerSession` forwards
+ * the end-user's session token (Bearer / `session` cookie, from the request that
+ * hit the endpoint) to `/api/_ps/auth/verify-session`; `verifyTurnstile` posts a
+ * Turnstile token to `/api/_ps/turnstile/verify`. Both fail CLOSED (`false`) on
+ * any fault — a helper that can't reach the platform denies rather than admits.
+ *
+ * @param token - the per-site function token (`__PS_FN_TOKEN`)
+ * @param svc - the platform service binding (`__PS_SVC`)
+ * @param request - the inbound request (source of the session token + client IP)
+ * @example if (!(await ctx.verifyOwnerSession()).authenticated) return new Response('Forbidden', { status: 403 });
+ */
+export function makeCtxAuthHelpers(
+  token: string,
+  svc: ScopedAIService,
+  request: Request,
+): CtxAuthHelpers {
+  const post = async (
+    path: string,
+    payload: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> => {
+    try {
+      const res = await svc.fetch(
+        new Request('https://ps-internal' + path, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+          body: JSON.stringify(payload),
+        }),
+      );
+      return (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  };
+  return {
+    verifyOwnerSession: async () => {
+      const data = await post('/api/_ps/auth/verify-session', {
+        session_token: extractSessionToken(request),
+      });
+      return {
+        authenticated: data.authenticated === true,
+        userId: typeof data.userId === 'string' ? data.userId : undefined,
+        orgId: typeof data.orgId === 'string' ? data.orgId : undefined,
+      };
+    },
+    verifyTurnstile: async (tsToken) => {
+      const data = await post('/api/_ps/turnstile/verify', {
+        token: tsToken,
+        remoteip: request.headers.get('cf-connecting-ip') ?? undefined,
+      });
+      return { success: data.success === true };
+    },
+  };
+}
+
 /**
  * Build the SCOPED env every user handler receives (ADR-0035 §6, Stage 4.1).
  *
@@ -344,6 +415,18 @@ export function createFunctionsFetchHandler(
         next: async () =>
           jsonResponse(404, 'NOT_FOUND', `No downstream handler for ${url.pathname}`),
       };
+
+      // Stage 4.2b — attach the opt-in auth helpers from the RAW env's platform
+      // token + service binding (both stripped from `context.env`). Absent → the
+      // helpers stay undefined (endpoints are public by default either way).
+      const rawEnv = (env && typeof env === 'object' ? env : {}) as Record<string, unknown>;
+      const fnToken = typeof rawEnv.__PS_FN_TOKEN === 'string' ? rawEnv.__PS_FN_TOKEN : '';
+      const fnSvc = rawEnv.__PS_SVC as ScopedAIService | undefined;
+      if (fnToken && fnSvc && typeof fnSvc.fetch === 'function') {
+        const helpers = makeCtxAuthHelpers(fnToken, fnSvc, request);
+        context.verifyOwnerSession = helpers.verifyOwnerSession;
+        context.verifyTurnstile = helpers.verifyTurnstile;
+      }
 
       try {
         return await handler(context);

@@ -12,6 +12,8 @@ import {
   makeScopedR2,
   makeScopedAI,
   makeScopedData,
+  makeCtxAuthHelpers,
+  extractSessionToken,
 } from '../runtime.js';
 
 /** A recording KV backing — captures the (prefixed) keys the facade forwards. */
@@ -329,5 +331,83 @@ describe('makeScopedData (Stage 4.1e — read-only tenant-scoped data over a ser
   it('throws the platform error message on a non-2xx', async () => {
     const { svc } = recordingSvc({ error: { message: 'invalid function token' } }, 401);
     await expect(makeScopedData('t', svc).site()).rejects.toThrow('invalid function token');
+  });
+});
+
+describe('extractSessionToken (Stage 4.2b)', () => {
+  it('reads a Bearer token', () => {
+    const r = new Request('https://x/a', { headers: { authorization: 'Bearer abc' } });
+    expect(extractSessionToken(r)).toBe('abc');
+  });
+  it('reads a `session` cookie among others (url-decoded)', () => {
+    const r = new Request('https://x/a', { headers: { cookie: 'foo=1; session=tok%20en; bar=2' } });
+    expect(extractSessionToken(r)).toBe('tok en');
+  });
+  it('prefers Bearer over the cookie', () => {
+    const r = new Request('https://x/a', {
+      headers: { authorization: 'Bearer B', cookie: 'session=C' },
+    });
+    expect(extractSessionToken(r)).toBe('B');
+  });
+  it('is empty when neither is present', () => {
+    expect(extractSessionToken(new Request('https://x/a'))).toBe('');
+  });
+});
+
+describe('makeCtxAuthHelpers (Stage 4.2b — opt-in auth over the service binding)', () => {
+  function recordingSvc(body: unknown) {
+    const reqs: Request[] = [];
+    const svc = {
+      fetch: async (req: Request) => {
+        reqs.push(req);
+        return new Response(JSON.stringify(body), { status: 200 });
+      },
+    };
+    return { svc, reqs };
+  }
+
+  it('verifyOwnerSession posts the request session token (Bearer) + maps the platform answer', async () => {
+    const { svc, reqs } = recordingSvc({ authenticated: true, userId: 'u1', orgId: 'o1' });
+    const request = new Request('https://x/api/p', { headers: { authorization: 'Bearer sess-123' } });
+    const out = await makeCtxAuthHelpers('site.sig', svc, request).verifyOwnerSession();
+    expect(out).toEqual({ authenticated: true, userId: 'u1', orgId: 'o1' });
+    const req = reqs[0];
+    expect(new URL(req.url).pathname).toBe('/api/_ps/auth/verify-session');
+    expect(req.headers.get('authorization')).toBe('Bearer site.sig');
+    expect(await req.json()).toEqual({ session_token: 'sess-123' });
+  });
+
+  it('verifyOwnerSession extracts the `session` cookie + maps a not-authenticated answer', async () => {
+    const { svc, reqs } = recordingSvc({ authenticated: false });
+    const request = new Request('https://x/api/p', { headers: { cookie: 'a=1; session=cook-9; b=2' } });
+    const out = await makeCtxAuthHelpers('t', svc, request).verifyOwnerSession();
+    expect(out).toEqual({ authenticated: false, userId: undefined, orgId: undefined });
+    expect(await reqs[0].json()).toEqual({ session_token: 'cook-9' });
+  });
+
+  it('verifyTurnstile posts the token + client IP and maps success', async () => {
+    const { svc, reqs } = recordingSvc({ success: true });
+    const request = new Request('https://x/api/p', { headers: { 'cf-connecting-ip': '203.0.113.7' } });
+    const out = await makeCtxAuthHelpers('t', svc, request).verifyTurnstile('ts-token');
+    expect(out).toEqual({ success: true });
+    expect(new URL(reqs[0].url).pathname).toBe('/api/_ps/turnstile/verify');
+    expect(await reqs[0].json()).toEqual({ token: 'ts-token', remoteip: '203.0.113.7' });
+  });
+
+  it('fails CLOSED (authenticated:false / success:false) when the service binding throws', async () => {
+    const svc = {
+      fetch: async () => {
+        throw new Error('boom');
+      },
+    };
+    const request = new Request('https://x/api/p');
+    expect(await makeCtxAuthHelpers('t', svc, request).verifyOwnerSession()).toEqual({
+      authenticated: false,
+      userId: undefined,
+      orgId: undefined,
+    });
+    expect(await makeCtxAuthHelpers('t', svc, request).verifyTurnstile('x')).toEqual({
+      success: false,
+    });
   });
 });

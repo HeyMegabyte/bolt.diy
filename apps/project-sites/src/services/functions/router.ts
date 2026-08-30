@@ -30,6 +30,20 @@ export interface FunctionContext {
   params: Record<string, string>;
   waitUntil: (promise: Promise<unknown>) => void;
   next: () => Promise<Response>;
+  /**
+   * Opt-in (Stage 4.2b) — verify the incoming request carries a valid SITE-OWNER
+   * session (a platform session token, via `Authorization: Bearer` or a `session`
+   * cookie, whose user is a member of THIS site's org). Endpoints are PUBLIC by
+   * default; call this to gate owner-only routes. Absent when the platform token/
+   * service binding isn't injected (local/dev).
+   */
+  verifyOwnerSession?: () => Promise<{ authenticated: boolean; userId?: string; orgId?: string }>;
+  /**
+   * Opt-in (Stage 4.2b) — verify a Cloudflare Turnstile token against the
+   * platform's Turnstile secret (server-side siteverify). Returns `{success}`.
+   * Absent when the platform token/service binding isn't injected.
+   */
+  verifyTurnstile?: (token: string) => Promise<{ success: boolean }>;
 }
 
 export type FunctionHandler = (ctx: FunctionContext) => Response | Promise<Response>;
