@@ -54,6 +54,8 @@ export function resolveFunctionsDispatch(input: {
   siteId: string;
   entitled: boolean;
   hasDeployedScript: boolean;
+  /** Stage 2.3: route to the `site-<id>-preview` slot instead of the live script. */
+  preview?: boolean;
 }): FunctionsDispatchDecision {
   // Only /api/* paths are ever candidates for functions dispatch — everything
   // else is static content served from R2.
@@ -68,7 +70,10 @@ export function resolveFunctionsDispatch(input: {
   // is actually live; otherwise fall through to R2/404 (404 not 403, so a gated
   // capability is never revealed).
   if (input.entitled && input.hasDeployedScript) {
-    return { action: 'dispatch', scriptName: siteFunctionsScriptName(input.siteId) };
+    return {
+      action: 'dispatch',
+      scriptName: siteFunctionsScriptName(input.siteId, { preview: input.preview }),
+    };
   }
   return { action: 'passthrough' };
 }
@@ -109,16 +114,21 @@ export async function maybeDispatchFunctions(
   // everything else (static assets, reserved platform routes) skips all D1 reads.
   if (!pathname.startsWith('/api/') || isReservedFunctionRoute(pathname)) return null;
   const startedAt = Date.now();
+  // Stage 2.3 preview slot: `?_ps_preview=1` routes to `site-<id>-preview` (the owner
+  // testing an as-yet-unpromoted bundle) and SKIPS the live deploy-signal gate — the
+  // preview script has its own slot; a missing `-preview` just fails soft to passthrough.
+  const preview = new URL(request.url).searchParams.get('_ps_preview') === '1';
   try {
-    // Deployed-script gate first: most sites have none → one D1 read → passthrough,
-    // never paying for the entitlement lookup or a doomed dispatch.
-    if (!(await siteHasDeployedFunctions(env.DB, site.siteId))) return null;
+    // Deployed-script gate first (LIVE only): most sites have none → one D1 read →
+    // passthrough, never paying for the entitlement lookup or a doomed dispatch.
+    if (!preview && !(await siteHasDeployedFunctions(env.DB, site.siteId))) return null;
     const entitled = (await getOrgEntitlements(env.DB, site.orgId)).customEndpoints;
     const decision = resolveFunctionsDispatch({
       pathname,
       siteId: site.siteId,
       entitled,
       hasDeployedScript: true,
+      preview,
     });
     if (decision.action !== 'dispatch') return null;
     const res = await dispatchToUserWorker(env, decision.scriptName, request);

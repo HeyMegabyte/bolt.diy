@@ -136,6 +136,7 @@ import { tryEmitEvent } from '../services/emit_event.js';
 import { buildSitePublishedEvent, sitePublishedScope } from '../services/site_publish_event.js';
 import { notifyOwnerSiteBuilt } from '../services/notify_site_built.js';
 import { requireOwnedSite } from '../services/site_ownership.js';
+import { deploySiteFunctions, readFunctionsBundle } from '../services/functions_deploy.js';
 import * as contactService from '../services/contact.js';
 import { classifyError } from '../services/retry.js';
 import { loadChangelogEntries } from './public.js';
@@ -2483,6 +2484,73 @@ api.patch('/api/sites/:id', async (c) => {
  *   }'
  * ```
  */
+/**
+ * POST /api/sites/:id/test-publish — Stage 2.3 Functions preview slot (ADR-0035 §5).
+ *
+ * Redeploys the site's LAST-GOOD functions bundle (the one persisted to R2 on the
+ * last successful publish) to the `site-<id>-preview` Workers-for-Platforms slot so
+ * the owner can exercise their `/api/*` endpoints at
+ * `{slug}.projectsites.dev/api/<route>?_ps_preview=1` WITHOUT promoting them live.
+ * The live `site-<id>` script + its deploy signal are never touched.
+ *
+ * Idempotent — re-running redeploys the same bundle. Org-scoped: 404 (never 403)
+ * on a cross-org site so a gated site never leaks. 409 when the site has no
+ * persisted bundle yet (publish once with a `functions/` folder first). The
+ * non-deployed WfP outcomes (`skipped_not_entitled`, `wfp_unconfigured`,
+ * `upload_failed`) are surfaced verbatim so the UI can explain WHY.
+ *
+ * @example
+ * curl -X POST https://projectsites.dev/api/sites/<id>/test-publish \
+ *   -H 'Authorization: Bearer <session>'
+ * // → { data: { status: 'deployed', script_name: 'site-<id>-preview', preview_hint: '?_ps_preview=1' } }
+ */
+api.post('/api/sites/:id/test-publish', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) throw unauthorized('Must be authenticated');
+
+  const siteId = c.req.param('id');
+
+  // Org-ownership guard — 404 (never 403) so a cross-org site never leaks.
+  await requireOwnedSite<{ id: string; org_id: string }>(c.env, orgId, siteId, 'id, org_id');
+
+  // The preview slot redeploys the bundle persisted on the last successful
+  // publish (Stage 2.3). No bundle → nothing to preview → 409 with a next-step.
+  const script = await readFunctionsBundle(c.env, siteId);
+  if (!script) {
+    throw conflict(
+      'This site has no functions bundle yet. Publish the site once (with a functions/ folder) before test-publishing a preview.',
+    );
+  }
+
+  const result = await deploySiteFunctions(c.env, {
+    siteId,
+    orgId,
+    build: { ok: true, script },
+    preview: true,
+  });
+
+  // Audit the preview deploy — fail-soft so an audit-write failure never blocks
+  // the response (dispatch/serving are unaffected either way).
+  auditService
+    .writeAuditLog(c.env.DB, {
+      org_id: orgId,
+      actor_id: c.get('userId') ?? null,
+      action: 'functions.test_publish',
+      message: `Preview functions deploy for site '${siteId}': ${result.status}`,
+    })
+    .catch(() => {});
+
+  if (result.status === 'deployed') {
+    return c.json({
+      data: { status: 'deployed', script_name: result.scriptName, preview_hint: '?_ps_preview=1' },
+    });
+  }
+  // Any non-deploy status is a 200 carrying the reason — the owner is authenticated
+  // and owns the site; the preview simply didn't deploy (not entitled / WfP
+  // unconfigured / upload failed). The UI reads `data.status` to explain.
+  return c.json({ data: { status: result.status } });
+});
+
 api.post('/api/sites/:id/reset', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized('Must be authenticated');

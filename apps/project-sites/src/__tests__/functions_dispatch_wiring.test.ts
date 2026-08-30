@@ -9,7 +9,8 @@
 jest.mock('../services/functions_deploy.js', () => ({ siteHasDeployedFunctions: jest.fn() }));
 jest.mock('../services/billing.js', () => ({ getOrgEntitlements: jest.fn() }));
 jest.mock('../services/wfp_dispatch.js', () => ({
-  siteFunctionsScriptName: (id: string) => `site-${id}`,
+  siteFunctionsScriptName: (id: string, opts?: { preview?: boolean }) =>
+    opts?.preview ? `site-${id}-preview` : `site-${id}`,
   dispatchToUserWorker: jest.fn(),
 }));
 
@@ -79,6 +80,28 @@ describe('maybeDispatchFunctions', () => {
     expect(res).not.toBeNull();
     expect(await res!.text()).toBe('fn-ok');
     expect(mockDispatch).toHaveBeenCalledWith(env, 'site-abc', r);
+  });
+
+  // ── Stage 2.3 preview slot (`?_ps_preview=1`) ──
+  it('preview (?_ps_preview=1): dispatches to site-<id>-preview, SKIPPING the live deploy-signal gate', async () => {
+    // The LIVE signal is false — a preview must still dispatch (the owner is
+    // testing an as-yet-unpromoted bundle), so the gate is skipped entirely.
+    mockHas.mockResolvedValue(false);
+    mockEnt.mockResolvedValue({ customEndpoints: true });
+    mockDispatch.mockResolvedValue(new Response('preview-ok', { status: 200 }));
+    const r = new Request('https://abc.projectsites.dev/api/quote?_ps_preview=1');
+    const res = await maybeDispatchFunctions(env, site, r, '/api/quote');
+    expect(res).not.toBeNull();
+    expect(await res!.text()).toBe('preview-ok');
+    expect(mockHas).not.toHaveBeenCalled(); // live gate skipped in preview mode
+    expect(mockDispatch).toHaveBeenCalledWith(env, 'site-abc-preview', r);
+  });
+
+  it('preview still respects the entitlement gate (not entitled → null passthrough)', async () => {
+    mockEnt.mockResolvedValue({ customEndpoints: false });
+    const r = new Request('https://abc.projectsites.dev/api/quote?_ps_preview=1');
+    expect(await maybeDispatchFunctions(env, site, r, '/api/quote')).toBeNull();
+    expect(mockDispatch).not.toHaveBeenCalled();
   });
 
   // ── 5.2 Observability (ADR §13): invocations + errors → Traces / Log Explorer ──

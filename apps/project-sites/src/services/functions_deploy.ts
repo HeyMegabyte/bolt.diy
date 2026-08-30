@@ -47,7 +47,7 @@ export type DeploySiteFunctionsResult =
  */
 export async function deploySiteFunctions(
   env: Env,
-  opts: { siteId: string; orgId: string; build: FunctionsBuildResult },
+  opts: { siteId: string; orgId: string; build: FunctionsBuildResult; preview?: boolean },
 ): Promise<DeploySiteFunctionsResult> {
   if (!isWfpConfigured(env)) return { status: 'wfp_unconfigured' };
 
@@ -60,30 +60,70 @@ export async function deploySiteFunctions(
   }
   if (!entitled) return { status: 'skipped_not_entitled' };
 
-  const { build } = opts;
+  const { build, preview } = opts;
 
   // Bad build → keep the last-good script live; do NOT touch WfP.
   if (!build.ok) return { status: 'build_failed', error: build.error };
 
   // Empty functions/ → remove any stale script so a deleted folder stops serving,
-  // and CLEAR the deploy signal so Stage 3.1 dispatch stops routing to it.
+  // and CLEAR the deploy signal so Stage 3.1 dispatch stops routing to it. In
+  // preview mode this only clears the `-preview` slot (never the live signal).
   if (!('script' in build)) {
-    await deleteSiteFunctionsWorker(env, opts.siteId);
-    await recordFunctionsDeploy(env.DB, opts.siteId, false).catch(() => {});
+    await deleteSiteFunctionsWorker(env, opts.siteId, { preview });
+    if (!preview) await recordFunctionsDeploy(env.DB, opts.siteId, false).catch(() => {});
     return { status: 'removed' };
   }
 
   // Good build → upload. An upload failure leaves the previous script in place
-  // (the PUT never overwrote), so last-good is preserved either way.
-  const res = await uploadSiteFunctionsWorker(env, opts.siteId, build.script);
+  // (the PUT never overwrote), so last-good is preserved either way. Preview
+  // uploads to `site-<id>-preview` and NEVER touches the live deploy signal or the
+  // persisted last-good bundle (Stage 2.3 — the owner tests it before promoting).
+  const res = await uploadSiteFunctionsWorker(env, opts.siteId, build.script, { preview });
   if (res.ok) {
-    // Record the deploy so Stage 3.1 dispatch knows a script is live. Fail-soft:
-    // a signal-write failure must not fail the publish — dispatch just won't
-    // route to the new script until the next successful publish.
-    await recordFunctionsDeploy(env.DB, opts.siteId, true).catch(() => {});
+    if (!preview) {
+      // Record the deploy so Stage 3.1 dispatch knows a script is live. Fail-soft:
+      // a signal-write failure must not fail the publish — dispatch just won't
+      // route to the new script until the next successful publish.
+      await recordFunctionsDeploy(env.DB, opts.siteId, true).catch(() => {});
+      // Persist the last-good bundle to R2 so the Stage 2.3 preview slot
+      // (`/api/test-publish`) can redeploy it WITHOUT a fresh container build.
+      // Fail-soft: a persist failure only means test-publish lacks a bundle.
+      await persistFunctionsBundle(env, opts.siteId, build.script).catch(() => {});
+    }
     return { status: 'deployed', scriptName: res.scriptName };
   }
   return { status: 'upload_failed', error: res.error, httpStatus: res.status };
+}
+
+/** R2 key for a site's last-good functions bundle (the preview slot's source). */
+export function functionsBundleKey(siteId: string): string {
+  return `functions-bundles/${siteId}.js`;
+}
+
+/**
+ * Persist a site's last-good functions bundle to R2 so the Stage 2.3 preview slot
+ * can redeploy it without a container rebuild. Impure — writes R2.
+ * @example await persistFunctionsBundle(env, siteId, script)
+ */
+export async function persistFunctionsBundle(
+  env: Env,
+  siteId: string,
+  script: string,
+): Promise<void> {
+  await env.SITES_BUCKET.put(functionsBundleKey(siteId), script, {
+    httpMetadata: { contentType: 'application/javascript' },
+  });
+}
+
+/**
+ * Read a site's last-good functions bundle from R2 (null if it never built one).
+ * The Stage 2.3 `/api/test-publish` handler reuses it for the preview deploy.
+ * @returns the bundle text, or null when absent
+ * @example const script = await readFunctionsBundle(env, siteId)
+ */
+export async function readFunctionsBundle(env: Env, siteId: string): Promise<string | null> {
+  const obj = await env.SITES_BUCKET.get(functionsBundleKey(siteId));
+  return obj ? await obj.text() : null;
 }
 
 /**

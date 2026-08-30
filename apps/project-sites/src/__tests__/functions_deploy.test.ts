@@ -19,7 +19,13 @@ jest.mock('../services/wfp_dispatch.js', () => ({
 jest.mock('../services/billing.js', () => ({ getOrgEntitlements: jest.fn() }));
 jest.mock('../services/db.js', () => ({ dbUpdate: jest.fn(), dbQueryOne: jest.fn() }));
 
-import { deploySiteFunctions, siteHasDeployedFunctions } from '../services/functions_deploy.js';
+import {
+  deploySiteFunctions,
+  siteHasDeployedFunctions,
+  functionsBundleKey,
+  persistFunctionsBundle,
+  readFunctionsBundle,
+} from '../services/functions_deploy.js';
 import { getOrgEntitlements } from '../services/billing.js';
 import {
   isWfpConfigured,
@@ -97,7 +103,7 @@ describe('deploySiteFunctions', () => {
       build: { ok: true, empty: true },
     });
     expect(out.status).toBe('removed');
-    expect(mockDelete).toHaveBeenCalledWith(env, 'abc');
+    expect(mockDelete).toHaveBeenCalledWith(env, 'abc', { preview: undefined });
     expect(mockUpload).not.toHaveBeenCalled();
     // signal cleared → functions_deployed_at = null
     expect(mockDbUpdate).toHaveBeenCalledWith(
@@ -118,7 +124,7 @@ describe('deploySiteFunctions', () => {
     });
     expect(out.status).toBe('deployed');
     if (out.status === 'deployed') expect(out.scriptName).toBe('site-abc');
-    expect(mockUpload).toHaveBeenCalledWith(env, 'abc', 'export default {}');
+    expect(mockUpload).toHaveBeenCalledWith(env, 'abc', 'export default {}', { preview: undefined });
     // signal set → functions_deployed_at = a timestamp string, scoped to the site
     const call = mockDbUpdate.mock.calls.at(-1);
     expect(call[0]).toBe(env.DB);
@@ -164,6 +170,69 @@ describe('deploySiteFunctions', () => {
     });
     expect(out.status).toBe('skipped_not_entitled');
     expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  // Stage 2.3 — preview mode uploads the `-preview` slot WITHOUT touching the
+  // live deploy signal, so the owner can test before promoting.
+  it('preview: uploads to the preview slot + does NOT write the live deploy signal', async () => {
+    entitled(true);
+    mockUpload.mockResolvedValue({ ok: true, scriptName: 'site-abc-preview' });
+    const out = await deploySiteFunctions(env, {
+      siteId: 'abc',
+      orgId: 'org1',
+      build: { ok: true, script: 'export default {}' },
+      preview: true,
+    });
+    expect(out.status).toBe('deployed');
+    if (out.status === 'deployed') expect(out.scriptName).toBe('site-abc-preview');
+    expect(mockUpload).toHaveBeenCalledWith(env, 'abc', 'export default {}', { preview: true });
+    // the LIVE signal is never touched in preview mode
+    expect(mockDbUpdate).not.toHaveBeenCalled();
+  });
+
+  it('preview + empty build removes ONLY the preview slot + leaves the live signal intact', async () => {
+    entitled(true);
+    const out = await deploySiteFunctions(env, {
+      siteId: 'abc',
+      orgId: 'org1',
+      build: { ok: true, empty: true },
+      preview: true,
+    });
+    expect(out.status).toBe('removed');
+    expect(mockDelete).toHaveBeenCalledWith(env, 'abc', { preview: true });
+    expect(mockDbUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('functions bundle persistence (Stage 2.3 preview source)', () => {
+  it('functionsBundleKey is the per-site R2 key', () => {
+    expect(functionsBundleKey('abc')).toBe('functions-bundles/abc.js');
+  });
+
+  it('persist then read round-trips the bundle text through R2', async () => {
+    const store = new Map<string, string>();
+    const bucket = {
+      put: jest.fn(async (key: string, body: string) => {
+        store.set(key, body);
+      }),
+      get: jest.fn(async (key: string) =>
+        store.has(key) ? { text: async () => store.get(key)! } : null,
+      ),
+    };
+    const e = { SITES_BUCKET: bucket } as unknown as Env;
+    await persistFunctionsBundle(e, 'abc', 'export default { fetch() {} }');
+    expect(bucket.put).toHaveBeenCalledWith(
+      'functions-bundles/abc.js',
+      'export default { fetch() {} }',
+      { httpMetadata: { contentType: 'application/javascript' } },
+    );
+    expect(await readFunctionsBundle(e, 'abc')).toBe('export default { fetch() {} }');
+  });
+
+  it('readFunctionsBundle returns null when the site never persisted a bundle', async () => {
+    const bucket = { get: jest.fn(async () => null) };
+    const e = { SITES_BUCKET: bucket } as unknown as Env;
+    expect(await readFunctionsBundle(e, 'ghost')).toBeNull();
   });
 });
 

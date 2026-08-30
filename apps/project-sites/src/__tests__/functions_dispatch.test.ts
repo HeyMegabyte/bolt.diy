@@ -63,4 +63,24 @@ describe('resolveFunctionsDispatch', () => {
   it('substring-safe: /api/eventsy is NOT reserved (dispatches when entitled + deployed)', () => {
     expect(resolveFunctionsDispatch({ ...base, pathname: '/api/eventsy' }).action).toBe('dispatch');
   });
+
+  // Stage 2.3 preview slot — `preview: true` routes to `site-<id>-preview`.
+  it('preview: dispatches to site-<id>-preview when entitled + a script is deployed', () => {
+    const d = resolveFunctionsDispatch({ ...base, pathname: '/api/quote', preview: true });
+    expect(d.action).toBe('dispatch');
+    if (d.action === 'dispatch') expect(d.scriptName).toBe('site-abc-preview');
+  });
+
+  it('preview does NOT bypass the entitlement gate (not entitled → passthrough)', () => {
+    expect(
+      resolveFunctionsDispatch({ ...base, entitled: false, preview: true, pathname: '/api/quote' })
+        .action,
+    ).toBe('passthrough');
+  });
+
+  it('preview + a reserved prefix is still reserved (the platform owns it)', () => {
+    expect(
+      resolveFunctionsDispatch({ ...base, preview: true, pathname: '/api/contact-form' }).action,
+    ).toBe('reserved');
+  });
 });
