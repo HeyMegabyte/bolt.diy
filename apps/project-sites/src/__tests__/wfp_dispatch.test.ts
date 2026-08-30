@@ -410,7 +410,9 @@ describe('uploadSiteFunctionsWorker', () => {
 
   it('adds a __PS_KV kv_namespace binding when kvNamespaceId is provided (Stage 4.1b)', async () => {
     mockFetch.mockResolvedValueOnce(res(true, { status: 200 }));
-    await uploadSiteFunctionsWorker(makeEnv(), 'abc', 'export default {}', { kvNamespaceId: 'ns-123' });
+    await uploadSiteFunctionsWorker(makeEnv(), 'abc', 'export default {}', {
+      kvNamespaceId: 'ns-123',
+    });
     const init = mockFetch.mock.calls.at(-1)![1] as RequestInit;
     const metadata = JSON.parse(await blobText((init.body as FormData).get('metadata')));
     expect(metadata.bindings).toContainEqual({
