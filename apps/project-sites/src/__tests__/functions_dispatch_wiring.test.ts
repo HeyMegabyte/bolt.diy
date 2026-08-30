@@ -170,3 +170,76 @@ describe('maybeDispatchFunctions', () => {
     expect(mockDispatch).not.toHaveBeenCalled();
   });
 });
+
+// ── Stage 4.2 — default dispatch guardrails (body cap 413, per-IP rate-limit 429) ──
+describe('maybeDispatchFunctions guardrails', () => {
+  /** An entitled + deployed site, so every request reaches the guardrails. */
+  function entitledDeployed() {
+    mockHas.mockResolvedValue(true);
+    mockEnt.mockResolvedValue({ customEndpoints: true });
+    mockDispatch.mockResolvedValue(new Response('fn-ok', { status: 200 }));
+  }
+  const bigBodyReq = () =>
+    new Request('https://abc.projectsites.dev/api/upload', {
+      headers: new Headers({ 'content-length': String(26 * 1024 * 1024) }),
+    });
+  const limiterEnv = (success: boolean) =>
+    ({
+      DB: {},
+      FUNCTIONS_RATELIMIT: { limit: jest.fn(async () => ({ success })) },
+    }) as unknown as Env;
+
+  it('413 (no dispatch) when the body exceeds the 25 MB cap + emits functions.rejected', async () => {
+    entitledDeployed();
+    const res = await maybeDispatchFunctions(env, site, bigBodyReq(), '/api/upload');
+    expect(res).not.toBeNull();
+    expect(res!.status).toBe(413);
+    expect(await res!.json()).toEqual({
+      error: { code: 'PAYLOAD_TOO_LARGE', message: 'Request body exceeds the 25 MB limit.' },
+    });
+    expect(mockDispatch).not.toHaveBeenCalled();
+    const ev = traceEvent('functions.rejected');
+    expect(ev?.reason).toBe('body_too_large');
+    expect(ev?.status).toBe(413);
+  });
+
+  it('429 (no dispatch) when the per-IP rate-limit is exceeded + Retry-After + functions.rejected', async () => {
+    entitledDeployed();
+    const rlEnv = limiterEnv(false);
+    const r = new Request('https://abc.projectsites.dev/api/quote', {
+      headers: { 'cf-connecting-ip': '203.0.113.7' },
+    });
+    const res = await maybeDispatchFunctions(rlEnv, site, r, '/api/quote');
+    expect(res!.status).toBe(429);
+    expect(res!.headers.get('retry-after')).toBe('10');
+    expect(mockDispatch).not.toHaveBeenCalled();
+    // limiter keyed <siteId>:<ip>
+    const limiter = (rlEnv as unknown as { FUNCTIONS_RATELIMIT: { limit: jest.Mock } })
+      .FUNCTIONS_RATELIMIT;
+    expect(limiter.limit).toHaveBeenCalledWith({ key: 'abc:203.0.113.7' });
+    expect(traceEvent('functions.rejected')?.reason).toBe('rate_limited');
+  });
+
+  it('dispatches normally when the rate-limit passes', async () => {
+    entitledDeployed();
+    const rlEnv = limiterEnv(true);
+    const res = await maybeDispatchFunctions(rlEnv, site, req(), '/api/quote');
+    expect(res).not.toBeNull();
+    expect(await res!.text()).toBe('fn-ok');
+    expect(mockDispatch).toHaveBeenCalled();
+  });
+
+  it('fails OPEN (dispatches) when no rate-limit binding is present (dev/local)', async () => {
+    entitledDeployed();
+    const res = await maybeDispatchFunctions(env, site, req(), '/api/quote');
+    expect(res).not.toBeNull();
+    expect(mockDispatch).toHaveBeenCalled();
+  });
+
+  it('guardrails run ONLY on an actual dispatch — a not-entitled big body just passes through', async () => {
+    mockHas.mockResolvedValue(true);
+    mockEnt.mockResolvedValue({ customEndpoints: false });
+    expect(await maybeDispatchFunctions(env, site, bigBodyReq(), '/api/upload')).toBeNull();
+    expect(mockDispatch).not.toHaveBeenCalled();
+  });
+});

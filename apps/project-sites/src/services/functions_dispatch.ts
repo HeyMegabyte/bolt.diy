@@ -25,6 +25,7 @@ import { getOrgEntitlements } from './billing.js';
 import { siteHasDeployedFunctions } from './functions_deploy.js';
 import { isReservedFunctionRoute } from './functions/router.js';
 import { dispatchToUserWorker, siteFunctionsScriptName } from './wfp_dispatch.js';
+import { isBodyTooLarge, rateLimitKey, type RateLimiterBinding } from './functions_guardrails.js';
 
 /** Scoped structured logger — its JSON lines feed Workers Observability → the Log Explorer. */
 const fnLog = log.child('functions');
@@ -131,6 +132,62 @@ export async function maybeDispatchFunctions(
       preview,
     });
     if (decision.action !== 'dispatch') return null;
+
+    // Stage 4.2 — default abuse guardrails, applied BEFORE the user worker runs.
+    // (1) Body cap: reject an over-large body up front (413) so a single request
+    // can't exhaust memory. (2) Per-IP rate-limit (429) via the native ratelimit
+    // binding. Both emit a tenant-tagged `functions.rejected` Trace event (§13) and
+    // fail OPEN when their mechanism is absent (dev) — never block a legit request.
+    if (isBodyTooLarge(request)) {
+      fnLog.info('functions.rejected', {
+        orgId: site.orgId,
+        siteId: site.siteId,
+        method: request.method,
+        path: pathname,
+        status: 413,
+        reason: 'body_too_large',
+        durationMs: Date.now() - startedAt,
+        requestId: request.headers.get('cf-ray') ?? undefined,
+      });
+      return new Response(
+        JSON.stringify({
+          error: { code: 'PAYLOAD_TOO_LARGE', message: 'Request body exceeds the 25 MB limit.' },
+        }),
+        { status: 413, headers: { 'content-type': 'application/json' } },
+      );
+    }
+    const limiter = (env as unknown as { FUNCTIONS_RATELIMIT?: RateLimiterBinding })
+      .FUNCTIONS_RATELIMIT;
+    if (limiter) {
+      const { success } = await limiter.limit({
+        key: rateLimitKey(site.siteId, request.headers.get('cf-connecting-ip')),
+      });
+      if (!success) {
+        fnLog.info('functions.rejected', {
+          orgId: site.orgId,
+          siteId: site.siteId,
+          method: request.method,
+          path: pathname,
+          status: 429,
+          reason: 'rate_limited',
+          durationMs: Date.now() - startedAt,
+          requestId: request.headers.get('cf-ray') ?? undefined,
+        });
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: 'RATE_LIMITED',
+              message: 'Too many requests — slow down and try again shortly.',
+            },
+          }),
+          {
+            status: 429,
+            headers: { 'content-type': 'application/json', 'retry-after': '10' },
+          },
+        );
+      }
+    }
+
     const res = await dispatchToUserWorker(env, decision.scriptName, request);
     // 5.2 (ADR §13): emit a tenant-tagged invocation event via the canonical
     // structured logger → Workers Observability → the Log Explorer (`/admin/logs`).

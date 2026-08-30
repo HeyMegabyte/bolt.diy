@@ -128,6 +128,7 @@ const SAFE_FIELD_ALLOWLIST: ReadonlySet<string> = new Set([
   'method',
   'status',
   'statusCode',
+  'reason',
   'durationMs',
   'duration_ms',
   'attempt',

@@ -177,6 +177,16 @@ type = "ratelimit"
 namespace_id = "2001"
 simple = { limit = 15, period = 10 }
 
+# Stage 4.2 — default per-IP rate-limit for user Functions dispatch, keyed
+# `<siteId>:<ip>` in functions_dispatch.ts. 100 req / 60s per IP per site
+# (tunable per plan). namespace_id "2002" is a local-dev placeholder; CF assigns
+# the real one on first production deploy. period MUST be 10 or 60.
+[[unsafe.bindings]]
+name = "FUNCTIONS_RATELIMIT"
+type = "ratelimit"
+namespace_id = "2002"
+simple = { limit = 100, period = 60 }
+
 # ─── Production ──────────────────────────────────────────────
 [env.production]
 name = "project-sites"
@@ -1060,6 +1070,14 @@ name = "OAUTH_RATELIMIT"
 type = "ratelimit"
 namespace_id = "2001"
 simple = { limit = 15, period = 10 }
+
+# Stage 4.2 — per-IP Functions dispatch rate-limit (production). env configs do
+# NOT inherit top-level bindings, so it is re-declared here identically.
+[[env.production.unsafe.bindings]]
+name = "FUNCTIONS_RATELIMIT"
+type = "ratelimit"
+namespace_id = "2002"
+simple = { limit = 100, period = 60 }
 
 # Pulse Inbox — REMOVED from UI/code 2026-05-25. Class kept as a 410-stub
 # at `src/durable_objects/conversation_hub.ts` so the existing
