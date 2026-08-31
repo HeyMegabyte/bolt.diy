@@ -17,7 +17,7 @@ import type { Env } from '../types/env.js';
 import { getOrgEntitlements } from './billing.js';
 import { resolveEnvVarsForFunctions } from './ai_env_vars.js';
 import { signFunctionToken } from './functions/internal.js';
-import { dbUpdate, dbQueryOne } from './db.js';
+import { dbUpdate, dbQueryOne, dbQuery } from './db.js';
 import {
   isWfpConfigured,
   siteFunctionsScriptName,
@@ -27,7 +27,7 @@ import {
 
 /** The container bundle outcome for a site's `functions/` folder. */
 export type FunctionsBuildResult =
-  | { ok: true; script: string } // one esbuild ESM Worker bundle
+  | { ok: true; script: string; crons?: string[] } // one esbuild ESM Worker bundle (+ Stage 6.1 cron(s) from `_scheduled`)
   | { ok: true; empty: true } // no `functions/` folder, or it declares no routes
   | { ok: false; error: string }; // reserved-path collision / npm / esbuild failure
 
@@ -122,7 +122,12 @@ export async function deploySiteFunctions(
   // preview mode this only clears the `-preview` slot (never the live signal).
   if (!('script' in build)) {
     await deleteSiteFunctionsWorker(env, opts.siteId, { preview });
-    if (!preview) await recordFunctionsDeploy(env.DB, opts.siteId, false).catch(() => {});
+    if (!preview) {
+      await recordFunctionsDeploy(env.DB, opts.siteId, false).catch(() => {});
+      // Stage 6.1 — a removed functions worker has no scheduled handler; clear the
+      // site's cron schedules so the platform cron stops dispatching to a dead script.
+      await recordFunctionsSchedules(env.DB, opts.siteId, []).catch(() => {});
+    }
     return { status: 'removed' };
   }
 
@@ -149,6 +154,10 @@ export async function deploySiteFunctions(
       // (`/api/test-publish`) can redeploy it WITHOUT a fresh container build.
       // Fail-soft: a persist failure only means test-publish lacks a bundle.
       await persistFunctionsBundle(env, opts.siteId, build.script).catch(() => {});
+      // Stage 6.1 — replace the site's cron schedules with the ones declared in
+      // `functions/_scheduled.*` (empty when none → the site has no crons). The
+      // platform cron (index.ts `scheduled()`) reads these + dispatches when due.
+      await recordFunctionsSchedules(env.DB, opts.siteId, build.crons ?? []).catch(() => {});
     }
     return { status: 'deployed', scriptName: res.scriptName };
   }
@@ -344,6 +353,67 @@ export async function restoreSnapshotFunctions(
   await persistFunctionsBundle(env, opts.siteId, frozen).catch(() => {});
   await recordFunctionsDeploy(env.DB, opts.siteId, true).catch(() => {});
   return { status: 'redeployed', scriptName: res.scriptName };
+}
+
+// ─── Stage 6.1 — scheduled/cron: per-site schedule store (platform-dispatcher) ───
+
+/** A site's registered cron schedule (one row per cron expression). */
+export interface SiteSchedule {
+  siteId: string;
+  cron: string;
+}
+
+/**
+ * Replace a site's cron schedule set with `crons` (Stage 6.1). Deduped + trimmed;
+ * an empty list leaves the site with ZERO schedules (deploy-with-no-`_scheduled`
+ * or a functions removal both clear it). The platform cron (`index.ts scheduled()`)
+ * reads these via {@link listActiveFunctionsSchedules} + dispatches when due. A
+ * single D1 `batch` (delete-then-insert) keeps it atomic.
+ *
+ * @remarks Impure — writes D1. Callers wrap in `.catch()` (fail-soft; a schedule
+ * write must never fail the publish).
+ * @example await recordFunctionsSchedules(env.DB, siteId, ['0 * * * *'])
+ */
+export async function recordFunctionsSchedules(
+  db: D1Database,
+  siteId: string,
+  crons: string[],
+): Promise<void> {
+  const clean = [...new Set(crons.map((c) => c.trim()).filter(Boolean))].slice(0, 20);
+  const stmts: D1PreparedStatement[] = [
+    db.prepare('DELETE FROM site_functions_schedules WHERE site_id = ?').bind(siteId),
+  ];
+  for (const cron of clean) {
+    stmts.push(
+      db
+        .prepare(
+          "INSERT INTO site_functions_schedules (id, site_id, cron, created_at) VALUES (?, ?, ?, datetime('now'))",
+        )
+        .bind(crypto.randomUUID(), siteId, cron),
+    );
+  }
+  await db.batch(stmts);
+}
+
+/**
+ * List every ACTIVE site cron schedule — joined to `sites` so only live
+ * (`deleted_at IS NULL`) sites with a deployed functions worker
+ * (`functions_deployed_at IS NOT NULL`) are returned (a removed worker's schedules
+ * were cleared, but the JOIN is belt-and-suspenders). The platform cron reads this
+ * each minute + cron-matches (`cron_match.ts`) to decide which to dispatch.
+ *
+ * @returns `{ siteId, cron }[]`
+ * @example const due = (await listActiveFunctionsSchedules(env.DB)).filter(s => cronMatches(s.cron, now))
+ */
+export async function listActiveFunctionsSchedules(db: D1Database): Promise<SiteSchedule[]> {
+  const { data } = await dbQuery<{ site_id: string; cron: string }>(
+    db,
+    `SELECT sfs.site_id AS site_id, sfs.cron AS cron
+       FROM site_functions_schedules sfs
+       JOIN sites st ON st.id = sfs.site_id
+      WHERE st.deleted_at IS NULL AND st.functions_deployed_at IS NOT NULL`,
+  );
+  return (data ?? []).map((r) => ({ siteId: r.site_id, cron: r.cron }));
 }
 
 /** The WfP script name a deploy targets — re-exported so callers/logs share the SSOT. */

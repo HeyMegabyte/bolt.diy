@@ -183,21 +183,47 @@ describe('payloadLimitMiddleware', () => {
       expect(res.status).toBe(413);
     });
 
-    it('uses default limit for /api/sites/:id/settings (not an upload path)', async () => {
+    it('uses default limit for /api/sites/:id/settings on a PLATFORM host (not an upload path)', async () => {
       const app = createUploadApp();
-      // 1MB exceeds 256KB default limit but not upload limit
+      // 1MB exceeds 256KB default limit but not upload limit. On a platform host the
+      // Stage 4.2 site-dispatch exemption does NOT apply → default cap → 413.
       const size = 1 * 1024 * 1024;
-      const res = await app.request('/api/sites/abc-123/settings', {
+      const res = await app.request('https://projectsites.dev/api/sites/abc-123/settings', {
         method: 'POST',
         headers: { 'content-length': String(size) },
       });
       expect(res.status).toBe(413);
     });
 
-    it('uses default limit for non-upload API routes', async () => {
+    it('uses default limit for non-upload API routes on a PLATFORM host', async () => {
       const app = createUploadApp();
       const size = 1 * 1024 * 1024; // 1MB
-      const res = await app.request('/api/other', {
+      const res = await app.request('https://projectsites.dev/api/other', {
+        method: 'POST',
+        headers: { 'content-length': String(size) },
+      });
+      expect(res.status).toBe(413);
+    });
+
+    it('Stage 4.2 — a non-reserved /api/* on a SITE host gets the upload ceiling', async () => {
+      const app = createUploadApp();
+      // Same 1MB body, but on a child-site subdomain (NOT a platform host): the request
+      // dispatches to the site functions worker, so payloadLimit grants the 100 MB ceiling
+      // (the functions guardrail enforces the real ~25 MB cap downstream) → 200 here.
+      const size = 1 * 1024 * 1024;
+      const res = await app.request('https://acme.projectsites.dev/api/other', {
+        method: 'POST',
+        headers: { 'content-length': String(size) },
+      });
+      expect(res.status).toBe(200);
+    });
+
+    it('Stage 4.2 — a RESERVED /api/* on a site host stays at the 256 KB default', async () => {
+      const app = createUploadApp();
+      // Reserved platform routes (contact-form / _ps / events) are never a functions
+      // dispatch even on a site host → default cap → 413.
+      const size = 1 * 1024 * 1024;
+      const res = await app.request('https://acme.projectsites.dev/api/contact-form/acme', {
         method: 'POST',
         headers: { 'content-length': String(size) },
       });

@@ -17,7 +17,11 @@ jest.mock('../services/wfp_dispatch.js', () => ({
   deleteSiteFunctionsWorker: jest.fn(),
 }));
 jest.mock('../services/billing.js', () => ({ getOrgEntitlements: jest.fn() }));
-jest.mock('../services/db.js', () => ({ dbUpdate: jest.fn(), dbQueryOne: jest.fn() }));
+jest.mock('../services/db.js', () => ({
+  dbUpdate: jest.fn(),
+  dbQueryOne: jest.fn(),
+  dbQuery: jest.fn(),
+}));
 jest.mock('../services/ai_env_vars.js', () => ({ resolveEnvVarsForFunctions: jest.fn() }));
 jest.mock('../services/functions/internal.js', () => ({
   signFunctionToken: jest.fn(async (secret: string, siteId: string) => `${siteId}.sig-${secret}`),
@@ -32,6 +36,8 @@ import {
   functionsBundleVersionKey,
   freezeFunctionsBundleForSnapshot,
   restoreSnapshotFunctions,
+  recordFunctionsSchedules,
+  listActiveFunctionsSchedules,
 } from '../services/functions_deploy.js';
 import { getOrgEntitlements } from '../services/billing.js';
 import { resolveEnvVarsForFunctions } from '../services/ai_env_vars.js';
@@ -41,7 +47,7 @@ import {
   uploadSiteFunctionsWorker,
   deleteSiteFunctionsWorker,
 } from '../services/wfp_dispatch.js';
-import { dbUpdate, dbQueryOne } from '../services/db.js';
+import { dbUpdate, dbQueryOne, dbQuery } from '../services/db.js';
 import type { Env } from '../types/env.js';
 
 const mockEnt = getOrgEntitlements as unknown as jest.Mock;
@@ -52,6 +58,7 @@ const mockDbUpdate = dbUpdate as unknown as jest.Mock;
 const mockQueryOne = dbQueryOne as unknown as jest.Mock;
 const mockResolveSecrets = resolveEnvVarsForFunctions as unknown as jest.Mock;
 const mockSign = signFunctionToken as unknown as jest.Mock;
+const mockDbQuery = dbQuery as unknown as jest.Mock;
 
 const env = { DB: {} } as unknown as Env;
 const entitled = (v: boolean) => mockEnt.mockResolvedValue({ customEndpoints: v });
@@ -552,5 +559,86 @@ describe('restoreSnapshotFunctions (Stage 5.1 restore — front+back roll back t
     const out = await restoreSnapshotFunctions(e, { siteId: 'abc', orgId: 'org1', version: 'v9' });
     expect(out.status).toBe('upload_failed');
     if (out.status === 'upload_failed') expect(out.error).toBe('bad module');
+  });
+});
+
+/**
+ * Stage 6.1 — the D1 schedule store the platform cron reads. recordFunctionsSchedules
+ * replaces a site's rows (batch delete+insert, deduped, capped at 20);
+ * listActiveFunctionsSchedules returns only crons for live, functions-deployed sites.
+ */
+describe('functions schedule store (6.1)', () => {
+  /** A fake D1 that records every prepared SQL + bound args and the final batch. */
+  function makeSchedDb() {
+    const prepared: { sql: string; args: unknown[] }[] = [];
+    let batched: unknown[] = [];
+    const db = {
+      prepare(sql: string) {
+        const stmt = { sql, args: [] as unknown[], bind(...a: unknown[]) {
+          this.args = a;
+          prepared.push({ sql, args: a });
+          return this;
+        } };
+        return stmt;
+      },
+      async batch(stmts: unknown[]) {
+        batched = stmts;
+        return stmts.map(() => ({ success: true }));
+      },
+    } as unknown as import('@cloudflare/workers-types').D1Database;
+    return { db, prepared, getBatched: () => batched };
+  }
+
+  it('records a DELETE-then-INSERT batch, deduped + trimmed + capped at 20', async () => {
+    const { db, prepared, getBatched } = makeSchedDb();
+    const crons = ['* * * * *', '  * * * * *  ', '0 * * * *', '']; // dup + whitespace + empty
+    await recordFunctionsSchedules(db, 'site-abc', crons);
+    // First statement is always the per-site DELETE.
+    expect(prepared[0].sql).toContain('DELETE FROM site_functions_schedules');
+    expect(prepared[0].args).toEqual(['site-abc']);
+    // Two unique crons survive dedup/trim/empty-filter → two INSERTs (3 statements total).
+    const inserts = prepared.filter((p) => p.sql.includes('INSERT INTO site_functions_schedules'));
+    expect(inserts).toHaveLength(2);
+    expect(inserts.map((i) => i.args[2])).toEqual(['* * * * *', '0 * * * *']);
+    expect(getBatched()).toHaveLength(3);
+  });
+
+  it('caps at 20 schedules even when handed more', async () => {
+    const { db, prepared } = makeSchedDb();
+    const many = Array.from({ length: 30 }, (_, i) => `${i} * * * *`);
+    await recordFunctionsSchedules(db, 'site-xyz', many);
+    const inserts = prepared.filter((p) => p.sql.includes('INSERT INTO'));
+    expect(inserts).toHaveLength(20);
+  });
+
+  it('an empty crons array writes only the DELETE (clears the site)', async () => {
+    const { db, prepared, getBatched } = makeSchedDb();
+    await recordFunctionsSchedules(db, 'site-empty', []);
+    expect(prepared).toHaveLength(1);
+    expect(prepared[0].sql).toContain('DELETE FROM');
+    expect(getBatched()).toHaveLength(1);
+  });
+
+  it('listActiveFunctionsSchedules maps site_id→siteId and only returns joined rows', async () => {
+    mockDbQuery.mockResolvedValue({
+      data: [
+        { site_id: 's1', cron: '* * * * *' },
+        { site_id: 's2', cron: '0 9 * * 1-5' },
+      ],
+    });
+    const out = await listActiveFunctionsSchedules(env.DB);
+    expect(out).toEqual([
+      { siteId: 's1', cron: '* * * * *' },
+      { siteId: 's2', cron: '0 9 * * 1-5' },
+    ]);
+    // The query joins sites + filters deleted_at IS NULL AND functions_deployed_at IS NOT NULL.
+    const sql = mockDbQuery.mock.calls[0][1] as string;
+    expect(sql).toContain('JOIN sites');
+    expect(sql).toContain('functions_deployed_at IS NOT NULL');
+  });
+
+  it('listActiveFunctionsSchedules returns [] when the store is empty', async () => {
+    mockDbQuery.mockResolvedValue({ data: [] });
+    expect(await listActiveFunctionsSchedules(env.DB)).toEqual([]);
   });
 });

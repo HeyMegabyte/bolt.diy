@@ -21,7 +21,7 @@
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { FunctionsBuildResult } from '../../src/services/functions_deploy.js';
-import { bundleFunctions, listFunctionFiles } from './bundle.js';
+import { bundleFunctions, listFunctionFiles, findScheduledFile } from './bundle.js';
 
 /** Normalise any thrown value to a single-line message (capped for logs/UI). */
 function toError(err: unknown): string {
@@ -51,17 +51,21 @@ export async function buildSiteFunctions(
   if (!existsSync(functionsDir)) return { ok: true, empty: true };
 
   // A functions/ folder with no routable handler files (only _helpers / .d.ts /
-  // package.json) is "empty" too — never upload an empty router.
+  // package.json) is "empty" too — never upload an empty router. Stage 6.1: a
+  // scheduled-ONLY site (just `functions/_scheduled.*`, no HTTP routes) is NOT
+  // empty — it still needs a worker so the platform cron can invoke it.
   let fileCount: number;
+  let hasScheduled: boolean;
   try {
     fileCount = listFunctionFiles(functionsDir).length;
+    hasScheduled = findScheduledFile(functionsDir) !== null;
   } catch (err) {
     return { ok: false, error: toError(err) };
   }
-  if (fileCount === 0) return { ok: true, empty: true };
+  if (fileCount === 0 && !hasScheduled) return { ok: true, empty: true };
 
   try {
-    const { script } = await bundleFunctions({
+    const { script, crons } = await bundleFunctions({
       functionsDir,
       runtimePath: opts.runtimePath,
       install: opts.install ?? true,
@@ -69,7 +73,7 @@ export async function buildSiteFunctions(
     // A non-empty file set that produced no script is a build anomaly — treat as
     // empty rather than upload a blank worker.
     if (!script) return { ok: true, empty: true };
-    return { ok: true, script };
+    return crons.length > 0 ? { ok: true, script, crons } : { ok: true, script };
   } catch (err) {
     // FunctionsBuildError (reserved-path / route collision) + npm / esbuild
     // failures all degrade to a surfaced build error — the worker keeps the

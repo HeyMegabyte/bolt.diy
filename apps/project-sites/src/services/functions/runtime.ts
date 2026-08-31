@@ -372,16 +372,89 @@ export function buildFunctionsEnv(rawEnv: unknown): Record<string, unknown> {
   return scoped;
 }
 
+/** The reserved path the platform cron dispatches to invoke a site's scheduled handler. */
+export const SCHEDULED_DISPATCH_PATH = '/api/_ps/scheduled';
+
+/** Options for {@link createFunctionsFetchHandler} — Stage 6.1 adds the optional scheduled module. */
+export interface FunctionsHandlerOptions {
+  /** The user's `functions/_scheduled.ts` module (exports `scheduled`/`onSchedule`/`default.scheduled`). */
+  scheduled?: FunctionModule;
+}
+
+/**
+ * Invoke the user's scheduled handler (Stage 6.1). The platform cron dispatches a
+ * fetch to {@link SCHEDULED_DISPATCH_PATH} (dispatch stubs expose `.fetch()` only,
+ * never `.scheduled()`, so a reserved fetch path IS the invocation channel). We
+ * authenticate the caller as the PLATFORM by comparing the request's Bearer token
+ * to the script's OWN `__PS_FN_TOKEN` binding (only the platform, holding the
+ * signing secret, can present it) — a public `/api/_ps/*` request never reaches
+ * here anyway (the platform reserves that prefix before dispatch). Runs the handler
+ * with the SAME tenant-scoped env as fetch + a synthesized `ScheduledController`.
+ */
+async function invokeScheduled(
+  scheduledMod: FunctionModule,
+  request: Request,
+  env: unknown,
+  ctx: ExecutionContext,
+): Promise<Response> {
+  const rawEnv = (env && typeof env === 'object' ? env : {}) as Record<string, unknown>;
+  const expected = typeof rawEnv.__PS_FN_TOKEN === 'string' ? rawEnv.__PS_FN_TOKEN : '';
+  const presented = extractSessionToken(request);
+  // Fail closed when a token IS configured but doesn't match; when no token is
+  // configured (local/dev) the reserved-path guard is the sole boundary.
+  if (expected && presented !== expected) {
+    return jsonResponse(403, 'FORBIDDEN', 'scheduled dispatch not authorized');
+  }
+  const mod = scheduledMod as unknown as Record<string, unknown>;
+  const def = (mod.default ?? {}) as Record<string, unknown>;
+  const sched = (mod.scheduled ?? mod.onSchedule ?? def.scheduled ?? def.onSchedule) as
+    | ((controller: unknown, env: unknown, ctx: unknown) => unknown | Promise<unknown>)
+    | undefined;
+  if (typeof sched !== 'function') {
+    return jsonResponse(404, 'NOT_FOUND', 'No scheduled handler exported by functions/_scheduled');
+  }
+  const controller = {
+    cron: new URL(request.url).searchParams.get('cron') ?? '',
+    type: 'scheduled' as const,
+    scheduledTime: Date.now(),
+    noRetry() {},
+  };
+  const scopedEnv = buildFunctionsEnv(env);
+  const schedCtx = {
+    waitUntil: (p: Promise<unknown>) => ctx.waitUntil(p),
+    passThroughOnException() {},
+  };
+  try {
+    await sched(controller, scopedEnv, schedCtx);
+    return new Response(JSON.stringify({ ok: true, cron: controller.cron }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  } catch (err) {
+    return jsonResponse(
+      500,
+      'SCHEDULED_ERROR',
+      err instanceof Error ? err.message : 'scheduled handler threw',
+    );
+  }
+}
+
 /**
  * Build a Worker fetch handler that dispatches requests across a functions
  * manifest: matches the path, extracts params, and invokes the method handler.
  * Returns 404 (no route), 405 (route but wrong method), or 500 (handler threw).
  *
+ * Stage 6.1 — when `opts.scheduled` is set (the site ships `functions/_scheduled.ts`),
+ * a request to {@link SCHEDULED_DISPATCH_PATH} runs the scheduled handler instead of
+ * the route table (the platform cron's invocation channel).
+ *
  * @param manifest - route pattern → user module, produced by the codegen
+ * @param opts - optional scheduled module (Stage 6.1)
  * @example export default createFunctionsFetchHandler([{ pattern: '/api/hello', module }])
  */
 export function createFunctionsFetchHandler(
   manifest: FunctionManifestEntry[],
+  opts: FunctionsHandlerOptions = {},
 ): FunctionsFetchHandler {
   const routes = compileRoutes(manifest.map((entry) => entry.pattern));
   const byPattern = new Map(manifest.map((entry) => [entry.pattern, entry.module]));
@@ -389,6 +462,10 @@ export function createFunctionsFetchHandler(
   return {
     async fetch(request, env, ctx) {
       const url = new URL(request.url);
+      // Stage 6.1 — the platform cron's scheduled invocation channel (before routing).
+      if (opts.scheduled && url.pathname === SCHEDULED_DISPATCH_PATH) {
+        return invokeScheduled(opts.scheduled, request, env, ctx);
+      }
       const match = matchCompiledRoutes(routes, url.pathname);
       if (!match) return jsonResponse(404, 'NOT_FOUND', `No function matches ${url.pathname}`);
 

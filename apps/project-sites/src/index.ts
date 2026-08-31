@@ -1861,6 +1861,75 @@ export default {
       }),
     );
 
+    // Stage 6.1 — dispatch due Functions crons. WfP dispatch scripts can't
+    // self-schedule, so the platform cron reads the site schedules, cron-matches the
+    // current UTC minute, and invokes each due site's WfP worker via the reserved
+    // /api/_ps/scheduled fetch (a dispatch stub exposes `.fetch()` only). Gated to the
+    // every-minute trigger so each schedule fires at most once/min (other crons also
+    // run this handler); per-site fail-soft; never throws out of scheduled().
+    if (_event.cron === '* * * * *') {
+      try {
+        const { listActiveFunctionsSchedules } = await import('./services/functions_deploy.js');
+        const { cronMatches } = await import('./services/functions/cron_match.js');
+        const { siteFunctionsScriptName } = await import('./services/wfp_dispatch.js');
+        const { signFunctionToken } = await import('./services/functions/internal.js');
+        const now = new Date();
+        const schedules = await listActiveFunctionsSchedules(env.DB);
+        const dueByCron = new Map<string, string>(); // siteId → the matching cron
+        for (const s of schedules) {
+          if (!dueByCron.has(s.siteId) && cronMatches(s.cron, now)) dueByCron.set(s.siteId, s.cron);
+        }
+        const dispatch = (
+          env as unknown as {
+            USER_DISPATCH?: { get(name: string): { fetch(req: Request): Promise<Response> } };
+          }
+        ).USER_DISPATCH;
+        const secret = (env as unknown as { FUNCTIONS_INTERNAL_SECRET?: string })
+          .FUNCTIONS_INTERNAL_SECRET;
+        let dispatched = 0;
+        if (dispatch) {
+          for (const [siteId, cron] of dueByCron) {
+            try {
+              const token = secret ? await signFunctionToken(secret, siteId) : '';
+              const stub = dispatch.get(siteFunctionsScriptName(siteId));
+              _ctx.waitUntil(
+                stub
+                  .fetch(
+                    new Request(
+                      `https://ps-internal/api/_ps/scheduled?cron=${encodeURIComponent(cron)}`,
+                      { headers: token ? { authorization: `Bearer ${token}` } : {} },
+                    ),
+                  )
+                  .then(() => undefined)
+                  .catch(() => undefined),
+              );
+              dispatched++;
+            } catch {
+              /* per-site fail-soft — one bad script never blocks the others */
+            }
+          }
+        }
+        if (dispatched > 0) {
+          console.warn(
+            JSON.stringify({
+              level: 'info',
+              service: 'cron',
+              message: `Dispatched ${dispatched} functions scheduled handler(s)`,
+            }),
+          );
+        }
+      } catch (err) {
+        console.warn(
+          JSON.stringify({
+            level: 'error',
+            service: 'cron',
+            message: 'functions scheduled dispatch failed',
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
+    }
+
     try {
       const { verifyPendingHostnames } = await import('./services/domains.js');
       const result = await verifyPendingHostnames(env.DB, env);

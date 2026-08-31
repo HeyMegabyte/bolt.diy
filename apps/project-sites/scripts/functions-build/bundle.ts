@@ -12,13 +12,51 @@
  * them.
  */
 import { build } from 'esbuild';
-import { existsSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readdirSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { generateFunctionsWorkerEntry } from '../../src/services/functions/codegen.js';
 
 const CODE_EXT = /\.(?:ts|js|mts|cts|mjs|cjs)$/;
 const SKIP_BASENAME = /(?:\.d\.ts|\.test\.ts|\.spec\.ts)$/;
+const SCHEDULED_BASENAMES = [
+  '_scheduled.ts',
+  '_scheduled.js',
+  '_scheduled.mts',
+  '_scheduled.cts',
+  '_scheduled.mjs',
+  '_scheduled.cjs',
+];
+
+/**
+ * Find the site's scheduled module (`functions/_scheduled.*`) at the functions ROOT
+ * (a top-level convention, like Pages `_middleware.ts`) — the `functions/`-relative
+ * basename, or null when absent. Stage 6.1.
+ */
+export function findScheduledFile(functionsDir: string): string | null {
+  for (const base of SCHEDULED_BASENAMES) {
+    if (existsSync(join(functionsDir, base))) return base;
+  }
+  return null;
+}
+
+/**
+ * Extract the cron expression(s) a `_scheduled` module declares — `export const
+ * cron = '…'` (single) and/or `export const crons = ['…', '…']` (array). Pure regex
+ * (the module isn't executed at extract time). Deduped, empties dropped. Stage 6.1.
+ *
+ * @example extractCrons("export const cron = '0 * * * *'") // ['0 * * * *']
+ */
+export function extractCrons(source: string): string[] {
+  const crons: string[] = [];
+  const arr = source.match(/export\s+const\s+crons\s*=\s*\[([^\]]*)\]/);
+  if (arr) {
+    for (const m of arr[1].matchAll(/['"`]([^'"`]+)['"`]/g)) crons.push(m[1]);
+  }
+  const single = source.match(/export\s+const\s+cron\s*=\s*['"`]([^'"`]+)['"`]/);
+  if (single) crons.push(single[1]);
+  return [...new Set(crons.map((c) => c.trim()).filter(Boolean))];
+}
 
 /** esbuild plugin: resolve the repo's `./foo.js` import convention to `foo.ts`. */
 const jsToTsResolve = {
@@ -52,6 +90,8 @@ export interface BundleOptions {
 export interface BundleResult {
   script: string;
   routes: { file: string; pattern: string }[];
+  /** Stage 6.1 — cron expression(s) declared in `functions/_scheduled.*` (empty when none). */
+  crons: string[];
 }
 
 /** List routable handler files under a `functions/` dir, relative + posix-style. */
@@ -108,7 +148,20 @@ export async function bundleFunctions(opts: BundleOptions): Promise<BundleResult
   }
 
   const files = listFunctionFiles(functionsDir);
-  const { source, routes } = generateFunctionsWorkerEntry(files, { runtimeImportPath: runtimePath });
+  // Stage 6.1 — wire a scheduled module (functions/_scheduled.*) + extract its cron(s).
+  const scheduledFile = findScheduledFile(functionsDir);
+  let crons: string[] = [];
+  if (scheduledFile) {
+    try {
+      crons = extractCrons(readFileSync(join(functionsDir, scheduledFile), 'utf-8'));
+    } catch {
+      crons = [];
+    }
+  }
+  const { source, routes } = generateFunctionsWorkerEntry(files, {
+    runtimeImportPath: runtimePath,
+    scheduledFile: scheduledFile ?? undefined,
+  });
 
   const result = await build({
     stdin: { contents: source, resolveDir: functionsDir, loader: 'ts', sourcefile: '_functions_entry.ts' },
@@ -127,5 +180,5 @@ export async function bundleFunctions(opts: BundleOptions): Promise<BundleResult
     mkdirSync(dirname(resolve(opts.outfile)), { recursive: true });
     writeFileSync(resolve(opts.outfile), script);
   }
-  return { script, routes };
+  return { script, routes, crons };
 }
