@@ -29,6 +29,9 @@ import {
   functionsBundleKey,
   persistFunctionsBundle,
   readFunctionsBundle,
+  functionsBundleVersionKey,
+  freezeFunctionsBundleForSnapshot,
+  restoreSnapshotFunctions,
 } from '../services/functions_deploy.js';
 import { getOrgEntitlements } from '../services/billing.js';
 import { resolveEnvVarsForFunctions } from '../services/ai_env_vars.js';
@@ -400,5 +403,154 @@ describe('siteHasDeployedFunctions', () => {
     const sql = mockQueryOne.mock.calls.at(-1)[1] as string;
     expect(sql).toMatch(/deleted_at IS NULL/i);
     expect(mockQueryOne.mock.calls.at(-1)[2]).toEqual(['abc']);
+  });
+});
+
+// ─── Stage 5.1 — snapshot functions versioning (freeze at capture + restore) ───
+
+function makeBucket(seed: Record<string, string> = {}) {
+  const store = new Map<string, string>(Object.entries(seed));
+  return {
+    store,
+    put: jest.fn(async (key: string, body: string) => {
+      store.set(key, body);
+    }),
+    get: jest.fn(async (key: string) =>
+      store.has(key) ? { text: async () => store.get(key)! } : null,
+    ),
+  };
+}
+
+describe('functionsBundleVersionKey + freezeFunctionsBundleForSnapshot (Stage 5.1 capture)', () => {
+  it('versionKey is the per-build frozen R2 key (distinct from the single live key)', () => {
+    expect(functionsBundleVersionKey('abc', 'v-123')).toBe('functions-bundles/abc/v/v-123.js');
+    expect(functionsBundleVersionKey('abc', 'v-123')).not.toBe(functionsBundleKey('abc'));
+  });
+
+  it('copies the live bundle → the version-keyed frozen copy', async () => {
+    const bucket = makeBucket({ 'functions-bundles/abc.js': 'export default { live: 1 }' });
+    const e = { SITES_BUCKET: bucket } as unknown as Env;
+    await freezeFunctionsBundleForSnapshot(e, 'abc', 'v9');
+    expect(bucket.store.get('functions-bundles/abc/v/v9.js')).toBe('export default { live: 1 }');
+  });
+
+  it('no-op when the site has no live functions bundle (nothing to freeze)', async () => {
+    const bucket = makeBucket();
+    const e = { SITES_BUCKET: bucket } as unknown as Env;
+    await freezeFunctionsBundleForSnapshot(e, 'ghost', 'v1');
+    expect(bucket.put).not.toHaveBeenCalled();
+  });
+
+  it('never throws when R2 errors (fail-soft — a freeze must not fail the publish)', async () => {
+    const bucket = {
+      get: jest.fn(async () => {
+        throw new Error('R2 down');
+      }),
+    };
+    const e = { SITES_BUCKET: bucket } as unknown as Env;
+    await expect(freezeFunctionsBundleForSnapshot(e, 'abc', 'v1')).resolves.toBeUndefined();
+  });
+});
+
+describe('restoreSnapshotFunctions (Stage 5.1 restore — front+back roll back together)', () => {
+  it('wfp unconfigured → skips (no upload/delete)', async () => {
+    mockConfigured.mockReturnValue(false);
+    const e = { DB: {}, SITES_BUCKET: makeBucket() } as unknown as Env;
+    const out = await restoreSnapshotFunctions(e, { siteId: 'abc', orgId: 'org1', version: 'v9' });
+    expect(out.status).toBe('wfp_unconfigured');
+    expect(mockUpload).not.toHaveBeenCalled();
+    expect(mockDelete).not.toHaveBeenCalled();
+  });
+
+  it('not entitled → skips (front-end-only rollback; functions untouched)', async () => {
+    entitled(false);
+    const e = { DB: {}, SITES_BUCKET: makeBucket() } as unknown as Env;
+    const out = await restoreSnapshotFunctions(e, { siteId: 'abc', orgId: 'org1', version: 'v9' });
+    expect(out.status).toBe('skipped_not_entitled');
+    expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  it('frozen bundle present → re-uploads the LIVE slot + refreshes live bundle + sets the signal', async () => {
+    entitled(true);
+    const bucket = makeBucket({ 'functions-bundles/abc/v/v9.js': 'export default { frozen: 9 }' });
+    const e = { DB: {}, SITES_BUCKET: bucket } as unknown as Env;
+    const out = await restoreSnapshotFunctions(e, { siteId: 'abc', orgId: 'org1', version: 'v9' });
+    expect(out.status).toBe('redeployed');
+    // uploaded the FROZEN bundle to the LIVE slot (never the -preview slot)
+    const upCall = mockUpload.mock.calls.at(-1)!;
+    expect(upCall[1]).toBe('abc');
+    expect(upCall[2]).toBe('export default { frozen: 9 }');
+    expect((upCall[3] as { preview?: boolean }).preview).toBeUndefined();
+    // refreshed the live last-good bundle to the restored version
+    expect(bucket.store.get('functions-bundles/abc.js')).toBe('export default { frozen: 9 }');
+    // set the deploy signal (functions_deployed_at = a timestamp string)
+    const dbCall = mockDbUpdate.mock.calls.at(-1)!;
+    expect(typeof dbCall[2].functions_deployed_at).toBe('string');
+  });
+
+  it('frozen bundle absent + site HAS live functions → removes the live worker + clears the signal', async () => {
+    entitled(true);
+    mockQueryOne.mockResolvedValue({ functions_deployed_at: '2026-08-30T00:00:00Z' });
+    const e = { DB: {}, SITES_BUCKET: makeBucket() } as unknown as Env;
+    const out = await restoreSnapshotFunctions(e, {
+      siteId: 'abc',
+      orgId: 'org1',
+      version: 'v-old',
+    });
+    expect(out.status).toBe('removed');
+    expect(mockDelete).toHaveBeenCalledWith(e, 'abc');
+    expect(mockDbUpdate).toHaveBeenCalledWith(
+      e.DB,
+      'sites',
+      { functions_deployed_at: null },
+      'id = ?',
+      ['abc'],
+    );
+    expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  it('frozen bundle absent + site has NO live functions → noop (no WfP delete)', async () => {
+    entitled(true);
+    mockQueryOne.mockResolvedValue({ functions_deployed_at: null });
+    const e = { DB: {}, SITES_BUCKET: makeBucket() } as unknown as Env;
+    const out = await restoreSnapshotFunctions(e, {
+      siteId: 'abc',
+      orgId: 'org1',
+      version: 'v-old',
+    });
+    expect(out.status).toBe('noop');
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  it('injects the tenant-scoped bindings (secrets/KV/R2/AI) on the re-upload', async () => {
+    entitled(true);
+    mockResolveSecrets.mockResolvedValue({ API_KEY: 'x' });
+    const bucket = makeBucket({ 'functions-bundles/abc/v/v9.js': 's' });
+    const e = {
+      DB: {},
+      SITES_BUCKET: bucket,
+      FUNCTIONS_KV_ID: 'ns-1',
+      FUNCTIONS_R2_BUCKET: 'bkt',
+      FUNCTIONS_INTERNAL_SECRET: 'sek',
+      FUNCTIONS_INTERNAL_SERVICE: 'project-sites',
+    } as unknown as Env;
+    await restoreSnapshotFunctions(e, { siteId: 'abc', orgId: 'org1', version: 'v9' });
+    const opts = mockUpload.mock.calls.at(-1)![3] as Record<string, unknown>;
+    expect(opts.secretsJson).toBe(JSON.stringify({ API_KEY: 'x' }));
+    expect(opts.kvNamespaceId).toBe('ns-1');
+    expect(opts.r2BucketName).toBe('bkt');
+    expect(opts.fnToken).toBe('abc.sig-sek');
+    expect(opts.fnService).toBe('project-sites');
+  });
+
+  it('never throws — an upload failure returns a typed result (fail-soft)', async () => {
+    entitled(true);
+    mockUpload.mockResolvedValue({ ok: false, error: 'bad module', status: 400 });
+    const bucket = makeBucket({ 'functions-bundles/abc/v/v9.js': 's' });
+    const e = { DB: {}, SITES_BUCKET: bucket } as unknown as Env;
+    const out = await restoreSnapshotFunctions(e, { siteId: 'abc', orgId: 'org1', version: 'v9' });
+    expect(out.status).toBe('upload_failed');
+    if (out.status === 'upload_failed') expect(out.error).toBe('bad module');
   });
 });

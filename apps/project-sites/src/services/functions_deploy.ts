@@ -40,6 +40,56 @@ export type DeploySiteFunctionsResult =
   | { status: 'build_failed'; error: string }
   | { status: 'upload_failed'; error: string; httpStatus?: number };
 
+/** The tenant-scoping bindings injected into a site's functions-worker upload. */
+interface FunctionsUploadBindings {
+  secretsJson?: string;
+  kvNamespaceId?: string;
+  r2BucketName?: string;
+  fnToken?: string;
+  fnService?: string;
+}
+
+/**
+ * Resolve the tenant-scoping bindings a site's functions worker is uploaded with
+ * (Stage 4.1): the `env.SECRETS` blob + the KV/R2 shim ids + the signed env.AI/DATA
+ * token & service binding. Shared by the publish deploy AND the Stage 5.1 snapshot
+ * restore so a restored worker keeps identical bindings. Every field is fail-soft:
+ * a resolve/sign failure yields no binding (never blocks the publish/restore). The
+ * `FUNCTIONS_*` config is read via a narrow cast — `env.ts` is owned by a concurrent
+ * session, so this must not depend on the `Env` type carrying those keys.
+ *
+ * @remarks Impure — reads D1 (env-vars) + Web Crypto (token sign).
+ * @example const b = await resolveFunctionsUploadBindings(env, siteId, orgId)
+ */
+async function resolveFunctionsUploadBindings(
+  env: Env,
+  siteId: string,
+  orgId: string,
+): Promise<FunctionsUploadBindings> {
+  let secretsJson: string | undefined;
+  try {
+    const secrets = await resolveEnvVarsForFunctions(env, orgId, siteId);
+    if (Object.keys(secrets).length > 0) secretsJson = JSON.stringify(secrets);
+  } catch {
+    /* fail-soft — deploy without secrets rather than block */
+  }
+  const kvNamespaceId = (env as unknown as { FUNCTIONS_KV_ID?: string }).FUNCTIONS_KV_ID;
+  const r2BucketName = (env as unknown as { FUNCTIONS_R2_BUCKET?: string }).FUNCTIONS_R2_BUCKET;
+  const fnService = (env as unknown as { FUNCTIONS_INTERNAL_SERVICE?: string })
+    .FUNCTIONS_INTERNAL_SERVICE;
+  const fnSecret = (env as unknown as { FUNCTIONS_INTERNAL_SECRET?: string })
+    .FUNCTIONS_INTERNAL_SECRET;
+  let fnToken: string | undefined;
+  if (fnSecret && fnService) {
+    try {
+      fnToken = await signFunctionToken(fnSecret, siteId);
+    } catch {
+      /* fail-soft — deploy without env.AI rather than block */
+    }
+  }
+  return { secretsJson, kvNamespaceId, r2BucketName, fnToken, fnService };
+}
+
 /**
  * Deploy (or remove) a site's bundled `functions/` worker on Publish.
  *
@@ -76,43 +126,10 @@ export async function deploySiteFunctions(
     return { status: 'removed' };
   }
 
-  // Stage 4.1 — resolve the site+org env-vars into the `env.SECRETS` blob the
-  // runtime shim reads. Fail-soft: a resolve/decrypt failure deploys WITHOUT
-  // secrets (empty `env.SECRETS`) rather than blocking the publish. Both the live
-  // AND preview slots carry the secrets so the owner tests against real values.
-  let secretsJson: string | undefined;
-  try {
-    const secrets = await resolveEnvVarsForFunctions(env, opts.orgId, opts.siteId);
-    if (Object.keys(secrets).length > 0) secretsJson = JSON.stringify(secrets);
-  } catch {
-    /* fail-soft — deploy without secrets rather than block the publish */
-  }
-
-  // Stage 4.1(b) — the shared functions KV namespace id (a `wrangler.toml` var,
-  // read via a narrow cast so this never depends on the Env type — `env.ts` is
-  // owned by a concurrent session this pass). Absent → no `__PS_KV` binding → the
-  // shim yields no `env.KV` (fail-soft).
-  const kvNamespaceId = (env as unknown as { FUNCTIONS_KV_ID?: string }).FUNCTIONS_KV_ID;
-  // Stage 4.1(c) — the platform R2 bucket name (a `wrangler.toml` var). The shim
-  // prefixes `sites-data/<siteId>/` so the raw bucket is never reachable. Same
-  // narrow-cast pattern (avoids the concurrent-dirty `env.ts`). Absent → no env.R2.
-  const r2BucketName = (env as unknown as { FUNCTIONS_R2_BUCKET?: string }).FUNCTIONS_R2_BUCKET;
-  // Stage 4.1(d) — env.AI: sign a per-site token (HMAC of siteId) + name the platform
-  // SERVICE binding the shim calls (/api/_ps/ai/run, in-process — a public fetch to
-  // the platform's own workers.dev reenters the account + 522s). Both from cast-read
-  // config (env.ts concurrent-dirty). Absent secret/service → no env.AI (fail-soft).
-  const fnService = (env as unknown as { FUNCTIONS_INTERNAL_SERVICE?: string })
-    .FUNCTIONS_INTERNAL_SERVICE;
-  const fnSecret = (env as unknown as { FUNCTIONS_INTERNAL_SECRET?: string })
-    .FUNCTIONS_INTERNAL_SECRET;
-  let fnToken: string | undefined;
-  if (fnSecret && fnService) {
-    try {
-      fnToken = await signFunctionToken(fnSecret, opts.siteId);
-    } catch {
-      /* fail-soft — deploy without env.AI rather than block the publish */
-    }
-  }
+  // Stage 4.1 — resolve the tenant-scoping bindings (env.SECRETS blob + KV/R2/AI
+  // shim config) injected into the upload. Shared with the Stage 5.1 snapshot
+  // restore ({@link restoreSnapshotFunctions}) so both inject identical bindings.
+  const bindings = await resolveFunctionsUploadBindings(env, opts.siteId, opts.orgId);
 
   // Good build → upload. An upload failure leaves the previous script in place
   // (the PUT never overwrote), so last-good is preserved either way. Preview
@@ -120,11 +137,7 @@ export async function deploySiteFunctions(
   // persisted last-good bundle (Stage 2.3 — the owner tests it before promoting).
   const res = await uploadSiteFunctionsWorker(env, opts.siteId, build.script, {
     preview,
-    secretsJson,
-    kvNamespaceId,
-    r2BucketName,
-    fnToken,
-    fnService,
+    ...bindings,
   });
   if (res.ok) {
     if (!preview) {
@@ -213,6 +226,124 @@ export async function siteHasDeployedFunctions(db: D1Database, siteId: string): 
     [siteId],
   );
   return !!row?.functions_deployed_at;
+}
+
+// ─── Stage 5.1 — snapshot functions versioning (freeze at capture + restore) ───
+
+/**
+ * R2 key for a site's functions bundle FROZEN at a specific build `version` — the
+ * snapshot's restorable copy. Distinct from the single live {@link functionsBundleKey}
+ * (overwritten every publish); the per-version copies let a restore re-deploy the
+ * exact functions that were live for THAT build.
+ *
+ * @example functionsBundleVersionKey('abc', 'v-123') // 'functions-bundles/abc/v/v-123.js'
+ */
+export function functionsBundleVersionKey(siteId: string, version: string): string {
+  return `functions-bundles/${siteId}/v/${version}.js`;
+}
+
+/**
+ * Freeze the site's CURRENT live functions bundle under its build `version` so a
+ * future snapshot restore can re-deploy exactly these functions (Stage 5.1
+ * capture). Copies the live {@link functionsBundleKey} → {@link functionsBundleVersionKey};
+ * a site with no live functions bundle → no-op (that build has no functions).
+ * Called at snapshot creation (AI-edit publish + the initial workflow snapshot).
+ *
+ * @remarks Impure — reads+writes R2. NON-throwing: a freeze failure must never
+ * fail the publish or block snapshot creation.
+ * @example await freezeFunctionsBundleForSnapshot(env, siteId, version)
+ */
+export async function freezeFunctionsBundleForSnapshot(
+  env: Env,
+  siteId: string,
+  version: string,
+): Promise<void> {
+  try {
+    const live = await env.SITES_BUCKET.get(functionsBundleKey(siteId));
+    if (!live) return; // no functions to freeze for this build
+    const script = await live.text();
+    await env.SITES_BUCKET.put(functionsBundleVersionKey(siteId, version), script, {
+      httpMetadata: { contentType: 'application/javascript' },
+    });
+  } catch {
+    /* fail-soft — a freeze failure never blocks the publish/snapshot */
+  }
+}
+
+/** Outcome of a snapshot's functions rollback (all non-fatal to the content restore). */
+export type RestoreSnapshotFunctionsResult =
+  | { status: 'redeployed'; scriptName: string } // frozen bundle re-uploaded live
+  | { status: 'removed' } // snapshot had no functions → live worker removed
+  | { status: 'noop' } // snapshot had no functions AND none live → nothing to do
+  | { status: 'skipped_not_entitled' }
+  | { status: 'wfp_unconfigured' }
+  | { status: 'upload_failed'; error: string; httpStatus?: number };
+
+/**
+ * Roll a site's WfP functions worker back to the copy frozen at snapshot build
+ * `version` (Stage 5.1 restore) so the front (R2 content) and back (functions)
+ * revert together. Reads {@link functionsBundleVersionKey}:
+ *
+ *  - **present** → re-upload `site-<siteId>` to the LIVE slot with the same
+ *    tenant-scoped bindings a normal deploy injects, refresh the live last-good
+ *    bundle (so preview/test-publish also reflects the restored version), and set
+ *    the deploy signal.
+ *  - **absent** → the snapshot's build had NO functions. If the site currently has
+ *    a live worker, remove it + clear the signal (front+back roll back together);
+ *    otherwise no-op.
+ *
+ * Entitlement-gated (a not-entitled/unconfigured caller leaves functions untouched
+ * and the content restore still succeeds). NEVER throws — a functions rollback
+ * failure must not fail the content restore ({@link restoreSnapshot} wraps it).
+ *
+ * @remarks Impure — R2 + D1 + WfP upload/delete.
+ * @example await restoreSnapshotFunctions(env, { siteId, orgId, version })
+ */
+export async function restoreSnapshotFunctions(
+  env: Env,
+  opts: { siteId: string; orgId: string; version: string },
+): Promise<RestoreSnapshotFunctionsResult> {
+  if (!isWfpConfigured(env)) return { status: 'wfp_unconfigured' };
+
+  // Entitlement gate. A lookup failure degrades to "skip" (never touch WfP).
+  let entitled = false;
+  try {
+    entitled = (await getOrgEntitlements(env.DB, opts.orgId)).customEndpoints;
+  } catch {
+    return { status: 'skipped_not_entitled' };
+  }
+  if (!entitled) return { status: 'skipped_not_entitled' };
+
+  // The bundle frozen at this snapshot's build version (null → that build had none).
+  let frozen: string | null = null;
+  try {
+    const obj = await env.SITES_BUCKET.get(functionsBundleVersionKey(opts.siteId, opts.version));
+    frozen = obj ? await obj.text() : null;
+  } catch {
+    frozen = null;
+  }
+
+  // No frozen functions → the snapshot predates functions (or had none). Remove any
+  // live worker + clear the signal so front+back match; skip the WfP call entirely
+  // when the site has no live worker (the common no-functions restore).
+  if (!frozen) {
+    const hasLive = await siteHasDeployedFunctions(env.DB, opts.siteId).catch(() => false);
+    if (!hasLive) return { status: 'noop' };
+    await deleteSiteFunctionsWorker(env, opts.siteId).catch(() => {});
+    await recordFunctionsDeploy(env.DB, opts.siteId, false).catch(() => {});
+    return { status: 'removed' };
+  }
+
+  // Re-upload the frozen bundle to the LIVE slot with the same bindings a normal
+  // deploy injects. An upload failure leaves the current script in place (the PUT
+  // never overwrote) → last-good preserved either way.
+  const bindings = await resolveFunctionsUploadBindings(env, opts.siteId, opts.orgId);
+  const res = await uploadSiteFunctionsWorker(env, opts.siteId, frozen, bindings);
+  if (!res.ok) return { status: 'upload_failed', error: res.error, httpStatus: res.status };
+  // Refresh the live last-good bundle to the restored version + set the signal.
+  await persistFunctionsBundle(env, opts.siteId, frozen).catch(() => {});
+  await recordFunctionsDeploy(env.DB, opts.siteId, true).catch(() => {});
+  return { status: 'redeployed', scriptName: res.scriptName };
 }
 
 /** The WfP script name a deploy targets — re-exported so callers/logs share the SSOT. */

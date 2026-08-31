@@ -3090,6 +3090,12 @@ api.post('/api/sites/:id/deploy', async (c) => {
     });
     if (autoSnap.error)
       console.warn('[publish] auto-snapshot insert failed (non-blocking):', autoSnap.error);
+    else {
+      // Stage 5.1 — freeze the current functions bundle under this build version so
+      // restoring this snapshot re-deploys exactly these functions (fail-soft).
+      const { freezeFunctionsBundleForSnapshot } = await import('../services/functions_deploy.js');
+      await freezeFunctionsBundleForSnapshot(c.env, siteId, version);
+    }
   } catch (snapErr) {
     console.warn('[publish] Snapshot creation failed (non-blocking):', snapErr);
   }

@@ -15,9 +15,13 @@ jest.mock('../services/db.js', () => ({
   dbUpdate: jest.fn(),
 }));
 jest.mock('../services/audit.js', () => ({ writeAuditLog: jest.fn() }));
+// Stage 5.1 — the functions rollback is a separately-tested seam; mock it here so
+// these tests lock the CONTENT restore + the fail-soft wiring, not WfP internals.
+jest.mock('../services/functions_deploy.js', () => ({ restoreSnapshotFunctions: jest.fn() }));
 
 import { dbQuery, dbQueryOne, dbUpdate } from '../services/db.js';
 import * as audit from '../services/audit.js';
+import { restoreSnapshotFunctions } from '../services/functions_deploy.js';
 import { restoreSnapshot } from '../services/snapshot_restore.js';
 import type { Env } from '../types/env.js';
 
@@ -25,6 +29,7 @@ const mQuery = dbQuery as unknown as jest.Mock;
 const mQueryOne = dbQueryOne as unknown as jest.Mock;
 const mUpdate = dbUpdate as unknown as jest.Mock;
 const mAudit = audit.writeAuditLog as unknown as jest.Mock;
+const mRestoreFns = restoreSnapshotFunctions as unknown as jest.Mock;
 const mHead = jest.fn();
 const mKvDelete = jest.fn();
 
@@ -50,6 +55,7 @@ beforeEach(() => {
   mHead.mockResolvedValue({}); // R2 build exists
   mKvDelete.mockResolvedValue(undefined);
   mAudit.mockResolvedValue(undefined);
+  mRestoreFns.mockResolvedValue({ status: 'redeployed', scriptName: 'site-1' });
 });
 
 describe('restoreSnapshot', () => {
@@ -135,5 +141,32 @@ describe('restoreSnapshot', () => {
     expect(res.error).toMatch(/no longer exists/i);
     expect(mKvDelete).not.toHaveBeenCalled();
     expect(mAudit).not.toHaveBeenCalled();
+  });
+
+  // Stage 5.1 — the WfP functions worker rolls back WITH the content.
+  it('rolls the WfP functions worker back to the snapshot build (front+back together)', async () => {
+    const res = await restoreSnapshot(env, params);
+    expect(res.ok).toBe(true);
+    expect(mRestoreFns).toHaveBeenCalledWith(env, {
+      siteId: 'site-1',
+      orgId: 'org-1',
+      version: 'v9',
+    });
+    expect(res.functions).toBe('redeployed');
+  });
+
+  it('fail-soft — a functions rollback failure does NOT fail the content restore', async () => {
+    mRestoreFns.mockRejectedValue(new Error('WfP down'));
+    const res = await restoreSnapshot(env, params);
+    expect(res.ok).toBe(true); // content restore still succeeds
+    expect(res.version).toBe('v9');
+    expect(res.functions).toBe('error');
+  });
+
+  it('does NOT attempt a functions rollback when the content re-point fails', async () => {
+    mUpdate.mockResolvedValue({ error: 'D1_ERROR', changes: 0 });
+    const res = await restoreSnapshot(env, params);
+    expect(res.ok).toBe(false);
+    expect(mRestoreFns).not.toHaveBeenCalled();
   });
 });

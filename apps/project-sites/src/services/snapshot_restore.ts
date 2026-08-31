@@ -26,6 +26,7 @@ import { DOMAINS } from '@project-sites/shared';
 import type { Env } from '../types/env.js';
 import { dbQuery, dbQueryOne, dbUpdate } from './db.js';
 import * as auditService from './audit.js';
+import { restoreSnapshotFunctions } from './functions_deploy.js';
 
 /** Inputs for {@link restoreSnapshot}. */
 export interface RestoreSnapshotParams {
@@ -44,6 +45,12 @@ export interface RestoreSnapshotResult {
   version?: string;
   /** The site's slug (on success). */
   slug?: string;
+  /**
+   * The functions rollback outcome (Stage 5.1) — the {@link RestoreSnapshotFunctionsResult}
+   * status, or `'error'` if the rollback threw. Observational only: a functions
+   * rollback never affects `ok` (the content restore is authoritative).
+   */
+  functions?: string;
 }
 
 /**
@@ -114,6 +121,22 @@ export async function restoreSnapshot(
     await env.CACHE_KV.delete(`host:${h.hostname}`).catch(() => {});
   }
 
+  // Stage 5.1 — roll the WfP functions worker back to the copy frozen at this
+  // snapshot's build so the front (R2 content) and back (functions) revert
+  // TOGETHER. Fail-soft: a functions rollback failure must NEVER fail the content
+  // restore — the site's content is already re-pointed above.
+  let functions: string | undefined;
+  try {
+    const fr = await restoreSnapshotFunctions(env, {
+      siteId,
+      orgId,
+      version: row.build_version,
+    });
+    functions = fr.status;
+  } catch {
+    functions = 'error';
+  }
+
   await auditService
     .writeAuditLog(env.DB, {
       org_id: orgId,
@@ -122,10 +145,15 @@ export async function restoreSnapshot(
       message: `Restored snapshot to build '${row.build_version}' on '${row.slug}'`,
       target_type: 'site',
       target_id: siteId,
-      metadata_json: { snapshot_id: snapshotId, build_version: row.build_version, slug: row.slug },
+      metadata_json: {
+        snapshot_id: snapshotId,
+        build_version: row.build_version,
+        slug: row.slug,
+        functions,
+      },
       request_id: requestId ?? undefined,
     })
     .catch(() => {});
 
-  return { ok: true, version: row.build_version, slug: row.slug };
+  return { ok: true, version: row.build_version, slug: row.slug, functions };
 }

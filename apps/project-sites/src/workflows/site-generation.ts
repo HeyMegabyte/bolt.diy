@@ -1545,6 +1545,18 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           .bind(crypto.randomUUID(), params.siteId, version)
           .run();
 
+        // Stage 5.1 — freeze the just-deployed functions bundle under this build
+        // version so restoring this snapshot re-deploys exactly these functions
+        // (front+back roll back together). Fail-soft: never breaks the publish.
+        try {
+          const { freezeFunctionsBundleForSnapshot } = await import(
+            '../services/functions_deploy.js'
+          );
+          await freezeFunctionsBundleForSnapshot(env, params.siteId, version);
+        } catch {
+          /* fail-soft — a functions freeze must never fail the site publish */
+        }
+
         // Emit site.generated onto the durable bus — the build produced + uploaded
         // a published bundle. Drained to Tinybird (build-funnel analytics) + Hatchet
         // (post-publish orchestration: QA, search-submit, promotion). Idempotent per
