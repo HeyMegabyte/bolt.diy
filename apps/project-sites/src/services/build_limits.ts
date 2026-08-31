@@ -43,16 +43,29 @@ const UNLIMITED_ORGS = new Set<string>();
  * a DB error denies (returns false).
  */
 export async function isUnlimitedOrgOwner(db: D1Database, orgId: string): Promise<boolean> {
-  const owner = await dbQueryOne<{ email: string }>(
-    db,
-    `SELECT u.email FROM users u JOIN memberships m ON u.id = m.user_id WHERE m.org_id = ? AND m.role = 'owner' AND m.deleted_at IS NULL AND u.deleted_at IS NULL LIMIT 1`,
-    [orgId],
-  ).catch(() => null);
   // Unlimited-build owners: the platform operator + the e2e/loop dogfooding org.
   // e2e@megabyte.space added 2026-08-25 (Brian directive) so the self-improving
   // loop can accumulate as MANY sample sites as it likes without the 1-site free
   // limit forcing a delete-before-create (which was 404-ing prior loop builds).
   const UNLIMITED_OWNER_EMAILS = new Set(['brian@megabyte.space', 'e2e@megabyte.space']);
+  // A TRANSIENT D1 error on the owner lookup must NOT strand an unlimited org at the
+  // free limit — a swallowed throw (the old `.catch(() => null)`) surfaced as a false
+  // `BUILD_LIMIT_REACHED` ("68 of 1 site") on a healthy read-replica blip, violating
+  // the UNLIMITED contract. Retry once on THROW before failing closed; a genuine
+  // "no owner row" still returns null (correctly not-unlimited — never fail OPEN).
+  let owner: { email: string } | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      owner = await dbQueryOne<{ email: string }>(
+        db,
+        `SELECT u.email FROM users u JOIN memberships m ON u.id = m.user_id WHERE m.org_id = ? AND m.role = 'owner' AND m.deleted_at IS NULL AND u.deleted_at IS NULL LIMIT 1`,
+        [orgId],
+      );
+      break;
+    } catch {
+      owner = null; // give up after the retry → fail closed (safe: never grant unlimited on an unconfirmed owner)
+    }
+  }
   return UNLIMITED_OWNER_EMAILS.has(owner?.email ?? '');
 }
 

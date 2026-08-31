@@ -139,6 +139,23 @@ describe('isUnlimitedOrgOwner — owner lookup excludes soft-deleted rows', () =
     expect(sql).toContain('m.deleted_at IS NULL');
     expect(sql).toContain('u.deleted_at IS NULL');
   });
+
+  it('RETRIES once on a transient owner-lookup throw (no false BUILD_LIMIT_REACHED)', async () => {
+    // A single D1 blip must NOT strand an unlimited org at the free limit — the old
+    // `.catch(() => null)` swallowed the throw and returned false (a false "68 of 1").
+    mockDbQueryOne
+      .mockRejectedValueOnce(new Error('D1_ERROR: transient') as never)
+      .mockResolvedValueOnce({ email: 'e2e@megabyte.space' } as never);
+    const res = await isUnlimitedOrgOwner(db, 'org-transient');
+    expect(res).toBe(true);
+    expect(mockDbQueryOne).toHaveBeenCalledTimes(2); // failed once, retried, succeeded
+  });
+
+  it('fails CLOSED (not unlimited) when the owner lookup throws on both attempts', async () => {
+    mockDbQueryOne.mockRejectedValue(new Error('D1_ERROR: down') as never);
+    const res = await isUnlimitedOrgOwner(db, 'org-down');
+    expect(res).toBe(false); // never fail OPEN — an unconfirmed owner is not unlimited
+  });
 });
 
 describe('checkBuildLimit — edge cases', () => {
