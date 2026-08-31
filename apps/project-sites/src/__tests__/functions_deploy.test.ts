@@ -574,11 +574,15 @@ describe('functions schedule store (6.1)', () => {
     let batched: unknown[] = [];
     const db = {
       prepare(sql: string) {
-        const stmt = { sql, args: [] as unknown[], bind(...a: unknown[]) {
-          this.args = a;
-          prepared.push({ sql, args: a });
-          return this;
-        } };
+        const stmt = {
+          sql,
+          args: [] as unknown[],
+          bind(...a: unknown[]) {
+            this.args = a;
+            prepared.push({ sql, args: a });
+            return this;
+          },
+        };
         return stmt;
       },
       async batch(stmts: unknown[]) {
