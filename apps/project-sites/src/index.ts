@@ -2146,6 +2146,34 @@ export default {
           }),
         );
       }
+
+      // Stage 4.2c — per-site Functions daily-cap enforcement. SUM today's dispatches
+      // per site in Analytics Engine + flip the `fn_overcap:<siteId>` KV flag (TTL →
+      // next UTC midnight) for any site over the 100k/day ceiling; the hot-path dispatch
+      // reads that flag → 429. Fail-soft (an AE/KV fault just skips this cycle).
+      try {
+        const { enforceFunctionsDailyCaps } = await import('./services/functions_daily_cap.js');
+        const flagged = await enforceFunctionsDailyCaps(env);
+        if (flagged > 0) {
+          console.warn(
+            JSON.stringify({
+              level: 'warn',
+              service: 'cron',
+              message: `Functions daily-cap: flagged ${flagged} site(s) over the daily limit`,
+              flagged,
+            }),
+          );
+        }
+      } catch (err) {
+        console.warn(
+          JSON.stringify({
+            level: 'error',
+            service: 'cron',
+            message: 'Functions daily-cap enforcement failed',
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+      }
     }
 
     // Monday 14:00 UTC (9 AM ET) — weekly summary digest emails (#96).

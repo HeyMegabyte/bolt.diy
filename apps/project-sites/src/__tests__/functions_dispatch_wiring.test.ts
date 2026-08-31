@@ -13,16 +13,28 @@ jest.mock('../services/wfp_dispatch.js', () => ({
     opts?.preview ? `site-${id}-preview` : `site-${id}`,
   dispatchToUserWorker: jest.fn(),
 }));
+jest.mock('../services/functions_daily_cap.js', () => ({
+  isSiteOverDailyCap: jest.fn(),
+  recordFunctionsDispatch: jest.fn(),
+  overCapResponse: () =>
+    new Response(JSON.stringify({ error: { code: 'RATE_LIMITED' } }), {
+      status: 429,
+      headers: { 'content-type': 'application/json', 'retry-after': '3600' },
+    }),
+}));
 
 import { maybeDispatchFunctions } from '../services/functions_dispatch.js';
 import { siteHasDeployedFunctions } from '../services/functions_deploy.js';
 import { getOrgEntitlements } from '../services/billing.js';
 import { dispatchToUserWorker } from '../services/wfp_dispatch.js';
+import { isSiteOverDailyCap, recordFunctionsDispatch } from '../services/functions_daily_cap.js';
 import type { Env } from '../types/env.js';
 
 const mockHas = siteHasDeployedFunctions as unknown as jest.Mock;
 const mockEnt = getOrgEntitlements as unknown as jest.Mock;
 const mockDispatch = dispatchToUserWorker as unknown as jest.Mock;
+const mockOverCap = isSiteOverDailyCap as unknown as jest.Mock;
+const mockRecordDispatch = recordFunctionsDispatch as unknown as jest.Mock;
 
 const env = { DB: {} } as unknown as Env;
 const site = { siteId: 'abc', orgId: 'org1' };
@@ -33,6 +45,8 @@ beforeEach(() => {
   mockHas.mockReset();
   mockEnt.mockReset();
   mockDispatch.mockReset();
+  mockOverCap.mockReset().mockResolvedValue(false); // default: under cap
+  mockRecordDispatch.mockReset();
   warnLogs = [];
   jest.spyOn(console, 'warn').mockImplementation((m?: unknown) => {
     warnLogs.push(String(m));
@@ -241,5 +255,33 @@ describe('maybeDispatchFunctions guardrails', () => {
     mockEnt.mockResolvedValue({ customEndpoints: false });
     expect(await maybeDispatchFunctions(env, site, bigBodyReq(), '/api/upload')).toBeNull();
     expect(mockDispatch).not.toHaveBeenCalled();
+  });
+
+  it('429 (no dispatch) when the site is over its daily cap + emits functions.rejected daily_cap', async () => {
+    entitledDeployed();
+    mockOverCap.mockResolvedValue(true); // the cron flagged this site over cap
+    const res = await maybeDispatchFunctions(env, site, req(), '/api/quote');
+    expect(res).not.toBeNull();
+    expect(res!.status).toBe(429);
+    expect((await res!.json()).error.code).toBe('RATE_LIMITED');
+    expect(mockDispatch).not.toHaveBeenCalled(); // never reached the user worker
+    expect(mockRecordDispatch).not.toHaveBeenCalled(); // a rejected request isn't counted
+    const rej = traceEvent('functions.rejected');
+    expect(rej?.reason).toBe('daily_cap');
+    expect(rej?.status).toBe(429);
+  });
+
+  it('counts a real invocation (fn_dispatch AE write) on a successful dispatch', async () => {
+    entitledDeployed();
+    const res = await maybeDispatchFunctions(env, site, req(), '/api/quote');
+    expect(res).not.toBeNull();
+    expect(mockDispatch).toHaveBeenCalled();
+    expect(mockRecordDispatch).toHaveBeenCalledWith(env, 'abc', 'org1', '/api/quote');
+  });
+
+  it('the daily-cap flag is checked AFTER the deployed-script gate (no KV read for non-candidates)', async () => {
+    mockHas.mockResolvedValue(false); // no functions worker
+    expect(await maybeDispatchFunctions(env, site, req(), '/api/quote')).toBeNull();
+    expect(mockOverCap).not.toHaveBeenCalled(); // never paid the flag read
   });
 });

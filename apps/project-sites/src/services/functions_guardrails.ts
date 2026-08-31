@@ -13,15 +13,19 @@
  *  · **Default per-IP rate-limit (→ 429)** — a Cloudflare native `ratelimit`
  *    binding keyed `<siteId>:<ip>` (exact, edge-native, zero storage cost). Tunable
  *    per plan; the binding lives in `wrangler.toml` (`FUNCTIONS_RATELIMIT`).
+ *  · **Per-site daily cap (100k/day → 429, Stage 4.2c)** — an Analytics-Engine count
+ *    (one fire-and-forget `recordEvent('fn_dispatch')` per invocation — no KV write on
+ *    the hot path, so no write-quota/1-write-per-sec problem) + a five-minute cron
+ *    (`enforceFunctionsDailyCaps`) that SUMs the day's dispatches per site and flips a
+ *    per-site KV `fn_overcap:<siteId>` flag (TTL → next UTC midnight, so it self-clears
+ *    at day rollover). The hot path reads that ONE cheap flag (`isSiteOverDailyCap`) →
+ *    429 when set. No Durable Object, no migration. Coarse by design (a ≤5-min lag +
+ *    AE sampling) — fine for an abuse ceiling; the exact per-request bound is the 4.2a
+ *    per-IP limit + the 4.2d per-invocation CPU/subrequest caps.
  *
  * Pure helpers here; the impure wiring (the rate-limit binding call + the reject
- * responses + the observability event) lives in `functions_dispatch.ts`.
- *
- * NOT here (tracked 4.2 remainder): the per-site 100k/day cap (needs a Durable
- * Object / Analytics Engine — a per-request KV write would blow the KV write quota),
- * the opt-in `ctx.verifyOwnerSession()` + Turnstile-verify helpers, and the
- * per-plan CPU/subrequest caps (the Workers runtime already enforces baseline
- * CPU + subrequest limits by construction).
+ * responses + the observability event + the AE count/query + the KV flag) lives in
+ * `functions_dispatch.ts` + `functions_daily_cap.ts`.
  */
 
 /** Max raw request body a user endpoint accepts before a 413 (~25 MB, tunable per plan). */
@@ -53,6 +57,63 @@ export function isBodyTooLarge(request: Request, cap = FUNCTIONS_BODY_CAP_BYTES)
   if (!raw) return false;
   const len = Number(raw);
   return Number.isFinite(len) && len > cap;
+}
+
+/**
+ * Per-site daily request ceiling (Stage 4.2c, ADR-0035 §10). A COARSE abuse cap
+ * enforced via an AE count + a cron-flipped KV flag (see the module header) — NOT a
+ * precise real-time counter. Tunable per plan.
+ */
+export const FUNCTIONS_DAILY_CAP = 100_000;
+
+/** The Analytics-Engine `blob1` event tag counted for the daily cap (see `cf_analytics.recordEvent`). */
+export const FUNCTIONS_DISPATCH_EVENT = 'fn_dispatch' as const;
+
+/**
+ * KV key holding the "this site is over its daily cap today" flag. Present (any value)
+ * = over cap → 429 on the hot path; absent = under cap. Written by the five-minute cron with
+ * a TTL to the next UTC midnight so it self-clears at day rollover.
+ *
+ * @example overCapKey('abc') // 'fn_overcap:abc'
+ */
+export function overCapKey(siteId: string): string {
+  return `fn_overcap:${siteId}`;
+}
+
+/**
+ * Seconds from `now` until the next UTC midnight — the TTL for the over-cap flag so it
+ * expires exactly when the daily count resets. Floored at 60 (KV rejects a sub-60 TTL).
+ *
+ * @param now - the current instant
+ * @returns whole seconds until 00:00:00 UTC tomorrow (≥ 60)
+ * @example secondsUntilUtcMidnight(new Date('2026-01-01T23:59:00Z')) // 60
+ */
+export function secondsUntilUtcMidnight(now: Date): number {
+  const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0);
+  return Math.max(60, Math.ceil((next - now.getTime()) / 1000));
+}
+
+/**
+ * Build the Analytics-Engine SQL that returns each site whose dispatch count SINCE UTC
+ * MIDNIGHT is at/over `cap`. `SUM(_sample_interval)` estimates the true count (AE samples
+ * under load); `blob3` is the site_id in the `recordEvent` layout; `blob1` isolates our
+ * `fn_dispatch` rows from every other event in the shared dataset. Pure (string builder).
+ *
+ * @param cap - the daily ceiling (defaults to {@link FUNCTIONS_DAILY_CAP})
+ * @param dataset - the AE dataset name (defaults to the shared admin dataset)
+ * @returns a SQL string for `cf_analytics.querySql`
+ */
+export function functionsDailyCapCountSql(
+  cap = FUNCTIONS_DAILY_CAP,
+  dataset = 'projectsites_admin_v1',
+): string {
+  const safeCap = Math.max(1, Math.floor(cap));
+  return (
+    `SELECT blob3 AS site_id, SUM(_sample_interval) AS n FROM ${dataset} ` +
+    `WHERE blob1 = '${FUNCTIONS_DISPATCH_EVENT}' AND blob3 != '-' ` +
+    `AND timestamp >= toStartOfDay(NOW()) ` +
+    `GROUP BY site_id HAVING n >= ${safeCap} LIMIT 1000`
+  );
 }
 
 /** The Cloudflare native `ratelimit` binding shape (mirrors `OAUTH_RATELIMIT`). */

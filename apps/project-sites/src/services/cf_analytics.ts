@@ -38,7 +38,8 @@ export function recordEvent(
       | 'site_serve'
       | 'mcp_call'
       | 'login'
-      | 'signup';
+      | 'signup'
+      | 'fn_dispatch';
     routePath?: string;
     siteId?: string | null;
     orgId?: string | null;

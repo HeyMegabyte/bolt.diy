@@ -26,6 +26,11 @@ import { siteHasDeployedFunctions } from './functions_deploy.js';
 import { isReservedFunctionRoute } from './functions/router.js';
 import { dispatchToUserWorker, siteFunctionsScriptName } from './wfp_dispatch.js';
 import { isBodyTooLarge, rateLimitKey, type RateLimiterBinding } from './functions_guardrails.js';
+import {
+  isSiteOverDailyCap,
+  overCapResponse,
+  recordFunctionsDispatch,
+} from './functions_daily_cap.js';
 
 /** Scoped structured logger — its JSON lines feed Workers Observability → the Log Explorer. */
 const fnLog = log.child('functions');
@@ -188,7 +193,29 @@ export async function maybeDispatchFunctions(
       }
     }
 
+    // (3) Per-site daily cap (Stage 4.2c): a cheap edge-cached KV flag read — set by
+    // the `*/5` cron when the site's AE-counted dispatches cross the daily ceiling.
+    // Fails OPEN (never blocks on a KV fault). Same `RATE_LIMITED` shape as the per-IP
+    // limit; emits `functions.rejected` reason `daily_cap`.
+    if (await isSiteOverDailyCap(env, site.siteId)) {
+      fnLog.info('functions.rejected', {
+        orgId: site.orgId,
+        siteId: site.siteId,
+        method: request.method,
+        path: pathname,
+        status: 429,
+        reason: 'daily_cap',
+        durationMs: Date.now() - startedAt,
+        requestId: request.headers.get('cf-ray') ?? undefined,
+      });
+      return overCapResponse();
+    }
+
     const res = await dispatchToUserWorker(env, decision.scriptName, request);
+    // Stage 4.2c count: fire-and-forget ONE Analytics-Engine data point per real
+    // invocation (no hot-path await, no KV write) — the `*/5` cron sums these per site
+    // to drive the daily-cap flag above.
+    recordFunctionsDispatch(env, site.siteId, site.orgId, pathname);
     // 5.2 (ADR §13): emit a tenant-tagged invocation event via the canonical
     // structured logger → Workers Observability → the Log Explorer (`/admin/logs`).
     // Field names match `logs_explorer.mapEvent` (msg/method/path/status/durationMs/
