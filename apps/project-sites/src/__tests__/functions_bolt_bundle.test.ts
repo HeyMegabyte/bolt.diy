@@ -56,7 +56,9 @@ describe('extractFunctionsFiles', () => {
 });
 
 describe('bundleFunctionsViaContainer', () => {
-  const fn: BoltFile[] = [{ path: 'functions/api/hello.ts', content: 'export const onRequestGet=()=>new Response("hi")' }];
+  const fn: BoltFile[] = [
+    { path: 'functions/api/hello.ts', content: 'export const onRequestGet=()=>new Response("hi")' },
+  ];
 
   it('empty subtree → {ok:true, empty:true} (no container call)', async () => {
     const env = {} as Env;
@@ -72,8 +74,9 @@ describe('bundleFunctionsViaContainer', () => {
   });
 
   it('container 200 → returns the FunctionsBuildResult verbatim', async () => {
-    const builder = fakeBuilder(async () =>
-      new Response(JSON.stringify({ ok: true, script: 'export default {}' }), { status: 200 }),
+    const builder = fakeBuilder(
+      async () =>
+        new Response(JSON.stringify({ ok: true, script: 'export default {}' }), { status: 200 }),
     );
     const env = { SITE_BUILDER: builder } as unknown as Env;
     const out = await bundleFunctionsViaContainer(env, 'site-1', 'v1', fn);
@@ -81,8 +84,9 @@ describe('bundleFunctionsViaContainer', () => {
   });
 
   it('container relays a build error ({ok:false}) verbatim', async () => {
-    const builder = fakeBuilder(async () =>
-      new Response(JSON.stringify({ ok: false, error: 'Reserved path' }), { status: 200 }),
+    const builder = fakeBuilder(
+      async () =>
+        new Response(JSON.stringify({ ok: false, error: 'Reserved path' }), { status: 200 }),
     );
     const env = { SITE_BUILDER: builder } as unknown as Env;
     const out = await bundleFunctionsViaContainer(env, 'site-1', 'v1', fn);
@@ -108,7 +112,9 @@ describe('bundleFunctionsViaContainer', () => {
   });
 
   it('malformed container JSON → {ok:false} (never uploads garbage)', async () => {
-    const builder = fakeBuilder(async () => new Response(JSON.stringify({ nope: 1 }), { status: 200 }));
+    const builder = fakeBuilder(
+      async () => new Response(JSON.stringify({ nope: 1 }), { status: 200 }),
+    );
     const env = { SITE_BUILDER: builder } as unknown as Env;
     const out = await bundleFunctionsViaContainer(env, 'site-1', 'v1', fn);
     expect(out.ok).toBe(false);
