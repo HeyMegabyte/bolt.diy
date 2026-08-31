@@ -319,7 +319,11 @@ describe('dispatchToUserWorker', () => {
     const out = await dispatchToUserWorker(env, 'ai-site-x-ep', req);
 
     // Stage 4.2(d) — dispatched WITH the per-invocation WfP custom limits.
-    expect(get).toHaveBeenCalledWith('ai-site-x-ep', {}, { limits: { cpuMs: 50, subRequests: 50 } });
+    expect(get).toHaveBeenCalledWith(
+      'ai-site-x-ep',
+      {},
+      { limits: { cpuMs: 50, subRequests: 50 } },
+    );
     expect(stubFetch).toHaveBeenCalledWith(req);
     expect(out).toBe(stubResponse);
     expect(await out.text()).toBe('user-worker-output');
