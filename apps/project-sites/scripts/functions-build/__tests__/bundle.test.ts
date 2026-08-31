@@ -7,7 +7,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { stop } from 'esbuild';
-import { bundleFunctions, listFunctionFiles } from '../bundle.js';
+import { bundleFunctions, listFunctionFiles, extractCrons, findScheduledFile } from '../bundle.js';
 
 function makeFixture(): string {
   const dir = mkdtempSync(join(tmpdir(), 'fns-'));
@@ -84,5 +84,46 @@ describe('functions bundler', () => {
       ctx,
     );
     expect(wrongMethod.status).toBe(405);
+  });
+});
+
+/**
+ * Stage 6.1 — the bundler discovers a `functions/_scheduled.*` file (excluded from
+ * the route glob because it is `_`-prefixed) and statically extracts its declared
+ * cron expressions so the platform dispatcher knows when to invoke it.
+ */
+describe('scheduled file + cron extraction (6.1)', () => {
+  it('extractCrons reads `export const cron` (single) + `export const crons` (array), deduped', () => {
+    expect(extractCrons(`export const cron = '* * * * *';`)).toEqual(['* * * * *']);
+    expect(
+      extractCrons(`export const crons = ['0 * * * *', "0 9 * * 1-5"];`),
+    ).toEqual(['0 * * * *', '0 9 * * 1-5']);
+    // both present + a duplicate → union, order-preserving, no repeats
+    const both = extractCrons(
+      `export const cron = '* * * * *';\nexport const crons = ['* * * * *', '0 0 * * *'];`,
+    );
+    expect(both).toEqual(['* * * * *', '0 0 * * *']);
+  });
+
+  it('extractCrons returns [] when the source declares no schedule', () => {
+    expect(extractCrons(`export const scheduled = () => {};`)).toEqual([]);
+    expect(extractCrons('')).toEqual([]);
+  });
+
+  it('findScheduledFile locates a _scheduled.ts at the functions root (else null)', () => {
+    const bare = mkdtempSync(join(tmpdir(), 'fns-bare-'));
+    mkdirSync(join(bare, 'api'), { recursive: true });
+    writeFileSync(join(bare, 'api', 'hello.ts'), `export const onRequestGet = () => new Response('x');\n`);
+    expect(findScheduledFile(bare)).toBeNull();
+
+    const withSched = mkdtempSync(join(tmpdir(), 'fns-sched-'));
+    writeFileSync(
+      join(withSched, '_scheduled.ts'),
+      `export const cron = '* * * * *';\nexport const scheduled = () => {};\n`,
+    );
+    expect(findScheduledFile(withSched)).toBe('_scheduled.ts');
+
+    rmSync(bare, { recursive: true, force: true });
+    rmSync(withSched, { recursive: true, force: true });
   });
 });
