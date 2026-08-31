@@ -3210,6 +3210,39 @@ api.post('/api/sites/:id/deploy', async (c) => {
  *   }'
  * ```
  */
+// Diag (Stage 2.2d prod-verify) — call the container bundle SYNCHRONOUSLY (no
+// waitUntil budget) + return the raw FunctionsBuildResult, so a failing bolt
+// functions deploy is pinpointable: container-404 vs bundle-error vs a
+// waitUntil-timeout (if this returns {ok,script} but the publish path doesn't
+// deploy, the async budget is the culprit). Secret-gated (x-test-secret =
+// CF_API_TOKEN[:12]), mirrors /api/diag/container-minimal.
+api.post('/api/diag/bundle-functions', async (c) => {
+  const secret = c.req.header('x-test-secret') || '';
+  if (!secret || secret !== (c.env.CF_API_TOKEN || '').slice(0, 12)) {
+    return c.json({ error: 'unauthorized' }, 401);
+  }
+  const body = (await c.req.json().catch(() => ({}))) as {
+    files?: { path: string; content: string }[];
+    siteId?: string;
+  };
+  const files = body.files ?? [
+    {
+      path: 'functions/api/diag.ts',
+      content: "export const onRequestGet = () => Response.json({ ok: true, diag: '2.2d' });",
+    },
+  ];
+  const fnFiles = extractFunctionsFiles(files);
+  const t0 = Date.now();
+  const build = await bundleFunctionsViaContainer(c.env, body.siteId ?? 'diag-site', 'diag-v', fnFiles);
+  return c.json({
+    fnFileCount: fnFiles.length,
+    elapsedMs: Date.now() - t0,
+    build: build.ok
+      ? { ok: true, scriptBytes: 'script' in build ? build.script.length : 0, empty: 'empty' in build }
+      : build,
+  });
+});
+
 api.post('/api/sites/:id/publish-bolt', async (c) => {
   const siteId = c.req.param('id');
   const orgId = c.get('orgId');
@@ -3321,9 +3354,29 @@ api.post('/api/sites/:id/publish-bolt', async (c) => {
       try {
         if (fnFiles.length === 0 && !(await siteHasDeployedFunctions(c.env.DB, siteId))) return;
         const build = await bundleFunctionsViaContainer(c.env, siteId, version, fnFiles);
-        await deploySiteFunctions(c.env, { siteId, orgId, build });
-      } catch {
-        /* fail-soft — a functions deploy fault never affects the published static site */
+        const result = await deploySiteFunctions(c.env, { siteId, orgId, build });
+        // Structured Trace event so a bolt-path functions deploy is observable in
+        // /admin/logs (console.warn — console.log is ESLint-blocked; Stage 5.2 plane).
+        console.warn(
+          JSON.stringify({
+            level: build.ok ? 'info' : 'warn',
+            msg: 'functions.bolt_deploy',
+            siteId,
+            fnFileCount: fnFiles.length,
+            buildOk: build.ok,
+            buildError: build.ok ? undefined : String(build.error).slice(0, 160),
+            deployStatus: result.status,
+          }),
+        );
+      } catch (e) {
+        console.warn(
+          JSON.stringify({
+            level: 'error',
+            msg: 'functions.bolt_deploy_error',
+            siteId,
+            error: e instanceof Error ? e.message : String(e),
+          }),
+        );
       }
     })(),
   );
