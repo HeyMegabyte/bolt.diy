@@ -413,14 +413,15 @@ function pickVerticalPreset(dir, promptText = '') {
     ['_brand.nonprofit.json', /\b(nonprofit|non-profit|charit|foundation|ministry|church|synagogue|mosque|temple|community center|volunteer|shelter|soup kitchen|food bank|outreach|humanitarian|advocacy|ngo\b)/],
     ['_brand.retail.json', /\b(shop|store|retail|boutique|apparel|clothing|jewelr|goods|merchandise|marketplace|e-commerce|ecommerce|outfitter)/],
     ['_brand.saas.json', /\b(saas|software|platform|api\b|startup|analytics|dashboard|developer tool|automation|machine learning|fintech|cybersecurity|app\b|web app)/],
+    // Real-estate BEFORE agency (fire-50): the authoritative short-circuit is
+    // first-match-by-ORDER over the declared category, and "real estate agency"
+    // matches BOTH — checked first, real-estate wins so a realtor no longer ships as
+    // a magenta AGENCY site (Ridgeline Realty Group → agency copy/theme, fire-50). Own
+    // vertical (dark, listings/buyers/sellers copy); OUT of LIGHT_VERTICAL_PRESETS →
+    // DARK. Pairs with examples/_brand.real-estate.json + _content.real-estate.json.
+    ['_brand.real-estate.json', /\b(real estate|real-estate|realtor|realty|home buyer|homebuyer|home seller|house hunting|open house|home valuation|buyer's agent|buyers agent|seller's agent|sellers agent|property listing|homes for sale|for sale by owner|mls\b)/],
     ['_brand.agency.json', /\b(agency|marketing|advertis|branding|design studio|creative studio|consult|pr firm|media agency|growth marketing|seo agency)/],
     ['_brand.portfolio.json', /\b(portfolio|photograph|artist|freelance|illustrat|filmmaker|musician|architect|videograph)/],
-    // Real-estate = its OWN vertical (dark, listings/buyers/sellers copy). No prior
-    // rule matched it ("real estate" ≠ legal's "estate planning") so a realtor
-    // scored 0 → default theme + no pack (fire-21 gap, sibling of fitness fire-20).
-    // Kept OUT of LIGHT_VERTICAL_PRESETS → DARK. Pairs with the template's
-    // examples/_brand.real-estate.json + _content.real-estate.json pack.
-    ['_brand.real-estate.json', /\b(real estate|real-estate|realtor|realty|home buyer|homebuyer|home seller|house hunting|open house|home valuation|buyer's agent|buyers agent|seller's agent|sellers agent|property listing|homes for sale|for sale by owner|mls\b)/],
   ];
   // AUTHORITATIVE SHORT-CIRCUIT (fire-55): the user-declared category (Google Places
   // type / explicit business_type) is threaded to the container as _category.txt — a
