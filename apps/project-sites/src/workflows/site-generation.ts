@@ -1549,9 +1549,8 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         // version so restoring this snapshot re-deploys exactly these functions
         // (front+back roll back together). Fail-soft: never breaks the publish.
         try {
-          const { freezeFunctionsBundleForSnapshot } = await import(
-            '../services/functions_deploy.js'
-          );
+          const { freezeFunctionsBundleForSnapshot } =
+            await import('../services/functions_deploy.js');
           await freezeFunctionsBundleForSnapshot(env, params.siteId, version);
         } catch {
           /* fail-soft — a functions freeze must never fail the site publish */
