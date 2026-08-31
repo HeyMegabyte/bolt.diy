@@ -11,6 +11,7 @@ import {
   isBodyTooLarge,
   rateLimitKey,
   FUNCTIONS_BODY_CAP_BYTES,
+  FUNCTIONS_DISPATCH_LIMITS,
 } from '../services/functions_guardrails.js';
 
 function reqWithLen(len: string | null): Request {
@@ -54,5 +55,11 @@ describe('rateLimitKey', () => {
   it('collapses a missing IP to an <siteId>:unknown bucket', () => {
     expect(rateLimitKey('abc', null)).toBe('abc:unknown');
     expect(rateLimitKey('abc', '')).toBe('abc:unknown');
+  });
+});
+
+describe('FUNCTIONS_DISPATCH_LIMITS (Stage 4.2d — per-invocation WfP custom limits)', () => {
+  it('caps CPU at 50 ms and subrequests at 50 per invocation (ADR §10)', () => {
+    expect(FUNCTIONS_DISPATCH_LIMITS).toEqual({ cpuMs: 50, subRequests: 50 });
   });
 });

@@ -14,6 +14,7 @@
  * Docs: https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/
  */
 import type { Env } from '../types/env.js';
+import { FUNCTIONS_DISPATCH_LIMITS } from './functions_guardrails.js';
 
 export type Language = 'javascript' | 'typescript' | 'python' | 'rust-wasm';
 
@@ -121,7 +122,19 @@ export async function dispatchToUserWorker(
   if (!env.USER_DISPATCH) {
     return new Response('USER_DISPATCH binding missing', { status: 503 });
   }
-  const stub = env.USER_DISPATCH.get(scriptName);
+  // Stage 4.2(d) — apply the per-invocation WfP custom limits (CPU + subrequests)
+  // at dispatch; Cloudflare enforces them on the user worker (a breach throws
+  // inside it, surfaced by the caller's fail-soft dispatch_error path). The installed
+  // workers-types type `get()` as 1-2 args, but the runtime accepts a 3rd `options`
+  // arg for custom limits — widen the BINDING (not the method, to preserve `this`).
+  const dispatch = env.USER_DISPATCH as unknown as {
+    get(
+      name: string,
+      args: Record<string, unknown>,
+      options: { limits: { cpuMs: number; subRequests: number } },
+    ): { fetch(req: Request): Promise<Response> };
+  };
+  const stub = dispatch.get(scriptName, {}, { limits: FUNCTIONS_DISPATCH_LIMITS });
   return stub.fetch(request);
 }
 

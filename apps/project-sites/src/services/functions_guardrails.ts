@@ -28,6 +28,15 @@
 export const FUNCTIONS_BODY_CAP_BYTES = 25 * 1024 * 1024;
 
 /**
+ * Per-invocation WfP custom limits applied at DISPATCH (ADR-0035 §10, Stage 4.2d).
+ * Cloudflare enforces these on the user worker per request (`USER_DISPATCH.get(name,
+ * args, { limits })`): exceeding either throws inside the user worker. `cpuMs` is
+ * ACTIVE CPU time (not wall-clock — I/O waits don't count), `subRequests` counts every
+ * fetch + binding call (env.AI/DATA/KV/R2 each count). Tunable per plan later.
+ */
+export const FUNCTIONS_DISPATCH_LIMITS = { cpuMs: 50, subRequests: 50 } as const;
+
+/**
  * Whether a request's declared body exceeds the cap (Content-Length based).
  *
  * A missing/malformed Content-Length returns `false` (allow) — a chunked upload
