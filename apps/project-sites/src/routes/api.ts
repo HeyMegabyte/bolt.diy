@@ -136,7 +136,15 @@ import { tryEmitEvent } from '../services/emit_event.js';
 import { buildSitePublishedEvent, sitePublishedScope } from '../services/site_publish_event.js';
 import { notifyOwnerSiteBuilt } from '../services/notify_site_built.js';
 import { requireOwnedSite } from '../services/site_ownership.js';
-import { deploySiteFunctions, readFunctionsBundle } from '../services/functions_deploy.js';
+import {
+  deploySiteFunctions,
+  readFunctionsBundle,
+  siteHasDeployedFunctions,
+} from '../services/functions_deploy.js';
+import {
+  extractFunctionsFiles,
+  bundleFunctionsViaContainer,
+} from '../services/functions_bolt_bundle.js';
 import * as contactService from '../services/contact.js';
 import { classifyError } from '../services/retry.js';
 import { loadChangelogEntries } from './public.js';
@@ -3297,6 +3305,28 @@ api.post('/api/sites/:id/publish-bolt', async (c) => {
   )
     .bind(version, siteId)
     .run();
+
+  // Stage 2.2d — bolt-editor publish → functions deploy. The bolt tree is uploaded
+  // as raw files (no container/esbuild in the Worker), so a `functions/` folder is
+  // never bundled/deployed by itself. Send ONLY the sources to the container (the
+  // trusted place esbuild + the platform codegen run — a client-supplied bundle
+  // could bypass the tenant-scoping shims), then deploy/remove the site's WfP
+  // worker. Skip entirely when there are no functions AND none is live (no wasteful
+  // WfP call); an editor-side REMOVAL (functions/ gone but a worker is live) still
+  // clears it via the empty→remove path. waitUntil'd + fail-soft: a functions fault
+  // NEVER delays or breaks the static publish (deploySiteFunctions is non-throwing).
+  const fnFiles = extractFunctionsFiles(files);
+  c.executionCtx.waitUntil(
+    (async () => {
+      try {
+        if (fnFiles.length === 0 && !(await siteHasDeployedFunctions(c.env.DB, siteId))) return;
+        const build = await bundleFunctionsViaContainer(c.env, siteId, version, fnFiles);
+        await deploySiteFunctions(c.env, { siteId, orgId, build });
+      } catch {
+        /* fail-soft — a functions deploy fault never affects the published static site */
+      }
+    })(),
+  );
 
   // Invalidate KV cache
   const SITES_SUFFIX = '.projectsites.dev';

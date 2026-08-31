@@ -1068,6 +1068,56 @@ http.createServer((q, r) => {
     return r.end(JSON.stringify(result));
   }
 
+  if (q.method === 'POST' && url.pathname === '/bundle-functions') {
+    // Stage 2.2d — bundle a bolt-editor `functions/` subtree into one WfP worker.
+    // The Worker sends ONLY the function SOURCES (a client-supplied bundle could
+    // bypass the tenant-scoping shims), so we bundle them here with the TRUSTED
+    // platform codegen via the SAME functions-build CLI the AI-build path uses.
+    let b = '';
+    q.on('data', c => { b += c; });
+    q.on('end', () => {
+      const dir = `/tmp/fnbundle-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+      try {
+        const { files } = JSON.parse(b || '{}');
+        if (!Array.isArray(files) || files.length === 0) {
+          return r.end(JSON.stringify({ ok: true, empty: true }));
+        }
+        // Write each source under the sandbox dir, PATH-SANITIZED — reject absolute
+        // paths + `..` traversal so a hostile path can't escape the temp dir.
+        for (const f of files) {
+          if (!f || typeof f.path !== 'string' || typeof f.content !== 'string') continue;
+          const rel = f.path.replace(/^\.?\//, '');
+          if (rel.startsWith('/') || rel.split('/').includes('..')) continue;
+          const abs = path.join(dir, rel);
+          if (!abs.startsWith(dir + path.sep)) continue; // final containment check
+          fs.mkdirSync(path.dirname(abs), { recursive: true });
+          fs.writeFileSync(abs, f.content);
+        }
+        // Reuse the EXACT Stage 2.2a invocation (esbuild resolvable via NODE_PATH to
+        // the global install; bundle.ts existsSync-probes the runtime at a FIXED
+        // container path, independent of this temp dir). cli.ts bundles
+        // <dir>/functions/ → one ESM worker + prints a FunctionsBuildResult JSON.
+        const cliPath = '/home/cuser/scripts/functions-build/cli.ts';
+        const out = spawnSync('tsx', [cliPath, dir], {
+          cwd: dir,
+          encoding: 'utf-8',
+          timeout: 120000,
+          maxBuffer: 8 * 1024 * 1024,
+          env: { ...process.env, NODE_PATH: `/usr/local/lib/node_modules:${dir}/node_modules` },
+        });
+        const stdout = (out.stdout || '').trim();
+        if (stdout) return r.end(stdout); // already a FunctionsBuildResult JSON
+        const why = `no stdout (status=${out.status} signal=${out.signal || ''}) ${(out.stderr || out.error?.message || '').slice(-240)}`;
+        return r.end(JSON.stringify({ ok: false, error: why }));
+      } catch (e) {
+        return r.end(JSON.stringify({ ok: false, error: `bundle-functions threw: ${(e.message || String(e)).slice(0, 240)}` }));
+      } finally {
+        try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
+      }
+    });
+    return;
+  }
+
   if (q.method === 'POST' && url.pathname === '/build-minimal') {
     let b = '';
     q.on('data', c => { b += c; });
