@@ -3233,12 +3233,21 @@ api.post('/api/diag/bundle-functions', async (c) => {
   ];
   const fnFiles = extractFunctionsFiles(files);
   const t0 = Date.now();
-  const build = await bundleFunctionsViaContainer(c.env, body.siteId ?? 'diag-site', 'diag-v', fnFiles);
+  const build = await bundleFunctionsViaContainer(
+    c.env,
+    body.siteId ?? 'diag-site',
+    'diag-v',
+    fnFiles,
+  );
   return c.json({
     fnFileCount: fnFiles.length,
     elapsedMs: Date.now() - t0,
     build: build.ok
-      ? { ok: true, scriptBytes: 'script' in build ? build.script.length : 0, empty: 'empty' in build }
+      ? {
+          ok: true,
+          scriptBytes: 'script' in build ? build.script.length : 0,
+          empty: 'empty' in build,
+        }
       : build,
   });
 });
