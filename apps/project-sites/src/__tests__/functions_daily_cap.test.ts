@@ -131,7 +131,10 @@ describe('enforceFunctionsDailyCaps', () => {
 
   it('skips a row with an empty/sentinel site_id', async () => {
     const { env, puts } = kvEnv();
-    mockQuery.mockResolvedValue([{ site_id: '-', n: 999999 }, { site_id: '', n: 999999 }]);
+    mockQuery.mockResolvedValue([
+      { site_id: '-', n: 999999 },
+      { site_id: '', n: 999999 },
+    ]);
     expect(await enforceFunctionsDailyCaps(env)).toBe(0);
     expect(puts).toHaveLength(0);
   });
