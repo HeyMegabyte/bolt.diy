@@ -62,6 +62,8 @@ interface CreateFromSearchBody {
   business_address?: string;
   /** Freeform opening hours, e.g. "Mon–Fri 9am–5pm · Closed Sun" → OpeningHoursSpecification. */
   business_hours?: string;
+  /** Phone (flat form). Nested `business.phone` also accepted. → telephone JSON-LD + click-to-call. */
+  business_phone?: string;
   /** @deprecated Use `business.place_id` instead */
   google_place_id?: string;
   additional_context?: string;
@@ -118,7 +120,7 @@ siteCreation.post('/api/sites/create-from-search', async (c) => {
   const businessAddress = body.business?.address || body.business_address;
   const businessHours = body.business?.hours || body.business_hours;
   const googlePlaceId = body.business?.place_id || body.google_place_id;
-  const businessPhone = body.business?.phone ?? null;
+  const businessPhone = body.business?.phone || body.business_phone || null;
 
   if (!businessName || businessName.trim().length === 0) {
     throw badRequest('Missing required field: business_name (or business.name)');
