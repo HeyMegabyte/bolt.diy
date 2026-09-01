@@ -618,7 +618,10 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             params.businessCategory || '',
             'User-declared vertical category (authoritative classifier signal).',
           ),
-          email: tok(params.businessEmail || '', 'Business email → org email JSON-LD + mailto: link.'),
+          email: tok(
+            params.businessEmail || '',
+            'Business email → org email JSON-LD + mailto: link.',
+          ),
           phone: tok(params.businessPhone || ''),
           address: tok(params.businessAddress || ''),
           hours: tok(
