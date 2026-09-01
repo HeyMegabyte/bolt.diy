@@ -620,7 +620,10 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           email: tok(''),
           phone: tok(params.businessPhone || ''),
           address: tok(params.businessAddress || ''),
-          hours: tok(params.businessHours || '', 'Freeform hours → OpeningHoursSpecification JSON-LD + LocationMap grid.'),
+          hours: tok(
+            params.businessHours || '',
+            'Freeform hours → OpeningHoursSpecification JSON-LD + LocationMap grid.',
+          ),
         },
       },
       null,
