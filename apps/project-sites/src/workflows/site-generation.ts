@@ -174,6 +174,7 @@ export interface SiteGenerationParams {
   slug: string;
   businessName: string;
   businessAddress?: string;
+  businessHours?: string;
   businessPhone?: string;
   businessCategory?: string;
   businessWebsite?: string;
@@ -619,7 +620,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           email: tok(''),
           phone: tok(params.businessPhone || ''),
           address: tok(params.businessAddress || ''),
-          hours: tok(''),
+          hours: tok(params.businessHours || '', 'Freeform hours → OpeningHoursSpecification JSON-LD + LocationMap grid.'),
         },
       },
       null,
