@@ -44,6 +44,7 @@ interface BusinessPayload {
   address?: string;
   place_id?: string;
   phone?: string;
+  email?: string;
   hours?: string;
   website?: string;
   types?: string[];
@@ -64,6 +65,8 @@ interface CreateFromSearchBody {
   business_hours?: string;
   /** Phone (flat form). Nested `business.phone` also accepted. → telephone JSON-LD + click-to-call. */
   business_phone?: string;
+  /** Email (flat form). Nested `business.email` also accepted. → org email JSON-LD + mailto:. */
+  business_email?: string;
   /** @deprecated Use `business.place_id` instead */
   google_place_id?: string;
   additional_context?: string;
@@ -121,6 +124,7 @@ siteCreation.post('/api/sites/create-from-search', async (c) => {
   const businessHours = body.business?.hours || body.business_hours;
   const googlePlaceId = body.business?.place_id || body.google_place_id;
   const businessPhone = body.business?.phone || body.business_phone || null;
+  const businessEmail = body.business?.email || body.business_email || null;
 
   if (!businessName || businessName.trim().length === 0) {
     throw badRequest('Missing required field: business_name (or business.name)');
@@ -164,7 +168,7 @@ siteCreation.post('/api/sites/create-from-search', async (c) => {
     slug,
     business_name: sanitizedName,
     business_phone: businessPhone,
-    business_email: null,
+    business_email: businessEmail,
     business_address: businessAddress ?? null,
     google_place_id: googlePlaceId ?? null,
     bolt_chat_id: null,
@@ -191,6 +195,7 @@ siteCreation.post('/api/sites/create-from-search', async (c) => {
         businessName: sanitizedName,
         businessAddress: businessAddress ?? undefined,
         businessHours: businessHours ?? undefined,
+        businessEmail: businessEmail ?? undefined,
         businessPhone: businessPhone ?? undefined,
         // Authoritative vertical signal (fire-55): Google Places type, else a plain
         // `business_type` the caller declares (the loop + any typed-create path). Threaded
@@ -222,6 +227,7 @@ siteCreation.post('/api/sites/create-from-search', async (c) => {
       business_name: sanitizedName,
       business_address: businessAddress ?? null,
       business_hours: businessHours ?? null,
+      business_email: businessEmail ?? null,
       business_phone: businessPhone ?? null,
       google_place_id: googlePlaceId ?? null,
       additional_context: additionalContext,

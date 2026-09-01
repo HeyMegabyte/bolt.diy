@@ -175,6 +175,7 @@ export interface SiteGenerationParams {
   businessName: string;
   businessAddress?: string;
   businessHours?: string;
+  businessEmail?: string;
   businessPhone?: string;
   businessCategory?: string;
   businessWebsite?: string;
@@ -617,7 +618,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
             params.businessCategory || '',
             'User-declared vertical category (authoritative classifier signal).',
           ),
-          email: tok(''),
+          email: tok(params.businessEmail || '', 'Business email → org email JSON-LD + mailto: link.'),
           phone: tok(params.businessPhone || ''),
           address: tok(params.businessAddress || ''),
           hours: tok(
