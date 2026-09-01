@@ -488,13 +488,34 @@ function applyVerticalPreset(dir, preset, templateDir) {
   // a dark vertical can't ship light (or vice-versa) when the orchestrator mis-themes.
   const expectLight = LIGHT_VERTICAL_PRESETS.has(preset);
   const schemeMismatch = expectLight ? curScheme !== 'light' : curScheme !== 'dark';
-  if (!isDefault && !schemeMismatch) return `kept-custom (scheme=${curScheme})`;
+
+  // Ensure the vertical's SCHEMA CLASS is present regardless of the theme decision below.
+  // The orchestrator's business identity (name/phone/address) rarely sets businessClass,
+  // so without this the LocalBusiness JSON-LD degrades to a generic 'Organization' (no
+  // Dentist/Restaurant/RealEstateAgent/… + no geo). The preset declares the right class;
+  // carry it onto the live business when absent/generic (a real orchestrator value wins).
+  const presetClass = presetJson.business && presetJson.business.businessClass;
+  let classCarried = false;
+  if (presetClass && current && current.business) {
+    const cur = current.business.businessClass;
+    const curVal = cur && (typeof cur === 'object' ? cur.$value : cur);
+    if (!curVal || curVal === 'organization') {
+      current.business.businessClass = presetClass;
+      classCarried = true;
+    }
+  }
+
+  if (!isDefault && !schemeMismatch) {
+    // Theme is already correct — keep it, but still persist the businessClass carry.
+    if (classCarried) fs.writeFileSync(brandPath, JSON.stringify(current, null, 2));
+    return `kept-custom (scheme=${curScheme})${classCarried ? ' +businessClass' : ''}`;
+  }
   const merged = { ...presetJson };
   for (const idKey of ['business', 'social', 'logo']) {
     if (current && current[idKey]) merged[idKey] = current[idKey];
   }
   fs.writeFileSync(brandPath, JSON.stringify(merged, null, 2));
-  return `applied ${preset} (default=${isDefault} schemeMismatch=${schemeMismatch})`;
+  return `applied ${preset} (default=${isDefault} schemeMismatch=${schemeMismatch})${classCarried ? ' +businessClass' : ''}`;
 }
 
 /**
