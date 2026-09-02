@@ -518,6 +518,67 @@ function applyVerticalPreset(dir, preset, templateDir) {
   return `applied ${preset} (default=${isDefault} schemeMismatch=${schemeMismatch})${classCarried ? ' +businessClass' : ''}`;
 }
 
+// ── Research-narrative uniqueness (loop FIRE-72) — first step of the content-
+// uniqueness arc. The research LLM produces a business-SPECIFIC profile.description +
+// mission_statement, but loadContentMap only ever wired research into 3 IDENTITY
+// tokens (name/phone/email) — the VISIBLE About copy came from the generic per-vertical
+// pack, so every <vertical> site shipped near-identical (name-agnostic) About prose.
+// Let the business-specific research narrative OVERRIDE ABOUT_DESCRIPTION /
+// ABOUT_MISSION_TEXT — but ONLY when it clears a strict publish-quality gate (length +
+// ≥2 sentences + no {TOKENS} + no slop + Flesch floor). Research is a black box (not
+// persisted/served post-build), so the VALIDATOR — not external inspection — is what
+// makes this safe: bad/absent research fails the gate → the polished pack default stays.
+// Priority ends up orchestrator > research > pack (we never clobber a non-blank existing
+// value). Runs BEFORE applyVerticalContentPack so the pack's "non-blank existing wins".
+const RN_SLOP = /\b(limitless|revolutioniz\w*|cutting[- ]edge|world[- ]class|leverag\w*|game[- ]chang\w*|unparalleled|seamless(?:ly)?|best[- ]in[- ]class|state[- ]of[- ]the[- ]art|synerg\w*|paradigm)\b/i;
+function rnFlesch(text) {
+  const sentences = (text.match(/[.!?]+/g) || []).length || 1;
+  const words = text.match(/[A-Za-z]+/g) || [];
+  const wc = words.length || 1;
+  const syll = words.reduce((n, w) => {
+    const m = w.toLowerCase().replace(/[^a-z]/g, '');
+    if (m.length <= 3) return n + 1;
+    const g = m.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '').match(/[aeiouy]{1,2}/g);
+    return n + Math.max(1, g ? g.length : 1);
+  }, 0) || 1;
+  return 206.835 - 1.015 * (wc / sentences) - 84.6 * (syll / wc);
+}
+/** Publish-quality gate: research prose must clear this to override polished pack copy. */
+function rnPublishable(raw, min, max) {
+  if (typeof raw !== 'string') return false;
+  const s = raw.trim();
+  if (s.length < min || s.length > max) return false;
+  if (/\{[A-Z0-9_]{2,}\}/.test(s)) return false;              // unresolved template token
+  if ((s.match(/[.!?]+/g) || []).length < 2) return false;    // ≥2 sentences
+  if (RN_SLOP.test(s)) return false;                          // banned slop
+  if (rnFlesch(s) < 52) return false;                        // readability floor
+  return true;
+}
+/**
+ * Wire the business-SPECIFIC research narrative into the VISIBLE About tokens. Only
+ * fills a token that is BLANK (never clobbers an orchestrator value) AND whose research
+ * source clears {@link rnPublishable} — else the pack default (applied next) stays.
+ * Crash-proof. @returns a short status string for the log.
+ */
+function applyResearchNarrative(dir) {
+  try {
+    const research = JSON.parse(fs.readFileSync(path.join(dir, '_research.json'), 'utf-8'));
+    const prof = (research && research.profile) || {};
+    const contentPath = path.join(dir, '_content.json');
+    let content = {};
+    try { content = JSON.parse(fs.readFileSync(contentPath, 'utf-8')) || {}; } catch { /* none yet */ }
+    const wrote = [];
+    const blank = (k) => !String(content[k] || '').trim();
+    if (blank('ABOUT_DESCRIPTION') && rnPublishable(prof.description, 150, 600)) { content.ABOUT_DESCRIPTION = prof.description.trim(); wrote.push('ABOUT_DESCRIPTION'); }
+    if (blank('ABOUT_MISSION_TEXT') && rnPublishable(prof.mission_statement, 80, 400)) { content.ABOUT_MISSION_TEXT = prof.mission_statement.trim(); wrote.push('ABOUT_MISSION_TEXT'); }
+    if (!wrote.length) return 'no publishable research narrative (pack default kept)';
+    fs.writeFileSync(contentPath, JSON.stringify(content, null, 2));
+    return `wrote ${wrote.join(', ')} from research`;
+  } catch (e) {
+    return `skipped: ${String((e && e.message) || e).slice(0, 80)}`;
+  }
+}
+
 /**
  * Merge the per-vertical DEFAULT content pack (examples/_content.<vertical>.json)
  * into _content.json so section tokens (HERO, FEATURE, SERVICE, STAT, PROCESS,
@@ -806,6 +867,7 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
           try {
             preset = pickVerticalPreset(dir, prompt);
             console.warn(`[${jobId}] Vertical theme: ${applyVerticalPreset(dir, preset, TEMPLATE_DIR)}`);
+            console.warn(`[${jobId}] Research narrative: ${applyResearchNarrative(dir)}`);
             console.warn(`[${jobId}] Vertical content: ${applyVerticalContentPack(dir, preset, TEMPLATE_DIR)}`);
             console.warn(`[${jobId}] Stub guard: ${guardAgainstStubPages(dir, TEMPLATE_DIR)}`);
           } catch (te) {
