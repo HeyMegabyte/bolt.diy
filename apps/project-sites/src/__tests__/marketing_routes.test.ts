@@ -356,7 +356,10 @@ describe('server/client meta SSOT — MARKETING_META (worker) ≡ PAGE_META (fro
     }
     expect(compared).toBeGreaterThan(10); // must actually compare the shared routes
     if (drift.length) {
-      console.error('SERVER/CLIENT META DRIFT (update BOTH marketing_routes.ts + meta.service.ts):\n' + drift.join('\n'));
+      console.error(
+        'SERVER/CLIENT META DRIFT (update BOTH marketing_routes.ts + meta.service.ts):\n' +
+          drift.join('\n'),
+      );
     }
     expect(drift).toEqual([]);
   });
