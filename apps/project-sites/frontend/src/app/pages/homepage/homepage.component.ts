@@ -339,7 +339,15 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
       // owner never re-types it. Selected real businesses ride setSelectedBusiness.
       this.router.navigate(['/create'], name ? { queryParams: { name } } : {});
     } else {
-      this.router.navigate(['/signin']);
+      // The same redundant-entry win for LOGGED-OUT owners (the majority first-time
+      // flow): carry the typed name THROUGH sign-in via a sanitized returnUrl so they
+      // land on /create?name= post-auth and never re-type it. Without this the name was
+      // dropped at the bare /signin. Mirrors create.component.ts's own returnUrl→/create
+      // pattern; signin sanitizes returnUrl to internal paths only.
+      this.router.navigate(
+        ['/signin'],
+        name ? { queryParams: { returnUrl: `/create?name=${encodeURIComponent(name)}` } } : {},
+      );
     }
   }
 
