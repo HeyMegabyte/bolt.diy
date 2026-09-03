@@ -26,6 +26,7 @@ export default defineConfig({
     'admin-journey.spec.ts', // Admin shell journey (Pass 6)
     'admin-sections-smoke.spec.ts', // 15 admin section redirect checks + API health (Pass 7)
     'marketing-seo.spec.ts', // 9 route SEO metadata + critical files (Pass 7)
+    'marketing-meta-clientnav.spec.ts', // client-nav blog title guard + search accessible names (guards 24c7b2c04; goto-based SEO spec can't catch SPA-nav clobber)
     'security-headers-extended.spec.ts', // HSTS, CSP, CORS, security posture (Pass 7)
     'auth-signup-oauth.spec.ts', // Sign-up Google + GitHub OAuth buttons (Pass 8/14)
     'auth-full-flow.spec.ts', // P2 203 — homepage → sign-up → sign-in → admin nav (enrolled Pass 19 after green verify)
