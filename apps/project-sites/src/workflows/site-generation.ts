@@ -672,7 +672,8 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         .split(',')
         .map((p) => p.trim())
         .filter(Boolean);
-      const cityPhrase = addrParts.length >= 2 ? addrParts[addrParts.length - 2]! : 'your community';
+      const cityPhrase =
+        addrParts.length >= 2 ? addrParts[addrParts.length - 2]! : 'your community';
       const seed = [...safeName].reduce((a, c) => a + c.charCodeAt(0), 0);
       const pick = (arr: string[]): string => arr[seed % arr.length] || arr[0] || '';
       const description = pick([
