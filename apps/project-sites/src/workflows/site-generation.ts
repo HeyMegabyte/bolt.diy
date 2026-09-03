@@ -701,7 +701,26 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         `Everything ${safeName} does comes back to one idea: dependable ${catService} for ${cityPhrase}, explained in plain words. Here is how we help.`,
         `From the first call to the finished job, ${safeName} makes ${catService} in ${cityPhrase} simple, honest, and built to last. These are the services we offer.`,
       ]);
-      contextFiles['content.json'] = JSON.stringify({ SERVICES_INTRO: servicesIntro }, null, 2);
+      // fire-77: flip the LAST TWO pack-default uniqueness blocks (HERO_SUBHEADLINE +
+      // ABOUT_PARAGRAPH_1) via the SAME _content.json seam, taking the visible copy from
+      // ~60% → ~100% business-specific. Both are plain `_content.json` tokens (like
+      // SERVICES_INTRO — NOT the gated research-profile About), so seeding them here and
+      // letting applyVerticalContentPack's existing-wins merge keep them is all it takes.
+      // Kept short, slop-free, and identity-woven (name + category + city) so they read
+      // naturally across all 10 verticals and never trip build_validators' banned-slop gate.
+      const heroSub = pick([
+        `Trusted ${catService} in ${cityPhrase} — clear answers, fair prices, and work we stand behind.`,
+        `${cityPhrase}'s dependable choice for ${catService}. Honest, personal, and always on your side.`,
+      ]);
+      const aboutPara1 = pick([
+        `${safeName} is built around the people of ${cityPhrase}. We started with one belief: ${catService} should be easy to understand and easy to trust. Every day we work to earn that trust with clear communication, fair pricing, and results we stand behind.`,
+        `For the families and neighbors of ${cityPhrase}, ${safeName} keeps ${catService} refreshingly simple. No jargon and no pressure, just careful work, straight answers, and a team that remembers your name.`,
+      ]);
+      contextFiles['content.json'] = JSON.stringify(
+        { SERVICES_INTRO: servicesIntro, HERO_SUBHEADLINE: heroSub, ABOUT_PARAGRAPH_1: aboutPara1 },
+        null,
+        2,
+      );
     }
 
     // ── Optional: Human-in-the-loop logo approval (Workflows v2 elicitation) ──
