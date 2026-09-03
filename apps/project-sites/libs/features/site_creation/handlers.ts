@@ -197,13 +197,20 @@ siteCreation.post('/api/sites/create-from-search', async (c) => {
         businessHours: businessHours ?? undefined,
         businessEmail: businessEmail ?? undefined,
         businessPhone: businessPhone ?? undefined,
-        // Authoritative vertical signal (fire-55): Google Places type, else a plain
-        // `business_type` the caller declares (the loop + any typed-create path). Threaded
-        // to the container as the immutable _category.txt so pickVerticalPreset short-
-        // circuits on it — orchestrator-proof, unlike the clobberable _brand.json category.
+        // Authoritative vertical signal (fire-55): Google Places type, else the flat
+        // `business_type` / `business_category` (or nested `business.category`) a caller
+        // declares — the loop + any typed-create path. Threaded to the container as the
+        // immutable _category.txt so pickVerticalPreset short-circuits on it (orchestrator-
+        // proof, unlike the clobberable _brand.json category) AND drives the identity-woven
+        // About/SERVICES copy. fire-76 root-cause: the loop sends `business_category`, but
+        // only `business_type` was read here → the explicit category was DROPPED on EVERY
+        // create (weave fell back to "local service", classification to fragile name-
+        // inference — the "Harvest & Vine → nonprofit" class). Mirror the NAP flat-key chain.
         businessCategory:
           body.business?.types?.[0] ??
           ((body as Record<string, unknown>).business_type as string | undefined) ??
+          ((body as Record<string, unknown>).business_category as string | undefined) ??
+          ((body.business as Record<string, unknown> | undefined)?.category as string | undefined) ??
           undefined,
         googlePlaceId: googlePlaceId ?? undefined,
         additionalContext: additionalContext ?? undefined,

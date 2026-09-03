@@ -690,6 +690,18 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
         null,
         2,
       );
+      // fire-76: flip a THIRD uniqueness block (SERVICES_INTRO) from pack-default →
+      // business-specific. Unlike the About (a research-profile field consumed via the
+      // gated applyResearchNarrative), SERVICES_INTRO is a `_content.json` token — seed it
+      // DIRECTLY: the container writes contextFiles→`_content.json`, and
+      // applyVerticalContentPack keeps a non-blank existing value over the pack default
+      // (existing-wins merge, verified), so this business-specific intro renders. Same
+      // proven seam as fire-75's About (0%→40% live); this targets ~60% uniquePct.
+      const servicesIntro = pick([
+        `Everything ${safeName} does comes back to one idea: dependable ${catService} for ${cityPhrase}, explained in plain words. Here is how we help.`,
+        `From the first call to the finished job, ${safeName} makes ${catService} in ${cityPhrase} simple, honest, and built to last. These are the services we offer.`,
+      ]);
+      contextFiles['content.json'] = JSON.stringify({ SERVICES_INTRO: servicesIntro }, null, 2);
     }
 
     // ── Optional: Human-in-the-loop logo approval (Workflows v2 elicitation) ──
