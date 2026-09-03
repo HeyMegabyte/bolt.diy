@@ -157,7 +157,9 @@ describe('applyMarketingMeta — per-route <head> (SEO de-index fix)', () => {
 
   it('/create gets its route-specific title (it was serving the homepage default to crawlers)', () => {
     const out = applyMarketingMeta(SHELL, '/create', 'https://projectsites.dev/create');
-    expect(out).toContain('<title>Create Your AI Website in Minutes — No Code | ProjectSites</title>');
+    expect(out).toContain(
+      '<title>Create Your AI Website in Minutes — No Code | ProjectSites</title>',
+    );
     expect(out).not.toContain('We deliver websites in minutes');
     expect(out).toContain('<link rel="canonical" href="https://projectsites.dev/create">');
   });
