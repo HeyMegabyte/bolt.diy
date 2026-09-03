@@ -301,3 +301,63 @@ describe('drift guard — every public indexable marketing route carries SSR met
     expect(leaking).toEqual([]);
   });
 });
+
+describe('server/client meta SSOT — MARKETING_META (worker) ≡ PAGE_META (frontend)', () => {
+  // The worker HTMLRewriter (applyMarketingMeta) is the SERVER source of truth for
+  // per-route <head>; the Angular MetaService PAGE_META is the CLIENT enhancement. They
+  // MUST agree for every shared route — else crawlers read one title while the hydrated
+  // tab shows another. This is the exact class fixed in `43aaa08` (the homepage served a
+  // generic title server-side while the client showed the keyword-rich one). The
+  // INDEXABLE guard above only checks a MARKETING_META entry EXISTS + isn't the generic
+  // default; this gate checks the two maps AGREE (title + description), so a future edit
+  // to one side but not the other fails HERE — never silently in prod on ANY route.
+  function parsePageMeta(): Record<string, { title: string; description: string }> | null {
+    const src = readRepoFile('frontend/src/app/services/meta.service.ts');
+    if (src === null) return null; // worker-only checkout — skip, don't false-fail
+    const start = src.indexOf('const PAGE_META');
+    const body = src.slice(start, src.indexOf('\n};', start));
+    const unesc = (s: string) => s.replace(/\\'/g, "'").replace(/\\"/g, '"').replace(/\\n/g, ' ');
+    const out: Record<string, { title: string; description: string }> = {};
+    // Each entry: `  'key': {\n … title: '…', … description: '…', … \n  }` (2-space indent).
+    const re = /'([^']*)':\s*\{([\s\S]*?)\n {2}\}/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(body)) !== null) {
+      const key = m[1] ?? '';
+      const eb = m[2] ?? '';
+      const t = /title:\s*'((?:\\.|[^'\\])*)'/.exec(eb);
+      const d = /description:\s*'((?:\\.|[^'\\])*)'/.exec(eb);
+      if (t && d) out[key] = { title: unesc(t[1] ?? ''), description: unesc(d[1] ?? '') };
+    }
+    return out;
+  }
+
+  it('every route in BOTH maps has an identical title + description (no server/client drift)', () => {
+    const page = parsePageMeta();
+    if (page === null) {
+      console.warn('meta SSOT gate: frontend meta.service.ts not found, skipping');
+      return;
+    }
+    // Guard against a silent parser break making the gate vacuously pass.
+    expect(Object.keys(page).length).toBeGreaterThan(12);
+
+    const drift: string[] = [];
+    let compared = 0;
+    for (const [key, pm] of Object.entries(page)) {
+      const route = key === '' ? '/' : `/${key}`;
+      const mm = MARKETING_META[route];
+      if (!mm) continue; // route not server-injected under this exact path — skip
+      compared++;
+      if (mm.title !== pm.title) {
+        drift.push(`${route} TITLE\n   server: ${mm.title}\n   client: ${pm.title}`);
+      }
+      if (mm.description !== pm.description) {
+        drift.push(`${route} DESC\n   server: ${mm.description}\n   client: ${pm.description}`);
+      }
+    }
+    expect(compared).toBeGreaterThan(10); // must actually compare the shared routes
+    if (drift.length) {
+      console.error('SERVER/CLIENT META DRIFT (update BOTH marketing_routes.ts + meta.service.ts):\n' + drift.join('\n'));
+    }
+    expect(drift).toEqual([]);
+  });
+});
