@@ -17,6 +17,8 @@ content/marketing/index.md
 apps/project-sites/frontend/src/app/pages/homepage/homepage.component.ts
 apps/project-sites/frontend/src/app/pages/homepage/homepage.component.html
 apps/project-sites/frontend/src/app/pages/homepage/homepage.component.scss
+apps/project-sites/frontend/src/app/pages/homepage/create-funnel-nav.ts
+apps/project-sites/frontend/src/app/pages/homepage/create-funnel-nav.spec.ts
 apps/project-sites/frontend/src/index.html
 
 # Generated / sample R2 sync artifacts (not source homepages)

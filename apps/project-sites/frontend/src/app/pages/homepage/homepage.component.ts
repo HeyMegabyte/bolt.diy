@@ -24,6 +24,7 @@ import {
 } from 'rxjs';
 import { ApiService, type BusinessResult } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
+import { createFunnelNav } from './create-funnel-nav';
 import { GeolocationService } from '../../services/geolocation.service';
 import { TelemetryService } from '../../services/telemetry.service';
 import { MetaService } from '../../services/meta.service';
@@ -333,22 +334,13 @@ export class HomepageComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private navigateToDetailsOrSignin(name?: string): void {
-    if (this.auth.isLoggedIn()) {
-      // Redundant-entry win (WCAG 3.3.7): carry the typed business name into
-      // /create's business-name field (its ngOnInit reads ?name=) so a repeat
-      // owner never re-types it. Selected real businesses ride setSelectedBusiness.
-      this.router.navigate(['/create'], name ? { queryParams: { name } } : {});
-    } else {
-      // The same redundant-entry win for LOGGED-OUT owners (the majority first-time
-      // flow): carry the typed name THROUGH sign-in via a sanitized returnUrl so they
-      // land on /create?name= post-auth and never re-type it. Without this the name was
-      // dropped at the bare /signin. Mirrors create.component.ts's own returnUrl→/create
-      // pattern; signin sanitizes returnUrl to internal paths only.
-      this.router.navigate(
-        ['/signin'],
-        name ? { queryParams: { returnUrl: `/create?name=${encodeURIComponent(name)}` } } : {},
-      );
-    }
+    // Redundant-entry (WCAG 3.3.7): carry the typed business name forward — into
+    // /create?name= when signed in, and THROUGH sign-in via a sanitized returnUrl when
+    // signed out (post-auth they land on /create and the prefill fires; signin sanitizes
+    // returnUrl to internal paths). The decision is a pure, unit-tested helper
+    // (create-funnel-nav.ts). Selected real businesses ride setSelectedBusiness.
+    const nav = createFunnelNav(name, this.auth.isLoggedIn());
+    this.router.navigate([nav.path], nav.queryParams ? { queryParams: nav.queryParams } : {});
   }
 
   closeHeroDropdown(): void {
