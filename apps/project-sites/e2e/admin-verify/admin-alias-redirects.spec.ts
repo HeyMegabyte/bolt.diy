@@ -25,6 +25,9 @@ const QUERY_ALIASES: ReadonlyArray<{ from: string; pathname: string; query?: str
   { from: '/admin/traces', pathname: '/admin/logs', query: 'tab=traces' },
   { from: '/admin/seo', pathname: '/admin/site-features' },
   { from: '/admin/dashboard', pathname: '/admin' },
+  // bare /admin/sites has no list page of its own → the dashboard sites hub, not a 404.
+  // The /admin/sites/:id detail route makes bare /admin/sites a natural URL guess. (loop item-6)
+  { from: '/admin/sites', pathname: '/admin' },
 ];
 
 test.describe('Admin · remaining alias redirects (P0-ADMIN)', () => {

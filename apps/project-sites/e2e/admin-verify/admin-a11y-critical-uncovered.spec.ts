@@ -4,7 +4,7 @@
  *
  * The critical suite covers the org-level "reliably-rendered" sections (admin root,
  * apps, docs, api-tokens, billing, settings, forms, domains, logs, audit, social,
- * site-features, snapshots, user). These NINE routes existed with ZERO a11y coverage —
+ * site-features, snapshots, user). These TEN routes existed with ZERO a11y coverage —
  * a critical regression on any of them (missing button/link name, unlabeled form
  * control, ARIA-required attr) would ship unguarded. Validated axe-critical-clean +
  * console-error-free against live prod before enrolling (loop, 2026-09-03).
@@ -23,6 +23,10 @@ import AxeBuilder from '@axe-core/playwright';
 // Admin sections with NO prior a11y coverage (super-admin/system-services excluded —
 // they need a sysAdmin session the E2E_API_KEY org does not have).
 const UNCOVERED_SECTIONS = [
+  // analytics is data-heavy AND carries a lying-empty incident history (a real site
+  // once showed "never had traffic" for 109 real pageviews) — yet it had zero axe
+  // coverage. Verified axe-critical-clean live before enrolling (loop, 2026-09-03).
+  '/admin/analytics',
   '/admin/leads',
   '/admin/voice',
   '/admin/deliverability',

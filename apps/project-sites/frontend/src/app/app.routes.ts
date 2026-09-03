@@ -162,6 +162,16 @@ export const routes: Routes = [
           ),
       },
       {
+        // Bare `/admin/sites` has no list page of its own — the dashboard ('') is the
+        // sites hub (recent-sites widgets + selected-site context) and drill-in is
+        // `/admin/sites/:id`. A user typing `/admin/sites` (a natural guess given the
+        // `:id` route) previously hit the styled admin 404; redirect it to the dashboard,
+        // mirroring the `dashboard → ''` alias above. (loop item-6, 2026-09-03)
+        path: 'sites',
+        redirectTo: '',
+        pathMatch: 'full',
+      },
+      {
         // Per-site detail page with 4 tabs (Logs / Snapshots+Rollback / SQL /
         // Integrations). Closes TEST-PLAN.md TAB-01..TAB-13.
         path: 'sites/:id',
