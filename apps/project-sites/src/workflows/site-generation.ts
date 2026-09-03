@@ -645,6 +645,52 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       contextFiles['category.txt'] = params.businessCategory.trim().slice(0, 120);
     }
 
+    // ── Per-business About narrative (fire-75, content-uniqueness arc) ──
+    // FIRE-72 shipped the CONTAINER consumer (applyResearchNarrative reads
+    // _research.json.profile.description → ABOUT_DESCRIPTION, gated on
+    // len + ≥2-sentences + no-slop + no-tokens + Flesch≥52), but FIRE-73 found the
+    // research phase never persists a profile.description (research_data is empty) →
+    // every vertical shipped the NAME-AGNOSTIC pack-default About (0% unique per the
+    // content-quality eval). Seed a deterministic identity-woven About from the
+    // ALWAYS-PRESENT identity (name + declared category + city) so the VISIBLE About
+    // is business-SPECIFIC. Deterministic + gate-safe: if the container's stricter
+    // re-check ever rejects it, the polished pack default stays (no regression). An
+    // LLM upgrade is a later fire on this same seam. contextFiles['research.json'] →
+    // container writes _research.json (last, wins) → applyResearchNarrative consumes it.
+    {
+      const catService =
+        (params.businessCategory || '')
+          .toLowerCase()
+          .replace(
+            /\b(clinics?|studios?|shops?|stores?|group|company|co|services?|practice|agency|firm|center|centre|salon|parlou?rs?|llc|inc)\b/g,
+            '',
+          )
+          .replace(/\s{2,}/g, ' ')
+          .trim() || 'local service';
+      // City = the second-to-last comma field of the address ("…, Spokane, WA 99202" → "Spokane").
+      const addrParts = (params.businessAddress || '')
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean);
+      const cityPhrase = addrParts.length >= 2 ? addrParts[addrParts.length - 2]! : 'your community';
+      const seed = [...safeName].reduce((a, c) => a + c.charCodeAt(0), 0);
+      const pick = (arr: string[]): string => arr[seed % arr.length] || arr[0] || '';
+      const description = pick([
+        `${safeName} brings dependable ${catService} to ${cityPhrase}. We keep our work honest and our answers plain, so you always know where things stand. People choose us because we treat them like neighbors, not numbers.`,
+        `At ${safeName}, good ${catService} starts with listening. We serve ${cityPhrase} with clear answers, short waits, and follow-through you can count on. When you come to us, you are a person we know, not a case on a list.`,
+        `${safeName} has served ${cityPhrase} for years, and that local focus shapes every day. We keep it simple: do the ${catService} right, explain it in plain words, and stand behind it. That is why people here send their friends our way.`,
+      ]);
+      const mission = pick([
+        `Our promise is simple. We give ${cityPhrase} ${catService} you can trust, explained in plain words and delivered with respect.`,
+        `We are here to make good ${catService} easy to reach in ${cityPhrase}. Honest, personal, and always on your side is how we work.`,
+      ]);
+      contextFiles['research.json'] = JSON.stringify(
+        { profile: { description, mission_statement: mission } },
+        null,
+        2,
+      );
+    }
+
     // ── Optional: Human-in-the-loop logo approval (Workflows v2 elicitation) ──
     //
     // CANONICAL human-in-loop pattern for future workflows. Pauses the workflow

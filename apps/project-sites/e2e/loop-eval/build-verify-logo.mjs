@@ -5,16 +5,18 @@ import { chromium } from 'playwright';
 const BEARER = process.env.BUILD_BEARER;
 if (!BEARER) { console.error('BUILD_BEARER env required'); process.exit(2); }
 const ORIGIN = 'https://projectsites.dev';
-const stamp = process.env.STAMP || 'x';
-const biz = {
-  business_name: 'Stillwater Wellness Studio',
-  business_category: 'wellness studio',
-  business_address: '128 Higgins Ave, Missoula, MT 59802',
-  business_hours: 'Mon-Fri 7am-8pm, Sat 8am-4pm',
-  business_phone: '+1 406 555 0173',
-  business_email: 'hello@stillwaterwellness.example',
-  city: 'Missoula, MT',
-};
+// Business payload from BIZ_JSON env (any vertical), else the wellness default.
+const biz = process.env.BIZ_JSON
+  ? JSON.parse(process.env.BIZ_JSON)
+  : {
+      business_name: 'Stillwater Wellness Studio',
+      business_category: 'wellness studio',
+      business_address: '128 Higgins Ave, Missoula, MT 59802',
+      business_hours: 'Mon-Fri 7am-8pm, Sat 8am-4pm',
+      business_phone: '+1 406 555 0173',
+      business_email: 'hello@stillwaterwellness.example',
+      city: 'Missoula, MT',
+    };
 
 const browser = await chromium.launch();
 const page = await browser.newPage();
@@ -55,9 +57,12 @@ while (Date.now() - t0 < 8 * 60 * 1000) {
     });
     return r.ok ? r.json() : { status: 'http_' + r.status };
   }, { origin: ORIGIN, bearer: BEARER, id: siteId });
-  status = w?.status || w?.workflow?.status || JSON.stringify(w).slice(0, 60);
-  console.log('WORKFLOW', Math.round((Date.now() - t0) / 1000) + 's', status);
-  if (['completed', 'published', 'failed', 'error'].includes(String(status))) break;
+  // Worker envelopes under `data`: {data:{site_status, workflow_status, workflow_error}}
+  const d = w?.data || w || {};
+  status = d.site_status || d.workflow_status || d.status || w?.status || 'unknown';
+  const err = d.workflow_error ? ' err=' + String(d.workflow_error).slice(0, 80) : '';
+  console.log('WORKFLOW', Math.round((Date.now() - t0) / 1000) + 's', status + err);
+  if (['completed', 'published', 'failed', 'error', 'errored'].includes(String(status))) break;
 }
 
 // 3) fetch apple-touch-icon.png from the published subdomain, assert real logo
