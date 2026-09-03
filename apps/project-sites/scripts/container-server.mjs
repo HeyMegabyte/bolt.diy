@@ -579,6 +579,69 @@ function applyResearchNarrative(dir) {
   }
 }
 
+// ── Logo generation/recovery (loop FIRE-74, Brian directive: every site ships a
+// beautiful, properly-integrated logo). Priority: (1) the OFFICIAL logo when it is
+// recoverable online (research put a real image URL in _brand.json.logo.*), else
+// (2) an IDEOGRAM-generated minimal/elegant logo ICON (built INTO the generation
+// process as the fallback, per directive), else (3) the flat monogram from
+// generate-favicons. Writes public/apple-touch-icon.png — the navbar logo + PWA icon;
+// generate-favicons.mjs guards it (won't overwrite a real >4KB logo). Crash-proof +
+// fail-soft: any error leaves the monogram fallback. Runs BEFORE `npm run build`.
+async function ensureLogo(dir, ideogramKey) {
+  const pub = path.join(dir, 'public');
+  const dest = path.join(pub, 'apple-touch-icon.png');
+  const downloadTo = async (url) => {
+    const res = await fetch(url, { signal: AbortSignal.timeout(45000) });
+    if (!res.ok) return false;
+    const ct = res.headers.get('content-type') || '';
+    if (!/image\//.test(ct)) return false;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length < 2000) return false; // reject an empty/broken image
+    fs.mkdirSync(pub, { recursive: true });
+    fs.writeFileSync(dest, buf);
+    return true;
+  };
+  try {
+    let brand = {};
+    try { brand = JSON.parse(fs.readFileSync(path.join(dir, '_brand.json'), 'utf-8')); } catch { /* defaults */ }
+    const leaf = (l) => (l && typeof l === 'object' && typeof l.$value === 'string' ? l.$value : typeof l === 'string' ? l : '');
+    const biz = brand.business || {};
+    const name = leaf(biz.name) || 'Business';
+    const type = leaf(biz.businessClass) || leaf(biz.category) || 'local business';
+    const logo = brand.logo || {};
+    // (1) OFFICIAL logo recovered online — prefer the square icon, then the wordmark.
+    for (const key of ['original_icon_url', 'original_url', 'url', 'icon']) {
+      const u = leaf(logo[key]);
+      if (u && /^https?:\/\//.test(u)) {
+        try { if (await downloadTo(u)) return `official logo (${key})`; } catch { /* try next source */ }
+      }
+    }
+    // (2) IDEOGRAM fallback — generate a minimal, elegant brand ICON (no text; the
+    // navbar renders the business name as a wordmark beside it).
+    if (ideogramKey) {
+      const prompt =
+        `Minimal, elegant, modern logo ICON for "${name}", a ${type}. A simple flat ` +
+        `geometric emblem or abstract mark, clean vector style, memorable, professional, ` +
+        `tasteful brand-appropriate color palette, centered on a soft solid background. ` +
+        `Absolutely no text, no words, no letters.`;
+      const gen = await fetch('https://api.ideogram.ai/generate', {
+        method: 'POST',
+        headers: { 'Api-Key': ideogramKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_request: { prompt, aspect_ratio: 'ASPECT_1_1', model: 'V_2', magic_prompt_option: 'AUTO' } }),
+        signal: AbortSignal.timeout(90000),
+      });
+      if (!gen.ok) return `Ideogram HTTP ${gen.status} — monogram fallback`;
+      const j = await gen.json().catch(() => ({}));
+      const url = j && j.data && j.data[0] && j.data[0].url;
+      if (url && (await downloadTo(url))) return 'Ideogram-generated logo';
+      return 'Ideogram returned no usable image — monogram fallback';
+    }
+    return 'no official logo + no Ideogram key — monogram fallback';
+  } catch (e) {
+    return `skipped: ${String((e && e.message) || e).slice(0, 80)}`;
+  }
+}
+
 /**
  * Merge the per-vertical DEFAULT content pack (examples/_content.<vertical>.json)
  * into _content.json so section tokens (HERO, FEATURE, SERVICE, STAT, PROCESS,
@@ -867,6 +930,9 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
           try {
             preset = pickVerticalPreset(dir, prompt);
             console.warn(`[${jobId}] Vertical theme: ${applyVerticalPreset(dir, preset, TEMPLATE_DIR)}`);
+            // Logo: recover the OFFICIAL mark, else generate an elegant one via Ideogram
+            // (BEFORE npm build, so generate-favicons keeps it as apple-touch-icon.png).
+            console.warn(`[${jobId}] Logo: ${await ensureLogo(dir, envVars.IDEOGRAM_API_KEY)}`);
             console.warn(`[${jobId}] Research narrative: ${applyResearchNarrative(dir)}`);
             console.warn(`[${jobId}] Vertical content: ${applyVerticalContentPack(dir, preset, TEMPLATE_DIR)}`);
             console.warn(`[${jobId}] Stub guard: ${guardAgainstStubPages(dir, TEMPLATE_DIR)}`);
@@ -1410,6 +1476,9 @@ http.createServer((q, r) => {
         try { x(`chown -R cuser:cuser ${dir}`, { stdio: 'pipe', shell: true }); } catch {}
 
         const envVars = { ANTHROPIC_API_KEY: P._anthropicKey || '' };
+        // Ideogram key powers the logo-generation fallback (ensureLogo) when the
+        // official mark isn't recoverable online. Threaded top-level like the LLM keys.
+        if (P._ideogramKey) envVars.IDEOGRAM_API_KEY = P._ideogramKey;
         if (P.envVars && typeof P.envVars === 'object') {
           for (const ek in P.envVars) envVars[ek] = P.envVars[ek];
         }

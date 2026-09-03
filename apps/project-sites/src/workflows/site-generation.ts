@@ -876,6 +876,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
           const payload = {
             slug: params.slug,
             _anthropicKey: env.ANTHROPIC_API_KEY || '',
+            _ideogramKey: (env as unknown as { IDEOGRAM_API_KEY?: string }).IDEOGRAM_API_KEY || '',
             ...(useDeepSeek && {
               _deepseekKey,
               _anthropicBaseUrl: 'https://api.deepseek.com/anthropic',
@@ -1099,6 +1100,8 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
               const payload = {
                 slug: params.slug,
                 _anthropicKey: env.ANTHROPIC_API_KEY || '',
+                _ideogramKey:
+                  (env as unknown as { IDEOGRAM_API_KEY?: string }).IDEOGRAM_API_KEY || '',
                 ...(useDeepSeek && {
                   _deepseekKey,
                   _anthropicBaseUrl: 'https://api.deepseek.com/anthropic',
@@ -1240,6 +1243,8 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
               const payload = {
                 slug: params.slug,
                 _anthropicKey: env.ANTHROPIC_API_KEY || '',
+                _ideogramKey:
+                  (env as unknown as { IDEOGRAM_API_KEY?: string }).IDEOGRAM_API_KEY || '',
                 ...(useDeepSeek && {
                   _deepseekKey,
                   _anthropicBaseUrl: 'https://api.deepseek.com/anthropic',
