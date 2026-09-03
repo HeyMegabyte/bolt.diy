@@ -146,10 +146,20 @@ describe('applyMarketingMeta — per-route <head> (SEO de-index fix)', () => {
     expect(out).not.toContain('AI builds your business website in minutes.');
   });
 
-  it('home keeps its default title but the canonical stays self-referential (no map entry)', () => {
+  it('home gets its keyword-rich PAGE_META title server-side (matches the hydrated client) + self-canonical', () => {
     const out = applyMarketingMeta(SHELL, '/', 'https://projectsites.dev/');
-    expect(out).toContain('<title>ProjectSites — We deliver websites in minutes</title>');
+    // Was the generic shell default "We deliver websites in minutes" — a keyword-poor
+    // title crawlers saw while the client showed the keyword-rich one (server/client drift).
+    expect(out).toContain('<title>ProjectSites — AI Website Builder, Live in 4 Minutes</title>');
+    expect(out).not.toContain('We deliver websites in minutes');
     expect(out).toContain('<link rel="canonical" href="https://projectsites.dev/">');
+  });
+
+  it('/create gets its route-specific title (it was serving the homepage default to crawlers)', () => {
+    const out = applyMarketingMeta(SHELL, '/create', 'https://projectsites.dev/create');
+    expect(out).toContain('<title>Create Your AI Website in Minutes — No Code | ProjectSites</title>');
+    expect(out).not.toContain('We deliver websites in minutes');
+    expect(out).toContain('<link rel="canonical" href="https://projectsites.dev/create">');
   });
 
   it('every MARKETING_META entry meets the SEO length gates (title ≤60, desc 120-160)', () => {
@@ -248,14 +258,21 @@ describe('drift guard — every public indexable marketing route carries SSR met
   // generic SSR title"). Enumerates the PUBLIC, INDEXABLE marketing routes that
   // MUST carry route-correct <title>/<meta description> for SEO + social unfurls.
   // Adding a new marketing page without a MARKETING_META entry fails HERE — never
-  // silently in prod. Authed/utility routes (admin, editor, billing, checkout,
-  // oauth, review, content, waiting, create, offline, error) are intentionally
-  // EXCLUDED: they are noindex, so a generic title is harmless.
+  // silently in prod. The HOMEPAGE and /create are the PRIMARY indexable pages
+  // (both serve `<meta robots="index, follow">` on prod — verified); /content is an
+  // indexable policy page like /privacy + /terms. Authed/utility routes (admin,
+  // editor, billing, checkout, oauth, review, signin, waiting, offline, error) stay
+  // EXCLUDED — they are noindex/auth, so a generic title is harmless. (The homepage +
+  // /create were the blind spot: served the generic shell title to crawlers while the
+  // hydrated client showed the keyword-rich PAGE_META one — a server/client drift.)
   const INDEXABLE_MARKETING_ROUTES = [
+    '/',
+    '/create',
     '/pricing',
     '/search',
     '/privacy',
     '/terms',
+    '/content',
     '/blog',
     '/roadmap',
     '/integrations',

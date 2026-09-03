@@ -73,10 +73,24 @@ export interface MarketingMeta {
  * scrapers / social unfurlers read route-correct `<title>`/`<meta description>`/OG
  * (the Angular client `MetaService` only updates them AFTER hydration — invisible
  * to non-JS bots). Mirrors `frontend/src/app/services/meta.service.ts` `PAGE_META`;
- * keep the two in sync. Titles ≤60 chars, descriptions 120-156 (SEO gates). Home
- * (`/`) intentionally keeps the shell's default copy (no entry → no rewrite).
+ * keep the two in sync. Titles ≤60 chars, descriptions 120-156 (SEO gates).
+ *
+ * Home (`/`) + `/create` are the two PRIMARY indexable pages — they MUST carry
+ * their `PAGE_META` copy here (the shell's static `<title>` had drifted to a
+ * generic "We deliver websites in minutes", so crawlers saw a keyword-poor title
+ * on the homepage while the hydrated client showed the keyword-rich one).
  */
 export const MARKETING_META: Readonly<Record<string, MarketingMeta>> = {
+  '/': {
+    title: 'ProjectSites — AI Website Builder, Live in 4 Minutes',
+    description:
+      'AI-native website builder for real businesses. One prompt, four minutes, a gorgeous live URL with SSL, sitemap, OG cards, and JSON-LD baked in.',
+  },
+  '/create': {
+    title: 'Create Your AI Website in Minutes — No Code | ProjectSites',
+    description:
+      'Tell us about your business and our AI builds a professional, SEO-ready website in minutes — hosted, SSL secured, and live. No coding required.',
+  },
   '/pricing': {
     title: 'Pricing — Plans for Your AI-Built Website | ProjectSites',
     description:
@@ -111,6 +125,11 @@ export const MARKETING_META: Readonly<Record<string, MarketingMeta>> = {
     title: 'Terms of Service — Usage & Billing | ProjectSites',
     description:
       'The terms for using ProjectSites: account rules, acceptable use, billing, intellectual property, and service commitments for your AI-built site.',
+  },
+  '/content': {
+    title: 'Content Policy — Acceptable Use Guidelines | ProjectSites',
+    description:
+      'Acceptable-use and content guidelines for websites built on ProjectSites — what you can publish, prohibited content, and how we enforce it.',
   },
   '/blog': {
     title: 'AI Website Building Blog — Tips & Updates | ProjectSites',
