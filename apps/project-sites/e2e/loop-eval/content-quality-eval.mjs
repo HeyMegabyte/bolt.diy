@@ -19,7 +19,9 @@
  */
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { dirname, resolve, join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // Playwright lives in the frontend workspace; resolve from there.
@@ -34,8 +36,10 @@ const args = process.argv.slice(2);
 const slug = args.find((a) => !a.startsWith('--'));
 const wantTheme = (args.find((a) => a.startsWith('--theme=')) || '').split('=')[1] || null;
 const asJson = args.includes('--json');
+const vertical = (args.find((a) => a.startsWith('--vertical=')) || '').split('=')[1] || null;
+const packDir = (args.find((a) => a.startsWith('--pack-dir=')) || '').split('=')[1] || join(homedir(), 'template', 'examples');
 if (!slug) {
-  console.error('usage: node content-quality-eval.mjs <slug> [--theme=light|dark] [--json]');
+  console.error('usage: node content-quality-eval.mjs <slug> [--theme=light|dark] [--vertical=<v>] [--json]');
   process.exit(2);
 }
 const BASE = `https://${slug}.projectsites.dev`;
@@ -143,11 +147,36 @@ const h1words = {};
 for (const r of results) for (const w of new Set(salient(r.h1s ? (r.h2s[0] || '') : ''))) (h1words[w] ||= []).push(r.path);
 const repeats = Object.entries(h1words).filter(([, ps]) => ps.length > 1);
 
+// ── Content-uniqueness / genericness (loop FIRE-73): how much of the site's copy is the
+// VERBATIM generic pack default vs business-specific? Loads the vertical's pack and counts
+// how many key content blocks appear unchanged in the built site. High genericness = the
+// pack default shipped (LOW uniqueness) — the objective metric for the LLM-uniqueness arc.
+// Requires --vertical=<v>; reads the pack from --pack-dir (default ~/template/examples).
+let uniqueness = null;
+if (vertical) {
+  try {
+    const pack = JSON.parse(readFileSync(join(packDir, `_content.${vertical}.json`), 'utf-8'));
+    const KEYS = ['ABOUT_DESCRIPTION', 'ABOUT_PARAGRAPH_1', 'ABOUT_MISSION_TEXT', 'HERO_SUBHEADLINE', 'SERVICES_INTRO'];
+    const corpus = results.map((r) => (r.text || '').replace(/\s+/g, ' ').toLowerCase()).join(' \n ');
+    const checked = [], generic = [];
+    for (const k of KEYS) {
+      const v = String(pack[k] || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      if (v.length < 40) continue;
+      checked.push(k);
+      if (corpus.includes(v.slice(0, 90))) generic.push(k);
+    }
+    uniqueness = { vertical, checked: checked.length, packDefault: generic.length, uniquePct: checked.length ? Math.round((1 - generic.length / checked.length) * 100) : null, packDefaultTokens: generic };
+  } catch (e) {
+    uniqueness = { vertical, error: `pack read failed: ${String((e && e.message) || e).slice(0, 60)}` };
+  }
+}
+
 const hard = gates.filter((x) => !x.ok);
 const overall = hard.length === 0 ? 'PASS' : 'FAIL';
 const scorecard = {
   slug, url: BASE, overall,
-  perPage: results.map((r) => ({ path: r.path, status: r.status, words: r.words, flesch: r.flesch, title: r.title.length, desc: r.desc.length, sections: r.sections, imgs: r.imgs, errs: r.errs?.length ?? 0, tokens: r.tokenLeaks })),
+  contentUniqueness: uniqueness,
+  perPage: results.map((r) => ({ path: r.path, status: r.status, words: r.words ?? 0, flesch: r.flesch ?? 0, title: (r.title || '').length, desc: (r.desc || '').length, sections: r.sections ?? 0, imgs: r.imgs ?? 0, errs: r.errs?.length ?? 0, tokens: r.tokenLeaks ?? 0 })),
   home: { theme: home.theme, sections: home.sections, imgs: home.imgs, jsonld: home.jsonldTypes, orgType: home.orgType, gallery: home.galleryTiles, nap: { hours: home.napHours, addr: home.napAddr, tel: home.napTel, email: home.napEmail } },
   softRepeats: repeats.map(([w, ps]) => `${w}: ${ps.join('+')}`),
   gatesFailed: hard.map((x) => `${x.name} — ${x.detail}`),
@@ -160,6 +189,7 @@ if (asJson) {
   for (const r of scorecard.perPage) console.log(`  ${r.path.padEnd(10)} ${r.status} · ${r.words}w · Flesch ${r.flesch} · title ${r.title} · desc ${r.desc} · ${r.sections}sec · ${r.imgs}img · ${r.errs}err · ${r.tokens}tok`);
   console.log(`  HOME theme=${scorecard.home.theme} · ${scorecard.home.orgType} · JSON-LD ${scorecard.home.jsonld?.length} · gallery ${scorecard.home.gallery} · NAP hours=${scorecard.home.nap.hours} addr=${scorecard.home.nap.addr} tel=${scorecard.home.nap.tel} email=${scorecard.home.nap.email}`);
   if (scorecard.softRepeats.length) console.log(`  ⚠ soft headline repeats: ${scorecard.softRepeats.join(' · ')}`);
+  if (uniqueness) console.log(`  content uniqueness: ${uniqueness.error ? uniqueness.error : `${uniqueness.uniquePct}% unique — ${uniqueness.packDefault}/${uniqueness.checked} key blocks are VERBATIM pack default${uniqueness.packDefault ? ' (' + uniqueness.packDefaultTokens.join(', ') + ')' : ''}`}`);
   if (hard.length) console.log(`  ✗ FAILED: ${scorecard.gatesFailed.join(' | ')}`);
   else console.log(`  ✓ all ${gates.length} hard gates pass`);
 }
