@@ -989,10 +989,21 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
         // to seconds, keeping the whole job under the CF 15min wall-clock eviction cap (the #1
         // build-reliability bottleneck, 2026-08-24). Verified safe: no src/**/*.test.ts to
         // typecheck, `npm run build --omit=dev` passes clean.
-        const inst = await runAsync(`cd ${dir} && npm install --legacy-peer-deps --omit=dev 2>&1`, 300000, 50 * 1024 * 1024);
+        // fire-79: npm install intermittently fails with code=null (network flake /
+        // resource-kill in the container) on ~1/3 of builds — the #1 build-reliability
+        // gap (bit TWICE in FIRE-78 alone, each needing a manual /reset). It is
+        // CREDIT-FREE (no Claude Code call — the orchestrator already ran), so retry it
+        // ONCE with a short backoff before flipping the whole job to error. Bounded
+        // (2 attempts × ≤5min) keeps the job under the 15min CF wall-clock eviction cap.
+        let inst = await runAsync(`cd ${dir} && npm install --legacy-peer-deps --omit=dev 2>&1`, 300000, 50 * 1024 * 1024);
         if (inst.code !== 0) {
-          console.warn(`[${jobId}] npm install exit=${inst.code} tail=`, inst.stdout.slice(-500));
-          buildFailReason = `npm install failed code=${inst.code}: ${inst.stdout.slice(-800)}`;
+          console.warn(`[${jobId}] npm install attempt 1 exit=${inst.code} — retrying once; tail=`, inst.stdout.slice(-300));
+          await new Promise((r) => setTimeout(r, 4000));
+          inst = await runAsync(`cd ${dir} && npm install --legacy-peer-deps --omit=dev 2>&1`, 300000, 50 * 1024 * 1024);
+        }
+        if (inst.code !== 0) {
+          console.warn(`[${jobId}] npm install exit=${inst.code} (after retry) tail=`, inst.stdout.slice(-500));
+          buildFailReason = `npm install failed after retry code=${inst.code}: ${inst.stdout.slice(-800)}`;
           throw new Error(`npm install failed code=${inst.code}`);
         }
         const bld = await runAsync(`cd ${dir} && npm run build 2>&1`, 300000, 50 * 1024 * 1024);
