@@ -439,3 +439,15 @@ jobs:
         run: |
           VIEWPORT=390 node e2e/admin-verify/admin-surf-audit.mjs
           VIEWPORT=1280 node e2e/admin-verify/admin-surf-audit.mjs
+
+      # Truthful-persistence: reconcile /api/sites display vs the D1 ground-truth count
+      # (lying-empty / silent-cap detector). Reads D1 via wrangler → needs the CF secrets
+      # too; the probe fail-opens (exit 0) when any of them is unset.
+      - name: Reconcile /api/sites display vs D1 (truthful-persistence)
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites
+        env:
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+        run: node e2e/admin-verify/reconcile-e2e-sites.mjs
