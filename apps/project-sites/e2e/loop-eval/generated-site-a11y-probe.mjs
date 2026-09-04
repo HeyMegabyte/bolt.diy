@@ -2,7 +2,8 @@
 //
 // The public-a11y-probe covers the MARKETING funnel only; the generated sites the
 // business pays for were never a11y-checked in CI — an ADA Title II / EU EAA gap. This
-// samples N published sites × {mobile, desktop} and runs axe (wcag2/21/22 a + aa).
+// samples N published sites × {mobile, desktop} and runs axe (wcag2/21/22 a + aa),
+// PLUS a separately-reported best-practice pass (heading-order/region/target-size).
 //
 // TRACKING, not hard-fail (::notice): the template contrast fix (commit 2bb30da) lands
 // only on a site's NEXT rebuild, so already-deployed sites keep failing until then — a
@@ -25,6 +26,12 @@ const SAMPLE = Math.max(2, parseInt(process.argv[2] || '4', 10));
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36';
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+// axe 'best-practice' rules (heading-order, region/landmark, target-size, duplicate-id
+// …) are NOT WCAG-tagged — validate-site + this WCAG pass both MISS them, so a template
+// heading-order/region regression would ship undetected. Tracked SEPARATELY below so
+// advisory best-practice never gets conflated with the WCAG-AA compliance signal.
+const BP_TAGS = ['best-practice'];
+const isWcag = (tags) => tags.some((t) => /^wcag/.test(t));
 const BPS = [{ n: 'mobile', w: 390, h: 844 }, { n: 'desktop', w: 1280, h: 900 }];
 
 const browser = await chromium.launch();
@@ -44,30 +51,40 @@ const sample = [];
 for (let i = 0; i < all.length && sample.length < SAMPLE; i += step) sample.push(all[i]);
 
 console.log(`━━ generated-site a11y (WCAG 2.2 AA): ${all.length} published, sampling ${sample.length} × ${BPS.length} bp ━━`);
-const offenders = [];
+const offenders = [];   // WCAG 2.2 AA (compliance — the primary signal)
+const bpOffenders = []; // best-practice (advisory — heading-order/region/target-size…)
 let clean = 0;
 for (const slug of sample) {
   const byBp = [];
+  const bpBy = [];
   for (const bp of BPS) {
     const ctx = await browser.newContext({ userAgent: UA, viewport: { width: bp.w, height: bp.h } });
     const page = await ctx.newPage();
     try {
       await page.goto(`https://${slug}.projectsites.dev/`, { waitUntil: 'domcontentloaded', timeout: 45000 });
       await page.waitForTimeout(2000);
-      const res = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+      const res = await new AxeBuilder({ page }).withTags([...TAGS, ...BP_TAGS]).analyze();
       const v = res.violations || [];
-      if (v.length) byBp.push(`${bp.n}:${v.map((x) => `${x.id}(${x.nodes.length})`).join('+')}`);
+      const wcag = v.filter((x) => isWcag(x.tags));
+      const advisory = v.filter((x) => !isWcag(x.tags));
+      if (wcag.length) byBp.push(`${bp.n}:${wcag.map((x) => `${x.id}(${x.nodes.length})`).join('+')}`);
+      if (advisory.length) bpBy.push(`${bp.n}:${advisory.map((x) => `${x.id}(${x.nodes.length})`).join('+')}`);
     } catch (e) {
       byBp.push(`${bp.n}:PROBE_ERR`);
     }
     await ctx.close();
   }
-  if (byBp.length === 0) { clean++; console.log(`  ✓ ${slug}`); }
-  else { offenders.push(slug); console.log(`  • ${slug} → ${byBp.join('  ')}`); }
+  if (bpBy.length) bpOffenders.push(slug);
+  const bpNote = bpBy.length ? `  [bp: ${bpBy.join(' ')}]` : '';
+  if (byBp.length === 0) { clean++; console.log(`  ✓ ${slug}${bpNote}`); }
+  else { offenders.push(slug); console.log(`  • ${slug} → ${byBp.join('  ')}${bpNote}`); }
 }
 console.log(`  → ${clean}/${sample.length} axe-clean`);
 if (offenders.length) {
   console.log(`::notice::${offenders.length}/${sample.length} sampled generated sites have axe violations (WCAG 2.2 AA) — expected to clear as sites rebuild off template ≥2bb30da: ${offenders.join(', ')}`);
+}
+if (bpOffenders.length) {
+  console.log(`::notice::${bpOffenders.length}/${sample.length} sampled sites have axe BEST-PRACTICE findings (heading-order / region / target-size — advisory, not WCAG-AA compliance): ${bpOffenders.join(', ')}`);
 }
 await browser.close();
 process.exit(0); // tracking probe — never hard-fail on pre-fix deployed history
