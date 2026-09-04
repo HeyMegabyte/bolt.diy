@@ -312,7 +312,9 @@ describe('server/client meta SSOT — MARKETING_META (worker) ≡ PAGE_META (fro
   // default; this gate checks the two maps AGREE (title + description), so a future edit
   // to one side but not the other fails HERE — never silently in prod on ANY route.
   function parsePageMeta(): Record<string, { title: string; description: string }> | null {
-    const src = readRepoFile('frontend/src/app/services/meta.service.ts');
+    // PAGE_META was extracted from meta.service.ts to its own pure data module
+    // (page-meta.ts) so the standalone gate could import it; this parser follows.
+    const src = readRepoFile('frontend/src/app/services/page-meta.ts');
     if (src === null) return null; // worker-only checkout — skip, don't false-fail
     const start = src.indexOf('const PAGE_META');
     const body = src.slice(start, src.indexOf('\n};', start));
@@ -334,7 +336,7 @@ describe('server/client meta SSOT — MARKETING_META (worker) ≡ PAGE_META (fro
   it('every route in BOTH maps has an identical title + description (no server/client drift)', () => {
     const page = parsePageMeta();
     if (page === null) {
-      console.warn('meta SSOT gate: frontend meta.service.ts not found, skipping');
+      console.warn('meta SSOT gate: frontend page-meta.ts not found, skipping');
       return;
     }
     // Guard against a silent parser break making the gate vacuously pass.
@@ -355,9 +357,25 @@ describe('server/client meta SSOT — MARKETING_META (worker) ≡ PAGE_META (fro
       }
     }
     expect(compared).toBeGreaterThan(10); // must actually compare the shared routes
+
+    // Redirect aliases (app.routes.ts `redirectTo`) carry NO client PAGE_META entry —
+    // the router bounces them before MetaService resolves them — so their SERVER meta
+    // must equal the redirect TARGET's, else the crawler indexes the alias with a title
+    // that differs from where the user lands. /classic → '' (home).
+    const classic = MARKETING_META['/classic'];
+    const home = MARKETING_META['/'];
+    if (classic && home) {
+      if (classic.title !== home.title) {
+        drift.push(`/classic TITLE (redirect alias must equal home)\n   server: ${classic.title}\n   home:   ${home.title}`);
+      }
+      if (classic.description !== home.description) {
+        drift.push(`/classic DESC (redirect alias must equal home)\n   server: ${classic.description}\n   home:   ${home.description}`);
+      }
+    }
+
     if (drift.length) {
       console.error(
-        'SERVER/CLIENT META DRIFT (update BOTH marketing_routes.ts + meta.service.ts):\n' +
+        'SERVER/CLIENT META DRIFT (update BOTH marketing_routes.ts + page-meta.ts):\n' +
           drift.join('\n'),
       );
     }

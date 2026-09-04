@@ -1,13 +1,13 @@
 /**
  * Per-route SEO payload for the marketing SPA — the CLIENT half of the meta SSOT.
  *
- * This is a PURE data module (no Angular deps) so it can be imported by both
- * `meta.service.ts` (runtime, client-side enhancement) AND the build-time SSOT
- * gate (`scripts/validate-meta-ssot.mjs`), which cross-checks every shared route
- * against the Worker's `MARKETING_META` (`src/marketing_routes.ts`) — the
- * crawler-facing source of truth injected by HTMLRewriter. The gate fails the
- * build if a title/description drifts between the two, so the "keep in sync"
- * comments can never silently rot.
+ * This is a PURE data module (no Angular deps) so it can be imported by
+ * `meta.service.ts` (runtime, client-side enhancement) AND parsed by the build-time
+ * SSOT gate (`src/__tests__/marketing_routes.test.ts` § "server/client meta SSOT"),
+ * which cross-checks every shared route against the Worker's `MARKETING_META`
+ * (`src/marketing_routes.ts`) — the crawler-facing source of truth injected by
+ * HTMLRewriter. The gate fails the build if a title/description drifts between the
+ * two, so the "keep in sync" comments can never silently rot.
  *
  * Keys match `app.routes.ts` leaf paths (NO leading slash; '' = home). The
  * Worker map keys those same routes with a leading slash ('/', '/create', …);
@@ -114,5 +114,5 @@ export const PAGE_META: Record<string, PageMeta> = {
   // the router bounces it to home before MetaService resolves it; a PAGE_META
   // ['classic'] entry would be dead. The gate instead asserts the WORKER's
   // MARKETING_META['/classic'] equals home (the redirect target) — see
-  // scripts/validate-meta-ssot.mjs § CLIENT_REDIRECTS.
+  // src/__tests__/marketing_routes.test.ts (meta SSOT: redirect alias === home).
 };

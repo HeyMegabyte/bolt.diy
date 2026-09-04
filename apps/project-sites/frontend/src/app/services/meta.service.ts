@@ -21,8 +21,8 @@ import { Router, NavigationEnd, ActivatedRoute } from '@angular/router';
 import { filter, map, mergeMap } from 'rxjs';
 import { graph, webPage, breadcrumbList } from '../lib/json-ld';
 // PAGE_META lives in its own pure data module so the build-time SSOT gate
-// (scripts/validate-meta-ssot.mjs) can import it and diff it against the Worker's
-// MARKETING_META (the crawler-facing source of truth) — see page-meta.ts.
+// (src/__tests__/marketing_routes.test.ts) can parse it and diff it against the
+// Worker's MARKETING_META (the crawler-facing source of truth) — see page-meta.ts.
 import { PAGE_META, type PageMeta } from './page-meta';
 
 const BASE_URL = 'https://projectsites.dev';

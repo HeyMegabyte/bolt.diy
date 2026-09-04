@@ -105,7 +105,7 @@ export const MARKETING_META: Readonly<Record<string, MarketingMeta>> = {
     // /classic is `redirectTo: ''` (app.routes.ts) — a backward-compat alias that
     // bounces to home. Its crawler meta MUST equal home's so the alias isn't indexed
     // with a conflicting title (the client sends the user to home regardless).
-    // Enforced by scripts/validate-meta-ssot.mjs § CLIENT_REDIRECTS.
+    // Enforced by src/__tests__/marketing_routes.test.ts (meta SSOT: redirect alias === home).
     title: 'ProjectSites — AI Website Builder, Live in 4 Minutes',
     description:
       'AI-native website builder for real businesses. One prompt, four minutes, a gorgeous live URL with SSL, sitemap, OG cards, and JSON-LD baked in.',
