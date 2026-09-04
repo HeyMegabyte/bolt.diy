@@ -15,6 +15,8 @@ on:
       - 'apps/project-sites/playwright.prod.config.ts'
       - 'apps/project-sites/frontend/e2e/**'
       - 'apps/project-sites/frontend/playwright.prod.config.ts'
+      # Self-test workflow edits (the Browserbase jobs stay push-excluded via their `if`).
+      - '.github/workflows/prod-e2e.yml'
   schedule:
     # Daily smoke against prod at 07:13 UTC (off the :00 mark).
     - cron: '13 7 * * *'
@@ -378,3 +380,59 @@ jobs:
             apps/project-sites/e2e/screenshots/browserbase/
             apps/project-sites/playwright-report/
           retention-days: 14
+
+  # Fast headless a11y + health guards against LIVE prod — the loop-authored probes
+  # (public-a11y-probe: axe WCAG 2.2 AA over the public funnel × 6 breakpoints;
+  # admin-surf-audit: axe + console + error-boundary + content over all 25 admin
+  # sections). Both are settle-hardened (wait for skeletons/[aria-busy] to clear before
+  # axe) so they don't flake on load transients. The public probe needs NO secret (public
+  # surface); the admin surf is E2E_API_KEY-gated fail-open. Runs on every push (probe
+  # edits live under e2e/**), nightly, + dispatch — cheap (~15 min, no Browserbase billing).
+  prod-a11y-guards:
+    name: A11y guards @ prod (public funnel + admin surf)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/project-sites/frontend/package-lock.json
+
+      # Probes resolve playwright + @axe-core/playwright from the frontend workspace.
+      - name: Install frontend deps
+        working-directory: apps/project-sites/frontend
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright Chromium
+        working-directory: apps/project-sites/frontend
+        run: npx playwright install --with-deps chromium
+
+      # Public funnel a11y — no secret needed (public prod surface).
+      - name: Public funnel a11y (axe WCAG 2.2 AA × 6 breakpoints)
+        working-directory: apps/project-sites
+        run: node e2e/loop-eval/public-a11y-probe.mjs
+
+      # Admin surf needs the authed session — fail-open when the secret is absent.
+      - name: Check E2E_API_KEY is configured
+        id: gate
+        env:
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
+        run: |
+          if [ -n "$E2E_API_KEY" ]; then
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::E2E_API_KEY secret not set — skipping admin surf (fail-open)."
+          fi
+
+      - name: Admin surf audit (a11y+console+boundary+content, mobile + desktop)
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites
+        env:
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
+        run: |
+          VIEWPORT=390 node e2e/admin-verify/admin-surf-audit.mjs
+          VIEWPORT=1280 node e2e/admin-verify/admin-surf-audit.mjs
