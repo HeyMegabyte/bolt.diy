@@ -104,11 +104,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ENVIRONMENT: test
-      # Bump V8 heap so jest workers (inherited NODE_OPTIONS) don't OOM under v8
-      # coverage over 400 suites — the heavy route_malformed_json_boundary suite
-      # imports the full ../index worker and was crashing a worker on the lower-RAM
-      # CI runner ("Test suite failed to run", passes locally). workerIdleMemoryLimit
-      # recycles between idle tests; this prevents the mid-load heap blowout.
+      # Heap headroom for the heavy route_malformed_json_boundary suite (imports the full
+      # ../index worker → crashed a worker on the lower-RAM CI runner). Kept as a safety
+      # margin even though --coverage (the main heap pressure) is now OFF the deploy gate.
       NODE_OPTIONS: '--max-old-space-size=4096'
     steps:
       - uses: actions/checkout@v4
@@ -125,22 +123,19 @@ jobs:
         working-directory: apps/project-sites
         run: npm ci --legacy-peer-deps
 
+      # --coverage removed from the DEPLOY GATE (2026-09-04): coverage is report-only
+      # (no coverageThreshold in jest.config → it gates nothing), but its instrumentation
+      # ~2-3× slowed the worker's 400+ suites (~28min → the pipeline's dominant cost) AND
+      # drove the OOM that needed the 4GB heap bump. The tests still RUN (the actual gate);
+      # only the coverage report is dropped from the deploy path. Re-add via a separate
+      # non-gating scheduled coverage job if a coverage report is wanted.
       - name: Test shared package
         working-directory: packages/shared
-        run: npm run test:unit -- --coverage
+        run: npm run test:unit
 
       - name: Test worker package
         working-directory: apps/project-sites
-        run: npm run test:unit -- --coverage
-
-      - name: Upload coverage
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-reports
-          path: |
-            packages/shared/coverage
-            apps/project-sites/coverage
+        run: npm run test:unit
 
   # ─── Stage 3: Deploy to Staging ────────────────────────────
   deploy-staging:
