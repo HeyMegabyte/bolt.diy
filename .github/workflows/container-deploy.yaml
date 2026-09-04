@@ -33,6 +33,13 @@ on:
       - 'apps/project-sites/scripts/run-validators.mjs'
       - 'apps/project-sites/frontend/**'
 
+# Serialize container deploys — a push (paths above) AND a manual workflow_dispatch of the
+# SAME commit previously ran two deploys at once, racing on the R2 upload (R2 overlap can
+# empty the bucket). cancel-in-progress:false QUEUES the second so they never overlap. (FIRE-79)
+concurrency:
+  group: container-deploy-production
+  cancel-in-progress: false
+
 env:
   NODE_VERSION: '20.19.0'
 
