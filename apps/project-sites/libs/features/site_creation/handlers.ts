@@ -125,6 +125,15 @@ siteCreation.post('/api/sites/create-from-search', async (c) => {
   const googlePlaceId = body.business?.place_id || body.google_place_id;
   const businessPhone = body.business?.phone || body.business_phone || null;
   const businessEmail = body.business?.email || body.business_email || null;
+  // Declared vertical (fire-55/76) — extracted so it's PERSISTED on the sites row
+  // (migration 0632, for /reset re-threading) AND passed to the workflow. Mirrors the
+  // NAP flat-key chain: Places type → flat business_type → flat business_category → nested.
+  const businessCategory =
+    body.business?.types?.[0] ??
+    ((body as Record<string, unknown>).business_type as string | undefined) ??
+    ((body as Record<string, unknown>).business_category as string | undefined) ??
+    ((body.business as Record<string, unknown> | undefined)?.category as string | undefined) ??
+    null;
 
   if (!businessName || businessName.trim().length === 0) {
     throw badRequest('Missing required field: business_name (or business.name)');
@@ -169,6 +178,8 @@ siteCreation.post('/api/sites/create-from-search', async (c) => {
     business_name: sanitizedName,
     business_phone: businessPhone,
     business_email: businessEmail,
+    business_category: businessCategory,
+    business_hours: businessHours ?? null,
     business_address: businessAddress ?? null,
     google_place_id: googlePlaceId ?? null,
     bolt_chat_id: null,
@@ -206,12 +217,7 @@ siteCreation.post('/api/sites/create-from-search', async (c) => {
         // only `business_type` was read here → the explicit category was DROPPED on EVERY
         // create (weave fell back to "local service", classification to fragile name-
         // inference — the "Harvest & Vine → nonprofit" class). Mirror the NAP flat-key chain.
-        businessCategory:
-          body.business?.types?.[0] ??
-          ((body as Record<string, unknown>).business_type as string | undefined) ??
-          ((body as Record<string, unknown>).business_category as string | undefined) ??
-          ((body.business as Record<string, unknown> | undefined)?.category as string | undefined) ??
-          undefined,
+        businessCategory: businessCategory ?? undefined,
         googlePlaceId: googlePlaceId ?? undefined,
         additionalContext: additionalContext ?? undefined,
         uploadId: (body as Record<string, unknown>).upload_id as string | undefined,

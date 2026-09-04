@@ -2559,6 +2559,47 @@ api.post('/api/sites/:id/test-publish', async (c) => {
   return c.json({ data: { status: result.status } });
 });
 
+/**
+ * Resolve category + NAP for a `/reset` rebuild: the request body wins, else the value
+ * persisted on the sites row (migration 0632), else undefined. fire-77 — reset previously
+ * read category only from the body (empty on admin-UI + the loop's reset-retry) and dropped
+ * phone/email/hours entirely → the identity-woven About fell back to "local service" and NAP
+ * was lost on every rebuild. Pure + unit-tested (see api_reset_business_fields.test.ts).
+ */
+export function resolveResetBusinessFields(
+  body: {
+    business?: { types?: string[] };
+    business_type?: string;
+    business_category?: string;
+    business_phone?: string;
+    business_email?: string;
+    business_hours?: string;
+  },
+  site: {
+    business_category?: string | null;
+    business_phone?: string | null;
+    business_email?: string | null;
+    business_hours?: string | null;
+  },
+): {
+  businessCategory?: string;
+  businessPhone?: string;
+  businessEmail?: string;
+  businessHours?: string;
+} {
+  return {
+    businessCategory:
+      body.business?.types?.[0] ||
+      body.business_type ||
+      body.business_category ||
+      site.business_category ||
+      undefined,
+    businessPhone: body.business_phone || site.business_phone || undefined,
+    businessEmail: body.business_email || site.business_email || undefined,
+    businessHours: body.business_hours || site.business_hours || undefined,
+  };
+}
+
 api.post('/api/sites/:id/reset', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized('Must be authenticated');
@@ -2573,6 +2614,10 @@ api.post('/api/sites/:id/reset', async (c) => {
     org_id: string;
     business_name: string | null;
     business_address: string | null;
+    business_phone: string | null;
+    business_email: string | null;
+    business_hours: string | null;
+    business_category: string | null;
     google_place_id: string | null;
     budget_tier: string | null;
     status: string | null;
@@ -2580,7 +2625,9 @@ api.post('/api/sites/:id/reset', async (c) => {
     c.env,
     orgId,
     siteId,
-    'id, slug, org_id, business_name, business_address, google_place_id, budget_tier, status',
+    // fire-77 reset-fix: also load NAP + category so a body-less rebuild re-threads
+    // them into the workflow (were dropped → weave "local service" + no hours). 0632.
+    'id, slug, org_id, business_name, business_address, business_phone, business_email, business_hours, business_category, google_place_id, budget_tier, status',
   );
 
   // In-flight build guard (#35 follow-on) — `/reset` rebuilds an already-owned
@@ -2611,6 +2658,12 @@ api.post('/api/sites/:id/reset', async (c) => {
     // entirely, so a reset build had NO category signal → misclassification (fire-54:
     // reset restaurant → dark saas). Threaded to the workflow below.
     business_type?: string;
+    // fire-77 reset-fix: accept flat category + NAP on reset too (the loop's reset can
+    // pass them). Body value wins over the stored column; stored wins over undefined.
+    business_category?: string;
+    business_phone?: string;
+    business_email?: string;
+    business_hours?: string;
     additional_context?: string;
     /**
      * Convergence loop hint: 1-indexed iteration number. When > 1, the workflow
@@ -2631,6 +2684,9 @@ api.post('/api/sites/:id/reset', async (c) => {
   } catch {
     // Empty or malformed body is acceptable — reset with defaults
   }
+
+  // fire-77: category + NAP re-threaded from body-or-stored so a rebuild keeps them.
+  const resetFields = resolveResetBusinessFields(body, site);
 
   // Normalize v1 (flat) + v2 (nested) payload shapes to ONE shape used below —
   // mirrors create-from-search. A flat business_name must flow into the workflow
@@ -2699,7 +2755,8 @@ api.post('/api/sites/:id/reset', async (c) => {
           businessName: resolvedBusiness.name || site.business_name || '',
           businessAddress: resolvedBusiness.address || site.business_address || '',
           businessWebsite: body.business?.website || '',
-          businessCategory: body.business?.types?.[0] || body.business_type || undefined,
+          // fire-77 reset-fix: category + NAP survive a rebuild (see resolveResetBusinessFields).
+          ...resetFields,
           googlePlaceId: body.business?.place_id || site.google_place_id || '',
           additionalContext: body.additional_context || body.expert_notes || '',
           isReset: true,
@@ -2723,7 +2780,7 @@ api.post('/api/sites/:id/reset', async (c) => {
             slug: site.slug,
             businessName: resolvedBusiness.name || site.business_name || '',
             businessAddress: resolvedBusiness.address || site.business_address || '',
-            businessCategory: body.business?.types?.[0] || body.business_type || undefined,
+            ...resetFields,
             additionalContext: body.additional_context || body.expert_notes || '',
             isReset: true,
             iteration,
