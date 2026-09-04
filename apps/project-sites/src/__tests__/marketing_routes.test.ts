@@ -16,6 +16,11 @@ import {
   MARKETING_META,
   BLOG_POST_META,
 } from '../marketing_routes.js';
+// The client PAGE_META, imported DIRECTLY from its pure data module (no Angular
+// deps). Importing — not file-parsing — means a future relocation breaks THIS
+// import at typecheck ("cannot find module"), instead of a regex silently yielding
+// 0 keys → an obscure guard failure that twice hid real drift + blocked deploys.
+import { PAGE_META } from '../../frontend/src/app/services/page-meta.js';
 
 /** Read a repo file robustly across jest cwd/__dirname quirks; null if absent. */
 function readRepoFile(rel: string): string | null {
@@ -311,35 +316,17 @@ describe('server/client meta SSOT — MARKETING_META (worker) ≡ PAGE_META (fro
   // INDEXABLE guard above only checks a MARKETING_META entry EXISTS + isn't the generic
   // default; this gate checks the two maps AGREE (title + description), so a future edit
   // to one side but not the other fails HERE — never silently in prod on ANY route.
-  function parsePageMeta(): Record<string, { title: string; description: string }> | null {
-    // PAGE_META was extracted from meta.service.ts to its own pure data module
-    // (page-meta.ts) so the standalone gate could import it; this parser follows.
-    const src = readRepoFile('frontend/src/app/services/page-meta.ts');
-    if (src === null) return null; // worker-only checkout — skip, don't false-fail
-    const start = src.indexOf('const PAGE_META');
-    const body = src.slice(start, src.indexOf('\n};', start));
-    const unesc = (s: string) => s.replace(/\\'/g, "'").replace(/\\"/g, '"').replace(/\\n/g, ' ');
+  function loadPageMeta(): Record<string, { title: string; description: string }> {
     const out: Record<string, { title: string; description: string }> = {};
-    // Each entry: `  'key': {\n … title: '…', … description: '…', … \n  }` (2-space indent).
-    const re = /'([^']*)':\s*\{([\s\S]*?)\n {2}\}/g;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(body)) !== null) {
-      const key = m[1] ?? '';
-      const eb = m[2] ?? '';
-      const t = /title:\s*'((?:\\.|[^'\\])*)'/.exec(eb);
-      const d = /description:\s*'((?:\\.|[^'\\])*)'/.exec(eb);
-      if (t && d) out[key] = { title: unesc(t[1] ?? ''), description: unesc(d[1] ?? '') };
+    for (const [key, v] of Object.entries(PAGE_META)) {
+      out[key] = { title: v.title, description: v.description };
     }
     return out;
   }
 
   it('every route in BOTH maps has an identical title + description (no server/client drift)', () => {
-    const page = parsePageMeta();
-    if (page === null) {
-      console.warn('meta SSOT gate: frontend page-meta.ts not found, skipping');
-      return;
-    }
-    // Guard against a silent parser break making the gate vacuously pass.
+    const page = loadPageMeta();
+    // Guard against an empty/broken map making the gate vacuously pass.
     expect(Object.keys(page).length).toBeGreaterThan(12);
 
     const drift: string[] = [];
