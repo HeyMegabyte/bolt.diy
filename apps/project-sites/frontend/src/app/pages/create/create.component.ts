@@ -640,6 +640,9 @@ export class CreateComponent implements OnInit, OnDestroy {
           const design = this.getDesignRecommendations(inferred || '');
           const parts: string[] = [];
           parts.push(`Design style: ${design.style}.`);
+          parts.push(
+            `Theme personality: ${design.themeStyle} — apply this named visual style (typography, corner radius, shadow character, motion) consistently across the whole site.`,
+          );
           parts.push(`Brand colors: primary ${design.primaryColor}, accent ${design.accentColor}.`);
           parts.push(
             `Typography: ${design.headingFont} for headings, ${design.bodyFont} for body text.`,
@@ -883,6 +886,9 @@ export class CreateComponent implements OnInit, OnDestroy {
 
     const design = this.getDesignRecommendations(category);
     parts.push(`Design style: ${design.style}.`);
+    parts.push(
+      `Theme personality: ${design.themeStyle} — apply this named visual style (typography, corner radius, shadow character, motion) consistently across the whole site.`,
+    );
     parts.push(`Brand colors: primary ${design.primaryColor}, accent ${design.accentColor}.`);
     parts.push(`Typography: ${design.headingFont} for headings, ${design.bodyFont} for body text.`);
     parts.push(`Target audience: ${design.audience}.`);
@@ -1053,6 +1059,7 @@ export class CreateComponent implements OnInit, OnDestroy {
 
   private getDesignRecommendations(category: string): {
     style: string;
+    themeStyle: string;
     primaryColor: string;
     accentColor: string;
     headingFont: string;
@@ -1063,6 +1070,7 @@ export class CreateComponent implements OnInit, OnDestroy {
   } {
     const defaults: {
       style: string;
+      themeStyle: string;
       primaryColor: string;
       accentColor: string;
       headingFont: string;
@@ -1072,6 +1080,7 @@ export class CreateComponent implements OnInit, OnDestroy {
       extras?: string;
     } = {
       style: 'Modern minimalist with bold typography',
+      themeStyle: 'classic',
       primaryColor: '#1a1a2e',
       accentColor: '#e94560',
       headingFont: 'Montserrat',
@@ -1091,6 +1100,7 @@ export class CreateComponent implements OnInit, OnDestroy {
     const map: Record<string, Partial<typeof defaults>> = {
       'Restaurant / Café': {
         style: 'Warm and inviting with food photography emphasis',
+        themeStyle: 'warm',
         primaryColor: '#2d1810',
         accentColor: '#d4a574',
         headingFont: 'Playfair Display',
@@ -1111,6 +1121,7 @@ export class CreateComponent implements OnInit, OnDestroy {
       },
       'Salon / Barbershop': {
         style: 'Sleek and premium with dark accents',
+        themeStyle: 'luxe',
         primaryColor: '#1a1a2e',
         accentColor: '#c9a96e',
         headingFont: 'Cormorant Garamond',
@@ -1131,6 +1142,7 @@ export class CreateComponent implements OnInit, OnDestroy {
       },
       'Legal / Law Firm': {
         style: 'Professional and trustworthy with serif typography',
+        themeStyle: 'editorial',
         primaryColor: '#1b2a4a',
         accentColor: '#c0922e',
         headingFont: 'Merriweather',
@@ -1151,6 +1163,7 @@ export class CreateComponent implements OnInit, OnDestroy {
       },
       'Medical / Healthcare': {
         style: 'Clean, calming, and trustworthy',
+        themeStyle: 'editorial',
         primaryColor: '#0a2647',
         accentColor: '#2196f3',
         headingFont: 'Poppins',
@@ -1170,6 +1183,7 @@ export class CreateComponent implements OnInit, OnDestroy {
       },
       'Technology / SaaS': {
         style: 'Futuristic with gradient accents and glassmorphism',
+        themeStyle: 'futuristic',
         primaryColor: '#0f0f23',
         accentColor: '#6366f1',
         headingFont: 'Space Grotesk',
@@ -1190,6 +1204,7 @@ export class CreateComponent implements OnInit, OnDestroy {
       },
       'Fitness / Gym': {
         style: 'Bold and energetic with high contrast',
+        themeStyle: 'bold',
         primaryColor: '#1a1a2e',
         accentColor: '#ff4444',
         headingFont: 'Oswald',
@@ -1209,6 +1224,7 @@ export class CreateComponent implements OnInit, OnDestroy {
       },
       'Real Estate': {
         style: 'Elegant with large property imagery',
+        themeStyle: 'luxe',
         primaryColor: '#1a1a2e',
         accentColor: '#2ecc71',
         headingFont: 'Libre Baskerville',
@@ -1228,6 +1244,7 @@ export class CreateComponent implements OnInit, OnDestroy {
       },
       'Construction / Home Services': {
         style: 'Rugged and reliable with strong imagery',
+        themeStyle: 'rugged',
         primaryColor: '#2c3e50',
         accentColor: '#e67e22',
         headingFont: 'Roboto Slab',
@@ -1247,6 +1264,7 @@ export class CreateComponent implements OnInit, OnDestroy {
       },
       'Photography / Creative': {
         style: 'Minimal with maximum focus on visual work',
+        themeStyle: 'brutalist',
         primaryColor: '#111111',
         accentColor: '#ffffff',
         headingFont: 'DM Sans',
