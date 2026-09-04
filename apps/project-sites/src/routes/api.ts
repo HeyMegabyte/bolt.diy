@@ -1226,7 +1226,8 @@ api.get('/api/sites', async (c) => {
   const customBySite = new Map<string, string>();
   for (const h of hostnameRows) {
     if (!primaryBySite.has(h.site_id)) primaryBySite.set(h.site_id, h.hostname);
-    if (h.type === 'custom_cname' && !customBySite.has(h.site_id)) customBySite.set(h.site_id, h.hostname);
+    if (h.type === 'custom_cname' && !customBySite.has(h.site_id))
+      customBySite.set(h.site_id, h.hostname);
   }
 
   const enriched = data.map((site) => {
