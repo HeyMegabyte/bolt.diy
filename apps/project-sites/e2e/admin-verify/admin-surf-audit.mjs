@@ -11,10 +11,14 @@ import { dirname, resolve } from 'node:path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const req = createRequire(resolve(__dirname, '../../frontend/'));
 const { chromium } = req('playwright');
+const { default: AxeBuilder } = req('@axe-core/playwright');
 
 const KEY = process.env.E2E_API_KEY;
 if (!KEY) { console.error('E2E_API_KEY env required'); process.exit(2); }
 const ORIGIN = process.env.ORIGIN || 'https://projectsites.dev';
+// Viewport is configurable (VIEWPORT=390 for the mobile pass); default desktop.
+const VW = parseInt(process.env.VIEWPORT || '1280', 10);
+const VH = VW <= 480 ? 844 : 900;
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36';
 
@@ -30,7 +34,7 @@ const SECTIONS = [
 const IGNORE = /google-analytics|googletagmanager|posthog|\/ingest|doubleclick|sentry|clarity|hotjar|cf-|challenge|beacon|Failed to load resource.*(analytics|ingest|posthog)/i;
 
 const browser = await chromium.launch();
-const ctx = await browser.newContext({ userAgent: UA, viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' });
+const ctx = await browser.newContext({ userAgent: UA, viewport: { width: VW, height: VH }, serviceWorkers: 'block' });
 const page = await ctx.newPage();
 
 await page.goto(ORIGIN + '/', { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -49,7 +53,17 @@ for (const s of SECTIONS) {
   page.on('pageerror', onPageErr);
   try {
     await page.goto(`${ORIGIN}/admin/${s}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.waitForTimeout(2600);
+    await page.waitForTimeout(1500);
+    // Wait for loading skeletons/spinners to clear so axe evaluates the SETTLED state —
+    // a mid-load skeleton/placeholder transiently fails contrast → flaky false positives
+    // (validator-precision-discipline: a guard that cries wolf is worse than none).
+    await page
+      .waitForFunction(
+        () => !document.querySelector('[aria-busy="true"], .animate-pulse, .skeleton, .loading-skeleton, [data-loading="true"]'),
+        { timeout: 5000 },
+      )
+      .catch(() => {});
+    await page.waitForTimeout(900);
     const info = await page.evaluate(() => {
       const root = document.querySelector('app-root, #root, body');
       const txt = document.body.innerText || '';
@@ -61,16 +75,24 @@ for (const s of SECTIONS) {
         boundary,
       };
     });
+    // axe (critical + serious) at the current viewport.
+    let axeSerious = [];
+    try {
+      const r = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
+      axeSerious = r.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
+    } catch { /* axe injection can fail on a redirected shell — treat as no data */ }
     const blank = info.textLen < 40;
-    const bad = errors.length > 0 || info.boundary || blank;
+    const bad = errors.length > 0 || info.boundary || blank || axeSerious.length > 0;
     if (bad) problems++;
     const flags = [
       errors.length ? `${errors.length} console-err` : null,
       info.boundary ? 'ERROR-BOUNDARY' : null,
       blank ? 'BLANK' : null,
+      axeSerious.length ? `${axeSerious.length} axe` : null,
     ].filter(Boolean).join(', ');
     rows.push(`  ${bad ? '✗' : '✓'} /admin/${s}`.padEnd(28) + `→ ${info.url.padEnd(26)} ${bad ? flags : 'ok (' + info.textLen + ' chars)'}`);
     if (errors.length) for (const e of errors.slice(0, 3)) rows.push(`        · ${e}`);
+    for (const v of axeSerious) rows.push(`        [${v.impact}] ${v.id}: ${v.help} (${v.nodes.length}) e.g. ${(v.nodes[0]?.target || []).join(' ')} — ${(v.nodes[0]?.html || '').slice(0, 80)}`);
   } catch (e) {
     problems++;
     rows.push(`  ! /admin/${s} nav error: ${String(e).slice(0, 80)}`);
@@ -79,7 +101,7 @@ for (const s of SECTIONS) {
   page.off('pageerror', onPageErr);
 }
 
-console.log(`━━ admin surf audit: ${ORIGIN} → ${problems === 0 ? 'CLEAN' : problems + ' section(s) with issues'} ━━`);
+console.log(`━━ admin surf audit @${VW}px (a11y+console+boundary+content): ${ORIGIN} → ${problems === 0 ? 'CLEAN' : problems + ' section(s) with issues'} ━━`);
 for (const r of rows) console.log(r);
 await browser.close();
 process.exit(problems === 0 ? 0 : 1);
