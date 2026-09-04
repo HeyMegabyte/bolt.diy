@@ -52,7 +52,8 @@ async function displayCount() {
     const j = await res.json().catch(() => null);
     const rows = Array.isArray(j?.data) ? j.data.length : Array.isArray(j) ? j.length : -1;
     const total = j?.total ?? j?.meta?.total ?? j?.pagination?.total ?? null;
-    return { status: res.status, rows, total };
+    const limit = j?.limit ?? null;
+    return { status: res.status, rows, total, limit };
   }, KEY);
   await browser.close();
   return r;
@@ -62,12 +63,22 @@ const ground = d1Count();
 const disp = await displayCount();
 console.log(`━━ reconcile /api/sites (${ORG}) ━━`);
 console.log(`  D1 ground-truth (live sites): ${ground}`);
-console.log(`  /api/sites display rows:      ${disp.rows}  (status ${disp.status}, total field: ${disp.total})`);
+console.log(`  /api/sites display rows:      ${disp.rows}  (status ${disp.status}, total: ${disp.total}, limit: ${disp.limit})`);
 
+// The disclosed `total` MUST equal the store (that's the real truthful-persistence
+// check now the endpoint is bounded). A page capped at `limit` is FINE as long as it
+// discloses the true total; a cap with NO total is the silent-cap lying-UI.
+const cap = disp.limit != null ? Math.min(ground, Number(disp.limit)) : ground;
 let verdict = 'OK';
 if (ground > 0 && disp.rows === 0) verdict = 'LYING-EMPTY (store has rows, display shows 0)';
-else if (disp.rows < ground) verdict = `SILENT-CAP / WRONG-SOURCE (display ${disp.rows} < store ${ground}${disp.total == null ? ', no total field to disclose the cap' : ''})`;
+else if (disp.total != null && Number(disp.total) !== ground) verdict = `WRONG-TOTAL (disclosed total ${disp.total} != store ${ground})`;
+else if (disp.total == null && disp.rows < ground) verdict = `SILENT-CAP (display ${disp.rows} < store ${ground}, no total field to disclose it)`;
+else if (disp.rows < cap) verdict = `UNDER-PAGE (display ${disp.rows} < min(store ${ground}, limit ${disp.limit}))`;
 else if (disp.rows > ground) verdict = `DISPLAY > STORE (${disp.rows} > ${ground}) — stale/cross-org leak?`;
-console.log(`  VERDICT: ${verdict === 'OK' ? '✓ truthful (display == store)' : '✗ ' + verdict}`);
+const okMsg =
+  disp.total != null && Number(disp.total) === ground && disp.rows === ground
+    ? '✓ truthful (display == store == total)'
+    : `✓ truthful (page ${disp.rows} of ${ground}, total disclosed)`;
+console.log(`  VERDICT: ${verdict === 'OK' ? okMsg : '✗ ' + verdict}`);
 
 process.exit(verdict === 'OK' ? 0 : 1);

@@ -1187,30 +1187,60 @@ api.get('/api/sites', async (c) => {
   const orgId = c.get('orgId');
   if (!orgId) throw unauthorized('Must be authenticated');
 
-  const { data } = await dbQuery<Record<string, unknown>>(
+  // Bounded page + disclosed `total`: a large org's list can't silently truncate, and
+  // the enrichment no longer fires an unbounded N+1 (was 1 + 2×N queries per call — a
+  // 99-site org meant 199 D1 reads). Default 250 is well above any real org's site count;
+  // `?limit=&offset=` allow future pagination. See [[paginated-endpoint-silent-cap-needs-total]].
+  const limitRaw = Number.parseInt(c.req.query('limit') ?? '250', 10);
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 && limitRaw <= 500 ? limitRaw : 250;
+  const offsetRaw = Number.parseInt(c.req.query('offset') ?? '0', 10);
+  const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
+
+  const totalRow = await dbQueryOne<{ n: number }>(
     c.env.DB,
-    'SELECT * FROM sites WHERE org_id = ? AND deleted_at IS NULL ORDER BY created_at DESC',
+    'SELECT COUNT(*) AS n FROM sites WHERE org_id = ? AND deleted_at IS NULL',
     [orgId],
   );
+  const total = totalRow?.n ?? 0;
 
-  const enriched = await Promise.all(
-    data.map(async (site) => {
-      const primaryHostname = await domainService.getPrimaryHostname(c.env.DB, site.id as string);
-      const customDomain = await dbQueryOne<{ hostname: string; type: string }>(
-        c.env.DB,
-        "SELECT hostname, type FROM hostnames WHERE site_id = ? AND type = 'custom_cname' AND deleted_at IS NULL LIMIT 1",
-        [site.id as string],
-      );
-      return {
-        ...site,
-        primary_hostname: primaryHostname,
-        has_premium_domain: !!customDomain,
-        premium_domain: customDomain?.hostname ?? null,
-      };
-    }),
+  const { data } = await dbQuery<Record<string, unknown>>(
+    c.env.DB,
+    'SELECT * FROM sites WHERE org_id = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT ? OFFSET ?',
+    [orgId, limit, offset],
   );
 
-  return c.json({ data: enriched });
+  // Batch the hostname enrichment into ONE query for the whole page (kills the N+1). The
+  // ORDER BY mirrors getPrimaryHostname (is_primary DESC, created_at ASC) so the FIRST row
+  // per site_id is that site's primary hostname — identical result, 2 queries instead of 2×N.
+  const ids = data.map((s) => s.id as string);
+  const hostnameRows = ids.length
+    ? (
+        await dbQuery<{ site_id: string; hostname: string; type: string }>(
+          c.env.DB,
+          `SELECT site_id, hostname, type FROM hostnames WHERE site_id IN (${ids.map(() => '?').join(',')}) AND deleted_at IS NULL ORDER BY site_id, COALESCE(is_primary, 0) DESC, created_at ASC`,
+          ids,
+        )
+      ).data
+    : [];
+  const primaryBySite = new Map<string, string>();
+  const customBySite = new Map<string, string>();
+  for (const h of hostnameRows) {
+    if (!primaryBySite.has(h.site_id)) primaryBySite.set(h.site_id, h.hostname);
+    if (h.type === 'custom_cname' && !customBySite.has(h.site_id)) customBySite.set(h.site_id, h.hostname);
+  }
+
+  const enriched = data.map((site) => {
+    const id = site.id as string;
+    const custom = customBySite.get(id) ?? null;
+    return {
+      ...site,
+      primary_hostname: primaryBySite.get(id) ?? null,
+      has_premium_domain: !!custom,
+      premium_domain: custom,
+    };
+  });
+
+  return c.json({ data: enriched, total, limit, offset });
 });
 
 /**
