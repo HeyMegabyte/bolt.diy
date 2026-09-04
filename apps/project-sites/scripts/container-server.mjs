@@ -340,6 +340,23 @@ function loadContentMap(dir) {
   put('BUSINESS_ADDRESS', leaf(biz.address));
   put('BUSINESS_HOURS', leaf(biz.hours));
   put('BUSINESS_CLASS', leaf(biz.businessClass));
+  // SEO: {BUSINESS_DESCRIPTION} drives <meta name="description"> in index.html. `put`
+  // skips an empty brand description, which then ships as an EMPTY meta (confirmed on
+  // live sites) — a real SERP defect. Guarantee a non-empty description: content-pack
+  // SEO_DESCRIPTION (a real 120-156 char line, already loaded from _content.json above)
+  // → else a sentence composed from the identity tokens. Anything real beats empty.
+  if (!map['BUSINESS_DESCRIPTION']) {
+    const bn = map['BUSINESS_NAME'] || '';
+    const tl = map['BUSINESS_TAGLINE'] || '';
+    const cls = (map['BUSINESS_CLASS'] || '').replace(/[-_]/g, ' ').trim();
+    const city =
+      (map['BUSINESS_ADDRESS'] || '').split(',').map((s) => s.trim()).filter(Boolean).slice(-2, -1)[0] || '';
+    const composed = bn
+      ? `${bn}${tl ? ` — ${tl}` : ''}.${cls ? ` ${cls.charAt(0).toUpperCase()}${cls.slice(1)}` : ''}${city ? ` in ${city}` : ''}.`.trim()
+      : '';
+    const fallback = map['SEO_DESCRIPTION'] || composed;
+    if (fallback) map['BUSINESS_DESCRIPTION'] = fallback;
+  }
   // 3. _research.json profile as a last-resort source for the identity tokens.
   const research = readJson('_research.json');
   const prof = (research && research.profile) || {};
