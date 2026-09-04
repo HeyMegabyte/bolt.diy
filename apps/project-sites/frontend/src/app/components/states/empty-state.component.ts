@@ -135,7 +135,11 @@ import {
           }
         </div>
       }
-      <h3 class="es-title" data-testid="empty-title">{{ title }}</h3>
+      <!-- h2, not h3: this shared empty-state is usually the ONLY content under a
+           section's h1 (e.g. /admin/site-features with no features) → h3 would skip
+           a level (axe heading-order). h2 never skips from any predecessor (h1→h2 ok,
+           h2/h3→h2 ok). Styled by .es-title class, so the tag change is visual-neutral. -->
+      <h2 class="es-title" data-testid="empty-title">{{ title }}</h2>
       @if (message) {
         <p class="es-msg">{{ message }}</p>
       }

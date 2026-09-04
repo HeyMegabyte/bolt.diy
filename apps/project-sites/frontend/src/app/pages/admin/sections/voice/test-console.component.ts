@@ -79,7 +79,7 @@ type TwilioDeviceCtor = new (token: string, options?: Record<string, unknown>) =
       <article class="card" psReveal>
         <header class="mb-4">
           <div class="kicker">Voice test</div>
-          <h3 class="section-h text-base font-bold text-white m-0 mt-1">Call from this browser</h3>
+          <h2 class="section-h text-base font-bold text-white m-0 mt-1">Call from this browser</h2>
           <p class="muted-help m-0 mt-1">
             Dials your primary voice number using your microphone — exactly what callers hear.
           </p>
@@ -154,7 +154,7 @@ type TwilioDeviceCtor = new (token: string, options?: Record<string, unknown>) =
       <article class="card" psReveal>
         <header class="mb-4">
           <div class="kicker">SMS test</div>
-          <h3 class="section-h text-base font-bold text-white m-0 mt-1">Send a test SMS</h3>
+          <h2 class="section-h text-base font-bold text-white m-0 mt-1">Send a test SMS</h2>
           <p class="muted-help m-0 mt-1">Multi-turn — the AI replies inline.</p>
         </header>
 

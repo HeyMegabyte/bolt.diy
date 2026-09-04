@@ -45,9 +45,9 @@ interface PurchasedNumber {
       <!-- Unified channel pitch -->
       <article class="card hero-card" psReveal>
         <div class="kicker">One AI, every channel</div>
-        <h3 class="section-h text-xl font-bold text-white m-0 mt-1">
+        <h2 class="section-h text-xl font-bold text-white m-0 mt-1">
           Same AI across every channel
-        </h3>
+        </h2>
         <p class="muted-help m-0 mt-2 max-w-prose">
           The personality, knowledge, and tools you configured power your web chat, SMS, voice line,
           email, and 100+ MCP integrations. One source of truth — your customers feel it.
@@ -65,7 +65,7 @@ interface PurchasedNumber {
       <article class="card" psReveal>
         <header class="mb-3">
           <div class="kicker">Phone number</div>
-          <h3 class="section-h text-base font-bold text-white m-0 mt-1">Hand it out</h3>
+          <h2 class="section-h text-base font-bold text-white m-0 mt-1">Hand it out</h2>
           <p class="muted-help m-0 mt-1">QR for print. Copy buttons for signs, business cards, and email signatures.</p>
         </header>
 
@@ -99,7 +99,7 @@ interface PurchasedNumber {
         <article class="card" psReveal>
           <header class="mb-3">
             <div class="kicker">SMS</div>
-            <h3 class="section-h text-base font-bold text-white m-0 mt-1">Tap to text</h3>
+            <h2 class="section-h text-base font-bold text-white m-0 mt-1">Tap to text</h2>
             <p class="muted-help m-0 mt-1">Drop this link in your bio or website footer — opens the messages app pre-addressed.</p>
           </header>
           <div class="copy-row">
@@ -113,7 +113,7 @@ interface PurchasedNumber {
       <article class="card" psReveal>
         <header class="mb-3">
           <div class="kicker">Web embed</div>
-          <h3 class="section-h text-base font-bold text-white m-0 mt-1">Drop-in chat widget</h3>
+          <h2 class="section-h text-base font-bold text-white m-0 mt-1">Drop-in chat widget</h2>
           <p class="muted-help m-0 mt-1">Paste once before <code>&lt;/body&gt;</code>. Same AI as your phone line answers in &lt;0.4s.</p>
         </header>
         <div class="copy-row">
@@ -126,7 +126,7 @@ interface PurchasedNumber {
       <article class="card" psReveal>
         <header class="mb-3">
           <div class="kicker">Marketing</div>
-          <h3 class="section-h text-base font-bold text-white m-0 mt-1">Ready-to-paste posts</h3>
+          <h2 class="section-h text-base font-bold text-white m-0 mt-1">Ready-to-paste posts</h2>
           <p class="muted-help m-0 mt-1">Edit then ship to LinkedIn, X, Instagram caption, or your next newsletter.</p>
         </header>
         @for (s of snippets(); track $index) {

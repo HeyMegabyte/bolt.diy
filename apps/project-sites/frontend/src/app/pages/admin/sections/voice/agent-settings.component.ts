@@ -154,7 +154,7 @@ export function settingsToVoicePayload(siteId: string, s: AgentSettings): Record
       <article class="card" psReveal>
         <header class="mb-3">
           <div class="kicker">Behavior</div>
-          <h3 class="section-h text-base font-bold text-white m-0 mt-1">Voice + SMS system prompts</h3>
+          <h2 class="section-h text-base font-bold text-white m-0 mt-1">Voice + SMS system prompts</h2>
           <p class="muted-help m-0 mt-1">Tell the AI how to introduce itself, what to escalate, when to offer to book.</p>
         </header>
 
@@ -186,9 +186,9 @@ export function settingsToVoicePayload(siteId: string, s: AgentSettings): Record
             {{ metaOpen() ? 'Hide' : 'Show' }}
           </button>
         </header>
-        <h3 class="section-h text-base font-bold text-white m-0 mt-1">
+        <h2 class="section-h text-base font-bold text-white m-0 mt-1">
           Immutable safety meta-prompt
-        </h3>
+        </h2>
         <p class="muted-help m-0 mt-1">
           Prepended to every voice + SMS request. Enforces tone, refusal patterns, escalation rules, and PII handling. Read-only by design — change it from a worker secret rotation, not the UI.
         </p>
@@ -201,7 +201,7 @@ export function settingsToVoicePayload(siteId: string, s: AgentSettings): Record
       <article class="card" psReveal>
         <header class="mb-3">
           <div class="kicker">Voice config</div>
-          <h3 class="section-h text-base font-bold text-white m-0 mt-1">Voice · model</h3>
+          <h2 class="section-h text-base font-bold text-white m-0 mt-1">Voice · model</h2>
         </header>
         <div class="grid md:grid-cols-2 gap-3">
           <label class="block">
@@ -226,7 +226,7 @@ export function settingsToVoicePayload(siteId: string, s: AgentSettings): Record
       <article class="card" psReveal>
         <header class="mb-3">
           <div class="kicker">SMS config</div>
-          <h3 class="section-h text-base font-bold text-white m-0 mt-1">Reply model</h3>
+          <h2 class="section-h text-base font-bold text-white m-0 mt-1">Reply model</h2>
         </header>
         <label class="block">
           <span class="block-label">Model</span>
@@ -240,7 +240,7 @@ export function settingsToVoicePayload(siteId: string, s: AgentSettings): Record
       <article class="card" psReveal>
         <header class="mb-3">
           <div class="kicker">Toggles</div>
-          <h3 class="section-h text-base font-bold text-white m-0 mt-1">Features + hours</h3>
+          <h2 class="section-h text-base font-bold text-white m-0 mt-1">Features + hours</h2>
         </header>
 
         <div class="toggle-row">

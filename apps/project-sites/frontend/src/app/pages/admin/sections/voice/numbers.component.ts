@@ -85,14 +85,14 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
         <header class="flex items-center justify-between flex-wrap gap-3 mb-3">
           <div>
             <div class="kicker">Phone numbers</div>
-            <h3 class="section-h text-base font-bold text-white m-0 mt-1 flex items-center gap-2">
+            <h2 class="section-h text-base font-bold text-white m-0 mt-1 flex items-center gap-2">
               Your numbers
               <span class="header-pill" aria-live="polite">
                 <app-rolling-counter [value]="numbers().length" />
                 <span aria-hidden="true">/</span>
                 <app-rolling-counter [value]="MAX" />
               </span>
-            </h3>
+            </h2>
             <p class="muted-help m-0 mt-1">Up to {{ MAX }} numbers per site. Release one to free a slot.</p>
           </div>
           <div class="flex items-center gap-2 text-[0.7rem] text-text-secondary">
@@ -151,7 +151,7 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
       <article class="card" psReveal>
         <header class="mb-3">
           <div class="kicker">Find a number</div>
-          <h3 class="section-h text-base font-bold text-white m-0 mt-1">Vanity + area-code search</h3>
+          <h2 class="section-h text-base font-bold text-white m-0 mt-1">Vanity + area-code search</h2>
           <p class="muted-help m-0 mt-1">Type letters or digits. "LABOR" matches "52267", "MOVE" matches "6683".</p>
         </header>
 
@@ -243,7 +243,7 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
         <header class="flex items-center justify-between mb-3 flex-wrap gap-2">
           <div>
             <div class="kicker">AI</div>
-            <h3 class="section-h text-base font-bold text-white m-0 mt-1">Suggested vanity words</h3>
+            <h2 class="section-h text-base font-bold text-white m-0 mt-1">Suggested vanity words</h2>
             <p class="muted-help m-0 mt-1">Ranked by memorability + relevance to your business.</p>
           </div>
           <button class="btn-ghost text-xs" type="button" (click)="loadSuggestions(true)">Regenerate</button>

@@ -68,7 +68,7 @@ const PROVIDER_META: Readonly<Record<string, { label: string; color: string }>> 
         <header class="flex items-center justify-between gap-3 mb-3 flex-wrap">
           <div>
             <div class="kicker">Integrations</div>
-            <h3 class="section-h text-base font-bold text-white m-0 mt-1">MCP tool access</h3>
+            <h2 class="section-h text-base font-bold text-white m-0 mt-1">MCP tool access</h2>
             <p class="muted-help m-0 mt-1">
               Toggle which connections your voice + SMS agents can call mid-conversation.
               "Book the 3pm slot" → Calendly · "Send a quote" → Stripe · "Add to nurture" → Mailchimp.
