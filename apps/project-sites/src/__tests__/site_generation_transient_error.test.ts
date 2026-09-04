@@ -20,17 +20,21 @@ describe('isTransientBuildError — which container errors auto-restart', () => 
   it('matches npm install/build flakes (class #1, survived the in-container retry)', () => {
     expect(isTransientBuildError('npm install failed after retry code=null: ...')).toBe(true);
     expect(isTransientBuildError('npm build failed code=1: Type error ...')).toBe(true);
-    expect(isTransientBuildError('npm build failed or produced no dist/ files — unknown')).toBe(true);
+    expect(isTransientBuildError('npm build failed or produced no dist/ files — unknown')).toBe(
+      true,
+    );
   });
 
   it('does NOT match deterministic failures a re-run would reproduce (fail fast)', () => {
     expect(isTransientBuildError('validate-build: meta.title_length has 3 blockers')).toBe(false);
-    expect(isTransientBuildError('build_validation failed: banned slop word "world-class"')).toBe(false);
-    expect(isTransientBuildError('timeout')).toBe(false);
-    // eviction is handled by the unknown-job restart path, not this transient-error branch
-    expect(isTransientBuildError('Container DO evicted before build completed (job state lost)')).toBe(
+    expect(isTransientBuildError('build_validation failed: banned slop word "world-class"')).toBe(
       false,
     );
+    expect(isTransientBuildError('timeout')).toBe(false);
+    // eviction is handled by the unknown-job restart path, not this transient-error branch
+    expect(
+      isTransientBuildError('Container DO evicted before build completed (job state lost)'),
+    ).toBe(false);
   });
 
   it('handles null / undefined / empty safely', () => {
