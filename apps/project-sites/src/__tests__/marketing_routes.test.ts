@@ -366,10 +366,14 @@ describe('server/client meta SSOT — MARKETING_META (worker) ≡ PAGE_META (fro
     const home = MARKETING_META['/'];
     if (classic && home) {
       if (classic.title !== home.title) {
-        drift.push(`/classic TITLE (redirect alias must equal home)\n   server: ${classic.title}\n   home:   ${home.title}`);
+        drift.push(
+          `/classic TITLE (redirect alias must equal home)\n   server: ${classic.title}\n   home:   ${home.title}`,
+        );
       }
       if (classic.description !== home.description) {
-        drift.push(`/classic DESC (redirect alias must equal home)\n   server: ${classic.description}\n   home:   ${home.description}`);
+        drift.push(
+          `/classic DESC (redirect alias must equal home)\n   server: ${classic.description}\n   home:   ${home.description}`,
+        );
       }
     }
 
