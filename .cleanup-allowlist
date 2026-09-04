@@ -38,3 +38,7 @@ apps/project-sites/e2e/marketing-sections.spec.ts
 
 # After Phase 8 cleanup, prune the apps/project-sites/frontend/ entries above.
 apps/project-sites/fixtures/bricklabor.com/functions/site-worker/src/routes/home.ts
+
+# Perf probe — measures the marketing homepage's prerendered-hero LCP; its comments
+# mention "homepage"/"hero"/"<h1>", not a legacy homepage implementation.
+apps/project-sites/e2e/loop-eval/homepage-lcp-probe.mjs

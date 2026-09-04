@@ -418,6 +418,12 @@ jobs:
         working-directory: apps/project-sites
         run: node e2e/loop-eval/public-a11y-probe.mjs
 
+      # Homepage LCP — guards the prerendered-hero fast paint (fails only if the shell
+      # <h1> regresses); tracks the known SPA-hydration re-render gap via ::notice. Public.
+      - name: Homepage LCP guard (prerendered-hero paint)
+        working-directory: apps/project-sites
+        run: node e2e/loop-eval/homepage-lcp-probe.mjs
+
       # Admin surf needs the authed session — fail-open when the secret is absent.
       - name: Check E2E_API_KEY is configured
         id: gate
