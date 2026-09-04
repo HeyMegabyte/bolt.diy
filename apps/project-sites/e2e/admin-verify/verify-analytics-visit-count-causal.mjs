@@ -29,6 +29,7 @@
  * Usage: E2E_API_KEY=$(get-secret E2E_API_KEY) node e2e/admin-verify/verify-analytics-visit-count-causal.mjs [N]
  */
 
+import { resolveE2ESite } from "./_resolve-e2e-site.mjs";
 const KEY = process.env.E2E_API_KEY;
 if (!KEY) {
   console.log('::notice:: verify-analytics-visit-count-causal skipped — E2E_API_KEY unset');
@@ -36,8 +37,8 @@ if (!KEY) {
 }
 
 const BASE = process.env.PROD_URL || 'https://projectsites.dev';
-const SITE_ID = process.env.CAUSAL_SITE_ID || 'e2e-site-1';
-const SLUG = process.env.CAUSAL_SITE_SLUG || 'acme-bakery';
+let SITE_ID = process.env.CAUSAL_SITE_ID || '';
+let SLUG = process.env.CAUSAL_SITE_SLUG || '';
 const N = Math.max(1, Number(process.argv[2] || 3));
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36';
@@ -66,6 +67,20 @@ async function visit(i) {
     redirect: 'follow',
   });
   return res.status;
+}
+
+// Resolve a REAL site id + slug when CAUSAL_SITE_ID/SLUG aren't passed (the old
+// 'e2e-site-1'/'acme-bakery' placeholders 404 every request → false-red). Skip
+// gracefully if the org has none. Analytics needs BOTH: id (owner read) + slug (guest visit).
+if (!SITE_ID || !SLUG) {
+  const _s = await resolveE2ESite(BASE, KEY, UA);
+  SITE_ID = SITE_ID || _s.id;
+  SLUG = SLUG || _s.slug;
+  if (!SITE_ID || !SLUG) {
+    console.log('::notice:: verify-analytics-visit-count-causal skipped — no site on the e2e-test-org to probe');
+    process.exit(0);
+  }
+  console.log(`(auto-resolved CAUSAL_SITE_ID=${SITE_ID} SLUG=${SLUG})`);
 }
 
 const summary = { site: SITE_ID, slug: SLUG, n: N };

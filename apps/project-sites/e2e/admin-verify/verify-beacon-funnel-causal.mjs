@@ -24,6 +24,7 @@
  * Usage: E2E_API_KEY=$(get-secret E2E_API_KEY) node e2e/admin-verify/verify-beacon-funnel-causal.mjs [N]
  */
 
+import { resolveE2ESite } from "./_resolve-e2e-site.mjs";
 const KEY = process.env.E2E_API_KEY;
 if (!KEY) {
   console.log('::notice:: verify-beacon-funnel-causal skipped — E2E_API_KEY unset');
@@ -31,7 +32,7 @@ if (!KEY) {
 }
 
 const BASE = process.env.PROD_URL || 'https://projectsites.dev';
-const SITE_ID = process.env.CAUSAL_SITE_ID || 'e2e-site-1';
+let SITE_ID = process.env.CAUSAL_SITE_ID || '';
 const FORM_KEY = 'causal-beacon-form';
 const N = Math.max(1, Number(process.argv[2] || 2));
 const UA =
@@ -78,6 +79,17 @@ async function readForm() {
   if (!res.ok) throw new Error(`forms display ${res.status}`);
   const row = ((await res.json())?.forms ?? []).find((f) => f.form === FORM_KEY);
   return { starts: Number(row?.starts ?? 0), submits: Number(row?.submits ?? 0) };
+}
+
+// Resolve a REAL site id when CAUSAL_SITE_ID isn't passed (the old 'e2e-site-1'
+// placeholder 404s every request → false-red). Skip gracefully if the org has none.
+if (!SITE_ID) {
+  SITE_ID = (await resolveE2ESite(BASE, KEY, UA)).id;
+  if (!SITE_ID) {
+    console.log('::notice:: verify-beacon-funnel-causal skipped — no site on the e2e-test-org to probe');
+    process.exit(0);
+  }
+  console.log(`(auto-resolved CAUSAL_SITE_ID=${SITE_ID})`);
 }
 
 const summary = { site: SITE_ID, n: N, formKey: FORM_KEY };

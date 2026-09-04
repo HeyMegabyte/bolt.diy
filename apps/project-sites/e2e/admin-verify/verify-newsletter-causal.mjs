@@ -24,6 +24,7 @@
  * Usage: E2E_API_KEY=$(get-secret E2E_API_KEY) node e2e/admin-verify/verify-newsletter-causal.mjs
  */
 
+import { resolveE2ESite } from "./_resolve-e2e-site.mjs";
 const KEY = process.env.E2E_API_KEY;
 if (!KEY) {
   console.log('::notice:: verify-newsletter-causal skipped — E2E_API_KEY unset');
@@ -31,7 +32,7 @@ if (!KEY) {
 }
 
 const BASE = process.env.PROD_URL || 'https://projectsites.dev';
-const SITE_ID = process.env.CAUSAL_SITE_ID || 'e2e-site-1';
+let SITE_ID = process.env.CAUSAL_SITE_ID || '';
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36';
 
@@ -45,6 +46,17 @@ async function readNewsletter() {
   if (!res.ok) throw new Error(`analytics display ${res.status} (flag off / not authed?)`);
   const n = (await res.json())?.newsletter ?? {};
   return { total: Number(n.total ?? 0), confirmed: Number(n.confirmed ?? 0) };
+}
+
+// Resolve a REAL site id when CAUSAL_SITE_ID isn't passed (the old 'e2e-site-1'
+// placeholder 404s every request → false-red). Skip gracefully if the org has none.
+if (!SITE_ID) {
+  SITE_ID = (await resolveE2ESite(BASE, KEY, UA)).id;
+  if (!SITE_ID) {
+    console.log('::notice:: verify-newsletter-causal skipped — no site on the e2e-test-org to probe');
+    process.exit(0);
+  }
+  console.log(`(auto-resolved CAUSAL_SITE_ID=${SITE_ID})`);
 }
 
 const summary = { site: SITE_ID };

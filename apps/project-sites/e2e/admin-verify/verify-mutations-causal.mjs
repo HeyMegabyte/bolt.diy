@@ -17,6 +17,7 @@
  *
  * Usage: E2E_API_KEY=$(get-secret E2E_API_KEY) node e2e/admin-verify/verify-mutations-causal.mjs
  */
+import { resolveE2ESite } from './_resolve-e2e-site.mjs';
 
 const KEY = process.env.E2E_API_KEY;
 if (!KEY) {
@@ -25,7 +26,7 @@ if (!KEY) {
 }
 
 const BASE = process.env.PROD_URL || 'https://projectsites.dev';
-const SITE_ID = process.env.CAUSAL_SITE_ID || 'e2e-site-1';
+let SITE_ID = process.env.CAUSAL_SITE_ID || ''; // auto-resolved below when unset
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36';
 const H = { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json', 'User-Agent': UA, Origin: BASE };
@@ -40,6 +41,19 @@ const record = (name, ok, detail) => {
 };
 
 try {
+  // Resolve a REAL site id when CAUSAL_SITE_ID isn't passed. The old default
+  // 'e2e-site-1' was a placeholder that 404s EVERY mutation → a false-red 🔴 that
+  // masks a genuine pass (cost a diagnosis round-trip). Pick the org's first site
+  // from /api/sites; skip gracefully (exit 0) if the org has none, so a secret-set
+  // run without CAUSAL_SITE_ID never false-fails.
+  if (!SITE_ID) {
+    SITE_ID = (await resolveE2ESite(BASE, KEY, UA)).id;
+    if (!SITE_ID) {
+      console.log('::notice:: verify-mutations-causal skipped — no site on the e2e-test-org to probe');
+      process.exit(0);
+    }
+    console.log(`(auto-resolved CAUSAL_SITE_ID=${SITE_ID})`);
+  }
   // ── A. site UPDATE round-trip (PATCH persists + restores) ──────────────────
   {
     const orig = unwrap(await (await api(`/api/sites/${SITE_ID}`)).json())?.business_name ?? '';
