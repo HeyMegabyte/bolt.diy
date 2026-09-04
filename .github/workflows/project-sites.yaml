@@ -194,6 +194,11 @@ jobs:
         # (R2 S3 batch PUT via the existing aws-sigv4 signer, needs R2 S3 secrets)
         # is tracked separately.
         continue-on-error: true
+        # deploy-r2.mjs HANGS (not exits) when R2 rate-limits the per-file PUTs, so
+        # continue-on-error never fires and the whole pipeline stalls (staging blocked
+        # deploy-production indefinitely — the worker never shipped). Bound the hang so it
+        # soft-fails as intended and the Worker deploy below proceeds.
+        timeout-minutes: 5
         working-directory: apps/project-sites/frontend
         run: node scripts/deploy-r2.mjs staging
         env:
@@ -340,6 +345,9 @@ jobs:
         # frontend locally (`npm run deploy:production`, which works off-runner)
         # until the R2 S3 batch-PUT rewrite lands.
         continue-on-error: true
+        # Same hang-not-exit risk as staging above — bound it so a rate-limited R2 upload
+        # can't stall the prod Worker deploy that follows.
+        timeout-minutes: 5
         working-directory: apps/project-sites/frontend
         run: node scripts/deploy-r2.mjs production
         env:
