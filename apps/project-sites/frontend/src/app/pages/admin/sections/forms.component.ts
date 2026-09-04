@@ -164,7 +164,7 @@ const POLL_INTERVAL_MS = 10_000;
         <section class="card border border-primary/30" appReveal>
           <div class="flex items-center justify-between mb-2">
             <div>
-              <h3 class="section-h m-0 text-base font-semibold text-white">Test the Form Handling Prompt</h3>
+              <h2 class="section-h m-0 text-base font-semibold text-white">Test the Form Handling Prompt</h2>
               <p class="m-0 mt-0.5 text-[0.7rem] text-text-secondary">Runs the current prompt against this payload (1 credit).</p>
             </div>
             <button class="icon-close" type="button" (click)="testOpen.set(false)" aria-label="Close test panel" [brnTooltip]="'Close test panel'">
@@ -196,7 +196,7 @@ const POLL_INTERVAL_MS = 10_000;
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                 </span>
                 <div>
-                  <h4 class="success-title">Submission accepted</h4>
+                  <h3 class="success-title">Submission accepted</h3>
                   <p class="success-body">Routed through the form-handling prompt. Trace summary below — open AI Logs for the full timeline.</p>
                 </div>
               </div>
@@ -375,7 +375,7 @@ const POLL_INTERVAL_MS = 10_000;
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                   </span>
                   <div>
-                    <h4 class="success-title">Submission accepted</h4>
+                    <h3 class="success-title">Submission accepted</h3>
                     <p class="success-body">Routed through the form-handling prompt. Trace below.</p>
                   </div>
                 </div>
@@ -422,7 +422,7 @@ const POLL_INTERVAL_MS = 10_000;
       <!-- Submissions table -->
       <section class="card p-0 overflow-hidden" appReveal>
         <div class="flex items-center justify-between p-4 flex-wrap gap-2">
-          <h3 class="section-h m-0 text-base font-semibold text-white">Submissions</h3>
+          <h2 class="section-h m-0 text-base font-semibold text-white">Submissions</h2>
           <div class="flex items-center gap-2">
             <div class="filter-chips" role="tablist" hlmTablist aria-label="Saved views">
               @for (v of views; track v.id) {
@@ -466,7 +466,7 @@ const POLL_INTERVAL_MS = 10_000;
             <svg class="empty-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M4 4h16v12H5.5L4 18z"/><path d="M8 9h8M8 13h5"/>
             </svg>
-            <h4 class="empty-title">No submissions yet</h4>
+            <h3 class="empty-title">No submissions yet</h3>
             <p class="empty-body">Drop the snippet on your site and form replies will stream in here. Press ⌘K → "Copy app.js install snippet" to get started.</p>
             <!--
               Card-style CTA pulled out of the page header so the call-to-action
@@ -494,7 +494,7 @@ const POLL_INTERVAL_MS = 10_000;
             <svg class="empty-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
             </svg>
-            <h4 class="empty-title">No submissions match this view</h4>
+            <h3 class="empty-title">No submissions match this view</h3>
             <p class="empty-body">Nothing matches the “{{ activeViewLabel() }}” filter. Try another view or show them all.</p>
             <button class="empty-cta" type="button" data-testid="forms-view-show-all" (click)="activeView.set('all')"
                     [brnTooltip]="'Reset to the All view'">
@@ -559,11 +559,11 @@ const POLL_INTERVAL_MS = 10_000;
                            [attr.aria-label]="'Details for submission from ' + s.form_name">
                         <div class="grid md:grid-cols-2 gap-3">
                           <div>
-                            <h4 class="muted-h">Fields</h4>
+                            <h3 class="muted-h">Fields</h3>
                             <pre class="bg-black/30 border border-white/5 rounded-lg p-3 text-[0.7rem] overflow-auto max-h-72">{{ s.fields | json }}</pre>
                           </div>
                           <div>
-                            <h4 class="muted-h">AI Trace</h4>
+                            <h3 class="muted-h">AI Trace</h3>
                             @if (logs().length === 0) {
                               <p class="text-text-secondary/70 italic text-[0.78rem]">No AI trace yet — the router may still be running or credits exhausted.</p>
                             } @else {

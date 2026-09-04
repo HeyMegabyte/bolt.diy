@@ -126,7 +126,7 @@ interface ForecastBar {
           <div class="card" data-testid="subscription-card">
             <div class="flex items-start justify-between gap-3 flex-wrap mb-3">
               <div>
-                <h3 class="m-0 text-base font-semibold text-white">Subscription</h3>
+                <h2 class="m-0 text-base font-semibold text-white">Subscription</h2>
                 <p class="text-[0.7rem] text-text-secondary m-0 mt-1">Your current plan and billing cycle.</p>
               </div>
               <div class="flex gap-2">
@@ -223,7 +223,7 @@ interface ForecastBar {
           @if (embeddedCheckoutOpen() && embeddedCheckoutUrl()) {
             <div class="card mt-2">
               <div class="flex items-center justify-between mb-3">
-                <h3 class="m-0 text-base font-semibold text-white text-sm">Stripe Checkout</h3>
+                <h2 class="m-0 text-base font-semibold text-white text-sm">Stripe Checkout</h2>
                 <button class="btn-ghost" (click)="embeddedCheckoutOpen.set(false)">Close</button>
               </div>
               <div data-testid="stripe-embedded-iframe" class="billing-embedded-frame" aria-label="Stripe embedded checkout">
@@ -242,7 +242,7 @@ interface ForecastBar {
       <!-- ── Tab: Add-ons ── -->
       @if (activeTab() === 'addons') {
         <div role="tabpanel" id="billing-tab-panel-addons" aria-labelledby="billing-tab-addons" class="space-y-4">
-          <h3 class="m-0 text-base font-semibold text-white">Add-ons</h3>
+          <h2 class="m-0 text-base font-semibold text-white">Add-ons</h2>
           <p class="text-[0.7rem] text-text-secondary m-0">Expand your plan with recurring monthly add-ons.</p>
 
           <div class="grid sm:grid-cols-2 gap-3">
@@ -273,7 +273,7 @@ interface ForecastBar {
       <!-- ── Tab: Wallet ── -->
       @if (activeTab() === 'wallet') {
         <div role="tabpanel" id="billing-tab-panel-wallet" aria-labelledby="billing-tab-wallet" class="space-y-4">
-          <h3 class="m-0 text-base font-semibold text-white">Wallet</h3>
+          <h2 class="m-0 text-base font-semibold text-white">Wallet</h2>
 
           <div class="card">
             <div class="flex items-center justify-between mb-3">
@@ -325,7 +325,7 @@ interface ForecastBar {
       <!-- ── Tab: Usage / Metering ── -->
       @if (activeTab() === 'usage') {
         <div role="tabpanel" id="billing-tab-panel-usage" aria-labelledby="billing-tab-usage" class="space-y-4">
-          <h3 class="m-0 text-base font-semibold text-white">Usage &amp; Metering</h3>
+          <h2 class="m-0 text-base font-semibold text-white">Usage &amp; Metering</h2>
           <p class="text-[0.7rem] text-text-secondary m-0">Per-site usage events posted to Stripe Meters. Usage charges appear on your next invoice.</p>
 
           <!-- Upcoming invoice lines (BILL-09) -->
@@ -370,7 +370,7 @@ interface ForecastBar {
       <!-- ── Tab: Agency / Connect ── -->
       @if (activeTab() === 'agency') {
         <div role="tabpanel" id="billing-tab-panel-agency" aria-labelledby="billing-tab-agency" class="space-y-4">
-          <h3 class="m-0 text-base font-semibold text-white">Agency &amp; Stripe Connect</h3>
+          <h2 class="m-0 text-base font-semibold text-white">Agency &amp; Stripe Connect</h2>
           <p class="text-[0.7rem] text-text-secondary m-0">Connect your Stripe account to enable payouts to child orgs.</p>
 
           <div class="card">
@@ -399,7 +399,7 @@ interface ForecastBar {
       <!-- ── Tab: Affiliates ── -->
       @if (activeTab() === 'affiliates') {
         <div role="tabpanel" id="billing-tab-panel-affiliates" aria-labelledby="billing-tab-affiliates" class="space-y-4">
-          <h3 class="m-0 text-base font-semibold text-white">Affiliate Payouts</h3>
+          <h2 class="m-0 text-base font-semibold text-white">Affiliate Payouts</h2>
           <p class="text-[0.7rem] text-text-secondary m-0">Pending payout splits for your referrals.</p>
 
           <div class="card">
@@ -408,7 +408,7 @@ interface ForecastBar {
                 <div class="empty-glyph-sm" aria-hidden="true">
                   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M14.6 9.4a2.6 2 0 0 0-2.6-1.4c-1.4 0-2.6.7-2.6 1.8 0 2.4 5.2 1.2 5.2 3.6 0 1.1-1.2 1.8-2.6 1.8a2.6 2 0 0 1-2.6-1.4"/><path d="M12 6.4v1.6M12 16v1.6"/></svg>
                 </div>
-                <h4 class="empty-h">No payouts yet</h4>
+                <h3 class="empty-h">No payouts yet</h3>
                 <p class="empty-p">Your referral payouts will appear here when they're processed.</p>
               </div>
             } @else {
@@ -435,7 +435,7 @@ interface ForecastBar {
       <section class="card" id="plan" appReveal>
         <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
           <div>
-            <h3 class="m-0 text-base font-semibold text-white">Plan</h3>
+            <h2 class="m-0 text-base font-semibold text-white">Plan</h2>
             <p class="text-[0.7rem] text-text-secondary m-0 mt-0.5">Currently on <strong class="text-white">{{ planLabel() }}</strong>. Cancel any time.</p>
           </div>
           @if (plan() === 'paid') {
@@ -516,7 +516,7 @@ interface ForecastBar {
       <section class="card" id="caps" appReveal [revealDelay]="60">
         <div class="flex items-start justify-between gap-3 mb-1 flex-wrap">
           <div>
-            <h3 class="m-0 text-base font-semibold text-white">Per-project AI credit caps</h3>
+            <h2 class="m-0 text-base font-semibold text-white">Per-project AI credit caps</h2>
             <p class="text-[0.7rem] text-text-secondary m-0 mt-1 mb-2">
               Stop runaway spend on a single site. Cap takes effect on the 1st of every month. Empty = no cap.
             </p>
@@ -546,7 +546,7 @@ interface ForecastBar {
             <div class="empty-glyph-sm" aria-hidden="true">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             </div>
-            <h4 class="empty-h">No projects yet</h4>
+            <h3 class="empty-h">No projects yet</h3>
             <p class="empty-p">Create your first site to set per-project AI credit caps.</p>
             <!-- Opens the bulk caps modal (Turn 4). When the user has zero
                  sites the modal's own empty-state surfaces a "Create your
@@ -584,7 +584,7 @@ interface ForecastBar {
       <section class="card border border-violet-500/40" data-testid="forecast-card" appReveal [revealDelay]="120">
         <div class="flex items-center justify-between mb-3">
           <div>
-            <h3 class="m-0 text-base font-semibold text-white">30-day forecast</h3>
+            <h2 class="m-0 text-base font-semibold text-white">30-day forecast</h2>
             <p class="text-[0.7rem] text-text-secondary m-0 mt-0.5">
               Projected Cloudflare spend based on the last 30 days of usage.
             </p>
@@ -657,10 +657,10 @@ interface ForecastBar {
       <section class="card border border-cyan-500/40" data-testid="forecast-v2-card" appReveal [revealDelay]="180">
         <div class="flex items-start justify-between mb-3 gap-3 flex-wrap">
           <div class="min-w-0">
-            <h3 class="m-0 text-base font-semibold text-white flex items-center gap-2">
+            <h2 class="m-0 text-base font-semibold text-white flex items-center gap-2">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="text-cyan-300"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
               Rolling 30-day forecast
-            </h3>
+            </h2>
             <p class="text-[0.7rem] text-text-secondary m-0 mt-0.5">
               Projected from your last 7 days of usage. Updates every refresh.
             </p>
@@ -759,7 +759,7 @@ interface ForecastBar {
       <!-- ─────────────────── AI CREDITS ─────────────────── -->
       <section class="card border border-primary/30" appReveal [revealDelay]="240">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="m-0 text-base font-semibold text-white">AI Credits</h3>
+          <h2 class="m-0 text-base font-semibold text-white">AI Credits</h2>
           <span class="text-[0.7rem] text-text-secondary">1 credit ≈ 1 AI call</span>
         </div>
         @if (loadingCredits() && !credits()) {
@@ -893,7 +893,7 @@ interface ForecastBar {
       @if (activeTab() === 'usage') {
       <!-- ─────────────────── PER-SITE COST BREAKDOWN ─────────────────── -->
       <section class="card" appReveal [revealDelay]="300">
-        <h3 class="m-0 text-base font-semibold text-white mb-1">Per-site cost breakdown</h3>
+        <h2 class="m-0 text-base font-semibold text-white mb-1">Per-site cost breakdown</h2>
         <p class="text-[0.7rem] text-text-secondary m-0 mb-3">Rolling 30-day window. AI credits convert to estimated USD at $0.04/credit.</p>
         @if (loadingCosts() && siteCosts().length === 0) {
           <div class="space-y-2" aria-busy="true">
@@ -912,7 +912,7 @@ interface ForecastBar {
             <div class="empty-glyph-sm" aria-hidden="true">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>
             </div>
-            <h4 class="empty-h">No usage yet</h4>
+            <h3 class="empty-h">No usage yet</h3>
             <p class="empty-p">Once your sites start serving traffic and AI calls, you'll see the breakdown here.</p>
           </div>
         } @else {
@@ -951,7 +951,7 @@ interface ForecastBar {
       <!-- ─────────────────── SPEND ALERTS ─────────────────── -->
       <section class="card" appReveal [revealDelay]="360">
         <div class="flex items-center justify-between mb-3">
-          <h3 class="m-0 text-base font-semibold text-white">Spend alerts</h3>
+          <h2 class="m-0 text-base font-semibold text-white">Spend alerts</h2>
           <button
             type="button"
             class="btn-primary"
@@ -968,7 +968,7 @@ interface ForecastBar {
             <div class="empty-glyph-sm" aria-hidden="true">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
             </div>
-            <h4 class="empty-h">No spend alerts yet</h4>
+            <h3 class="empty-h">No spend alerts yet</h3>
             <p class="empty-p">Get notified when your balance drops or daily burn spikes. Use “+ Create alert” above to set your first one.</p>
           </div>
         } @else {
@@ -1127,7 +1127,7 @@ interface ForecastBar {
                 <div class="empty-glyph-sm" aria-hidden="true">
                   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                 </div>
-                <h4 class="empty-h">No projects yet</h4>
+                <h3 class="empty-h">No projects yet</h3>
                 <p class="empty-p">Create your first site to set per-project AI credit caps.</p>
               </div>
             } @else {
@@ -1451,7 +1451,7 @@ interface ForecastBar {
 
     .empty-state { display: flex; flex-direction: column; align-items: center; gap: 0.6rem; padding: 2rem 1rem; text-align: center; }
     .empty-state .icon { width: 36px; height: 36px; opacity: 0.45; }
-    .empty-state h4 { margin: 0; font-family: 'Sora', system-ui, sans-serif; font-weight: 600; color: rgba(255,255,255,0.85); font-size: 0.86rem; letter-spacing: -0.01em; }
+    .empty-state h3 { margin: 0; font-family: 'Sora', system-ui, sans-serif; font-weight: 600; color: rgba(255,255,255,0.85); font-size: 0.86rem; letter-spacing: -0.01em; }
     .empty-state p { margin: 0; font-size: 0.74rem; color: rgba(255,255,255,0.5); max-width: 28ch; }
     .skeleton { background: linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.08), rgba(255,255,255,0.04)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; border-radius: 8px; }
 
