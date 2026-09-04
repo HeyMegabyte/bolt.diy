@@ -43,28 +43,65 @@ const sample = [...picks].slice(0, SAMPLE);
 
 console.log(`━━ generated-site health sweep: ${all.length} published, sampling ${sample.length} ━━`);
 let broken = 0;
+const heroRegressed = [];
 for (const slug of sample) {
   const errs = [];
   const pg = await ctx.newPage();
   pg.on('console', (m) => { if (m.type() === 'error' && !IGNORE.test(m.text())) errs.push(m.text().slice(0, 70)); });
   pg.on('pageerror', (e) => { const t = String(e); if (!IGNORE.test(t)) errs.push('pageerror:' + t.slice(0, 70)); });
-  let status = '?', info = { h1: '', appjs: false, bodyLen: 0 };
+  let status = '?', info = { h1: '', appjs: false, bodyLen: 0, hero: 'no-hero' };
   try {
     const resp = await pg.goto(`https://${slug}.projectsites.dev/`, { waitUntil: 'domcontentloaded', timeout: 45000 });
     status = resp ? resp.status() : '?';
     await pg.waitForTimeout(2500);
-    info = await pg.evaluate(() => ({
-      h1: (document.querySelector('h1')?.textContent || '').trim().slice(0, 42),
-      appjs: !!document.querySelector('script[src*="projectsites.dev/app.js"]'),
-      bodyLen: (document.body.innerText || '').trim().length,
-    }));
+    info = await pg.evaluate(() => {
+      // Hero-delivery verdict — the LCP image is preferably the preloaded one, else the
+      // first in-page <img>. Same-origin is ideal (self-hosted from R2 per the media
+      // doctrine); a cross-origin hotlink is ACCEPTABLE only when it's preloaded AND its
+      // origin is preconnected (both mitigate the extra DNS+TLS). Anything else regresses
+      // the LCP path silently — this surfaces it.
+      const preload = document.querySelector('link[rel="preload"][as="image"]');
+      const heroHref =
+        preload?.getAttribute('href') ||
+        document.querySelector('main img, header img, section img, img')?.getAttribute('src') ||
+        '';
+      let heroHost = '';
+      try { heroHost = new URL(heroHref, location.href).host; } catch { /* relative/none */ }
+      const sameOrigin = !heroHost || heroHost === location.host || heroHost.endsWith('.projectsites.dev');
+      const preconnectHosts = [...document.querySelectorAll('link[rel="preconnect"]')].map((l) => {
+        try { return new URL(l.href).host; } catch { return ''; }
+      });
+      const preconnected = preconnectHosts.includes(heroHost);
+      const hero = !heroHref
+        ? 'no-hero'
+        : sameOrigin
+          ? 'same-origin'
+          : preload && preconnected
+            ? 'hotlink-ok'
+            : 'REGRESSED';
+      return {
+        h1: (document.querySelector('h1')?.textContent || '').trim().slice(0, 42),
+        appjs: !!document.querySelector('script[src*="projectsites.dev/app.js"]'),
+        bodyLen: (document.body.innerText || '').trim().length,
+        hero,
+      };
+    });
   } catch (e) { status = 'NAV_ERR:' + String(e).slice(0, 40); }
   // Thin/broken: not 200, OR empty H1, OR body < 1000 chars (healthy sites are ~4000), OR console errors.
   const ok = status === 200 && info.h1.length > 0 && info.bodyLen >= 1000 && errs.length === 0;
   if (!ok) broken++;
-  console.log(`  ${ok ? '✓' : '✗'} ${slug.padEnd(36)} ${status} h1="${info.h1}" body=${info.bodyLen} appjs=${info.appjs}${errs.length ? ' ERR:' + errs.join('|') : ''}`);
+  if (info.hero === 'REGRESSED') heroRegressed.push(slug);
+  console.log(`  ${ok ? '✓' : '✗'} ${slug.padEnd(36)} ${status} h1="${info.h1}" body=${info.bodyLen} appjs=${info.appjs} hero=${info.hero}${errs.length ? ' ERR:' + errs.join('|') : ''}`);
   await pg.close();
 }
 console.log(`  → ${broken === 0 ? 'ALL HEALTHY' : broken + ' broken/thin site(s)'}`);
+// Hero-delivery is a perf SIGNAL, tracked (::notice) not hard-failed — the LCP image
+// path should stay same-origin OR a preconnected+preloaded hotlink. A REGRESSED verdict
+// means a build shipped a cross-origin hero with neither mitigation (silent LCP hit).
+if (heroRegressed.length) {
+  console.log(`::notice::${heroRegressed.length} site(s) have a REGRESSED hero-delivery path (cross-origin, no preload+preconnect): ${heroRegressed.join(', ')}`);
+} else {
+  console.log('  → hero delivery: all sampled sites same-origin or preconnected+preloaded ✓');
+}
 await browser.close();
 process.exit(broken === 0 ? 0 : 1);
