@@ -14,7 +14,7 @@ const { default: AxeBuilder } = req('@axe-core/playwright');
 const ORIGIN = process.argv[2] || 'https://projectsites.dev';
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36';
-const ROUTES = ['/', '/search', '/create', '/pricing', '/blog'];
+const ROUTES = ['/', '/search', '/create', '/pricing', '/blog', '/contact'];
 // Full WCAG-mandate breakpoint set (375/390/768/1024/1280/1920) — the tablet
 // widths (768/1024) surface target-size + reflow + focus-obscured violations the
 // phone/desktop pair misses.
@@ -37,9 +37,18 @@ for (const bp of BPS) {
   for (const route of ROUTES) {
     try {
       await page.goto(ORIGIN + route, { waitUntil: 'domcontentloaded', timeout: 45000 });
-      // Angular SPA: wait for hydration (a real landmark), then settle.
+      // Angular SPA: wait for hydration (a real landmark) THEN for loading skeletons to
+      // clear before axe — an under-settled DOM transiently fails contrast (e.g. a
+      // translucent chip like .post-category over a mid-load bg) → load-transient false
+      // positives (validator-precision-discipline: a flaky guard is worse than none).
       await page.waitForSelector('main, nav, h1', { timeout: 15000 }).catch(() => {});
-      await page.waitForTimeout(1800);
+      await page
+        .waitForFunction(
+          () => !document.querySelector('[aria-busy="true"], .animate-pulse, .skeleton, .loading-skeleton, [data-loading="true"]'),
+          { timeout: 5000 },
+        )
+        .catch(() => {});
+      await page.waitForTimeout(1200);
       const results = await new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
         .analyze();
