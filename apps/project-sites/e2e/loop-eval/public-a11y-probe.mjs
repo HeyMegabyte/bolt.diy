@@ -15,9 +15,16 @@ const ORIGIN = process.argv[2] || 'https://projectsites.dev';
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36';
 const ROUTES = ['/', '/search', '/create', '/pricing', '/blog'];
+// Full WCAG-mandate breakpoint set (375/390/768/1024/1280/1920) — the tablet
+// widths (768/1024) surface target-size + reflow + focus-obscured violations the
+// phone/desktop pair misses.
 const BPS = [
+  { name: 'se', width: 375, height: 667 },
   { name: 'mobile', width: 390, height: 844 },
+  { name: 'tablet', width: 768, height: 1024 },
+  { name: 'laptop', width: 1024, height: 768 },
   { name: 'desktop', width: 1280, height: 900 },
+  { name: 'wide', width: 1920, height: 1080 },
 ];
 
 const browser = await chromium.launch();
