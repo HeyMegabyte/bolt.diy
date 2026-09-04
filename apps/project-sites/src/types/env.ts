@@ -273,6 +273,8 @@ export interface Env {
   GA4_MEASUREMENT_ID?: string;
   /** GTM Container ID (e.g., GTM-XXXXXXX) injected into every served site. */
   GTM_CONTAINER_ID?: string;
+  /** Operator killswitch for the app.js concierge chat — set to `'true'` → POST /api/chat/:slug returns 404. */
+  CONCIERGE_CHAT_DISABLED?: string;
   /** Google Analytics Data API credentials (service account JSON, base64-encoded). */
   GA4_SERVICE_ACCOUNT_JSON?: string;
   /** GA4 Property ID for Data API queries (numeric, e.g., 123456789). */
