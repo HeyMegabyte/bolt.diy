@@ -29,17 +29,29 @@ describe('resolveResetBusinessFields — reset re-threads category + NAP', () =>
   it('flat body values win over the stored columns', () => {
     expect(
       resolveResetBusinessFields(
-        { business_category: 'hvac', business_phone: '111', business_email: 'a@b.c', business_hours: '24/7' },
+        {
+          business_category: 'hvac',
+          business_phone: '111',
+          business_email: 'a@b.c',
+          business_hours: '24/7',
+        },
         stored,
       ),
-    ).toEqual({ businessCategory: 'hvac', businessPhone: '111', businessEmail: 'a@b.c', businessHours: '24/7' });
+    ).toEqual({
+      businessCategory: 'hvac',
+      businessPhone: '111',
+      businessEmail: 'a@b.c',
+      businessHours: '24/7',
+    });
   });
 
   it('Places types[0] then business_type keep precedence for category', () => {
-    expect(resolveResetBusinessFields({ business: { types: ['restaurant'] } }, stored).businessCategory).toBe(
-      'restaurant',
+    expect(
+      resolveResetBusinessFields({ business: { types: ['restaurant'] } }, stored).businessCategory,
+    ).toBe('restaurant');
+    expect(resolveResetBusinessFields({ business_type: 'legal' }, stored).businessCategory).toBe(
+      'legal',
     );
-    expect(resolveResetBusinessFields({ business_type: 'legal' }, stored).businessCategory).toBe('legal');
   });
 
   it('nothing anywhere → undefined (never leaks "" / null to the workflow)', () => {
@@ -55,7 +67,12 @@ describe('resolveResetBusinessFields — reset re-threads category + NAP', () =>
     expect(
       resolveResetBusinessFields(
         {},
-        { business_category: null, business_phone: null, business_email: null, business_hours: null },
+        {
+          business_category: null,
+          business_phone: null,
+          business_email: null,
+          business_hours: null,
+        },
       ),
     ).toEqual({
       businessCategory: undefined,
