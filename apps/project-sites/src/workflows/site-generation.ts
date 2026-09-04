@@ -219,6 +219,28 @@ interface KvBuildRecord {
 }
 
 /**
+ * Whether a container-reported build error is a TRANSIENT "produced no usable output"
+ * failure that a fresh re-run can recover — vs a deterministic fault a re-run won't fix.
+ *
+ * The two transient classes (loop FIRE-74→79): the DeepSeek orchestrator crashing
+ * (`claude_exit=1` → 0 files → "R2 upload … uploaded 0 files") and npm install/build
+ * flaking (network/resource kill). Both leave the build with NO output, so re-running on
+ * a FRESH DO is a clean fresh attempt, not a double-charge for completed work. The match
+ * is deliberately narrow — a validator-gate failure or a real code fault (which a re-run
+ * reproduces) is NOT transient and must fail fast.
+ */
+export function isTransientBuildError(err: string | null | undefined): boolean {
+  const e = String(err || '').toLowerCase();
+  return (
+    e.includes('claude_exit') ||
+    e.includes('uploaded 0 files') ||
+    e.includes('produced no dist') ||
+    e.includes('npm install failed') ||
+    e.includes('npm build failed')
+  );
+}
+
+/**
  * Build the orchestrator prompt for Claude Code.
  *
  * The orchestrator does NOT implement components itself. It delegates to
@@ -1276,6 +1298,81 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       }
 
       if (TERMINAL.has(String(parsed.status))) {
+        // fire-80: a container that REPORTS a transient build error (claude_exit=1 /
+        // 0-files / an npm install|build flake that survived the in-container retry) is
+        // the 2nd transient class (~1/3 of builds, FIRE-79). Route it into the SAME
+        // bounded restart machinery the eviction/stale paths use — a FRESH DO re-runs
+        // the orchestrator (the crashed attempt produced 0 files, so no completed work
+        // is lost or double-charged). Shares restartCount so total restarts stay
+        // ≤ MAX_RESTARTS. Deterministic errors (validator gates, real faults a re-run
+        // reproduces) don't match isTransientBuildError → they fail fast, exactly as before.
+        if (
+          String(parsed.status) === 'error' &&
+          isTransientBuildError(parsed.error) &&
+          restartCount < MAX_RESTARTS
+        ) {
+          restartCount++;
+          await wfLog('workflow.transient_error_restart', {
+            poll: i,
+            error: parsed.error,
+            message: `Transient build error — restarting on a fresh DO (${restartCount}/${MAX_RESTARTS}): ${String(parsed.error).slice(0, 120)}`,
+          });
+          const container = freshRestartContainer();
+          const restartJobId = await step.do(
+            `restart-build-after-transient-error-${restartCount}`,
+            {
+              retries: { limit: 3, delay: '30 seconds', backoff: 'exponential' },
+              timeout: '5 minutes',
+            },
+            async () => {
+              const _deepseekKey = (env as unknown as { DEEPSEEK_API_KEY?: string })
+                .DEEPSEEK_API_KEY;
+              const _buildLlmProvider = (env as unknown as { BUILD_LLM_PROVIDER?: string })
+                .BUILD_LLM_PROVIDER;
+              const useDeepSeek = !!_deepseekKey && _buildLlmProvider !== 'anthropic';
+              const payload = {
+                slug: params.slug,
+                _anthropicKey: env.ANTHROPIC_API_KEY || '',
+                _ideogramKey:
+                  (env as unknown as { IDEOGRAM_API_KEY?: string }).IDEOGRAM_API_KEY || '',
+                ...(useDeepSeek && {
+                  _deepseekKey,
+                  _anthropicBaseUrl: 'https://api.deepseek.com/anthropic',
+                  _anthropicModel: 'deepseek-chat',
+                }),
+                prompt,
+                contextFiles,
+                envVars,
+                timeoutMin: 14,
+                callbackUrl,
+                callbackSecret,
+              };
+              const res = await container.fetch('http://container/build', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              });
+              if (!res.ok) {
+                const errText = await res.text().catch(() => 'Unknown');
+                throw new Error(`Restart failed: ${res.status} ${errText}`);
+              }
+              const result = (await res.json()) as { jobId?: string; error?: string };
+              if (result.error) throw new Error(`Restart error: ${result.error}`);
+              if (!result.jobId) throw new Error('Restart returned no jobId');
+              await env.CACHE_KV.put(`job2site:${result.jobId}`, params.siteId, {
+                expirationTtl: 7200,
+              });
+              return result.jobId;
+            },
+          );
+          jobId = restartJobId;
+          restartGraceUntil = Date.now() + 3 * 60_000;
+          pollBudget += RESTART_POLL_BUDGET;
+          lastFreshAt = Date.now();
+          lastSeenStatus = null;
+          lastSeenStep = null;
+          continue;
+        }
         finalStatus = {
           status: parsed.status,
           step: parsed.step,
