@@ -451,3 +451,13 @@ jobs:
           CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
           CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
         run: node e2e/admin-verify/reconcile-e2e-sites.mjs
+
+      # Continuous health of the SERVED generated sites (catches post-build/stale rot no
+      # build-time eval sees — stale SW, bad app.js deploy, pre-stub-guard content-stubs).
+      # Samples 10 spread newest→oldest; the `published` filter excludes rebuilding sites.
+      - name: Generated-site health sweep (served sites)
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites
+        env:
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
+        run: node e2e/loop-eval/generated-site-health-sweep.mjs 10
