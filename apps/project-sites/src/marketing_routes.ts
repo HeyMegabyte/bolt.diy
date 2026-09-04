@@ -102,7 +102,11 @@ export const MARKETING_META: Readonly<Record<string, MarketingMeta>> = {
       'Search for your business and get a professional, SEO-ready website built by AI in minutes — hosted, SSL secured, and live. No coding required.',
   },
   '/classic': {
-    title: 'AI Website Builder for Real Businesses | ProjectSites',
+    // /classic is `redirectTo: ''` (app.routes.ts) — a backward-compat alias that
+    // bounces to home. Its crawler meta MUST equal home's so the alias isn't indexed
+    // with a conflicting title (the client sends the user to home regardless).
+    // Enforced by scripts/validate-meta-ssot.mjs § CLIENT_REDIRECTS.
+    title: 'ProjectSites — AI Website Builder, Live in 4 Minutes',
     description:
       'AI-native website builder for real businesses. One prompt, four minutes, a gorgeous live URL with SSL, sitemap, OG cards, and JSON-LD baked in.',
   },
