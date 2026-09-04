@@ -405,13 +405,22 @@ function pickVerticalPreset(dir, promptText = '') {
     // (it rendered yoga copy + LIGHT theme — fire-20). Kept out of
     // LIGHT_VERTICAL_PRESETS so fitness stays DARK. Pairs with the template's
     // examples/_brand.fitness.json + _content.fitness.json pack.
-    ['_brand.fitness.json', /\b(gym\b|crossfit|cross-fit|fitness|strength training|strength and conditioning|barbell|powerlifting|power lifting|weightlifting|weight lifting|olympic lifting|personal trainer|personal training|bootcamp|boot camp|kettlebell|calisthenics|athletic club|hiit\b)/],
+    ['_brand.fitness.json', /\b(gym\b|crossfit|cross-fit|fitness|strength training|strength and conditioning|barbell|powerlifting|power lifting|weightlifting|weight lifting|olympic lifting|personal trainer|personal training|bootcamp|boot camp|kettlebell|calisthenics|athletic club|hiit\b|martial arts|karate|taekwondo|jiu-jitsu|jiu jitsu|judo|muay thai|kickboxing|\bdojo\b)/],
     ['_brand.wellness.json', /\b(yoga|pilates|spa\b|massage|wellness|meditation|salon|beaut|nail|barber|acupunctur|reiki|nutrition|wellbeing|well-being)/],
-    ['_brand.legal.json', /\b(law\b|lawyer|attorney|legal|counsel|litigation|paralegal|notary|estate planning|llp\b)/],
-    ['_brand.restaurant.json', /\b(restaurant|restaurateur|farm-to-table|farm to table|cafe|café|coffee|bakery|bar\b|bistro|dining|gastropub|osteria|trattoria|ramen|sushi|diner|eatery|catering|pizzeria|brewery|food truck|kitchen|chophouse|smokehouse|noodle|burger|barbecue|bbq\b|tavern|pub\b|creamery|gelato|grill|steakhouse|winery|vineyard|taqueria|deli\b)/],
-    ['_brand.local-service.json', /\b(local service|local-service|home services?|plumb|hvac|electric|roofing|roofer|landscap|lawn|cleaning|janitor|contractor|handyman|pest control|locksmith|moving|movers|garage door|paint|construction|remodel|flooring|fencing|paving|towing|auto repair|mechanic)/],
-    ['_brand.nonprofit.json', /\b(nonprofit|non-profit|charit|foundation|ministry|church|synagogue|mosque|temple|community center|volunteer|shelter|soup kitchen|food bank|pantry|relief center|mutual aid|501c3|outreach|humanitarian|advocacy|ngo\b)/],
-    ['_brand.retail.json', /\b(shop|store|retail|boutique|apparel|clothing|jewelr|goods|merchandise|marketplace|e-commerce|ecommerce|outfitter)/],
+    // Legal = the professional-services vertical (light, trust/credential copy). Per the
+    // orchestrator CLAUDE.md it covers lawyer/attorney AND accountant/CPA/tax/bookkeeping/
+    // financial-advisor/insurance — all professional-services that render the same LIGHT
+    // credential-forward pack (fire-85: those 6 were falling through / hitting agency).
+    ['_brand.legal.json', /\b(law\b|lawyer|attorney|legal|counsel|litigation|paralegal|notary|estate planning|llp\b|accountant|accounting|\bcpa\b|\btax\b|tax prep|bookkeep|financial advis|financial plan|wealth management|insurance)/],
+    // "kitchen" is a strong restaurant signal (Hell's Kitchen, The Kitchen) BUT "soup
+    // kitchen" is a NONPROFIT — the negative lookbehind lets restaurant keep "kitchen"
+    // while letting "soup kitchen" fall through to the nonprofit rule below (fire-85: a
+    // declared "soup kitchen" category was shipping as a restaurant since restaurant is
+    // checked before nonprofit and grabbed the bareword "kitchen").
+    ['_brand.restaurant.json', /\b(restaurant|restaurateur|farm-to-table|farm to table|cafe|café|coffee|bakery|bar\b|bistro|dining|gastropub|osteria|trattoria|ramen|sushi|diner|eatery|catering|pizzeria|brewery|food truck|(?<!soup )kitchen|chophouse|smokehouse|noodle|burger|barbecue|bbq\b|tavern|pub\b|creamery|gelato|ice cream|grill|steakhouse|winery|vineyard|taqueria|deli\b)/],
+    ['_brand.local-service.json', /\b(local service|local-service|home services?|plumb|hvac|electric|roofing|roofer|landscap|lawn|cleaning|janitor|contractor|handyman|pest control|locksmith|moving|movers|garage door|paint|construction|remodel|flooring|fencing|paving|towing|auto repair|mechanic|tree service|arborist|appliance repair|pool service|pressure washing|gutter|septic|chimney sweep)/],
+    ['_brand.nonprofit.json', /\b(nonprofit|non-profit|charit|foundation|ministry|church|synagogue|mosque|temple|community center|volunteer|shelter|soup kitchen|food bank|pantry|relief center|mutual aid|501c3|outreach|humanitarian|advocacy|ngo\b|animal rescue|humane society|rescue mission)/],
+    ['_brand.retail.json', /\b(shop|store|retail|boutique|apparel|clothing|jewelr|goods|merchandise|marketplace|e-commerce|ecommerce|outfitter|bookstore|bookshop|book store)/],
     ['_brand.saas.json', /\b(saas|software|platform|api\b|startup|analytics|dashboard|developer tool|automation|machine learning|fintech|cybersecurity|app\b|web app)/],
     // Real-estate BEFORE agency (fire-50): the authoritative short-circuit is
     // first-match-by-ORDER over the declared category, and "real estate agency"
@@ -419,7 +428,7 @@ function pickVerticalPreset(dir, promptText = '') {
     // a magenta AGENCY site (Ridgeline Realty Group → agency copy/theme, fire-50). Own
     // vertical (dark, listings/buyers/sellers copy); OUT of LIGHT_VERTICAL_PRESETS →
     // DARK. Pairs with examples/_brand.real-estate.json + _content.real-estate.json.
-    ['_brand.real-estate.json', /\b(real estate|real-estate|realtor|realty|home buyer|homebuyer|home seller|house hunting|open house|home valuation|buyer's agent|buyers agent|seller's agent|sellers agent|property listing|homes for sale|for sale by owner|mls\b)/],
+    ['_brand.real-estate.json', /\b(real estate|real-estate|realtor|realty|home buyer|homebuyer|home seller|house hunting|open house|home valuation|buyer's agent|buyers agent|seller's agent|sellers agent|property listing|homes for sale|for sale by owner|mls\b|property management|property manager|mortgage|home loan|refinanc)/],
     ['_brand.agency.json', /\b(agency|marketing|advertis|branding|design studio|creative studio|consult|pr firm|media agency|growth marketing|seo agency)/],
     ['_brand.portfolio.json', /\b(portfolio|photograph|artist|freelance|illustrat|filmmaker|musician|architect|videograph)/],
   ];
