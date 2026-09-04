@@ -78,8 +78,15 @@ for (const s of SECTIONS) {
     // axe (critical + serious) at the current viewport.
     let axeSerious = [];
     try {
-      const r = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
-      axeSerious = r.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
+      const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+      const sev = (r) => r.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
+      axeSerious = sev(await new AxeBuilder({ page }).withTags(TAGS).analyze());
+      // Recheck-on-violation (same page, longer settle): a load/enter-animation transient
+      // clears; a persistent violation stays. Kills flaky reds on slow CI runners.
+      if (axeSerious.length > 0) {
+        await page.waitForTimeout(2500);
+        axeSerious = sev(await new AxeBuilder({ page }).withTags(TAGS).analyze());
+      }
     } catch { /* axe injection can fail on a redirected shell — treat as no data */ }
     const blank = info.textLen < 40;
     const bad = errors.length > 0 || info.boundary || blank || axeSerious.length > 0;

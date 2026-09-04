@@ -49,10 +49,19 @@ for (const bp of BPS) {
         )
         .catch(() => {});
       await page.waitForTimeout(1200);
-      const results = await new AxeBuilder({ page })
-        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
-        .analyze();
-      const serious = results.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
+      const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+      const sev = (r) => r.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
+      let serious = sev(await new AxeBuilder({ page }).withTags(TAGS).analyze());
+      // Recheck-on-violation: a hero ENTER-animation / late-hydrated element can fail
+      // contrast transiently on a slow CI runner even after skeletons clear (the homepage
+      // has no skeleton, so the skeleton-wait returns instantly). Re-analyze ONCE after a
+      // longer settle IN THE SAME PAGE (no reload → no PostHog A/B re-roll); only a
+      // PERSISTENT violation counts. Can't wait on getAnimations() — the site has infinite
+      // decorative animations (Ken-Burns/marquee) that never reach a finished state.
+      if (serious.length > 0) {
+        await page.waitForTimeout(2500);
+        serious = sev(await new AxeBuilder({ page }).withTags(TAGS).analyze());
+      }
       total += serious.length;
       const label = `${route} @${bp.name}`.padEnd(24);
       if (serious.length === 0) {
