@@ -44,7 +44,7 @@ await page.evaluate((k) => {
 
 const rows = [];
 let problems = 0;
-let bpTotal = 0; // axe best-practice (region/heading-order/landmark) — advisory, tracked not gated
+let bpTotal = 0; // axe best-practice (region/heading-order/landmark) — now GATED (fails on regression)
 
 for (const s of SECTIONS) {
   const errors = [];
@@ -79,9 +79,10 @@ for (const s of SECTIONS) {
     // axe at the current viewport. WCAG critical/serious drives the pass/fail gate
     // (unchanged). best-practice (region/heading-order/landmark) — which validate-site
     // + a WCAG-only pass both MISS — is split out + tracked SEPARATELY: reported per
-    // section + summarized, but ADVISORY (doesn't fail the audit) per the audit-arc
-    // Detect→Surface→Gate ladder. It's what caught the /admin region + heading-order
-    // regressions the WCAG-only audit was blind to (commits b7740b28f / f8b9a7db5).
+    // section. It caught the /admin region + heading-order regressions the WCAG-only
+    // audit was blind to (b7740b28f / f8b9a7db5); now that /admin is stable at 0 across
+    // desktop + mobile, best-practice is PROMOTED to GATE (fails the audit) per the
+    // audit-arc Detect→Surface→Gate ladder — a regression blocks, doesn't just log.
     let axeSerious = [];
     let axeBp = [];
     try {
@@ -100,18 +101,20 @@ for (const s of SECTIONS) {
     } catch { /* axe injection can fail on a redirected shell — treat as no data */ }
     bpTotal += axeBp.length;
     const blank = info.textLen < 40;
-    const bad = errors.length > 0 || info.boundary || blank || axeSerious.length > 0;
+    // best-practice (region/heading-order/landmark) now GATES too — stable at 0 across
+    // 2 runs (desktop + mobile), so a regression should fail the audit, not just log.
+    const bad = errors.length > 0 || info.boundary || blank || axeSerious.length > 0 || axeBp.length > 0;
     if (bad) problems++;
     const flags = [
       errors.length ? `${errors.length} console-err` : null,
       info.boundary ? 'ERROR-BOUNDARY' : null,
       blank ? 'BLANK' : null,
       axeSerious.length ? `${axeSerious.length} axe` : null,
+      axeBp.length ? `${axeBp.length} best-practice(${axeBp.map((v) => v.id).join('/')})` : null,
     ].filter(Boolean).join(', ');
-    const bpFlag = axeBp.length ? `  [bp: ${axeBp.map((v) => `${v.id}(${v.nodes.length})`).join('+')}]` : '';
-    rows.push(`  ${bad ? '✗' : '✓'} /admin/${s}`.padEnd(28) + `→ ${info.url.padEnd(26)} ${bad ? flags : 'ok (' + info.textLen + ' chars)'}${bpFlag}`);
+    rows.push(`  ${bad ? '✗' : '✓'} /admin/${s}`.padEnd(28) + `→ ${info.url.padEnd(26)} ${bad ? flags : 'ok (' + info.textLen + ' chars)'}`);
     if (errors.length) for (const e of errors.slice(0, 3)) rows.push(`        · ${e}`);
-    for (const v of axeSerious) rows.push(`        [${v.impact}] ${v.id}: ${v.help} (${v.nodes.length}) e.g. ${(v.nodes[0]?.target || []).join(' ')} — ${(v.nodes[0]?.html || '').slice(0, 80)}`);
+    for (const v of [...axeSerious, ...axeBp]) rows.push(`        [${v.impact || 'best-practice'}] ${v.id}: ${v.help} (${v.nodes.length}) e.g. ${(v.nodes[0]?.target || []).join(' ')} — ${(v.nodes[0]?.html || '').slice(0, 80)}`);
   } catch (e) {
     problems++;
     rows.push(`  ! /admin/${s} nav error: ${String(e).slice(0, 80)}`);
@@ -121,7 +124,7 @@ for (const s of SECTIONS) {
 }
 
 console.log(`━━ admin surf audit @${VW}px (a11y+console+boundary+content): ${ORIGIN} → ${problems === 0 ? 'CLEAN' : problems + ' section(s) with issues'} ━━`);
-if (bpTotal > 0) console.log(`  ⚠ advisory: ${bpTotal} best-practice a11y finding(s) (region/heading-order/landmark) — tracked, not gated; promote to a hard fail once stable at 0`);
+if (bpTotal > 0) console.log(`  ✗ GATE: ${bpTotal} best-practice a11y finding(s) (region/heading-order/landmark) — these now FAIL the audit (see the ✗ sections above)`);
 for (const r of rows) console.log(r);
 await browser.close();
 process.exit(problems === 0 ? 0 : 1);
