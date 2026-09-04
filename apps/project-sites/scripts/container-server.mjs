@@ -410,7 +410,7 @@ function pickVerticalPreset(dir, promptText = '') {
     ['_brand.legal.json', /\b(law\b|lawyer|attorney|legal|counsel|litigation|paralegal|notary|estate planning|llp\b)/],
     ['_brand.restaurant.json', /\b(restaurant|restaurateur|farm-to-table|farm to table|cafe|café|coffee|bakery|bar\b|bistro|dining|gastropub|osteria|trattoria|ramen|sushi|diner|eatery|catering|pizzeria|brewery|food truck|kitchen|chophouse|smokehouse|noodle|burger|barbecue|bbq\b|tavern|pub\b|creamery|gelato|grill|steakhouse|winery|vineyard|taqueria|deli\b)/],
     ['_brand.local-service.json', /\b(local service|local-service|home services?|plumb|hvac|electric|roofing|roofer|landscap|lawn|cleaning|janitor|contractor|handyman|pest control|locksmith|moving|movers|garage door|paint|construction|remodel|flooring|fencing|paving|towing|auto repair|mechanic)/],
-    ['_brand.nonprofit.json', /\b(nonprofit|non-profit|charit|foundation|ministry|church|synagogue|mosque|temple|community center|volunteer|shelter|soup kitchen|food bank|outreach|humanitarian|advocacy|ngo\b)/],
+    ['_brand.nonprofit.json', /\b(nonprofit|non-profit|charit|foundation|ministry|church|synagogue|mosque|temple|community center|volunteer|shelter|soup kitchen|food bank|pantry|relief center|mutual aid|501c3|outreach|humanitarian|advocacy|ngo\b)/],
     ['_brand.retail.json', /\b(shop|store|retail|boutique|apparel|clothing|jewelr|goods|merchandise|marketplace|e-commerce|ecommerce|outfitter)/],
     ['_brand.saas.json', /\b(saas|software|platform|api\b|startup|analytics|dashboard|developer tool|automation|machine learning|fintech|cybersecurity|app\b|web app)/],
     // Real-estate BEFORE agency (fire-50): the authoritative short-circuit is
