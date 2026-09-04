@@ -700,7 +700,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       const pick = (arr: string[]): string => arr[seed % arr.length] || arr[0] || '';
       const description = pick([
         `${safeName} brings dependable ${catService} to ${cityPhrase}. We keep our work honest and our answers plain, so you always know where things stand. People choose us because we treat them like neighbors, not numbers.`,
-        `At ${safeName}, good ${catService} starts with listening. We serve ${cityPhrase} with clear answers, short waits, and follow-through you can count on. When you come to us, you are a person we know, not a case on a list.`,
+        `At ${safeName}, good ${catService} starts with listening. We serve ${cityPhrase} with clear answers, real attention, and follow-through you can count on. When you come to us, you are a person we know, not a case on a list.`,
         `${safeName} has served ${cityPhrase} for years, and that local focus shapes every day. We keep it simple: do the ${catService} right, explain it in plain words, and stand behind it. That is why people here send their friends our way.`,
       ]);
       const mission = pick([
@@ -731,11 +731,11 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       // Kept short, slop-free, and identity-woven (name + category + city) so they read
       // naturally across all 10 verticals and never trip build_validators' banned-slop gate.
       const heroSub = pick([
-        `Trusted ${catService} in ${cityPhrase} — clear answers, fair prices, and work we stand behind.`,
+        `Trusted ${catService} in ${cityPhrase} — clear answers, no surprises, and work we stand behind.`,
         `${cityPhrase}'s dependable choice for ${catService}. Honest, personal, and always on your side.`,
       ]);
       const aboutPara1 = pick([
-        `${safeName} is built around the people of ${cityPhrase}. We started with one belief: ${catService} should be easy to understand and easy to trust. Every day we work to earn that trust with clear communication, fair pricing, and results we stand behind.`,
+        `${safeName} is built around the people of ${cityPhrase}. We started with one belief: ${catService} should be easy to understand and easy to trust. Every day we work to earn that trust with clear communication, real follow-through, and results we stand behind.`,
         `For the families and neighbors of ${cityPhrase}, ${safeName} keeps ${catService} refreshingly simple. No jargon and no pressure, just careful work, straight answers, and a team that remembers your name.`,
       ]);
       contextFiles['content.json'] = JSON.stringify(
