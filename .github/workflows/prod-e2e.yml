@@ -467,3 +467,13 @@ jobs:
         env:
           E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
         run: node e2e/loop-eval/generated-site-health-sweep.mjs 10
+
+      # WCAG 2.2 AA (axe) on the SERVED product sites — the marketing a11y probe never
+      # covered the paid sites (ADA/EAA gap). Tracking (::notice, never red): the template
+      # contrast fix (2bb30da) clears each site only on its next rebuild.
+      - name: Generated-site a11y sweep (axe WCAG 2.2 AA — tracking)
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites
+        env:
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
+        run: node e2e/loop-eval/generated-site-a11y-probe.mjs 5
