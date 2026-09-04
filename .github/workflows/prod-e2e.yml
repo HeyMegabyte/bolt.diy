@@ -399,15 +399,18 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: apps/project-sites/frontend/package-lock.json
+          cache-dependency-path: apps/project-sites/package-lock.json
 
-      # Probes resolve playwright + @axe-core/playwright from the frontend workspace.
-      - name: Install frontend deps
-        working-directory: apps/project-sites/frontend
-        run: npm ci --legacy-peer-deps
+      # The probes' createRequire('../../frontend/') resolves node_modules from
+      # apps/project-sites/ (dirname of that path), NOT frontend/ — so install the WORKER
+      # deps (which carry playwright + @axe-core/playwright), matching the prod-e2e worker
+      # job. (Installing only frontend deps → "Cannot find module 'playwright'" in CI.)
+      - name: Install deps
+        working-directory: apps/project-sites
+        run: npm ci --legacy-peer-deps --ignore-scripts
 
       - name: Install Playwright Chromium
-        working-directory: apps/project-sites/frontend
+        working-directory: apps/project-sites
         run: npx playwright install --with-deps chromium
 
       # Public funnel a11y — no secret needed (public prod surface).
