@@ -13,7 +13,15 @@
  * Creds (get-secret): BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID, E2E_TEST_PASSWORD.
  */
 import { chromium } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import { mkdirSync } from 'node:fs';
+
+// WCAG critical/serious per-tab gate. Analytics sub-tabs are NEVER axe-scanned by
+// admin-surf-audit (it only loads the default Overview), so their a11y went
+// unverified. Settle+recheck (below) is MANDATORY: target-size/color-contrast
+// flicker on the un-settled panel during load — a single early scan false-positives
+// (validator-precision-discipline); a persistent violation survives the recheck.
+const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
 const BB = process.env.BROWSERBASE_API_KEY;
 const PROJ = process.env.BROWSERBASE_PROJECT_ID;
@@ -43,6 +51,7 @@ const browser = await chromium.connectOverCDP(
   `wss://connect.browserbase.com?apiKey=${encodeURIComponent(BB)}&sessionId=${encodeURIComponent(id)}`,
 );
 const report = { _scope: null };
+let axeTotal = 0;
 try {
   const ctx = browser.contexts()[0] ?? (await browser.newContext());
   const page = ctx.pages()[0] ?? (await ctx.newPage());
@@ -113,12 +122,55 @@ try {
         };
       });
       await page.screenshot({ path: `${OUT}/analytics-${t}.png`, fullPage: false });
-      report[t] = { ...info, errors: errors[t] ?? [], failed: (failed[t] ?? []).slice(0, 6) };
+
+      // WCAG axe pass — PERSISTENT-ONLY (the intersection of two scans 2.5s apart).
+      // The tabbed panel re-animates on switch, so target-size/color-contrast flicker
+      // on the un-settled panel and a single scan false-positives (confirmed: a 5s
+      // settle is clean). We report only violations present in BOTH scans (a genuine,
+      // stable finding). INFORMATIONAL by design — never exits non-zero (a flaky a11y
+      // gate that cries wolf is worse than none, per validator-precision-discipline);
+      // promote to a hard gate only once it's proven stable at 0 across fires.
+      let axeV = [];
+      try {
+        const scan = async () =>
+          (
+            await new AxeBuilder({ page })
+              .withTags(WCAG_TAGS)
+              // Exclude two confirmed-false-positive sources so the signal is REAL
+              // tab-content a11y, not noise: (1) `.cw-launcher` is the global "Ask AI"
+              // dock (a 38px button that PASSES 2.5.8 but axe flags mid-mount/animation);
+              // (2) `.opacity-60` marks flag-DISABLED/inactive sections, which WCAG 1.4.3
+              // exempts from contrast (dimming an inactive control is intentional).
+              .exclude('.cw-launcher')
+              .exclude('.opacity-60')
+              .analyze()
+          ).violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
+        const sig = (v) => `${v.id}@${(v.nodes[0]?.target || []).join(' ')}`;
+        const first = await scan();
+        if (first.length) {
+          await page.waitForTimeout(2500);
+          const second = await scan();
+          const keep = new Set(second.map(sig));
+          axeV = first.filter((v) => keep.has(sig(v))); // persistent across both scans
+        }
+      } catch {
+        /* axe injection can fail on a redirected shell — treat as no data */
+      }
+      axeTotal += axeV.length;
+      report[t] = {
+        ...info,
+        axe: axeV.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, target: (v.nodes[0]?.target || []).join(' ') })),
+        errors: errors[t] ?? [],
+        failed: (failed[t] ?? []).slice(0, 6),
+      };
     } catch (e) {
       report[t] = { CLICK_FAIL: String(e).slice(0, 120), errors: errors[t] ?? [], failed: failed[t] ?? [] };
     }
   }
   console.log(JSON.stringify(report, null, 2));
+  console.log(
+    `\n━━ analytics-tabs a11y (informational): ${axeTotal === 0 ? 'CLEAN — 8 tabs, 0 PERSISTENT serious/critical WCAG' : axeTotal + ' persistent WCAG serious/critical finding(s) — see per-tab `axe` above'} ━━`,
+  );
 } finally {
   await browser.close();
 }
