@@ -613,7 +613,37 @@ function applyResearchNarrative(dir) {
 // generate-favicons. Writes public/apple-touch-icon.png — the navbar logo + PWA icon;
 // generate-favicons.mjs guards it (won't overwrite a real >4KB logo). Crash-proof +
 // fail-soft: any error leaves the monogram fallback. Runs BEFORE `npm run build`.
-async function ensureLogo(dir, ideogramKey) {
+/**
+ * Vision gate for the AI-generated app-icon: does this image contain readable text /
+ * letters / a business name? Uses the container's Anthropic key (Claude is multimodal).
+ * Returns FALSE on any missing-key / error (fail-soft — never block a build on the gate).
+ * Image models routinely bake the business NAME into a "logo" despite a "no text" prompt,
+ * so this is the reliable enforcement the prompt alone can't give.
+ */
+async function imageHasText(anthropicKey, buf) {
+  if (!anthropicKey || !buf || buf.length < 100) return false;
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-3-5-sonnet-latest',
+        max_tokens: 5,
+        messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/png', data: buf.toString('base64') } },
+          { type: 'text', text: 'Does this image contain ANY readable text, letters, words, or a business name? Answer ONLY "YES" or "NO".' },
+        ] }],
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!r.ok) return false;
+    const j = await r.json().catch(() => ({}));
+    const txt = ((j.content && j.content[0] && j.content[0].text) || '').trim().toUpperCase();
+    return txt.startsWith('YES');
+  } catch { return false; }
+}
+
+async function ensureLogo(dir, ideogramKey, anthropicKey) {
   const pub = path.join(dir, 'public');
   const dest = path.join(pub, 'apple-touch-icon.png');
   const downloadTo = async (url) => {
@@ -646,20 +676,36 @@ async function ensureLogo(dir, ideogramKey) {
     // navbar renders the business name as a wordmark beside it).
     if (ideogramKey) {
       const prompt =
-        `Minimal, elegant, modern logo ICON for "${name}", a ${type}. A simple flat ` +
-        `geometric emblem or abstract mark, clean vector style, memorable, professional, ` +
+        `Minimal, elegant, modern logo ICON for a ${type}. A simple flat ` +
+        `geometric emblem or abstract symbol mark, clean vector style, memorable, professional, ` +
         `tasteful brand-appropriate color palette, centered on a soft solid background. ` +
-        `Absolutely no text, no words, no letters.`;
+        `Absolutely NO text, NO words, NO letters, NO business name — symbol only.`;
       const gen = await fetch('https://api.ideogram.ai/generate', {
         method: 'POST',
         headers: { 'Api-Key': ideogramKey, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image_request: { prompt, aspect_ratio: 'ASPECT_1_1', model: 'V_2', magic_prompt_option: 'AUTO' } }),
+        // magic_prompt OFF: AUTO silently rewrites the prompt and re-injects the business
+        // NAME as rendered text — that is why "no text" was ignored and the icon showed the
+        // full name (e.g. "VANTA STRENGTH CLUB"). OFF respects the literal symbol-only prompt.
+        body: JSON.stringify({ image_request: { prompt, aspect_ratio: 'ASPECT_1_1', model: 'V_2', magic_prompt_option: 'OFF' } }),
         signal: AbortSignal.timeout(90000),
       });
       if (!gen.ok) return `Ideogram HTTP ${gen.status} — monogram fallback`;
       const j = await gen.json().catch(() => ({}));
       const url = j && j.data && j.data[0] && j.data[0].url;
-      if (url && (await downloadTo(url))) return 'Ideogram-generated logo';
+      if (url && (await downloadTo(url))) {
+        // VISION GATE: if the model still baked text/the name into the icon, REJECT it
+        // (delete → generate-favicons produces the clean deterministic monogram). An
+        // app-icon must be a text-free mark; the navbar shows the name as a wordmark.
+        // Only the AI-generated default is gated — an official/uploaded logo (step 1) is
+        // used verbatim (honors user-supplied context: it may legitimately contain text).
+        try {
+          if (await imageHasText(anthropicKey, fs.readFileSync(dest))) {
+            fs.unlinkSync(dest);
+            return 'Ideogram logo contained text → rejected (vision gate) → monogram fallback';
+          }
+        } catch { /* vision unavailable → keep the image (fail-soft) */ }
+        return 'Ideogram-generated logo (vision-verified text-free)';
+      }
       return 'Ideogram returned no usable image — monogram fallback';
     }
     return 'no official logo + no Ideogram key — monogram fallback';
@@ -958,7 +1004,7 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
             console.warn(`[${jobId}] Vertical theme: ${applyVerticalPreset(dir, preset, TEMPLATE_DIR)}`);
             // Logo: recover the OFFICIAL mark, else generate an elegant one via Ideogram
             // (BEFORE npm build, so generate-favicons keeps it as apple-touch-icon.png).
-            console.warn(`[${jobId}] Logo: ${await ensureLogo(dir, envVars.IDEOGRAM_API_KEY)}`);
+            console.warn(`[${jobId}] Logo: ${await ensureLogo(dir, envVars.IDEOGRAM_API_KEY, envVars.ANTHROPIC_API_KEY)}`);
             console.warn(`[${jobId}] Research narrative: ${applyResearchNarrative(dir)}`);
             console.warn(`[${jobId}] Vertical content: ${applyVerticalContentPack(dir, preset, TEMPLATE_DIR)}`);
             console.warn(`[${jobId}] Stub guard: ${guardAgainstStubPages(dir, TEMPLATE_DIR)}`);
