@@ -233,19 +233,21 @@ describe('loadMultiUrlAnalytics — CF empty but visitor_events has rows (D1 lyi
             all: jest.fn().mockResolvedValue({
               results: sql.includes('FROM site_urls')
                 ? [urlRow('megabytespace.projectsites.dev', 1)]
-                : sql.includes('GROUP BY DATE(created_at)')
-                  ? [{ date: '2026-06-01', page_views: 131, uniques: 40 }]
-                  : sql.includes('GROUP BY path')
-                    ? [{ path: '/', views: 90 }]
-                    : sql.includes('$.country')
-                      ? [{ country: 'US', views: 100 }]
-                      : sql.includes('$.channel')
-                        ? [{ referrer: 'organic', views: 50 }]
-                        : sql.includes('COUNT(DISTINCT session_id)')
-                          ? [{ n: 40 }]
-                          : sql.includes("event_type = 'pageview'")
-                            ? [{ n: 131 }] // COUNT(*) pageviews
-                            : [],
+                : sql.includes('SELECT slug FROM sites')
+                  ? [{ slug: 'megabytespace' }] // → ownHosts {megabytespace.projectsites.dev}
+                  : sql.includes('GROUP BY DATE(created_at)')
+                    ? [{ date: '2026-06-01', page_views: 131, uniques: 40 }]
+                    : sql.includes('GROUP BY path')
+                      ? [{ path: '/', views: 90 }]
+                      : sql.includes('$.country')
+                        ? [{ country: 'US', views: 100 }]
+                        : sql.includes('NULLIF(referrer')
+                          ? [{ referrer: 'https://news.ycombinator.com/item?id=1', views: 50 }]
+                          : sql.includes('COUNT(DISTINCT session_id)')
+                            ? [{ n: 40 }]
+                            : sql.includes("event_type = 'pageview'")
+                              ? [{ n: 131 }] // COUNT(*) pageviews
+                              : [],
             }),
           })),
         })),
@@ -263,7 +265,9 @@ describe('loadMultiUrlAnalytics — CF empty but visitor_events has rows (D1 lyi
     expect(out.total_requests).toBe(131); // pageviews proxy
     expect(out.top_pages).toEqual([{ path: '/', views: 90 }]);
     expect(out.top_countries).toEqual([{ country: 'US', views: 100 }]);
-    expect(out.top_referrers).toEqual([{ referrer: 'organic', views: 50 }]);
+    // Now names WHAT referred — the real host from the referrer COLUMN (was the
+    // generic 'organic'/'referral' channel bucket). The FE maps it → "Hacker News".
+    expect(out.top_referrers).toEqual([{ referrer: 'news.ycombinator.com', views: 50 }]);
     expect(out.series).toHaveLength(7); // one point per day in the 7d window
   });
 

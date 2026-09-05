@@ -386,6 +386,56 @@ function safeHost(referrer: string): string {
   }
 }
 
+/**
+ * Re-aggregate raw `visitor_events.referrer` rows into Top-referrers keyed by HOST
+ * — the real "WHAT referred" the Analytics dashboard shows (Brian, 2026-09-05).
+ *
+ * Folds into a single `'direct'` bucket: empty / `'-'` / `'direct'` referrers AND
+ * same-site self-referrals (a host in `ownHosts` = internal page→page nav, not an
+ * external acquisition source). Every surviving key is an external host
+ * (`x.com/a` + `x.com/b` → `x.com`) that the frontend maps to a friendly source
+ * name + kind tag. Scheme-safe: a bare host gets an `https://` prefix so the URL
+ * parse yields a hostname instead of collapsing to `'direct'`.
+ *
+ * @param rows - Raw `{ referrer, views }` rows (referrer may be a full URL, bare host, or empty).
+ * @param ownHosts - The site's own hostnames (lowercased, no `www.`) to fold as internal.
+ * @returns Up to 15 `{ referrer, views }` rows, host-aggregated, highest views first.
+ * @example
+ * aggregateReferrersByHost(
+ *   [{ referrer: 'https://l.facebook.com/x', views: 3 }, { referrer: '', views: 5 }],
+ *   new Set(),
+ * ); // → [{ referrer: 'direct', views: 5 }, { referrer: 'facebook.com', views: 3 }]
+ */
+export function aggregateReferrersByHost(
+  rows: ReadonlyArray<{ referrer: string | null; views: number }>,
+  ownHosts: ReadonlySet<string>,
+): { referrer: string; views: number }[] {
+  const byHost = new Map<string, number>();
+  for (const r of rows) {
+    const raw = (r.referrer ?? '').trim();
+    let key: string;
+    if (!raw || raw === '-' || raw === 'direct') {
+      key = 'direct';
+    } else {
+      // Strip non-identity subdomain shims (www + link-shim/mobile prefixes) so
+      // l.facebook.com / m.facebook.com / www.facebook.com all collapse to the ONE
+      // source `facebook.com` (avoids duplicate "Facebook" rows once the FE labels
+      // them). Product subdomains that ARE distinct sources — news.ycombinator.com
+      // (Hacker News), mail.google.com (Gmail) — do NOT match this list, so they
+      // survive intact for their specific label.
+      const host = safeHost(raw.includes('://') ? raw : `https://${raw}`)
+        .toLowerCase()
+        .replace(/^(?:www|l|lm|m|out|mobile)\./, '');
+      key = !host || ownHosts.has(host) ? 'direct' : host;
+    }
+    byHost.set(key, (byHost.get(key) ?? 0) + Number(r.views ?? 0));
+  }
+  return [...byHost.entries()]
+    .map(([referrer, views]) => ({ referrer, views }))
+    .sort((a, b) => b.views - a.views)
+    .slice(0, 15);
+}
+
 /** List the URLs bound to a site (primary first, alternates after). */
 export async function listSiteUrls(env: Env, siteId: string): Promise<SiteUrl[]> {
   const { data } = await dbQuery<SiteUrl>(
@@ -444,6 +494,19 @@ async function visitorEventsFallback(
     return error ? [] : data;
   };
 
+  // The site's OWN hosts — so a same-site page→page referrer (internal nav) folds
+  // into 'direct' instead of the site appearing to refer itself in Top referrers.
+  const ownHosts = new Set<string>();
+  {
+    const slugRes = await dbQuery<{ slug: string }>(
+      env.DB,
+      'SELECT slug FROM sites WHERE id = ? LIMIT 1',
+      [siteId],
+    );
+    const slug = slugRes.data?.[0]?.slug;
+    if (slug) ownHosts.add(`${slug}.projectsites.dev`);
+  }
+
   const [pv, uniq, dayRows, pathRows, countryRows, refRows] = await Promise.all([
     q<{ n: number }>(
       `SELECT COUNT(*) AS n FROM visitor_events WHERE ${w} AND event_type = 'pageview'`,
@@ -464,11 +527,13 @@ async function visitorEventsFallback(
        WHERE ${w} AND event_type = 'pageview' GROUP BY country ORDER BY views DESC LIMIT 15`,
     ),
     q<{ referrer: string | null; views: number }>(
-      // COALESCE null channel → 'direct': an event with no captured acquisition channel
-      // IS direct traffic. Without it the null-channel rows render as a separate blank /
-      // '(direct)' bucket beside channel='direct' — two direct-ish rows for one concept.
-      `SELECT COALESCE(json_extract(metadata, '$.channel'), 'direct') AS referrer, COUNT(*) AS views FROM visitor_events
-       WHERE ${w} AND event_type = 'pageview' GROUP BY referrer ORDER BY views DESC LIMIT 15`,
+      // Build Top-referrers from the ACTUAL referrer COLUMN (the real host — WHAT
+      // referred), NOT metadata.channel, which collapses every source into a generic
+      // 'referral' bucket (the "Referral ×4" bug Brian flagged). Empty/'-' → 'direct'.
+      // Grouped by raw value here; re-aggregated by HOST + self-referral-folded in TS
+      // below (SQLite has no hostname fn). LIMIT 200 raw rows → ample to fold to ≤15.
+      `SELECT COALESCE(NULLIF(referrer, ''), 'direct') AS referrer, COUNT(*) AS views FROM visitor_events
+       WHERE ${w} AND event_type = 'pageview' GROUP BY referrer ORDER BY views DESC LIMIT 200`,
     ),
   ]);
 
@@ -489,6 +554,8 @@ async function visitorEventsFallback(
     };
   });
 
+  const topReferrers = aggregateReferrersByHost(refRows, ownHosts);
+
   return {
     pageviews,
     series,
@@ -499,10 +566,7 @@ async function visitorEventsFallback(
     top_pages: pathRows
       .filter((r) => r.path)
       .map((r) => ({ path: r.path as string, views: Number(r.views) })),
-    top_referrers: refRows.map((r) => ({
-      referrer: r.referrer ?? 'direct', // SQL already COALESCEs; belt-and-suspenders default
-      views: Number(r.views),
-    })),
+    top_referrers: topReferrers,
     // `visitor_events` has no CF "requests" concept — each pageview is at least
     // one request, so pageviews is an honest lower-bound proxy for the stat.
     total_requests: pageviews,

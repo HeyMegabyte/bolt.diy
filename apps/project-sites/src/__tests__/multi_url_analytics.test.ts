@@ -1,4 +1,9 @@
-import { parseRange, apexDomain, resolveZoneForHostname } from '../services/multi_url_analytics';
+import {
+  parseRange,
+  apexDomain,
+  resolveZoneForHostname,
+  aggregateReferrersByHost,
+} from '../services/multi_url_analytics';
 import type { Env } from '../types/env';
 import type { CfAuth } from '../services/cf_credentials';
 
@@ -145,5 +150,61 @@ describe('resolveZoneForHostname', () => {
       .fn()
       .mockRejectedValue(new Error('network down')) as unknown as typeof fetch;
     expect(await resolveZoneForHostname(makeEnv(), AUTH, 'example.com')).toBeNull();
+  });
+});
+
+// Regression (2026-09-05, Brian): Top-referrers showed "Referral ×4" because the
+// aggregator read metadata.channel (bucket) instead of the referrer COLUMN (host).
+// aggregateReferrersByHost now names WHAT referred — the real external host —
+// folding empty + same-site self-referrals into 'direct'.
+describe('aggregateReferrersByHost', () => {
+  it('keys by HOST from a full URL + merges paths of the same host', () => {
+    const out = aggregateReferrersByHost(
+      [
+        { referrer: 'https://l.facebook.com/x', views: 2 },
+        { referrer: 'https://www.facebook.com/y', views: 3 },
+        { referrer: 'https://news.ycombinator.com/item?id=1', views: 4 },
+      ],
+      new Set(),
+    );
+    // l.facebook.com + www.facebook.com merge to facebook.com=5 (shims stripped) →
+    // outranks news.ycombinator.com=4 (distinct source, kept intact), highest first.
+    expect(out).toEqual([
+      { referrer: 'facebook.com', views: 5 },
+      { referrer: 'news.ycombinator.com', views: 4 },
+    ]);
+  });
+
+  it('folds empty / "-" / "direct" referrers into a single direct bucket', () => {
+    const out = aggregateReferrersByHost(
+      [
+        { referrer: '', views: 5 },
+        { referrer: '-', views: 2 },
+        { referrer: 'direct', views: 1 },
+        { referrer: null, views: 3 },
+      ],
+      new Set(),
+    );
+    expect(out).toEqual([{ referrer: 'direct', views: 11 }]);
+  });
+
+  it('folds a same-site self-referral (ownHosts) into direct, keeps external hosts', () => {
+    const out = aggregateReferrersByHost(
+      [
+        { referrer: 'https://acme.projectsites.dev/about', views: 7 }, // self
+        { referrer: 'https://google.com/search', views: 4 }, // external
+        { referrer: '', views: 2 }, // direct
+      ],
+      new Set(['acme.projectsites.dev']),
+    );
+    expect(out).toEqual([
+      { referrer: 'direct', views: 9 }, // 7 self + 2 empty
+      { referrer: 'google.com', views: 4 },
+    ]);
+  });
+
+  it('is scheme-safe: a bare host still resolves (not collapsed to direct)', () => {
+    const out = aggregateReferrersByHost([{ referrer: 'instagram.com', views: 3 }], new Set());
+    expect(out).toEqual([{ referrer: 'instagram.com', views: 3 }]);
   });
 });
