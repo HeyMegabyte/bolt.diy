@@ -30,6 +30,10 @@ export const EVENT_TYPES = [
   // AN18 (#60): click-to-call / directions / mailto conversions emitted by the
   // analytics tracker's delegated click listener; payload carries {kind,section,href}.
   'conversion',
+  // Concierge chat (app.js universal-runtime piece): `concierge_open` on first
+  // panel open, `concierge_message` per visitor message — usage + engagement signal.
+  'concierge_open',
+  'concierge_message',
 ] as const;
 
 /**

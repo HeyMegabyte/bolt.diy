@@ -419,6 +419,168 @@ export const APP_JS = `/*! ProjectSites unified client — analytics + forms + u
     window.__PS_POSTHOG__ = { key: key, host: host, capture: function () {} };
   }
 
+  /* ───────────────────────── Concierge chat ───────────────────────── */
+  // Floating AI concierge — the 4th universal-runtime piece. Answers visitor
+  // questions via POST /api/chat/<slug> (Workers AI RAG over the site's own
+  // research profile). Self-removes if the endpoint 404s (operator killswitch).
+  function injectConcierge() {
+    if (document.getElementById('ps-cc-fab')) return;
+    var BRAND = (function () {
+      try {
+        var t = (document.title || '').split(/\\s[|\\u2013\\u2014\\-]\\s/)[0];
+        return (t && t.trim()) || 'us';
+      } catch (e) {
+        return 'us';
+      }
+    })();
+    function ccEsc(s) {
+      var d = document.createElement('div');
+      d.textContent = String(s);
+      return d.innerHTML;
+    }
+    var fabBottom = PAID ? '20px' : '84px';
+    var panelBottom = PAID ? '88px' : '150px';
+    var css =
+      '#ps-cc-fab{position:fixed;right:20px;bottom:' + fabBottom + ';z-index:2147483000;width:56px;height:56px;' +
+      'border-radius:50%;border:none;cursor:pointer;background:linear-gradient(135deg,#00e5ff,#50aae3);color:#04121a;' +
+      'box-shadow:0 8px 28px rgba(0,0,0,.32);display:flex;align-items:center;justify-content:center;transition:transform .18s ease}' +
+      '#ps-cc-fab:hover{transform:translateY(-2px) scale(1.04)}' +
+      '#ps-cc-fab:focus-visible{outline:3px solid #00e5ff;outline-offset:3px}' +
+      '#ps-cc-fab svg{width:26px;height:26px}' +
+      '#ps-cc-panel{position:fixed;right:20px;bottom:' + panelBottom + ';z-index:2147483000;' +
+      'width:min(380px,calc(100vw - 40px));height:min(540px,calc(100vh - 170px));background:#0b1220;color:#e8eefc;' +
+      'border:1px solid rgba(255,255,255,.1);border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,.5);display:none;' +
+      'flex-direction:column;overflow:hidden;font:14px/1.5 system-ui,sans-serif;opacity:0;transform:translateY(12px)}' +
+      '#ps-cc-panel.ps-open{display:flex;animation:ps-cc-in .22s ease forwards}' +
+      '@keyframes ps-cc-in{to{opacity:1;transform:translateY(0)}}' +
+      '@media(prefers-reduced-motion:reduce){#ps-cc-panel.ps-open{animation:none;opacity:1;transform:none}#ps-cc-fab{transition:none}}' +
+      '#ps-cc-head{display:flex;align-items:center;gap:10px;padding:14px 16px;background:linear-gradient(135deg,#00e5ff,#50aae3);color:#04121a}' +
+      '#ps-cc-head b{font-size:15px}#ps-cc-head span{font-size:12px;opacity:.85}' +
+      '#ps-cc-x{margin-left:auto;background:none;border:none;color:#04121a;font-size:22px;line-height:1;cursor:pointer;width:30px;height:30px;border-radius:50%}' +
+      '#ps-cc-x:hover{background:rgba(0,0,0,.12)}' +
+      '#ps-cc-log{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}' +
+      '.ps-cc-m{max-width:82%;padding:9px 13px;border-radius:14px;white-space:pre-wrap;word-wrap:break-word}' +
+      '.ps-cc-u{align-self:flex-end;background:linear-gradient(135deg,#00e5ff,#50aae3);color:#04121a;border-bottom-right-radius:4px}' +
+      '.ps-cc-a{align-self:flex-start;background:rgba(255,255,255,.07);border-bottom-left-radius:4px}' +
+      '.ps-cc-t{align-self:flex-start;color:rgba(232,238,252,.6);font-style:italic}' +
+      '#ps-cc-form{display:flex;gap:8px;padding:12px;border-top:1px solid rgba(255,255,255,.08)}' +
+      '#ps-cc-input{flex:1;resize:none;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);' +
+      'color:#e8eefc;border-radius:12px;padding:10px 12px;font:14px/1.4 system-ui,sans-serif;max-height:90px}' +
+      '#ps-cc-input:focus{outline:none;border-color:#00e5ff}' +
+      '#ps-cc-input::placeholder{color:rgba(232,238,252,.45)}' +
+      '#ps-cc-send{background:linear-gradient(135deg,#00e5ff,#50aae3);color:#04121a;border:none;border-radius:12px;padding:0 16px;font-weight:600;cursor:pointer}' +
+      '#ps-cc-send:disabled{opacity:.5;cursor:default}';
+    var style = document.createElement('style');
+    style.textContent = css;
+    document.head.appendChild(style);
+
+    var fab = document.createElement('button');
+    fab.id = 'ps-cc-fab';
+    fab.type = 'button';
+    fab.setAttribute('aria-label', 'Chat with ' + BRAND);
+    fab.setAttribute('aria-haspopup', 'dialog');
+    fab.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.6-.8L3 21l1.8-5.4A8.5 8.5 0 1 1 21 11.5z"></path></svg>';
+    document.body.appendChild(fab);
+
+    var panel = document.createElement('div');
+    panel.id = 'ps-cc-panel';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-label', BRAND + ' concierge chat');
+    panel.innerHTML =
+      '<div id="ps-cc-head"><b>' + ccEsc(BRAND) + '</b><span>Concierge</span>' +
+      '<button id="ps-cc-x" type="button" aria-label="Close chat">&times;</button></div>' +
+      '<div id="ps-cc-log" aria-live="polite"></div>' +
+      '<form id="ps-cc-form"><textarea id="ps-cc-input" rows="1" placeholder="Ask a question..." aria-label="Your message"></textarea>' +
+      '<button id="ps-cc-send" type="submit">Send</button></form>';
+    document.body.appendChild(panel);
+
+    var log = panel.querySelector('#ps-cc-log');
+    var input = panel.querySelector('#ps-cc-input');
+    var sendBtn = panel.querySelector('#ps-cc-send');
+    var form = panel.querySelector('#ps-cc-form');
+    var hist = [];
+    var greeted = false;
+    var dead = false;
+
+    function addMsg(role, text) {
+      var el = document.createElement('div');
+      el.className = 'ps-cc-m ' + (role === 'user' ? 'ps-cc-u' : 'ps-cc-a');
+      el.textContent = text;
+      log.appendChild(el);
+      log.scrollTop = log.scrollHeight;
+    }
+    function openPanel() {
+      panel.classList.add('ps-open');
+      if (!greeted) {
+        greeted = true;
+        addMsg('assistant', 'Hi! Ask me anything about ' + BRAND + ' — services, what to expect, or how to get started.');
+      }
+      setTimeout(function () { try { input.focus(); } catch (e) {} }, 60);
+      try { track('concierge_open', {}); } catch (e) {}
+    }
+    function closePanel() {
+      panel.classList.remove('ps-open');
+      try { fab.focus(); } catch (e) {}
+    }
+    fab.addEventListener('click', function () {
+      if (panel.classList.contains('ps-open')) closePanel();
+      else openPanel();
+    });
+    panel.querySelector('#ps-cc-x').addEventListener('click', closePanel);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && panel.classList.contains('ps-open')) closePanel();
+    });
+    input.addEventListener('input', function () {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 90) + 'px';
+    });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (form.requestSubmit) form.requestSubmit();
+      }
+    });
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var msg = (input.value || '').trim();
+      if (!msg || dead) return;
+      addMsg('user', msg);
+      hist.push({ role: 'user', content: msg });
+      try { track('concierge_message', {}); } catch (e) {}
+      input.value = '';
+      input.style.height = 'auto';
+      sendBtn.disabled = true;
+      var typing = document.createElement('div');
+      typing.className = 'ps-cc-m ps-cc-t';
+      typing.textContent = 'Typing...';
+      log.appendChild(typing);
+      log.scrollTop = log.scrollHeight;
+      fetch(API + '/api/chat/' + encodeURIComponent(SLUG), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ message: msg, history: hist.slice(-6) }),
+        mode: 'cors',
+        credentials: 'omit'
+      }).then(function (r) {
+        if (r.status === 404) { dead = true; throw new Error('disabled'); }
+        return r.json();
+      }).then(function (j) {
+        try { typing.remove(); } catch (e) {}
+        var reply = (j && j.data && j.data.reply) || 'Sorry, I could not answer that. Please use the contact form.';
+        addMsg('assistant', reply);
+        hist.push({ role: 'assistant', content: reply });
+        sendBtn.disabled = false;
+      }).catch(function () {
+        try { typing.remove(); } catch (e) {}
+        if (dead) { try { fab.remove(); panel.remove(); } catch (e) {} return; }
+        addMsg('assistant', 'I am having trouble right now. Please use the contact form and the team will reply soon.');
+        sendBtn.disabled = false;
+      });
+    });
+  }
+
   /* ───────────────────────── Boot ───────────────────────── */
   onReady(function () {
     try {
@@ -439,6 +601,9 @@ export const APP_JS = `/*! ProjectSites unified client — analytics + forms + u
     } catch (e) {}
     try {
       injectUpgradeBar();
+    } catch (e) {}
+    try {
+      injectConcierge();
     } catch (e) {}
     try {
       initSentryStub();
