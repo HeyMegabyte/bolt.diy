@@ -95,7 +95,10 @@ export function auditSiteLabel(slug: string | null | undefined, siteId: string):
  */
 export async function auditSiteLabelDb(db: D1Database, siteId: string): Promise<string> {
   try {
-    const row = await db.prepare('SELECT slug FROM sites WHERE id = ?').bind(siteId).first<{ slug: string }>();
+    const row = await db
+      .prepare('SELECT slug FROM sites WHERE id = ?')
+      .bind(siteId)
+      .first<{ slug: string }>();
     return auditSiteLabel(row?.slug, siteId);
   } catch {
     return siteId;

@@ -4,7 +4,12 @@ jest.mock('../services/db.js', () => ({
 }));
 
 import { dbQuery, dbInsert } from '../services/db.js';
-import { writeAuditLog, getAuditLogs, auditSiteLabel, auditSiteLabelDb } from '../services/audit.js';
+import {
+  writeAuditLog,
+  getAuditLogs,
+  auditSiteLabel,
+  auditSiteLabelDb,
+} from '../services/audit.js';
 import { createAuditLogSchema } from '@project-sites/shared';
 
 const mockInsert = dbInsert as jest.MockedFunction<typeof dbInsert>;
