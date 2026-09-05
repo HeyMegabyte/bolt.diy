@@ -34,6 +34,7 @@ import {
   parseClaimAdoptResult,
   type ClaimBuildStatus,
 } from './claim-prefill';
+import { renderThemeDossier } from './theme-presets';
 
 /**
  * Clean a URL for display and storage — strips tracking parameters (utm_*,
@@ -640,9 +641,7 @@ export class CreateComponent implements OnInit, OnDestroy {
           const design = this.getDesignRecommendations(inferred || '');
           const parts: string[] = [];
           parts.push(`Design style: ${design.style}.`);
-          parts.push(
-            `Theme personality: ${design.themeStyle} — apply this named visual style (typography, corner radius, shadow character, motion) consistently across the whole site.`,
-          );
+          parts.push(renderThemeDossier(design.themeStyle));
           parts.push(`Brand colors: primary ${design.primaryColor}, accent ${design.accentColor}.`);
           parts.push(
             `Typography: ${design.headingFont} for headings, ${design.bodyFont} for body text.`,
@@ -886,9 +885,7 @@ export class CreateComponent implements OnInit, OnDestroy {
 
     const design = this.getDesignRecommendations(category);
     parts.push(`Design style: ${design.style}.`);
-    parts.push(
-      `Theme personality: ${design.themeStyle} — apply this named visual style (typography, corner radius, shadow character, motion) consistently across the whole site.`,
-    );
+    parts.push(renderThemeDossier(design.themeStyle));
     parts.push(`Brand colors: primary ${design.primaryColor}, accent ${design.accentColor}.`);
     parts.push(`Typography: ${design.headingFont} for headings, ${design.bodyFont} for body text.`);
     parts.push(`Target audience: ${design.audience}.`);
@@ -1162,10 +1159,10 @@ export class CreateComponent implements OnInit, OnDestroy {
           'Include a "Free Consultation" CTA prominently. Add practice area icons. Professional headshots section.',
       },
       'Medical / Healthcare': {
-        style: 'Clean, calming, and trustworthy',
-        themeStyle: 'editorial',
-        primaryColor: '#0a2647',
-        accentColor: '#2196f3',
+        style: 'Clean, calming, and trustworthy with fresh organic accents',
+        themeStyle: 'botanical',
+        primaryColor: '#123b3a',
+        accentColor: '#5cc2a6',
         headingFont: 'Poppins',
         bodyFont: 'Open Sans',
         audience: 'Patients seeking quality healthcare services',
@@ -1280,6 +1277,90 @@ export class CreateComponent implements OnInit, OnDestroy {
           'Contact',
         ],
         extras: 'Use a masonry grid for the portfolio. Large, full-bleed images throughout.',
+      },
+      'Retail / Shop': {
+        style: 'Chic boutique with editorial product photography',
+        themeStyle: 'boutique',
+        primaryColor: '#2a1f2d',
+        accentColor: '#b76e79',
+        headingFont: 'Fraunces',
+        bodyFont: 'Jost',
+        audience: 'Shoppers seeking a curated, premium retail experience',
+        sections: [
+          'Hero lookbook',
+          'Featured products',
+          'Collections',
+          'About the shop',
+          'Reviews',
+          'Visit us & hours',
+          'Newsletter signup',
+          'Contact',
+        ],
+        extras:
+          'Show a shoppable product grid with price + quick-add. Add a "Shop the look" section and a store-hours + map block.',
+      },
+      Automotive: {
+        style: 'Engineered and sleek with metallic accents',
+        themeStyle: 'precision',
+        primaryColor: '#15181c',
+        accentColor: '#d81f26',
+        headingFont: 'Rajdhani',
+        bodyFont: 'Inter',
+        audience: 'Drivers seeking sales, service, or repairs they can trust',
+        sections: [
+          'Hero vehicle shot',
+          'Services & inventory',
+          'Why choose us',
+          'Specials & financing',
+          'Reviews',
+          'Book service / Get a quote',
+          'Location & hours',
+          'Contact',
+        ],
+        extras:
+          'Include a "Book Service" or "Get a Quote" CTA. Show service/spec cards in a precise grid with technical captions.',
+      },
+      'Education / Tutoring': {
+        style: 'Bright and encouraging with friendly rounded shapes',
+        themeStyle: 'scholarly',
+        primaryColor: '#1c3d5a',
+        accentColor: '#ffb703',
+        headingFont: 'Poppins',
+        bodyFont: 'Nunito',
+        audience: 'Students, parents, and lifelong learners',
+        sections: [
+          'Hero with students',
+          'Programs & subjects',
+          'How it works',
+          'Meet the tutors',
+          'Success stories',
+          'Pricing & enroll',
+          'FAQ',
+          'Contact',
+        ],
+        extras:
+          'Include an "Enroll" or "Book a Free Session" CTA. Show program cards + testimonial bubbles.',
+      },
+      'Financial / Accounting': {
+        style: 'Timeless and authoritative with serif typography',
+        themeStyle: 'heritage',
+        primaryColor: '#0e2338',
+        accentColor: '#b08d57',
+        headingFont: 'Playfair Display',
+        bodyFont: 'Source Sans Pro',
+        audience: 'Individuals and businesses seeking trusted financial guidance',
+        sections: [
+          'Hero with firm name',
+          'Services',
+          'Our approach',
+          'Team & credentials',
+          'Results & stats',
+          'Testimonials',
+          'Schedule a consultation',
+          'Contact',
+        ],
+        extras:
+          'Include a "Schedule a Consultation" CTA. Show a credentials/certifications strip and years-in-business + clients-served counters.',
       },
     };
 
