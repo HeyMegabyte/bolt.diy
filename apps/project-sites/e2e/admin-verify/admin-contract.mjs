@@ -108,8 +108,9 @@ export const ADMIN_CONTRACT = [
     api: [], signal: 'spf|dkim|dmarc|deliverab|email|dns|record', shell: 'deliverability-shell', minLen: 120, severity: 'hard' },
   { slug: 'docs', route: '/admin/docs', label: 'API Docs', kind: 'section', guard: 'auth', flag: null,
     api: [], signal: 'endpoint|openapi|api|try it|request|operation', shell: 'docs-shell', minLen: 120, severity: 'hard' },
-  { slug: 'ai-endpoints', route: '/admin/ai-endpoints', label: 'AI Endpoints', kind: 'section', guard: 'auth', flag: null,
-    api: [], signal: 'endpoint|ai|install|app\\.js|api|integration', shell: 'ai-endpoints-shell', minLen: 100, severity: 'soft' },
+  // (removed) ai-endpoints — the UI-authored AI-endpoint feature was retired per
+  // ADR-0035 (code-defined Functions on Workers-for-Platforms replaced it). No
+  // /admin/ai-endpoints route exists; the contract row was stale drift.
   { slug: 'apps', route: '/admin/apps', label: 'Apps', kind: 'section', guard: 'auth', flag: null,
     api: [], signal: 'app|catalog|deploy|container|install|instance', shell: 'apps-shell', minLen: 120, severity: 'hard' },
   { slug: 'apps-instances', route: '/admin/apps/instances', label: 'App Instances', kind: 'section', guard: 'auth', flag: null,
@@ -159,6 +160,10 @@ export const ADMIN_CONTRACT = [
   // ── Aliases — assert the REDIRECT resolves, never a not-found shell ───────────
   { slug: 'alias-traces', route: '/admin/traces', label: 'AI Traces', kind: 'alias', guard: 'auth', flag: null,
     api: [], signal: '', shell: '', minLen: 0, redirectTo: '/admin/logs?tab=traces', severity: 'hard' },
+  // Bare /admin/sites has no list page of its own — the dashboard ('' → /admin) is
+  // the site list; app.routes.ts redirects 'sites' → '' so a natural URL guess lands.
+  { slug: 'alias-sites', route: '/admin/sites', label: 'Sites', kind: 'alias', guard: 'auth', flag: null,
+    api: [], signal: '', shell: '', minLen: 0, redirectTo: '/admin', severity: 'hard' },
   { slug: 'alias-seo', route: '/admin/seo', label: 'SEO', kind: 'alias', guard: 'auth', flag: null,
     api: [], signal: '', shell: '', minLen: 0, redirectTo: '/admin/site-features', severity: 'hard' },
   { slug: 'alias-mcp', route: '/admin/mcp', label: 'MCP', kind: 'alias', guard: 'auth', flag: null,
