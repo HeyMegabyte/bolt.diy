@@ -19,7 +19,8 @@ import { isFlagOn } from '../modules/feature_flags/services.js';
 import { isSuperAdmin } from '../services/sysadmin.js';
 import { searchPlacesByQuery } from '../services/places_search.js';
 import { scanResultsToLeads } from '../services/lead_scan.js';
-import { createLead, listLeads, getLead } from '../services/lead_store.js';
+import { createLead, listLeads, getLead, updateLeadContact } from '../services/lead_store.js';
+import { enrichLeadContact } from '../services/lead_enrichment.js';
 import { discoverLeadsForQuery } from '../services/lead_query_discovery.js';
 import { tryEmitEvent } from '../services/emit_event.js';
 import { createClaimLink } from '../services/claim_links.js';
@@ -297,4 +298,49 @@ adminLeads.post('/api/admin/leads/:id/claim-link', async (c) => {
 
   const { token } = await createClaimLink(c.env.DB, leadId);
   return c.json({ token, claimUrl: `https://projectsites.dev/api/claim/${token}` }, 200);
+});
+
+/**
+ * `POST /api/admin/leads/:id/enrich` — on-demand DEEP contact enrichment for one
+ * scanned lead (#9): discover its website / phone / email / social profiles by
+ * merging a known-homepage parse, a free DuckDuckGo search, and an optional PAID
+ * adapter (gated by the `lead_enrichment_paid` flag + configured URL/key). Same
+ * super-admin + `lead_scanner` gate chain. Verifies the lead exists first (404).
+ * The merged {@link ContactBundle} is folded back onto the lead via
+ * {@link updateLeadContact} (columns + `profile_json`), so the claim prefill and
+ * the scanner list both pick up the new contact data. Never throws — a blocked
+ * search / down provider simply contributes nothing.
+ */
+adminLeads.post('/api/admin/leads/:id/enrich', async (c) => {
+  const requestId = c.get('requestId');
+  const blocked = await gateLeadScanner(c);
+  if (blocked) return blocked;
+
+  const leadId = c.req.param('id');
+  const lead = await getLead(c.env.DB, leadId);
+  if (!lead) {
+    return c.json(errorBody('NOT_FOUND', 'Lead not found', requestId), 404);
+  }
+
+  const paidEnabled = await isFlagOn(c.env, 'lead_enrichment_paid', {
+    orgId: c.get('orgId'),
+    userId: c.get('userId'),
+  });
+  const contact = await enrichLeadContact(
+    {
+      businessName: lead.profile.businessName,
+      address: lead.profile.address,
+      city: lead.profile.city,
+      website: lead.profile.existingWebsite,
+    },
+    {
+      fetchImpl: fetch,
+      paidEnabled,
+      paidApiUrl: c.env.LEAD_ENRICHMENT_API_URL,
+      paidApiKey: c.env.LEAD_ENRICHMENT_API_KEY,
+    },
+  );
+
+  await updateLeadContact(c.env.DB, leadId, contact, new Date().toISOString());
+  return c.json({ contact, updated: true }, 200);
 });

@@ -375,6 +375,24 @@ export const FLAG_DOCS: Record<string, FlagDocs> = {
       'Disable the flag → the route 404s',
     ],
   },
+  lead_enrichment_paid: {
+    checklist: [
+      'POST /api/admin/leads/:id/enrich — deep-discovers website / phone / email / socials for one lead',
+      'FREE tier always runs: OSM contact tags (captured at scan) + best-effort homepage + DuckDuckGo parse',
+      'PAID tier (this flag ON + LEAD_ENRICHMENT_API_URL/KEY set) merges a paid provider result, highest priority',
+      'Flag OFF (default) → free discovery only; the paid provider is never called and never errors',
+      'Operator-only (super-admin); enrich endpoint also gated by lead_scanner',
+    ],
+    explanation:
+      'Paid contact-enrichment tier for the Super-Admin Lead Scanner. The enrich endpoint (POST /api/admin/leads/:id/enrich) always runs a FREE discovery pass — OSM contact:* tags already captured at scan time, a best-effort homepage fetch/parse, and a DuckDuckGo lookup for the business’s website + social profiles — then folds the result into the lead (website / phone / email / socials columns + profile_json). When THIS flag is ON and both LEAD_ENRICHMENT_API_URL and LEAD_ENRICHMENT_API_KEY are set, a paid provider is also queried and merged at highest priority. Default OFF keeps the surface free + never spends. Every source is wrapped never-throw, so a blocked search or a down provider degrades to a partial bundle rather than an error. Turning the flag OFF instantly stops all paid lookups with no redeploy.',
+    smoke_test: [
+      'Flag OFF (default): POST /api/admin/leads/:id/enrich → 200 {contact,updated:true} using free discovery only',
+      'The lead row now shows any discovered phone/website/socials in /admin/leads (Contact + Social columns)',
+      'Flag ON + no provider secrets: still free-only (paid skipped, no error)',
+      'Enrich a non-existent lead id → 404 NOT_FOUND',
+      'Non-operator or lead_scanner OFF → 404 (never 403 leak)',
+    ],
+  },
   marketing_dashboard: {
     checklist: [
       'Widget-based analytics dashboard: 11 default widgets across 6 sources (website/email/social/ads/crm/booking)',

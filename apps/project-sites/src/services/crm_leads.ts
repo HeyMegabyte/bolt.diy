@@ -36,6 +36,7 @@ export interface DiscoveredBusiness {
   mapsUrl?: string | null;
   /** Stable external id (e.g. google place_id / osm:node/ID) for dedupe. */
   externalId?: string | null;
+  socials?: Record<string, string> | null;
 }
 
 /** The local payload we POST to Twenty's REST `companies` resource. */

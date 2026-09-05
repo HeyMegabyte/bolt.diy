@@ -13,6 +13,7 @@
  */
 
 import type { DiscoveredBusiness } from './crm_leads.js';
+import { extractSocialsFromOsmTags } from './social_links.js';
 
 /** Public Overpass interpreter endpoint (free, no key). */
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
@@ -113,6 +114,8 @@ export function osmElementToBusiness(el: OverpassElement): DiscoveredBusiness | 
   if (phone) biz.phone = phone;
   const email = tags['email'] ?? tags['contact:email'];
   if (email) biz.email = email;
+  const socials = extractSocialsFromOsmTags(tags);
+  if (Object.keys(socials).length > 0) biz.socials = socials;
   const cat = osmCategory(tags);
   if (cat) biz.category = cat;
   if (el.type && el.id != null) biz.externalId = `osm:${el.type}/${el.id}`;

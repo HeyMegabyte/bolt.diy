@@ -23,6 +23,10 @@ export interface PlacesResult {
   formatted_address: string;
   phone: string | null;
   website: string | null;
+  /** Contact email when the source advertises one (OSM `contact:email`). Optional — Places text search omits it. */
+  email?: string | null;
+  /** Social profile URLs by network key (from OSM `contact:*`). Optional; keys per `social_links.ts`. */
+  socials?: Record<string, string> | null;
   rating: number | null;
   review_count: number | null;
   hours: Array<{ day: string; open: string | null; close: string | null; closed: boolean }> | null;

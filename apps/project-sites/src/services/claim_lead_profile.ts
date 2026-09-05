@@ -94,6 +94,13 @@ export const ClaimLeadProfileSchema = z
     /** URL of the business's existing website (if any). */
     existingWebsite: z.string().optional(),
 
+    /**
+     * Discovered social/contact profile URLs, keyed by network
+     * (`facebook`|`instagram`|`x`|`linkedin`|`youtube`|`tiktok`|`yelp`|`google`).
+     * Captured from OSM `contact:*` tags at scan time + the /enrich endpoint.
+     */
+    socials: z.record(z.string(), z.string()).optional(),
+
     /** URL of the brand logo discovered during research. */
     logoUrl: z.string().optional(),
 

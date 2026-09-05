@@ -42,6 +42,8 @@ function toProfile(r: PlacesResult): ClaimLeadProfile {
   if (r.types[0]) profile.category = r.types[0];
   if (r.maps_url) profile.mapsUrl = r.maps_url;
   if (r.website) profile.existingWebsite = r.website;
+  if (r.email) profile.email = r.email;
+  if (r.socials && Object.keys(r.socials).length > 0) profile.socials = r.socials;
   return profile;
 }
 
@@ -98,6 +100,9 @@ export async function scanResultsToLeads(
         leadScore: score.leadScore,
         priority: score.priority,
         source,
+        ...(r.phone ? { phone: r.phone } : {}),
+        ...(r.email ? { email: r.email } : {}),
+        ...(r.socials && Object.keys(r.socials).length > 0 ? { socials: r.socials } : {}),
       });
       summary.created++;
     } catch {

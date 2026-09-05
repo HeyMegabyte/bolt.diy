@@ -1,5 +1,5 @@
-import { dbQueryOne, dbInsert, dbQuery } from '../services/db.js';
-import { createLead, getLead, listLeads } from '../services/lead_store';
+import { dbQueryOne, dbInsert, dbQuery, dbExecute } from '../services/db.js';
+import { createLead, getLead, listLeads, updateLeadContact } from '../services/lead_store';
 
 /**
  * #9/#1 shared dependency — the leads store. The scanner (#9) persists a
@@ -10,17 +10,20 @@ jest.mock('../services/db.js', () => ({
   dbQueryOne: jest.fn(),
   dbInsert: jest.fn().mockResolvedValue({ error: null }),
   dbQuery: jest.fn(),
+  dbExecute: jest.fn().mockResolvedValue({ error: null }),
 }));
 
 const mockQueryOne = dbQueryOne as jest.Mock;
 const mockInsert = dbInsert as jest.Mock;
 const mockQuery = dbQuery as jest.Mock;
+const mockExecute = dbExecute as jest.Mock;
 const db = {} as never;
 
 beforeEach(() => {
   mockQueryOne.mockReset();
   mockInsert.mockReset().mockResolvedValue({ error: null });
   mockQuery.mockReset().mockResolvedValue({ data: [] });
+  mockExecute.mockReset().mockResolvedValue({ error: null });
 });
 
 describe('createLead', () => {
@@ -94,9 +97,13 @@ describe('listLeads', () => {
     email_status: 'enriched',
     source: 'google_places',
     created_at: '2026-06-19T00:00:00Z',
+    phone: '+19735550100',
+    website: null,
+    socials_json: '{"facebook":"https://facebook.com/acme"}',
+    enriched_at: null,
   };
 
-  it('maps rows to typed summaries (0/1 → boolean) ordered by score', async () => {
+  it('maps rows to typed summaries (0/1 → boolean + parsed socials) ordered by score', async () => {
     mockQuery.mockResolvedValue({ data: [row] });
     const out = await listLeads(db);
     expect(out).toEqual([
@@ -110,11 +117,22 @@ describe('listLeads', () => {
         emailStatus: 'enriched',
         source: 'google_places',
         createdAt: '2026-06-19T00:00:00Z',
+        phone: '+19735550100',
+        website: null,
+        socials: { facebook: 'https://facebook.com/acme' },
+        enrichedAt: null,
       },
     ]);
     const [, sql] = mockQuery.mock.calls[0];
     expect(sql).toMatch(/ORDER BY lead_score DESC/i);
+    expect(sql).toMatch(/socials_json/i); // new contact columns selected
     expect(sql).not.toMatch(/deleted_at/i); // table has no soft-delete column
+  });
+
+  it('coerces a corrupt socials_json blob to an empty object (never throws)', async () => {
+    mockQuery.mockResolvedValue({ data: [{ ...row, socials_json: '{not json' }] });
+    const out = await listLeads(db);
+    expect(out[0].socials).toEqual({});
   });
 
   it('clamps limit to 1..200 and floors offset at 0', async () => {
@@ -141,5 +159,62 @@ describe('listLeads', () => {
   it('returns an empty array when there are no leads', async () => {
     mockQuery.mockResolvedValue({ data: [] });
     expect(await listLeads(db)).toEqual([]);
+  });
+});
+
+describe('updateLeadContact', () => {
+  it('returns { updated: false } when the lead does not exist (no write)', async () => {
+    mockQueryOne.mockResolvedValue(null);
+    const r = await updateLeadContact(db, 'nope', { phone: '555' }, '2026-09-05T00:00:00Z');
+    expect(r).toEqual({ updated: false });
+    expect(mockExecute).not.toHaveBeenCalled();
+  });
+
+  it('unions new socials over stored, folds contact into profile_json, stamps enriched_at', async () => {
+    mockQueryOne.mockResolvedValue({
+      id: 'lead_1',
+      profile_json: JSON.stringify({ businessName: 'Acme' }),
+      socials_json: '{"facebook":"https://facebook.com/acme"}',
+    });
+    const r = await updateLeadContact(
+      db,
+      'lead_1',
+      { phone: '+19735550100', email: 'o@acme.test', website: 'https://acme.test', socials: { instagram: 'https://instagram.com/acme' } },
+      '2026-09-05T12:00:00Z',
+    );
+    expect(r).toEqual({ updated: true });
+    const [, sql, params] = mockExecute.mock.calls[0];
+    expect(sql).toMatch(/UPDATE scanned_leads/i);
+    expect(sql).toMatch(/enriched_at\s*=\s*\?/i);
+    // params: [phone, email, website, socials_json, profile_json, enriched_at, id]
+    const socialsJson = JSON.parse(params[3] as string);
+    expect(socialsJson).toEqual({
+      facebook: 'https://facebook.com/acme',
+      instagram: 'https://instagram.com/acme',
+    });
+    const profile = JSON.parse(params[4] as string);
+    expect(profile).toEqual(
+      expect.objectContaining({
+        businessName: 'Acme',
+        phone: '+19735550100',
+        email: 'o@acme.test',
+        existingWebsite: 'https://acme.test',
+        socials: expect.objectContaining({ instagram: 'https://instagram.com/acme' }),
+      }),
+    );
+    expect(params[5]).toBe('2026-09-05T12:00:00Z');
+    expect(params[6]).toBe('lead_1');
+  });
+
+  it('leaves profile_json untouched when the stored profile is corrupt (columns still update)', async () => {
+    mockQueryOne.mockResolvedValue({
+      id: 'lead_1',
+      profile_json: '{not json',
+      socials_json: null,
+    });
+    const r = await updateLeadContact(db, 'lead_1', { phone: '555' }, '2026-09-05T00:00:00Z');
+    expect(r).toEqual({ updated: true });
+    const [, , params] = mockExecute.mock.calls[0];
+    expect(params[4]).toBe('{not json'); // profile_json passed through unchanged
   });
 });

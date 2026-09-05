@@ -27,6 +27,7 @@
  */
 
 import type { PlacesResult } from './google_places.js';
+import { extractSocialsFromOsmTags } from './social_links.js';
 
 /** Mirror list for the free Overpass API. Worker egress IPs are SHARED + heavily
  * rate-limited by the main server (429s observed live), so the list spans
@@ -322,7 +323,9 @@ export async function discoverLeadsForQuery(
       place_id: key,
       name,
       formatted_address: address ?? '',
-      phone: null,
+      phone: tags['phone'] ?? tags['contact:phone'] ?? null,
+      email: tags['email'] ?? tags['contact:email'] ?? null,
+      socials: extractSocialsFromOsmTags(tags),
       website: null,
       rating: null,
       review_count: null,

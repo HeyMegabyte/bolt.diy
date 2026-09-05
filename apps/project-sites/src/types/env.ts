@@ -324,6 +324,12 @@ export interface Env {
   /** Twenty CRM API bearer token (workspace API key). wrangler secret. */
   TWENTY_API_KEY?: string;
 
+  // ── Lead enrichment (optional, paid — gated by the `lead_enrichment_paid` flag) ──
+  /** Paid contact-enrichment provider REST endpoint (POST {name,address} → {website,phone,email,socials}). */
+  LEAD_ENRICHMENT_API_URL?: string;
+  /** Paid contact-enrichment provider bearer key. wrangler secret. Never called unless the flag is on. */
+  LEAD_ENRICHMENT_API_KEY?: string;
+
   // ── LLM Fallbacks (optional) ──────────────────────────────
   /** OpenAI API key for research pipeline and fallback LLM calls. */
   OPENAI_API_KEY?: string;

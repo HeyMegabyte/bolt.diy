@@ -254,6 +254,15 @@ export const FLAG_REGISTRY: Record<string, FlagDefinition> = {
     owner_email: 'brian@megabyte.space',
     stage: 'experimental',
   },
+  lead_enrichment_paid: {
+    default_enabled: false,
+    default_rollout_percent: 0,
+    description:
+      'Paid contact-enrichment tier for the Super-Admin Lead Scanner. When ON, POST /api/admin/leads/:id/enrich may call the configured paid provider (LEAD_ENRICHMENT_API_URL + LEAD_ENRICHMENT_API_KEY) to fill website / phone / email / socials for a lead.\n\n• Default OFF → the enrich endpoint runs FREE discovery only (OSM contact tags captured at scan + a best-effort homepage/DuckDuckGo parse); it never calls the paid provider and never errors.\n• ON + both secrets set → the paid provider result is merged (highest priority) into the free bundle.\n• Operator-only: the enrich endpoint is gated by lead_scanner + super-admin; this flag only unlocks the paid spend.\n• Reversible: turn OFF to instantly stop all paid lookups (no redeploy).',
+    key: 'lead_enrichment_paid',
+    owner_email: 'brian@megabyte.space',
+    stage: 'experimental',
+  },
   marketing_dashboard: {
     default_enabled: true,
     default_rollout_percent: 100,

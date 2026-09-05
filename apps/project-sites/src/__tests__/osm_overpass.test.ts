@@ -53,6 +53,7 @@ describe('osm_overpass — osmElementToBusiness', () => {
         'addr:housenumber': '12',
         'addr:street': 'Main St',
         'addr:city': 'Newark',
+        'contact:facebook': 'joesplumbing',
       },
     });
     expect(biz?.businessName).toBe("Joe's Plumbing");
@@ -60,6 +61,7 @@ describe('osm_overpass — osmElementToBusiness', () => {
     expect(biz?.category).toBe('hardware');
     expect(biz?.address).toBe('12 Main St, Newark');
     expect(biz?.externalId).toBe('osm:node/42');
+    expect(biz?.socials).toEqual({ facebook: 'https://facebook.com/joesplumbing' });
   });
   it('skips elements with a website (not a lead)', () => {
     expect(

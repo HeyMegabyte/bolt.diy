@@ -16,7 +16,7 @@
  * ```
  */
 import type { D1Database } from '@cloudflare/workers-types';
-import { dbQueryOne, dbInsert, dbQuery } from './db.js';
+import { dbQueryOne, dbInsert, dbQuery, dbExecute } from './db.js';
 import { ClaimLeadProfileSchema, type ClaimLeadProfile } from './claim_lead_profile.js';
 
 const TABLE = 'scanned_leads';
@@ -30,6 +30,12 @@ export interface LeadMeta {
   email?: string;
   emailStatus?: string;
   source?: string;
+  /** Contact phone (from OSM `contact:*` or enrichment). */
+  phone?: string;
+  /** Discovered website URL (a siteless lead with a site found elsewhere). */
+  website?: string;
+  /** Social profile URLs by network key (see `social_links.ts`). */
+  socials?: Record<string, string>;
 }
 
 /** A retrieved lead. */
@@ -54,6 +60,7 @@ export async function createLead(
 ): Promise<{ leadId: string }> {
   const validated = ClaimLeadProfileSchema.parse(profile); // throws on missing businessName
   const leadId = crypto.randomUUID();
+  const socials = meta.socials ?? validated.socials;
   const { error } = await dbInsert(db, TABLE, {
     id: leadId,
     business_name: validated.businessName,
@@ -62,9 +69,12 @@ export async function createLead(
     has_website: meta.hasWebsite ? 1 : 0,
     lead_score: meta.leadScore ?? 0,
     priority: meta.priority ? 1 : 0,
-    email: meta.email ?? null,
+    email: meta.email ?? validated.email ?? null,
     email_status: meta.emailStatus ?? null,
     source: meta.source ?? null,
+    phone: meta.phone ?? validated.phone ?? null,
+    website: meta.website ?? validated.existingWebsite ?? null,
+    socials_json: socials && Object.keys(socials).length > 0 ? JSON.stringify(socials) : null,
   });
   // Surface a persist failure instead of a lying-success: scanResultsToLeads counts a
   // returned leadId as `created`, so a silently-dropped insert would inflate the scan
@@ -108,6 +118,14 @@ export interface LeadSummary {
   emailStatus: string | null;
   source: string | null;
   createdAt: string;
+  /** Contact phone (OSM/enrichment), or null. */
+  phone: string | null;
+  /** Website discovered for a nominally-siteless lead, or null. */
+  website: string | null;
+  /** network-key → profile URL (parsed from socials_json; `{}` when none). */
+  socials: Record<string, string>;
+  /** ISO timestamp of the last /enrich run, or null (never enriched). */
+  enrichedAt: string | null;
 }
 
 /** Options for {@link listLeads}. */
@@ -130,6 +148,28 @@ interface LeadRow {
   email_status: string | null;
   source: string | null;
   created_at: string;
+  phone: string | null;
+  website: string | null;
+  socials_json: string | null;
+  enriched_at: string | null;
+}
+
+/** Parse a stored socials_json blob into a safe network→url map (never throws). */
+function parseSocials(json: string | null): Record<string, string> {
+  if (!json) return {};
+  try {
+    const obj = JSON.parse(json) as unknown;
+    if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+      const out: Record<string, string> = {};
+      for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+        if (typeof v === 'string' && v.trim()) out[k] = v;
+      }
+      return out;
+    }
+  } catch {
+    /* corrupt blob → empty (defensive; never break the list) */
+  }
+  return {};
 }
 
 /**
@@ -152,7 +192,8 @@ export async function listLeads(
   const websiteFilter = opts.onlyNoWebsite ? 'AND has_website = 0' : '';
   const { data } = await dbQuery<LeadRow>(
     db,
-    `SELECT id, business_name, has_website, lead_score, priority, email, email_status, source, created_at
+    `SELECT id, business_name, has_website, lead_score, priority, email, email_status, source, created_at,
+            phone, website, socials_json, enriched_at
      FROM ${TABLE} WHERE 1 = 1 ${websiteFilter}
      ORDER BY lead_score DESC, created_at DESC
      LIMIT ? OFFSET ?`,
@@ -168,5 +209,74 @@ export async function listLeads(
     emailStatus: row.email_status,
     source: row.source,
     createdAt: row.created_at,
+    phone: row.phone ?? null,
+    website: row.website ?? null,
+    socials: parseSocials(row.socials_json),
+    enrichedAt: row.enriched_at ?? null,
   }));
+}
+
+/**
+ * Persist a contact bundle discovered by the /enrich endpoint onto an existing
+ * lead — updates the queryable columns AND folds the socials/website/phone/email
+ * back into the stored `profile_json` (so the claim prefill sees them too). Never
+ * throws; a corrupt stored profile is left as-is (columns still update).
+ *
+ * @param db      - D1 binding.
+ * @param leadId  - The lead id.
+ * @param contact - Discovered `{ website?, phone?, email?, socials? }`.
+ * @param nowIso  - Injected ISO timestamp for `enriched_at` (testable clock).
+ * @returns `{ updated: boolean }` — false when the lead does not exist.
+ */
+export async function updateLeadContact(
+  db: D1Database,
+  leadId: string,
+  contact: { website?: string; phone?: string; email?: string; socials?: Record<string, string> },
+  nowIso: string,
+): Promise<{ updated: boolean }> {
+  const existing = await dbQueryOne<{ id: string; profile_json: string; socials_json: string | null }>(
+    db,
+    `SELECT id, profile_json, socials_json FROM ${TABLE} WHERE id = ?`,
+    [leadId],
+  );
+  if (!existing) return { updated: false };
+
+  // Union new socials over any already stored (new values win per key).
+  const merged = { ...parseSocials(existing.socials_json), ...(contact.socials ?? {}) };
+  const socialsJson = Object.keys(merged).length > 0 ? JSON.stringify(merged) : null;
+
+  // Fold contact back into profile_json so the claim prefill stays consistent.
+  let profileJson = existing.profile_json;
+  try {
+    const profile = ClaimLeadProfileSchema.parse(JSON.parse(existing.profile_json));
+    if (contact.phone) profile.phone = contact.phone;
+    if (contact.email) profile.email = contact.email;
+    if (contact.website) profile.existingWebsite = contact.website;
+    if (Object.keys(merged).length > 0) profile.socials = merged;
+    profileJson = JSON.stringify(profile);
+  } catch {
+    /* corrupt stored profile → leave profile_json untouched, still update columns */
+  }
+
+  await dbExecute(
+    db,
+    `UPDATE ${TABLE}
+       SET phone = COALESCE(?, phone),
+           email = COALESCE(?, email),
+           website = COALESCE(?, website),
+           socials_json = ?,
+           profile_json = ?,
+           enriched_at = ?
+     WHERE id = ?`,
+    [
+      contact.phone ?? null,
+      contact.email ?? null,
+      contact.website ?? null,
+      socialsJson,
+      profileJson,
+      nowIso,
+      leadId,
+    ],
+  );
+  return { updated: true };
 }
