@@ -7,6 +7,7 @@
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { ADMIN_CONTRACT, childPath } from './admin-contract.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const req = createRequire(resolve(__dirname, '../../frontend/'));
@@ -39,6 +40,23 @@ const SECTIONS = [
 // routed≠reachable / missing-route defect — NOT a real section — and must FAIL even though it isn't blank,
 // has no console error, and is axe-clean.
 const SOFT_404 = /this admin page does(?:n['’]t| not) exist/i;
+
+// SSOT cross-check (AL-005 root-cause guard) — every SECTIONS entry MUST be a real admin route:
+// a childPath in the admin-contract SSOT, OR a documented redirect route not modeled as its own
+// contract row. Fails at STARTUP if the hand-maintained list drifts into false-coverage (media +
+// env-vars were non-routes; user-settings' real path is 'user' — all three rendered the 404 shell
+// while the audit reported "ok"). Complements the SOFT_404 runtime guard: this catches a stale
+// entry BEFORE navigation; SOFT_404 catches a REAL route regressing to the not-found shell.
+const CONTRACT_PATHS = new Set(ADMIN_CONTRACT.map((s) => childPath(s.route) || 'dashboard'));
+const KNOWN_REDIRECTS = new Set(['sites']); // /admin/sites → /admin — the dashboard IS the sites hub (not a distinct contract row)
+const staleSurf = SECTIONS.filter((s) => !CONTRACT_PATHS.has(s) && !KNOWN_REDIRECTS.has(s));
+if (staleSurf.length) {
+  console.error(
+    `admin-surf-audit: ${staleSurf.length} SECTIONS entr${staleSurf.length > 1 ? 'ies' : 'y'} not a real admin route ` +
+      `(contract-SSOT drift — the AL-005 class): ${staleSurf.join(', ')}. Fix SECTIONS or admin-contract.mjs.`,
+  );
+  process.exit(2);
+}
 
 // Console noise we intentionally ignore (third-party beacons + CF bot challenge on
 // analytics ingest — documented as healthy in the loop memories).
