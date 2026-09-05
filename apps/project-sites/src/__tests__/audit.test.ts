@@ -4,7 +4,7 @@ jest.mock('../services/db.js', () => ({
 }));
 
 import { dbQuery, dbInsert } from '../services/db.js';
-import { writeAuditLog, getAuditLogs, auditSiteLabel } from '../services/audit.js';
+import { writeAuditLog, getAuditLogs, auditSiteLabel, auditSiteLabelDb } from '../services/audit.js';
 import { createAuditLogSchema } from '@project-sites/shared';
 
 const mockInsert = dbInsert as jest.MockedFunction<typeof dbInsert>;
@@ -212,5 +212,33 @@ describe('auditSiteLabel', () => {
     expect(auditSiteLabel(undefined, 'id-1')).toBe('id-1');
     expect(auditSiteLabel('', 'id-1')).toBe('id-1');
     expect(auditSiteLabel('   ', 'id-1')).toBe('id-1');
+  });
+});
+
+// ─── auditSiteLabelDb (async D1 variant) ─────────────────────
+describe('auditSiteLabelDb', () => {
+  const mkDb = (slug: string | null | undefined, throws = false): D1Database =>
+    ({
+      prepare: () => ({
+        bind: () => ({
+          first: async () => {
+            if (throws) throw new Error('d1 down');
+            return slug === undefined ? null : { slug };
+          },
+        }),
+      }),
+    }) as unknown as D1Database;
+
+  it('resolves the slug from D1', async () => {
+    expect(await auditSiteLabelDb(mkDb('vito-salon'), 'id-1')).toBe('vito-salon');
+  });
+
+  it('falls back to the site id when the row/slug is missing', async () => {
+    expect(await auditSiteLabelDb(mkDb(null), 'id-1')).toBe('id-1');
+    expect(await auditSiteLabelDb(mkDb(undefined), 'id-1')).toBe('id-1');
+  });
+
+  it('never throws — a D1 error falls back to the site id', async () => {
+    expect(await auditSiteLabelDb(mkDb('x', true), 'id-1')).toBe('id-1');
   });
 });

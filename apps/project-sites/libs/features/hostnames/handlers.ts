@@ -258,11 +258,12 @@ hostnames.put('/api/sites/:siteId/hostnames/:hostnameId/primary', async (c) => {
 
   await domainService.setPrimaryHostname(c.env.DB, siteId, hostnameId);
 
+  const siteLabel = await auditService.auditSiteLabelDb(c.env.DB, siteId);
   await auditService.writeAuditLog(c.env.DB, {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'hostname.set_primary',
-    message: `Hostname '${hostnameId}' set as primary for site '${siteId}'`,
+    message: `Hostname '${hostnameId}' set as primary for site '${siteLabel}'`,
     target_type: 'hostname',
     target_id: hostnameId,
     metadata_json: {
@@ -305,11 +306,12 @@ hostnames.post('/api/sites/:siteId/hostnames/reset-primary', async (c) => {
     .bind(siteId)
     .run();
 
+  const siteLabel = await auditService.auditSiteLabelDb(c.env.DB, siteId);
   await auditService.writeAuditLog(c.env.DB, {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'hostname.reset_primary',
-    message: `Primary hostname reset to default subdomain for site '${siteId}'`,
+    message: `Primary hostname reset to default subdomain for site '${siteLabel}'`,
     target_type: 'site',
     target_id: siteId,
     metadata_json: { site_id: siteId },
@@ -359,11 +361,12 @@ hostnames.delete('/api/sites/:siteId/hostnames/:hostnameId', async (c) => {
 
   await c.env.CACHE_KV.delete(`host:${hostname.hostname}`).catch(() => {});
 
+  const siteLabel = await auditService.auditSiteLabelDb(c.env.DB, siteId);
   await auditService.writeAuditLog(c.env.DB, {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'hostname.deleted',
-    message: `Hostname '${hostname.hostname}' removed from site '${siteId}'`,
+    message: `Hostname '${hostname.hostname}' removed from site '${siteLabel}'`,
     target_type: 'hostname',
     target_id: hostnameId,
     metadata_json: {
@@ -423,11 +426,12 @@ hostnames.post('/api/sites/:siteId/hostnames/:hostnameId/unsubscribe', async (c)
 
   await c.env.CACHE_KV.delete(`host:${hostname.hostname}`).catch(() => {});
 
+  const siteLabel = await auditService.auditSiteLabelDb(c.env.DB, siteId);
   await auditService.writeAuditLog(c.env.DB, {
     org_id: orgId,
     actor_id: c.get('userId') ?? null,
     action: 'hostname.unsubscribed',
-    message: `Premium hostname '${hostname.hostname}' unsubscribed from site '${siteId}'`,
+    message: `Premium hostname '${hostname.hostname}' unsubscribed from site '${siteLabel}'`,
     target_type: 'hostname',
     target_id: hostnameId,
     metadata_json: {

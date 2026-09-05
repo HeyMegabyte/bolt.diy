@@ -82,6 +82,27 @@ export function auditSiteLabel(slug: string | null | undefined, siteId: string):
 }
 
 /**
+ * Async DB variant of {@link auditSiteLabel} for handlers that hold only the
+ * site id — resolves the slug from D1 so an audit MESSAGE reads "…site
+ * 'vito-salon'" instead of a raw UUID. Never throws (a lookup miss/failure
+ * falls back to the id) so it can't break an audit write.
+ *
+ * @param db     - D1 binding.
+ * @param siteId - The site id (UUID).
+ * @returns The slug when the site exists, else `siteId` (never blank).
+ * @example
+ * const label = await auditSiteLabelDb(env.DB, siteId); // 'vito-salon' | siteId
+ */
+export async function auditSiteLabelDb(db: D1Database, siteId: string): Promise<string> {
+  try {
+    const row = await db.prepare('SELECT slug FROM sites WHERE id = ?').bind(siteId).first<{ slug: string }>();
+    return auditSiteLabel(row?.slug, siteId);
+  } catch {
+    return siteId;
+  }
+}
+
+/**
  * Write an audit log entry to D1.
  *
  * Failures are logged but **never throw** — audit logging must not break

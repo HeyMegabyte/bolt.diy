@@ -11,6 +11,9 @@
  */
 jest.mock('../services/audit.js', () => ({
   writeAuditLog: jest.fn().mockResolvedValue(undefined),
+  // Async helper the handler now calls to name the site by slug in its audit
+  // message; the test doesn't assert the message, so the id fallback is fine.
+  auditSiteLabelDb: async (_db: unknown, siteId: string) => siteId,
 }));
 
 import { Hono } from 'hono';

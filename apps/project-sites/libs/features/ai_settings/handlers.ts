@@ -209,12 +209,13 @@ aiSettings.put('/api/sites/:siteId/ai-settings', async (c) => {
       .run();
   }
 
+  const siteLabel = await auditService.auditSiteLabelDb(c.env.DB, siteId);
   c.executionCtx.waitUntil(
     auditService.writeAuditLog(c.env.DB, {
       org_id: orgId,
       actor_id: c.get('userId') ?? null,
       action: 'ai_settings.updated',
-      message: `AI settings updated for site '${siteId}' (${Object.keys(fields)
+      message: `AI settings updated for site '${siteLabel}' (${Object.keys(fields)
         .filter((k) => k !== 'updated_at')
         .join(', ')})`,
       target_type: 'ai_site_settings',

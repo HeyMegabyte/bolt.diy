@@ -579,12 +579,13 @@ siteVersioning.delete('/api/sites/:siteId/snapshots/:snapshotId', async (c) => {
   );
   if (del.error) throw internalError(`Snapshot delete failed: ${del.error}`);
 
+  const siteLabel = await auditService.auditSiteLabelDb(c.env.DB, siteId);
   c.executionCtx.waitUntil(
     auditService.writeAuditLog(c.env.DB, {
       org_id: orgId,
       actor_id: c.get('userId') ?? null,
       action: 'site.snapshot.deleted',
-      message: `Snapshot '${snap?.snapshot_name ?? snapshotId}' deleted from site '${siteId}'`,
+      message: `Snapshot '${snap?.snapshot_name ?? snapshotId}' deleted from site '${siteLabel}'`,
       target_type: 'site_snapshot',
       target_id: snapshotId,
       metadata_json: { site_id: siteId, snapshot_name: snap?.snapshot_name ?? null },
