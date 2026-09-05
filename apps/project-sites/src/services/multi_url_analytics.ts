@@ -464,16 +464,11 @@ async function visitorEventsFallback(
        WHERE ${w} AND event_type = 'pageview' GROUP BY country ORDER BY views DESC LIMIT 15`,
     ),
     q<{ referrer: string | null; views: number }>(
-      // COALESCE null channel → 'direct': an event with no acquisition channel IS direct
-      // traffic (no referer captured). Without this, null-channel events form a SEPARATE
-      // bucket that the UI renders as a SECOND "Direct" row next to channel='direct'.
-      // GROUP BY the FULL COALESCE expression, NOT the `referrer` alias — D1/SQLite does
-      // not aggregate a GROUP BY that references a COALESCE(json_extract(...)) alias, so the
-      // alias form fragments one channel into many single-row buckets (Referral 3/2/1…).
-      // Verified on prod: alias → fragmented; full-expression → Direct/Referral/Organic/Social.
+      // COALESCE null channel → 'direct': an event with no captured acquisition channel
+      // IS direct traffic. Without it the null-channel rows render as a separate blank /
+      // '(direct)' bucket beside channel='direct' — two direct-ish rows for one concept.
       `SELECT COALESCE(json_extract(metadata, '$.channel'), 'direct') AS referrer, COUNT(*) AS views FROM visitor_events
-       WHERE ${w} AND event_type = 'pageview'
-       GROUP BY COALESCE(json_extract(metadata, '$.channel'), 'direct') ORDER BY views DESC LIMIT 15`,
+       WHERE ${w} AND event_type = 'pageview' GROUP BY referrer ORDER BY views DESC LIMIT 15`,
     ),
   ]);
 
