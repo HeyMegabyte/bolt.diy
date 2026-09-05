@@ -20,6 +20,14 @@
  *   memberships 1 · ai_env_vars 3 · (api_tokens/hostnames/form_submissions/leads/
  *   social/app_instances = 0 = honest-empty; api_tokens was 1 on 2026-08-06, now 0)
  *
+ * NOT reconciled here on purpose (verified 2026-09-05):
+ *   - forms/submissions: this SITE's form_submissions is honest-empty (0), and the
+ *     count is a GROWING metric on sites that DO have data (each contact submit adds a
+ *     row) — a hardcoded `gt` would drift. Forms is reconciled DYNAMICALLY by
+ *     `verify-forms-causal.mjs` (submit → read-back → assert uiShows) instead — the
+ *     right tool for a growing count. Ground-truthed both cases: vanta 0(D1)==0(UI),
+ *     northstar 18(D1)==18(API)==uiShows. So forms IS covered, just not as a static row.
+ *
  * Creds (get-secret): BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID, E2E_TEST_PASSWORD.
  * Exits 0 (skip) if any unset. Usage: node e2e/admin-verify/reconcile-surfaces.mjs
  */
