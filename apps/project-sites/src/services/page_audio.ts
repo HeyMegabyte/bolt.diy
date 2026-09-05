@@ -53,6 +53,18 @@ function normalize(raw: string): string {
   return raw.replace(/\s+/g, ' ').trim().slice(0, MAX_INPUT);
 }
 
+/**
+ * Trim to ≤max chars WITHOUT cutting mid-word — prefer the last sentence boundary,
+ * else the last whole word. Keeps the spoken audio from ending on "…strength a".
+ */
+function trimToSentence(s: string, max: number): string {
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max);
+  const stop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '));
+  if (stop > max * 0.5) return cut.slice(0, stop + 1).trim();
+  return cut.replace(/\s+\S*$/, '').trim(); // drop the dangling partial word
+}
+
 /** Stable 20-hex-char content id for (slug, route, text) → one cached object per page version. */
 async function contentHash(slug: string, route: string, text: string): Promise<string> {
   const data = new TextEncoder().encode(`${slug}|${route}|${text}`);
@@ -85,12 +97,12 @@ async function summarizeForAudio(env: Env, text: string): Promise<string> {
       { role: 'system', content: system },
       { role: 'user', content: text },
     ],
-    max_tokens: 320,
+    max_tokens: 200,
   })) as { response?: string };
   const summary = (result && typeof result.response === 'string' ? result.response : '')
     .replace(/\s+/g, ' ')
     .trim();
-  return summary.slice(0, MAX_SUMMARY);
+  return trimToSentence(summary, MAX_SUMMARY);
 }
 
 /**

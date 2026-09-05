@@ -418,9 +418,11 @@ Every site MUST have a logo and app icon. If none is uploaded or discovered:
 4. **Ideogram** (`IDEOGRAM_API_KEY`) — alternative AI logo generation (good for stylized text)
 5. **Stability AI** (`STABILITY_API_KEY`) — Stable Diffusion for logo variations
 
-Logo style: Clean, simple, text-based with a geometric accent. Use the business name in a bold display font with brand colors. The logo should work at both large sizes (hero) and small sizes (favicon).
+Logo style — TWO SEPARATE assets, never one text-baked square:
+1. **Square icon MARK** — a TEXT-FREE simple geometric symbol OR a 1-2 letter monogram in the brand color. NEVER the full business name. This is what all favicons + the app-icon + the header's square mark use.
+2. **Stylized wordmark** — the business name in a bold display font + brand colors, rendered as its OWN piece. The site Header shows the square icon + the wordmark SIDE BY SIDE (the wordmark is crisp styled text, not baked into the icon).
 
-App icon: 512x512 PNG, simplified version of the logo. If the logo has text, the app icon should be just the first letter or monogram in the brand's primary color on a clean background.
+App icon: 512x512 PNG — the TEXT-FREE square icon MARK ONLY (the symbol / 1-2 letter monogram in the brand's primary color on a clean background). NEVER the full business name. All favicons (16/32/180/192/512) derive from this same text-free square. The business name lives only in the header wordmark, beside the icon — never inside the square.
 
 ## Multimedia API Usage (MANDATORY in every build)
 

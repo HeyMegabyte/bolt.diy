@@ -780,7 +780,7 @@ export function registerAllPrompts(): void {
       system: [
         'You are a brand identity consultant. Determine visual brand identity for this business.',
         'Suggest 3-5 colors (hex) appropriate for the industry. Recommend Google Fonts.',
-        'For logo: indicate if findable online or needs generation. If generating, describe a text-based logo.',
+        'For logo: indicate if findable online or needs generation. If generating, describe a TEXT-FREE square ICON MARK — a simple geometric symbol or a 1-2 letter monogram of the initials in the brand color. NEVER bake the full business name into the icon: the app-icon + all favicons use this square mark, and the website renders the business name as a SEPARATE stylized wordmark BESIDE the icon. Keep fallback_design.text to the 1-2 letter monogram ONLY (never the full name).',
         'Return JSON: { logo{found_online,search_query,fallback_design{text,font,accent_shape,accent_color}},',
         'colors{primary,secondary,accent,background,surface,text_primary,text_secondary},',
         'fonts{heading,body}, brand_personality, style_notes }',
