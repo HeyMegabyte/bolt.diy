@@ -22,12 +22,23 @@ const VH = VW <= 480 ? 844 : 900;
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36';
 
+// Real /admin/* routes (app.routes.ts) + folded aliases (redirect to settings#… / logs?tab=…).
+// NOTE (2026-09-05): 'media' + 'env-vars' were REMOVED — they are NOT admin routes. `EnvVarsManagerComponent`
+// is embedded via `env-vars-attachment.component.ts` (a dialog), and neither has an `app.routes.ts` entry, a
+// nav link, or an `admin-contract.mjs` row. `/admin/media` + `/admin/env-vars` correctly render the admin-404
+// shell — the audit was reporting that 404 page as "ok (894 chars)" (its char/console/axe checks are blind to
+// a soft-404 that has >min chars). The SOFT_404 guard below now fails on that shell, so any REAL section that
+// regresses to the not-found page is caught (it can no longer hide behind "ok").
 const SECTIONS = [
   'dashboard', 'sites', 'forms', 'analytics', 'snapshots', 'billing', 'audit', 'docs',
   'settings', 'mcp', 'apps', 'social', 'domains', 'seo', 'site-features', 'team',
-  'webhooks', 'media', 'leads', 'deliverability', 'voice', 'user-settings', 'api-tokens',
-  'env-vars', 'logs',
+  'webhooks', 'leads', 'deliverability', 'voice', 'user', 'api-tokens', 'logs',
 ];
+
+// The admin not-found shell ("ERROR 404 · This admin page doesn't exist"). A section rendering this is a
+// routed≠reachable / missing-route defect — NOT a real section — and must FAIL even though it isn't blank,
+// has no console error, and is axe-clean.
+const SOFT_404 = /this admin page does(?:n['’]t| not) exist/i;
 
 // Console noise we intentionally ignore (third-party beacons + CF bot challenge on
 // analytics ingest — documented as healthy in the loop memories).
@@ -69,11 +80,14 @@ for (const s of SECTIONS) {
       const root = document.querySelector('app-root, #root, body');
       const txt = document.body.innerText || '';
       const boundary = /something went wrong|section (failed|crashed|error)|reset this section|an error occurred/i.test(txt);
+      // Admin not-found shell — a >min-chars, axe-clean, console-clean page that is NOT a real section.
+      const soft404 = /this admin page does(?:n['’]t| not) exist/i.test(txt);
       return {
         url: location.pathname + (location.hash || ''),
         len: (root?.innerHTML || '').length,
         textLen: txt.trim().length,
         boundary,
+        soft404,
       };
     });
     // axe at the current viewport. WCAG critical/serious drives the pass/fail gate
@@ -103,11 +117,12 @@ for (const s of SECTIONS) {
     const blank = info.textLen < 40;
     // best-practice (region/heading-order/landmark) now GATES too — stable at 0 across
     // 2 runs (desktop + mobile), so a regression should fail the audit, not just log.
-    const bad = errors.length > 0 || info.boundary || blank || axeSerious.length > 0 || axeBp.length > 0;
+    const bad = errors.length > 0 || info.boundary || info.soft404 || blank || axeSerious.length > 0 || axeBp.length > 0;
     if (bad) problems++;
     const flags = [
       errors.length ? `${errors.length} console-err` : null,
       info.boundary ? 'ERROR-BOUNDARY' : null,
+      info.soft404 ? 'SOFT-404 (admin not-found shell)' : null,
       blank ? 'BLANK' : null,
       axeSerious.length ? `${axeSerious.length} axe` : null,
       axeBp.length ? `${axeBp.length} best-practice(${axeBp.map((v) => v.id).join('/')})` : null,
