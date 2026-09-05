@@ -715,6 +715,59 @@ async function ensureLogo(dir, ideogramKey, anthropicKey) {
 }
 
 /**
+ * Generate the STYLIZED TEXT wordmark (the business NAME) with Ideogram — the second
+ * brand logo, shown to the RIGHT of the square icon mark. This one SHOULD contain text
+ * (it IS the wordmark), so — unlike the square icon — it is NOT vision-gated. Transparent
+ * background requested so it drops cleanly beside the icon; the navbar falls back to crisp
+ * HTML text when the image is absent/broken. A user/official wordmark URL wins (honors
+ * user-supplied context). Writes public/logo-wordmark.png. Runs BEFORE `npm run build`.
+ */
+async function ensureWordmark(dir, ideogramKey) {
+  const pub = path.join(dir, 'public');
+  const dest = path.join(pub, 'logo-wordmark.png');
+  const save = async (url) => {
+    const res = await fetch(url, { signal: AbortSignal.timeout(45000) });
+    if (!res.ok || !/image\//.test(res.headers.get('content-type') || '')) return false;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length < 2000) return false;
+    fs.mkdirSync(pub, { recursive: true });
+    fs.writeFileSync(dest, buf);
+    return true;
+  };
+  try {
+    let brand = {};
+    try { brand = JSON.parse(fs.readFileSync(path.join(dir, '_brand.json'), 'utf-8')); } catch { /* defaults */ }
+    const leaf = (l) => (l && typeof l === 'object' && typeof l.$value === 'string' ? l.$value : typeof l === 'string' ? l : '');
+    const name = leaf((brand.business || {}).name) || 'Business';
+    const logo = brand.logo || {};
+    // (1) user/official wordmark wins — used verbatim.
+    for (const key of ['wordmark_url', 'original_url']) {
+      const u = leaf(logo[key]);
+      if (u && /^https?:\/\//.test(u)) { try { if (await save(u)) return `official wordmark (${key})`; } catch { /* next */ } }
+    }
+    // (2) Ideogram — a stylized wordmark of the NAME (text is intended here; no gate).
+    if (!ideogramKey) return 'no ideogram key — HTML-text wordmark fallback';
+    const prompt =
+      `A clean, elegant, horizontal WORDMARK logo showing ONLY the text "${name}" in modern ` +
+      `professional typography. Tasteful lettering, subtle brand-appropriate color, TRANSPARENT ` +
+      `background, NO icon, NO symbol, NO tagline — just the stylized words "${name}".`;
+    const gen = await fetch('https://api.ideogram.ai/generate', {
+      method: 'POST',
+      headers: { 'Api-Key': ideogramKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image_request: { prompt, aspect_ratio: 'ASPECT_16_9', model: 'V_2', magic_prompt_option: 'OFF' } }),
+      signal: AbortSignal.timeout(90000),
+    });
+    if (!gen.ok) return `Ideogram wordmark HTTP ${gen.status} — HTML-text fallback`;
+    const j = await gen.json().catch(() => ({}));
+    const url = j && j.data && j.data[0] && j.data[0].url;
+    if (url && (await save(url))) return 'Ideogram-generated wordmark';
+    return 'Ideogram returned no wordmark — HTML-text fallback';
+  } catch (e) {
+    return `wordmark skipped: ${String((e && e.message) || e).slice(0, 80)}`;
+  }
+}
+
+/**
  * Merge the per-vertical DEFAULT content pack (examples/_content.<vertical>.json)
  * into _content.json so section tokens (HERO, FEATURE, SERVICE, STAT, PROCESS,
  * FAQ, CTA, ABOUT groups) fill with strong generic per-vertical copy even when the
@@ -1005,6 +1058,7 @@ function runJob(jobId, dir, prompt, envVars, timeoutMin, callbackUrl, callbackSe
             // Logo: recover the OFFICIAL mark, else generate an elegant one via Ideogram
             // (BEFORE npm build, so generate-favicons keeps it as apple-touch-icon.png).
             console.warn(`[${jobId}] Logo: ${await ensureLogo(dir, envVars.IDEOGRAM_API_KEY, envVars.ANTHROPIC_API_KEY)}`);
+            console.warn(`[${jobId}] Wordmark: ${await ensureWordmark(dir, envVars.IDEOGRAM_API_KEY)}`);
             console.warn(`[${jobId}] Research narrative: ${applyResearchNarrative(dir)}`);
             console.warn(`[${jobId}] Vertical content: ${applyVerticalContentPack(dir, preset, TEMPLATE_DIR)}`);
             console.warn(`[${jobId}] Stub guard: ${guardAgainstStubPages(dir, TEMPLATE_DIR)}`);
