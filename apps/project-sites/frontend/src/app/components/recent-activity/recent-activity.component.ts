@@ -49,7 +49,7 @@ interface ActivityFeedResponse {
             <li class="ra-item" data-testid="activity-entry" [attr.data-kind]="e.kind">
               <span class="ra-dot" [class]="'ra-dot--' + tone(e.kind)" aria-hidden="true"></span>
               <span class="ra-body">
-                <span class="ra-summary">{{ e.summary }}</span>
+                <span class="ra-summary">{{ clean(e.summary) }}</span>
                 <span class="ra-meta">{{ label(e.kind) }}@if (e.actorName) { · {{ e.actorName }}} · {{ relTime(e.timestamp) }}</span>
               </span>
             </li>
@@ -149,5 +149,27 @@ export class RecentActivityComponent implements OnInit {
     if (h < 24) return `${h}h ago`;
     const d = Math.floor(h / 24);
     return `${d}d ago`;
+  }
+
+  /**
+   * Defensive display guard: never render a stray `undefined`/`null` to the user.
+   * An older audit writer occasionally interpolated a missing field into a summary
+   * (e.g. "Stripe checkout session created for 'undefined' tier" — AL-001). Current
+   * code writes clean messages, but historical rows persist, so sanitize at render:
+   * drop a broken "for 'undefined' <word>" clause, neutralize any remaining quoted
+   * token, strip bare tokens, and tidy whitespace.
+   *
+   * @example clean("Stripe checkout session created for 'undefined' tier")
+   *   // → "Stripe checkout session created"
+   */
+  clean(summary: string): string {
+    if (!summary) return summary;
+    return summary
+      .replace(/\s*\b(for|to|as|on)\s+'(?:undefined|null)'\s+\S+/gi, '')
+      .replace(/'(?:undefined|null)'/gi, "'unknown'")
+      .replace(/\b(?:undefined|null)\b/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/\s+([.,;:])/g, '$1')
+      .trim();
   }
 }

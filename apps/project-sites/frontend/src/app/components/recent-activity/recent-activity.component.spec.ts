@@ -98,3 +98,42 @@ describe('RecentActivityComponent — .ra-meta contrast (WCAG 1.4.3)', () => {
       .toBeGreaterThanOrEqual(4.5);
   });
 });
+
+/**
+ * Regression for AL-001 (2026-09-05, found via /admin vision inspection): the
+ * dashboard Recent-activity rendered a historical audit row verbatim — "Stripe
+ * checkout session created for 'undefined' tier". Current code writes clean
+ * messages, but stored rows persist, so `clean()` sanitizes at render: no raw
+ * undefined/null ever reaches the user.
+ */
+describe('RecentActivityComponent — clean() strips stray undefined (AL-001)', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [RecentActivityComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [], cursor: null, hasMore: false }) } },
+      ],
+    }).compileComponents();
+  });
+
+  it("drops a broken \"for 'undefined' <word>\" clause", () => {
+    const c = TestBed.createComponent(RecentActivityComponent).componentInstance;
+    expect(c.clean("Stripe checkout session created for 'undefined' tier")).toBe(
+      'Stripe checkout session created',
+    );
+  });
+
+  it('never renders a raw undefined/null token', () => {
+    const c = TestBed.createComponent(RecentActivityComponent).componentInstance;
+    for (const s of ["Plan changed to 'undefined'", 'Build undefined completed', "Domain 'null' added"]) {
+      expect(c.clean(s))
+        .withContext(`sanitized: "${c.clean(s)}"`)
+        .not.toMatch(/\b(undefined|null)\b/);
+    }
+  });
+
+  it('leaves a clean message untouched', () => {
+    const c = TestBed.createComponent(RecentActivityComponent).componentInstance;
+    expect(c.clean('Site published')).toBe('Site published');
+  });
+});
