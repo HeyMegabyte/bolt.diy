@@ -238,6 +238,29 @@ describe('AdminSocialComponent (site-reactive load)', () => {
     fixture.detectChanges();
     expect(wrap?.classList.contains('is-loading')).withContext('clears once loaded — cards return to full opacity').toBeFalse();
   });
+
+  // Regression: the view tabs (Compose/Drafts/Queue/Sent/Calendar) rendered as unstyled
+  // inline text jammed together ("ComposeDrafts 0Queue 0Sent 0Calendar") because .tab-row
+  // and .tab had NO CSS (found via /admin vision inspection 2026-09-05). Asserts the REAL
+  // computed layout so removing the styling fails the build.
+  it('renders the view tabs as a spaced, padded pill row (.tab-row/.tab styled)', () => {
+    build({ id: 'site_1' });
+    const host = fixture.nativeElement as HTMLElement;
+    document.body.appendChild(host); // getComputedStyle needs the element connected
+    fixture.detectChanges();
+    const row = host.querySelector('.tab-row') as HTMLElement | null;
+    expect(row).withContext('.tab-row present').toBeTruthy();
+    const rowCs = getComputedStyle(row!);
+    expect(rowCs.display).withContext('.tab-row is a flex row').toBe('flex');
+    const gap = parseFloat(rowCs.columnGap && rowCs.columnGap !== 'normal' ? rowCs.columnGap : rowCs.gap || '0');
+    expect(gap).withContext(`.tab-row gap ${gap}px must be > 0 (was 0 → tabs jammed)`).toBeGreaterThan(0);
+    const tab = host.querySelector('.tab') as HTMLElement | null;
+    expect(tab).withContext('.tab button present').toBeTruthy();
+    expect(parseFloat(getComputedStyle(tab!).paddingLeft))
+      .withContext('.tab has pill padding')
+      .toBeGreaterThan(0);
+    document.body.removeChild(host);
+  });
 });
 
 /**

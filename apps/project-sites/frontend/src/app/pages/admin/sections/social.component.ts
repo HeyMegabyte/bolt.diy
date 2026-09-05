@@ -872,6 +872,32 @@ const PLATFORMS: readonly PlatformDef[] = [
       }
       .hdr-pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ps-accent, #00e5ff); box-shadow: 0 0 8px var(--ps-accent, #00e5ff); }
       .hdr-sub { color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 82%, transparent); font-size: 0.82rem; margin: 0; }
+      /* View tabs (Compose/Drafts/Queue/Sent/Calendar) — pill row mirroring the settings +
+         voice tablists. Without these rules the buttons rendered as unstyled inline text
+         jammed together ("ComposeDrafts 0Queue 0Sent 0Calendar") — .tab-row/.tab had no CSS. */
+      .tab-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 0.9rem; }
+      .tab {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        padding: 0.4rem 0.95rem; border-radius: 999px;
+        background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+        color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 62%, transparent);
+        cursor: pointer; font-size: 0.74rem; font-weight: 600; min-height: 34px;
+        transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+      }
+      .tab:hover { color: var(--ps-ink, #f4f4ff); border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 25%, transparent); }
+      .tab.is-active {
+        background: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent);
+        color: var(--ps-accent, #00e5ff);
+        border-color: color-mix(in oklch, var(--ps-accent, #00e5ff) 35%, transparent);
+      }
+      .tab:focus-visible { outline: 2px solid var(--ps-accent, #00e5ff); outline-offset: 2px; }
+      .tab-count {
+        font-size: 0.62rem; font-weight: 700; font-variant-numeric: tabular-nums;
+        padding: 1px 7px; border-radius: 999px;
+        background: rgba(255,255,255,0.08); color: color-mix(in oklch, var(--ps-ink, #f4f4ff) 70%, transparent);
+      }
+      .tab.is-active .tab-count { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 22%, transparent); color: var(--ps-accent, #00e5ff); }
+      @media (prefers-reduced-motion: reduce) { .tab { transition: none; } }
 
       /* ── Auto-Pilot header controls ── */
       .auto-pilot-row {
