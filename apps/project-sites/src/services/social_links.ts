@@ -112,7 +112,9 @@ function isHttpUrl(s: string): boolean {
 /** Lowercased hostname of a URL, or '' when unparseable. */
 function hostOf(url: string): string {
   try {
-    return new URL(isHttpUrl(url) ? url : `https://${url}`).hostname.toLowerCase().replace(/^www\./, '');
+    return new URL(isHttpUrl(url) ? url : `https://${url}`).hostname
+      .toLowerCase()
+      .replace(/^www\./, '');
   } catch {
     return '';
   }

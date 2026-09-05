@@ -179,7 +179,12 @@ describe('updateLeadContact', () => {
     const r = await updateLeadContact(
       db,
       'lead_1',
-      { phone: '+19735550100', email: 'o@acme.test', website: 'https://acme.test', socials: { instagram: 'https://instagram.com/acme' } },
+      {
+        phone: '+19735550100',
+        email: 'o@acme.test',
+        website: 'https://acme.test',
+        socials: { instagram: 'https://instagram.com/acme' },
+      },
       '2026-09-05T12:00:00Z',
     );
     expect(r).toEqual({ updated: true });

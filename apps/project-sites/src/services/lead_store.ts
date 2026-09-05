@@ -234,11 +234,11 @@ export async function updateLeadContact(
   contact: { website?: string; phone?: string; email?: string; socials?: Record<string, string> },
   nowIso: string,
 ): Promise<{ updated: boolean }> {
-  const existing = await dbQueryOne<{ id: string; profile_json: string; socials_json: string | null }>(
-    db,
-    `SELECT id, profile_json, socials_json FROM ${TABLE} WHERE id = ?`,
-    [leadId],
-  );
+  const existing = await dbQueryOne<{
+    id: string;
+    profile_json: string;
+    socials_json: string | null;
+  }>(db, `SELECT id, profile_json, socials_json FROM ${TABLE} WHERE id = ?`, [leadId]);
   if (!existing) return { updated: false };
 
   // Union new socials over any already stored (new values win per key).

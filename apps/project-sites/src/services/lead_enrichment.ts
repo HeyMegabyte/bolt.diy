@@ -160,7 +160,10 @@ function decodeDdgHref(href: string): string {
  * @param fetchImpl - The fetch implementation to use.
  * @returns A merged {@link ContactBundle}, or `{}` when the search is blocked/empty.
  */
-async function searchDiscovery(input: EnrichInput, fetchImpl: typeof fetch): Promise<ContactBundle> {
+async function searchDiscovery(
+  input: EnrichInput,
+  fetchImpl: typeof fetch,
+): Promise<ContactBundle> {
   try {
     const query = `${input.businessName} ${input.city ?? ''}`.trim();
     const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
@@ -192,9 +195,7 @@ async function searchDiscovery(input: EnrichInput, fetchImpl: typeof fetch): Pro
     if (Object.keys(socials).length > 0) searchBundle.socials = socials;
 
     // Parse the candidate business site for deeper contact detail, if we found one.
-    const homepageBundle = candidateWebsite
-      ? await parseHomepage(candidateWebsite, fetchImpl)
-      : {};
+    const homepageBundle = candidateWebsite ? await parseHomepage(candidateWebsite, fetchImpl) : {};
 
     return mergeContactBundles(homepageBundle, searchBundle);
   } catch {
