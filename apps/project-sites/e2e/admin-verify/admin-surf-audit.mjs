@@ -147,7 +147,16 @@ for (const s of SECTIONS) {
     ].filter(Boolean).join(', ');
     rows.push(`  ${bad ? '✗' : '✓'} /admin/${s}`.padEnd(28) + `→ ${info.url.padEnd(26)} ${bad ? flags : 'ok (' + info.textLen + ' chars)'}`);
     if (errors.length) for (const e of errors.slice(0, 3)) rows.push(`        · ${e}`);
-    for (const v of [...axeSerious, ...axeBp]) rows.push(`        [${v.impact || 'best-practice'}] ${v.id}: ${v.help} (${v.nodes.length}) e.g. ${(v.nodes[0]?.target || []).join(' ')} — ${(v.nodes[0]?.html || '').slice(0, 80)}`);
+    for (const v of [...axeSerious, ...axeBp]) {
+      const n = v.nodes[0];
+      rows.push(`        [${v.impact || 'best-practice'}] ${v.id}: ${v.help} (${v.nodes.length}) e.g. ${(n?.target || []).join(' ')} — ${(n?.html || '').slice(0, 80)}`);
+      // The actionable "why" — for color-contrast this carries the exact ratio +
+      // fg/bg hex (e.g. "insufficient color contrast of 4.21 (foreground #6b768a,
+      // background #0c0c1e…)"), so a contrast finding is fixable straight from the
+      // audit log — no throwaway re-scan needed (the friction that cost AL-015 a round-trip).
+      const why = (n?.failureSummary || '').replace(/\s+/g, ' ').replace(/^Fix any of the following:\s*/i, '').trim();
+      if (why) rows.push(`            ↳ ${why.slice(0, 180)}`);
+    }
   } catch (e) {
     problems++;
     rows.push(`  ! /admin/${s} nav error: ${String(e).slice(0, 80)}`);
