@@ -144,7 +144,7 @@ interface ForecastBar {
                 <div class="text-white font-bold" data-testid="subscription-plan">{{ planLabel() }}</div>
               </div>
               <div class="rounded-lg border border-white/8 bg-black/20 px-3 py-2">
-                <div class="text-[0.6rem] uppercase tracking-wider text-text-secondary font-bold">Period ends</div>
+                <div class="text-[0.6rem] uppercase tracking-wider text-text-secondary font-bold">{{ periodLabel() }}</div>
                 <div class="text-white font-bold" data-testid="subscription-period-end">
                   {{ subStatus()?.current_period_end ?? 'No renewal' }}
                 </div>
@@ -1983,6 +1983,18 @@ export class AdminBillingComponent implements OnInit {
   loadingCosts = signal(false);
   capDraft: Record<string, number | ''> = {};
   planLabel = computed(() => (this.plan() === 'paid' ? 'Pro · $50/mo' : 'Free'));
+
+  /**
+   * Honest renew-vs-end label for the period-end date. An active/trialing sub
+   * AUTO-RENEWS on that date (so "Period ends" misleads — it renews); a sub with
+   * `cancel_at` set will CANCEL then; anything else genuinely ends. Truthful copy.
+   */
+  periodLabel = computed(() => {
+    const s = this.subStatus();
+    if (!s) return 'Period ends';
+    if (s.cancel_at) return 'Cancels';
+    return s.status === 'active' || s.status === 'trialing' ? 'Renews' : 'Period ends';
+  });
 
   /** Locale-aware credit/count formatter (`Intl.NumberFormat`). */
   private readonly numberFormatter = new Intl.NumberFormat(undefined);

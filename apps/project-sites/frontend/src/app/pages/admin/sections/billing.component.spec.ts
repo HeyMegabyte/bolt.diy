@@ -170,6 +170,25 @@ describe('AdminBillingComponent (cyan/black cohesion + a11y)', () => {
     expect(badge!.getAttribute('data-status')).toBe('unpaid');
   });
 
+  it('period label is honest: active RENEWS, cancel_at CANCELS, else ends', () => {
+    build();
+    const cmp = fixture.componentInstance;
+    // Active auto-renewing sub renews on that date — "Period ends" would mislead.
+    cmp.subStatus.set({ status: 'active', plan: 'paid', current_period_end: '2026-08-24' } as never);
+    expect(cmp.periodLabel()).toBe('Renews');
+    fixture.detectChanges();
+    const label = (fixture.nativeElement as HTMLElement)
+      .querySelector('[data-testid="subscription-period-end"]')
+      ?.previousElementSibling?.textContent?.trim();
+    expect(label).toBe('Renews');
+    // A cancel-at-period-end sub genuinely cancels then.
+    cmp.subStatus.set({ status: 'active', plan: 'paid', cancel_at: '2026-08-24' } as never);
+    expect(cmp.periodLabel()).toBe('Cancels');
+    // A non-active sub falls back to the neutral phrasing.
+    cmp.subStatus.set({ status: 'canceled', plan: 'free' } as never);
+    expect(cmp.periodLabel()).toBe('Period ends');
+  });
+
   it('the affiliate-payouts empty renders the cyan glyph (cohesion with the other billing empties)', () => {
     build();
     const cmp = fixture.componentInstance;
