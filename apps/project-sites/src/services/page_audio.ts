@@ -147,7 +147,10 @@ export async function getOrCreatePageAudio(
     if (!summary) return { audioUrl: null, summary: null, cached: false };
     const wav = await synthesizeWav(env, summary);
     await env.SITES_BUCKET.put(wavKey(args.slug, hash), wav, {
-      httpMetadata: { contentType: 'audio/wav', cacheControl: 'public, max-age=31536000, immutable' },
+      httpMetadata: {
+        contentType: 'audio/wav',
+        cacheControl: 'public, max-age=31536000, immutable',
+      },
     });
     await env.SITES_BUCKET.put(txtKey(args.slug, hash), summary, {
       httpMetadata: { contentType: 'text/plain; charset=utf-8' },
