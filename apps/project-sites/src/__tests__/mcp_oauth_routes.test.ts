@@ -27,6 +27,10 @@
 
 jest.mock('../services/audit.js', () => ({
   writeAuditLog: jest.fn().mockResolvedValue(undefined),
+  // Pure helper — mirror the real impl so the connect/disconnect handlers can
+  // resolve the site label for their audit message (slug when known, id fallback).
+  auditSiteLabel: (slug: string | null | undefined, siteId: string) =>
+    slug && slug.trim() ? slug.trim() : siteId,
 }));
 
 jest.mock('../services/ai_crypto.js', () => ({
