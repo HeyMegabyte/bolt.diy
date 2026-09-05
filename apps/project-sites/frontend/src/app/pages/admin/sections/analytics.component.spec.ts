@@ -584,3 +584,41 @@ describe('AdminAnalyticsComponent (range-switch race — last-write-wins)', () =
       .toBe(222);
   });
 });
+
+// Regression (2026-09-05, /admin vision inspection): Top referrers hardcoded a
+// "(referral)" tag on EVERY row, mislabeling direct + organic traffic as referrals
+// ("direct (referral)", "organic (referral)"). Labels must reflect the real channel.
+describe('AdminAnalyticsComponent (Top referrers — accurate channel labels)', () => {
+  let c: AdminAnalyticsComponent;
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [AdminAnalyticsComponent],
+      providers: [
+        { provide: ApiService, useValue: { getMultiUrlAnalytics: () => of({ data: null }), listSiteUrls: () => of({ data: [] }), getCloudflareCredentialStatus: () => of({ data: null }) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0 } },
+        { provide: PromptService, useValue: { prompt: () => Promise.resolve(null) } },
+        { provide: Router, useValue: { navigateByUrl: () => 0, navigate: () => Promise.resolve(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: { get: () => null } } } },
+        { provide: AdminStateService, useValue: { selectedSite: signal(null) } },
+      ],
+    });
+    c = TestBed.createComponent(AdminAnalyticsComponent).componentInstance;
+  });
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('labels known channels by name and never tags them a referral', () => {
+    expect(c.referrerLabel('direct')).toBe('Direct');
+    expect(c.referrerLabel('organic')).toBe('Organic search');
+    expect(c.referrerLabel('referral')).toBe('Referral');
+    expect(c.referrerLabel('')).toBe('Direct');
+    expect(c.referrerIsHost('direct')).toBe(false);
+    expect(c.referrerIsHost('organic')).toBe(false);
+    expect(c.referrerIsHost('referral')).toBe(false);
+  });
+
+  it('labels a real host by hostname and tags it "(referral)"', () => {
+    expect(c.referrerLabel('https://news.ycombinator.com/item?id=1')).toBe('news.ycombinator.com');
+    expect(c.referrerLabel('www.google.com')).toBe('google.com');
+    expect(c.referrerIsHost('news.ycombinator.com')).toBe(true);
+  });
+});

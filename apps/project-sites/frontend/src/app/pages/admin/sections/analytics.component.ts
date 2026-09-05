@@ -473,10 +473,13 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
           @for (r of envelope()!.top_referrers; track r.referrer) {
             <div class="bar-row">
               <div class="flex justify-between mb-1 gap-2">
-                <span class="text-[0.78rem] truncate min-w-0" [attr.title]="referrerHost(r.referrer) + ' (referral)'">
-                  <!-- WHO the referrer is (hostname), then a smaller "(referral)" tag. -->
-                  <span class="text-white">{{ referrerHost(r.referrer) }}</span>
-                  <span class="text-xs opacity-70 ml-1">(referral)</span>
+                <span class="text-[0.78rem] truncate min-w-0" [attr.title]="referrerLabel(r.referrer)">
+                  <!-- Friendly channel/host label. A real host gets a "(referral)" tag; a
+                       channel (direct/organic/…) shows its own name — never a false "(referral)". -->
+                  <span class="text-white">{{ referrerLabel(r.referrer) }}</span>
+                  @if (referrerIsHost(r.referrer)) {
+                    <span class="text-xs opacity-70 ml-1">(referral)</span>
+                  }
                 </span>
                 <span class="text-[0.7rem] text-text-secondary tabular shrink-0">{{ formatCount(r.views) }}</span>
               </div>
@@ -1099,6 +1102,40 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
     } catch {
       return raw;
     }
+  }
+
+  /**
+   * Known acquisition CHANNELS (not hostnames) that arrive in `top_referrers` — mapped to
+   * friendly display names. A referrer that ISN'T one of these is a real host (a referral).
+   */
+  private readonly REFERRER_CHANNELS: Record<string, string> = {
+    direct: 'Direct',
+    '(direct)': 'Direct',
+    none: 'Direct',
+    organic: 'Organic search',
+    search: 'Organic search',
+    referral: 'Referral',
+    social: 'Social',
+    email: 'Email',
+    paid: 'Paid',
+  };
+
+  /**
+   * Friendly primary label for a referrer row: a known channel → its display name
+   * (e.g. `Direct`, `Organic search`), a real host → the bare hostname. Prevents the
+   * old bug where every row was tagged `(referral)` — mislabeling direct + organic
+   * traffic as referrals.
+   */
+  referrerLabel(referrer: string): string {
+    const raw = (referrer ?? '').trim().toLowerCase();
+    if (!raw) return 'Direct';
+    return this.REFERRER_CHANNELS[raw] ?? this.referrerHost(referrer);
+  }
+
+  /** True only when the referrer is a real host — so the `(referral)` channel tag is accurate. */
+  referrerIsHost(referrer: string): boolean {
+    const raw = (referrer ?? '').trim().toLowerCase();
+    return !!raw && !(raw in this.REFERRER_CHANNELS);
   }
 
   exportCsv(): void {
