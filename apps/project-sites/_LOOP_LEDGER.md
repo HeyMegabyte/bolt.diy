@@ -964,3 +964,20 @@ Wave 3 (weeks, observability):    AP-011 → AP-017
 Wave 4 (months, AI-native):       AP-005 → AP-006
 Wave 5 (months, marketplace):     AP-012 → AP-014 → AP-015 → AP-016
 ```
+
+---
+
+## ADMIN-COMPLETENESS LOOPS (scheduled 2026-09-05)
+
+Three durable crons drive every /admin section to completeness across 10 dimensions.
+Each fire: verify-before-implement (git log + prod), advance ONE slice, VISION-INSPECT
+each section + implement obvious common-sense improvements, fan out 4-5 agents, append
+findings + closures HERE.
+
+- **INTEGRITY** (`5ee7d04d`, :13/:43) — render+a11y (`admin-surf-audit.mjs`), truthful data (`reconcile-surfaces.mjs`), truthful mutations (`verify-*-causal.mjs`).
+- **COMPLETENESS** (`3767bbe0`, :21 /2h) — real journeys (create→build→publish, form→/admin/forms, MCP connect, billing checkout), edge states, contract (`admin-contract.mjs`), every-control-real.
+- **QUALITY** (`36c915cd`, 4:37am daily) — per-section perf (LCP≤2.0s/INP≤200ms), security (IDOR/flag-off-404/PII), polish+docs (AI-vision ≥8/10, FEATURES.md/COVERAGE.yml).
+
+### Open findings
+
+- [ ] **AL-001 — Dashboard Recent-activity shows "Stripe checkout session created for 'undefined' tier".** Found via vision inspection 2026-09-05 (vanta-strength-austin, e2e-test-org, ~18m-ago row). User-visible `undefined` (banned copy). Leads: current `src/services/billing.ts` success msg is the CLEAN `'Checkout session created'` (no tier) — so the 'undefined tier' text is NOT from the current hosted-checkout path. Check: (a) embedded/wallet/addon/agency checkout success messages, (b) a historical audit row from older code (if so, no live bug — but a display-layer guard should still never render `'undefined'`), (c) any activity humanizer. Fix at the write site (default/omit tier) AND add a defensive display guard (never render a message containing `undefined`).
