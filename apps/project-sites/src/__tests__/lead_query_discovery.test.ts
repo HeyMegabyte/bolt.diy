@@ -47,7 +47,12 @@ const populated = res(200, {
     {
       type: 'node',
       id: 1,
-      tags: { name: 'Joe Pizza', amenity: 'restaurant', phone: '+19735550100', 'contact:instagram': 'joepizza' },
+      tags: {
+        name: 'Joe Pizza',
+        amenity: 'restaurant',
+        phone: '+19735550100',
+        'contact:instagram': 'joepizza',
+      },
     },
     { type: 'node', id: 2, tags: { name: 'Bar X', amenity: 'restaurant' } },
   ],
@@ -69,7 +74,10 @@ describe('discoverLeadsForQuery — Overpass mirror fallback', () => {
   it('does NOT short-circuit on a 200-with-0-elements mirror — keeps trying until data', async () => {
     // mirror0 504 (error) → mirror1 200-EMPTY (the false-empty) → mirror2 200-POPULATED.
     const fetchStub = makeFetch([gateway504, empty200, populated]);
-    const { results, degraded } = await discoverLeadsForQuery('restaurants in Newark NJ', fetchStub as unknown as typeof fetch);
+    const { results, degraded } = await discoverLeadsForQuery(
+      'restaurants in Newark NJ',
+      fetchStub as unknown as typeof fetch,
+    );
     expect(results.length).toBe(2); // OLD code returned 0 here (accepted the empty 200)
     expect(degraded).toBeNull();
     // contact captured from OSM tags flows through to the PlacesResult
@@ -80,14 +88,20 @@ describe('discoverLeadsForQuery — Overpass mirror fallback', () => {
 
   it('returns an honest empty (no error) when EVERY mirror authoritatively says empty', async () => {
     const fetchStub = makeFetch([empty200]); // every mirror + round → 200 empty
-    const { results, degraded } = await discoverLeadsForQuery('restaurants in Nowhere ND', fetchStub as unknown as typeof fetch);
+    const { results, degraded } = await discoverLeadsForQuery(
+      'restaurants in Nowhere ND',
+      fetchStub as unknown as typeof fetch,
+    );
     expect(results).toEqual([]);
     expect(degraded).toBeNull(); // genuine empty area — NOT a transport failure
   });
 
   it('surfaces an honest degraded note when every mirror errors (transport failure)', async () => {
     const fetchStub = makeFetch([err503]); // no mirror ever answers 2xx
-    const { results, degraded } = await discoverLeadsForQuery('restaurants in Newark NJ', fetchStub as unknown as typeof fetch);
+    const { results, degraded } = await discoverLeadsForQuery(
+      'restaurants in Newark NJ',
+      fetchStub as unknown as typeof fetch,
+    );
     expect(results).toEqual([]);
     expect(degraded).toMatch(/overpass/i); // "Overpass lookup failed (...)"
   });
