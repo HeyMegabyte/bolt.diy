@@ -73,8 +73,17 @@ try {
   cur = 'forms-ui';
   await page.goto('https://projectsites.dev/admin/forms', { waitUntil: 'domcontentloaded', timeout: 45000 });
   await page.waitForTimeout(4500);
+  // Select the SAME site we submitted to (X-Site-Slug: megabytespace). /admin/forms
+  // defaults to whichever site AdminState picks first (often the newest — e.g. Northstar
+  // with 0 forms), so clicking the FIRST option reads the WRONG site and false-🔴s while
+  // the product is honest (the store→API→UI chain is correct per-site). Match by text.
   const sw = page.locator('button[aria-label="Select site"]');
-  if (await sw.count()) { await sw.click(); const opt = page.locator('button[role="option"]').first(); await opt.waitFor({ state: 'visible', timeout: 4000 }); await opt.click(); await page.waitForTimeout(3000); }
+  if (await sw.count()) {
+    await sw.click();
+    const mega = page.locator('button[role="option"]', { hasText: /megabyte/i }).first();
+    const opt = (await mega.count()) ? mega : page.locator('button[role="option"]').first();
+    await opt.waitFor({ state: 'visible', timeout: 4000 }); await opt.click(); await page.waitForTimeout(3000);
+  }
   await page.waitForTimeout(1500);
   const ui = await page.evaluate((iname) => {
     const body = document.body.innerText || '';
