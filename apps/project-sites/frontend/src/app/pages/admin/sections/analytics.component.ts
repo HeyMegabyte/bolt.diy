@@ -473,12 +473,13 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
           @for (r of envelope()!.top_referrers; track r.referrer) {
             <div class="bar-row">
               <div class="flex justify-between mb-1 gap-2">
-                <span class="text-[0.78rem] truncate min-w-0" [attr.title]="referrerLabel(r.referrer)">
-                  <!-- Friendly channel/host label. A real host gets a "(referral)" tag; a
-                       channel (direct/organic/…) shows its own name — never a false "(referral)". -->
+                <span class="text-[0.78rem] truncate min-w-0" [attr.title]="referrerLabel(r.referrer) + ' — ' + (referrerHost(r.referrer) || 'direct')">
+                  <!-- Names WHAT referred (Facebook / Google / Hacker News / ChatGPT …) with a
+                       descriptive kind tag (social/search/AI/referral/email). A channel row
+                       (direct/organic/…) shows its own name and no tag — never a false "(referral)". -->
                   <span class="text-white">{{ referrerLabel(r.referrer) }}</span>
                   @if (referrerIsHost(r.referrer)) {
-                    <span class="text-xs opacity-70 ml-1">(referral)</span>
+                    <span class="text-xs opacity-70 ml-1">({{ referrerTag(r.referrer) }})</span>
                   }
                 </span>
                 <span class="text-[0.7rem] text-text-secondary tabular shrink-0">{{ formatCount(r.views) }}</span>
@@ -1121,18 +1122,92 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
   };
 
   /**
-   * Friendly primary label for a referrer row: a known channel → its display name
-   * (e.g. `Direct`, `Organic search`), a real host → the bare hostname. Prevents the
-   * old bug where every row was tagged `(referral)` — mislabeling direct + organic
-   * traffic as referrals.
+   * Known referrer HOSTS → a friendly source name + acquisition kind, so a
+   * referral row names WHAT referred ("Facebook", "Hacker News", "ChatGPT") with
+   * a descriptive tag ("social" / "search" / "AI" / "referral" / "email") instead
+   * of a bare hostname. Matched exact-or-subdomain (so `l.facebook.com`,
+   * `m.facebook.com` all resolve to Facebook). Order: MOST SPECIFIC first.
+   */
+  private readonly REFERRER_HOSTS: ReadonlyArray<{ match: string; name: string; kind: string }> = [
+    { match: 'mail.google.com', name: 'Gmail', kind: 'email' },
+    { match: 'gemini.google.com', name: 'Gemini', kind: 'AI' },
+    { match: 'news.google.com', name: 'Google News', kind: 'referral' },
+    { match: 'google.com', name: 'Google', kind: 'search' },
+    { match: 'bing.com', name: 'Bing', kind: 'search' },
+    { match: 'duckduckgo.com', name: 'DuckDuckGo', kind: 'search' },
+    { match: 'search.yahoo.com', name: 'Yahoo', kind: 'search' },
+    { match: 'search.brave.com', name: 'Brave Search', kind: 'search' },
+    { match: 'ecosia.org', name: 'Ecosia', kind: 'search' },
+    { match: 'chatgpt.com', name: 'ChatGPT', kind: 'AI' },
+    { match: 'chat.openai.com', name: 'ChatGPT', kind: 'AI' },
+    { match: 'perplexity.ai', name: 'Perplexity', kind: 'AI' },
+    { match: 'claude.ai', name: 'Claude', kind: 'AI' },
+    { match: 'copilot.microsoft.com', name: 'Copilot', kind: 'AI' },
+    { match: 'facebook.com', name: 'Facebook', kind: 'social' },
+    { match: 'fb.com', name: 'Facebook', kind: 'social' },
+    { match: 'instagram.com', name: 'Instagram', kind: 'social' },
+    { match: 't.co', name: 'X (Twitter)', kind: 'social' },
+    { match: 'twitter.com', name: 'X (Twitter)', kind: 'social' },
+    { match: 'x.com', name: 'X (Twitter)', kind: 'social' },
+    { match: 'linkedin.com', name: 'LinkedIn', kind: 'social' },
+    { match: 'lnkd.in', name: 'LinkedIn', kind: 'social' },
+    { match: 'youtube.com', name: 'YouTube', kind: 'social' },
+    { match: 'youtu.be', name: 'YouTube', kind: 'social' },
+    { match: 'reddit.com', name: 'Reddit', kind: 'social' },
+    { match: 'tiktok.com', name: 'TikTok', kind: 'social' },
+    { match: 'pinterest.com', name: 'Pinterest', kind: 'social' },
+    { match: 't.me', name: 'Telegram', kind: 'social' },
+    { match: 'threads.net', name: 'Threads', kind: 'social' },
+    { match: 'news.ycombinator.com', name: 'Hacker News', kind: 'referral' },
+    { match: 'yelp.com', name: 'Yelp', kind: 'referral' },
+    { match: 'outlook.com', name: 'Outlook', kind: 'email' },
+    { match: 'outlook.live.com', name: 'Outlook', kind: 'email' },
+  ];
+
+  /** Exact-or-subdomain host match (`m.facebook.com` matches `facebook.com`). */
+  private hostMatch(host: string, base: string): boolean {
+    return host === base || host.endsWith('.' + base);
+  }
+
+  /** Resolve a referrer to a known `{ name, kind }`, or null when it's an unknown host. */
+  private resolveHost(referrer: string): { name: string; kind: string } | null {
+    const host = this.referrerHost(referrer).toLowerCase().replace(/^www\./, '');
+    if (!host) return null;
+    for (const h of this.REFERRER_HOSTS) {
+      if (this.hostMatch(host, h.match)) return { name: h.name, kind: h.kind };
+    }
+    // Regional Google (google.co.uk, google.de, …) → organic search.
+    if (/^google\.[a-z.]{2,}$/.test(host)) return { name: 'Google', kind: 'search' };
+    return null;
+  }
+
+  /**
+   * Friendly primary label for a referrer row — names WHAT referred: a known
+   * channel → its display name (`Direct`, `Organic search`); a known host → the
+   * platform's friendly name (`Facebook`, `Google`, `Hacker News`, `ChatGPT`); an
+   * unknown host → the bare hostname. Prevents both the old every-row-`(referral)`
+   * bug AND the "bare cryptic host" problem (`l.facebook.com` now reads `Facebook`).
    */
   referrerLabel(referrer: string): string {
     const raw = (referrer ?? '').trim().toLowerCase();
     if (!raw) return 'Direct';
-    return this.REFERRER_CHANNELS[raw] ?? this.referrerHost(referrer);
+    if (this.REFERRER_CHANNELS[raw]) return this.REFERRER_CHANNELS[raw];
+    return this.resolveHost(referrer)?.name ?? this.referrerHost(referrer);
   }
 
-  /** True only when the referrer is a real host — so the `(referral)` channel tag is accurate. */
+  /**
+   * Descriptive acquisition-kind tag shown after a host referrer's name
+   * ('social' / 'search' / 'AI' / 'referral' / 'email'). A known host uses its
+   * classified kind; an unknown host defaults to 'referral'. Empty for a channel
+   * row (which already names itself, e.g. `Direct`).
+   */
+  referrerTag(referrer: string): string {
+    const raw = (referrer ?? '').trim().toLowerCase();
+    if (!raw || raw in this.REFERRER_CHANNELS) return '';
+    return this.resolveHost(referrer)?.kind ?? 'referral';
+  }
+
+  /** True only when the referrer is a real host — so the kind tag is shown (never on a channel row). */
   referrerIsHost(referrer: string): boolean {
     const raw = (referrer ?? '').trim().toLowerCase();
     return !!raw && !(raw in this.REFERRER_CHANNELS);

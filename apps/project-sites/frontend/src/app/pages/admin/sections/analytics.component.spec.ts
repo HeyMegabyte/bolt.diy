@@ -616,9 +616,32 @@ describe('AdminAnalyticsComponent (Top referrers — accurate channel labels)', 
     expect(c.referrerIsHost('referral')).toBe(false);
   });
 
-  it('labels a real host by hostname and tags it "(referral)"', () => {
-    expect(c.referrerLabel('https://news.ycombinator.com/item?id=1')).toBe('news.ycombinator.com');
-    expect(c.referrerLabel('www.google.com')).toBe('google.com');
+  it('names WHAT referred with a friendly source label for known hosts', () => {
+    // Descriptive labels (2026-09-05, Brian): a referral should name the source,
+    // not show a bare/cryptic host.
+    expect(c.referrerLabel('https://news.ycombinator.com/item?id=1')).toBe('Hacker News');
+    expect(c.referrerLabel('www.google.com')).toBe('Google');
+    expect(c.referrerLabel('l.facebook.com')).toBe('Facebook');
+    expect(c.referrerLabel('https://t.co/abc')).toBe('X (Twitter)');
+    expect(c.referrerLabel('m.instagram.com')).toBe('Instagram');
+    expect(c.referrerLabel('chatgpt.com')).toBe('ChatGPT');
+    expect(c.referrerLabel('google.co.uk')).toBe('Google'); // regional google
     expect(c.referrerIsHost('news.ycombinator.com')).toBe(true);
+  });
+
+  it('falls back to the bare hostname for an unknown host', () => {
+    expect(c.referrerLabel('https://someblog.example.com/post')).toBe('someblog.example.com');
+    expect(c.referrerTag('https://someblog.example.com/post')).toBe('referral');
+  });
+
+  it('tags each host with its descriptive acquisition kind (social/search/AI/…), empty for channels', () => {
+    expect(c.referrerTag('l.facebook.com')).toBe('social');
+    expect(c.referrerTag('www.google.com')).toBe('search');
+    expect(c.referrerTag('chatgpt.com')).toBe('AI');
+    expect(c.referrerTag('mail.google.com')).toBe('email'); // specific host beats generic google
+    expect(c.referrerTag('news.ycombinator.com')).toBe('referral');
+    // Channel rows already name themselves → no tag.
+    expect(c.referrerTag('direct')).toBe('');
+    expect(c.referrerTag('organic')).toBe('');
   });
 });

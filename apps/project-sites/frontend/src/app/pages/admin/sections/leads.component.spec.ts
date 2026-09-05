@@ -24,6 +24,10 @@ describe('AdminLeadsComponent', () => {
     emailStatus: null,
     source: 'google_places',
     createdAt: '2026-06-19T00:00:00Z',
+    phone: null,
+    website: null,
+    socials: {},
+    enrichedAt: null,
   };
 
   function make(): AdminLeadsComponent {
