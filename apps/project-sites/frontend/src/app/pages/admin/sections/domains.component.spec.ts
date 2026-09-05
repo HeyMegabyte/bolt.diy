@@ -513,3 +513,52 @@ describe('AdminDomainsComponent (register domain — confirm before the recurrin
     expect(post).not.toHaveBeenCalled();
   });
 });
+
+describe('AdminDomainsComponent (AI domain search — gate on a real query)', () => {
+  function make(): { c: AdminDomainsComponent; post: jasmine.Spy } {
+    TestBed.resetTestingModule();
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: { available: [], unavailable: [] } }));
+    TestBed.configureTestingModule({
+      imports: [AdminDomainsComponent],
+      providers: [
+        { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'vito' }) } },
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post, put: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => undefined, success: () => undefined } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    TestBed.overrideComponent(AdminDomainsComponent, { set: { template: '<div></div>', imports: [] } });
+    return { c: TestBed.createComponent(AdminDomainsComponent).componentInstance, post };
+  }
+
+  it('aiQueryValid requires ≥2 non-blank chars (gates the button)', () => {
+    const { c } = make();
+    c.aiQuery.set('');
+    expect(c.aiQueryValid()).toBeFalse();
+    c.aiQuery.set('   ');
+    expect(c.aiQueryValid()).toBeFalse();
+    c.aiQuery.set('a');
+    expect(c.aiQueryValid()).toBeFalse();
+    c.aiQuery.set('barber shop');
+    expect(c.aiQueryValid()).toBeTrue();
+  });
+
+  it('runAiSearch does NOT fire the LLM fan-out on a blank query (no wasted model call)', () => {
+    const { c, post } = make();
+    c.aiQuery.set('   ');
+    c.runAiSearch();
+    expect(post).not.toHaveBeenCalled();
+    expect(c.aiSearching()).toBeFalse();
+  });
+
+  it('runAiSearch fires the search for a real query', () => {
+    const { c, post } = make();
+    c.aiQuery.set('premium barber shop in Newark');
+    c.runAiSearch();
+    expect(post).toHaveBeenCalledWith(
+      '/sites/s1/domains/ai-search',
+      { query: 'premium barber shop in Newark' },
+      { silent: true },
+    );
+  });
+});

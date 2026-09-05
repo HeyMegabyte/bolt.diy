@@ -225,7 +225,10 @@ const STRATEGY_LABEL: Readonly<Record<string, string>> = {
                 (keydown.enter)="runAiSearch()"
                 data-testid="ai-search-input"
               />
-              <button class="btn-primary" type="button" (click)="runAiSearch()" [disabled]="aiSearching()" data-testid="ai-search-btn">
+              <button class="btn-primary" type="button" (click)="runAiSearch()"
+                [disabled]="aiSearching() || !aiQueryValid()"
+                [brnTooltip]="!aiQueryValid() ? 'Type a few words describing your business first' : ''"
+                data-testid="ai-search-btn">
                 {{ aiSearching() ? 'Searching…' : 'Search with AI' }}
               </button>
             </div>
@@ -677,6 +680,14 @@ export class AdminDomainsComponent implements OnInit {
     return v.length > 0 && !this.isValidDomain(v);
   });
 
+  /**
+   * Gate for the "Search with AI" button + Enter key. The AI search fans out a
+   * 10-suggestion LLM call on the server, so firing it on an empty/whitespace
+   * query wastes a real model call and returns nothing useful. Require ≥2
+   * non-blank chars — mirrors the disabled "Add domain" precondition next to it.
+   */
+  aiQueryValid = computed(() => this.aiQuery().trim().length >= 2);
+
   /** ───── Async state ───── */
   hostnames = signal<readonly Hostname[]>([]);
   loadingHostnames = signal(false);
@@ -839,7 +850,9 @@ export class AdminDomainsComponent implements OnInit {
   /** Fan out 10 parallel AI strategies and merge with availability data. */
   runAiSearch(): void {
     const site = this.state.selectedSite();
-    if (!site) return;
+    // Guard the Enter-key path too: a blank/1-char query wastes a 10-way LLM
+    // fan-out. The button is already disabled; this covers keydown.enter.
+    if (!site || !this.aiQueryValid()) return;
     const query = this.aiQuery().trim();
     this.aiSearching.set(true);
     this.aiResults.set(null);
