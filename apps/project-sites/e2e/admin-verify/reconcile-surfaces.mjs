@@ -49,11 +49,17 @@ const SITE = 'site-megabytespace-001';
 const SURFACES = [
   { name: 'sites', endpoint: '/api/sites', gt: 1, extract: (d) => arr(d, 'data', 'sites').length },
   { name: 'analytics (CORRECT /sites/:id/analytics)', endpoint: `/api/sites/${SITE}/analytics`, gt: 1, mode: 'populated', extract: (d) => num(d?.traffic ?? d, 'pageviews') },
-  // Read the ACTUAL headline metric the overview shows (`data.total_requests`), not a
-  // walk-the-whole-object Math.max (which grabbed a garbage 104B timestamp/id and made
-  // this surface's check meaningless — it "passed" on a number the UI never displays).
-  // The envelope is `{ data: { total_requests, page_views, ... } }`, so unwrap `.data`.
-  { name: 'analytics (UI overview source)', endpoint: '/api/network-analytics', gt: 1, mode: 'populated', extract: (d) => num(d?.data ?? d, 'total_requests') },
+  // NOTE (2026-09-05): there is NO dedicated "network-analytics" endpoint. The admin
+  // analytics OVERVIEW (`/admin/analytics`) derives its headline `total_requests`
+  // CLIENT-SIDE from the per-site `/api/sites/:id/analytics` `pageviews` (the
+  // 'analytics (CORRECT …)' row above reconciles it healthy — 2256 vs D1). The old
+  // `/api/network-analytics` row checked an endpoint that never existed → a permanent
+  // ❌ HTTP 404 false-red (gt=1 shows=NaN) that poisoned EVERY reconcile run. Removed
+  // per validator-precision-discipline (fix the validator, not the code). The org-wide
+  // `/api/analytics/overview` route DOES exist but (a) has zero UI consumers and (b)
+  // reads sampled Analytics-Engine admin-visit counts (`total_visits`) that can
+  // legitimately read 0 — reconciling it 'populated' would just re-introduce a flaky
+  // false-red, so it is intentionally NOT a reconciled display surface.
   { name: 'media', endpoint: '/api/media/assets', gt: 2, extract: (d) => arr(d, 'data', 'assets', 'items').length },
   { name: 'snapshots', endpoint: `/api/sites/${SITE}/snapshots`, gt: 4, extract: (d) => arr(d, 'data', 'snapshots').length },
   { name: 'audit (per-site logs)', endpoint: `/api/sites/${SITE}/logs?limit=200`, gt: 1, mode: 'populated', extract: (d) => arr(d, 'data', 'logs').length },
@@ -118,7 +124,12 @@ try {
     try { display = res.body != null ? s.extract(res.body) : 'no-json'; } catch { display = 'extract-err'; }
     const displayN = typeof display === 'number' && !Number.isNaN(display) ? display : 0;
     let verdict;
-    if (res.status >= 400 || res.status === 0) verdict = `❌ HTTP ${res.status}${res.error ? ' ' + res.error : ''}`;
+    // A 404 usually means the surface-map endpoint is stale/renamed (a PROBE bug),
+    // not a product data divergence — label it so a stale map never masquerades as a
+    // lying-empty data bug (validator-precision-discipline). A REAL route regressing
+    // to 404 still surfaces (⚠️ stays in the divergence list), just correctly attributed.
+    if (res.status === 404) verdict = '⚠️ HTTP 404 (endpoint missing / surface-map stale?)';
+    else if (res.status >= 400 || res.status === 0) verdict = `❌ HTTP ${res.status}${res.error ? ' ' + res.error : ''}`;
     // Windowed/subset surfaces: the only failure is lying-empty (shows 0 while data
     // exists). Any populated value is correct — the exact count drifts by design.
     else if (s.mode === 'populated') verdict = displayN > 0 ? `✅ OK (populated: ${displayN})` : '🔴 LYING-EMPTY (data exists, shows 0)';
@@ -131,7 +142,7 @@ try {
   for (const row of report) {
     console.log(`${row.verdict.padEnd(34)} ${String(row.surface).padEnd(42)} gt=${String(row.groundTruth).padEnd(5)} shows=${row.display}`);
   }
-  const bugs = report.filter((r) => r.verdict.startsWith('🔴') || r.verdict.startsWith('🟠') || r.verdict.startsWith('❌'));
+  const bugs = report.filter((r) => r.verdict.startsWith('🔴') || r.verdict.startsWith('🟠') || r.verdict.startsWith('❌') || r.verdict.startsWith('⚠️'));
   console.log(`\n${bugs.length} divergence(s) found:`);
   for (const b of bugs) console.log(`  - ${b.surface}: ${b.verdict} → ${b.endpoint}`);
   console.log(JSON.stringify(report, null, 0));
