@@ -153,6 +153,48 @@ export interface DeployRequestMessage {
   correlationId: string;
 }
 
+/**
+ * Child → Parent (AL-004 Data tab): ask the admin to read the site's REAL data
+ * via `/api/sites/:id/data-overview[/:table]`. The embedded editor has no
+ * cross-origin session, so the admin (which holds `selectedSite` + the bearer)
+ * makes the authed call and replies with {@link DataResponseMessage}. Omit
+ * `table` for the table-list overview; set it to browse one table's recent rows.
+ */
+export interface DataRequestMessage {
+  type: 'PS_DATA_REQUEST';
+  table?: string;
+  correlationId: string;
+}
+
+/** One row of the data-overview table list. */
+export interface DataOverviewTable {
+  key: string;
+  label: string;
+  description: string;
+  columns: string[];
+  row_count: number;
+  browsable: boolean;
+}
+
+/**
+ * Parent → Child (AL-004 Data tab): the admin's reply to {@link DataRequestMessage}.
+ * `data` mirrors the worker's `data` envelope — `{ tables }` for the overview,
+ * `{ table, columns, rows }` for a browse. `error` is set when the authed call
+ * failed (no site selected, network, 4xx).
+ */
+export interface DataResponseMessage {
+  type: 'PS_DATA_RESPONSE';
+  correlationId?: string;
+  table?: string;
+  data?: {
+    tables?: DataOverviewTable[];
+    table?: string;
+    columns?: string[];
+    rows?: Record<string, unknown>[];
+  } | null;
+  error?: string;
+}
+
 export type ParentToChildMessage =
   | SubmitPromptMessage
   | ImportFilesMessage
@@ -161,6 +203,7 @@ export type ParentToChildMessage =
   | OpenSnapshotMessage
   | OpenFileMessage
   | ListFilesMessage
+  | DataResponseMessage
   | PSToastMessage;
 export type ChildToParentMessage =
   | BoltReadyMessage
@@ -168,6 +211,7 @@ export type ChildToParentMessage =
   | GenerationStatusMessage
   | FilesListMessage
   | DeployRequestMessage
+  | DataRequestMessage
   | PSErrorMessage
   | PSTelemetryMessage
   | PSToastMessage;

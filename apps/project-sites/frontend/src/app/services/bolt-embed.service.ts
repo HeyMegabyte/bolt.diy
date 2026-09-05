@@ -57,6 +57,8 @@ interface PsMessage {
   readonly correlationId?: string;
   readonly kind?: 'info' | 'success' | 'warning' | 'error';
   readonly level?: 'info' | 'success' | 'warning' | 'error';
+  /** PS_DATA_REQUEST (AL-004): omit for the table overview, set to browse one table. */
+  readonly table?: string;
 }
 
 export interface BoltFileEntry {
@@ -474,6 +476,36 @@ export class BoltEmbedService {
             this.saving.set(true);
             this.uploadFiles(files, msg.chat);
           }
+          break;
+        }
+        case 'PS_DATA_REQUEST': {
+          // AL-004 Data tab — the embedded editor has no cross-origin session,
+          // so it asks US (we hold currentSite + the ApiService bearer) to read
+          // the site's real data via /api/sites/:id/data-overview[/:table]. Reply
+          // with PS_DATA_RESPONSE. Mirrors the PS_DEPLOY_REQUEST bridge pattern.
+          const iframe = this.iframeEl;
+          const site = this.currentSite;
+          const cid = msg.correlationId;
+          const table = typeof msg.table === 'string' && msg.table ? msg.table : undefined;
+          const reply = (payload: Record<string, unknown>): void => {
+            iframe?.contentWindow?.postMessage(
+              { type: 'PS_DATA_RESPONSE', correlationId: cid, table, ...payload },
+              EDITOR_BASE,
+            );
+          };
+          if (!site) {
+            reply({ error: 'No site selected' });
+            break;
+          }
+          const path = table
+            ? `/sites/${site.id}/data-overview/${encodeURIComponent(table)}`
+            : `/sites/${site.id}/data-overview`;
+          this.api
+            .get<{ data?: unknown }>(path, table ? { limit: '25' } : undefined, { silent: true })
+            .subscribe({
+              next: (res) => reply({ data: res?.data ?? null }),
+              error: () => reply({ error: 'Failed to load data' }),
+            });
           break;
         }
         case 'PS_TOAST': {
