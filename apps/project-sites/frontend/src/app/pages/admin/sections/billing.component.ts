@@ -1,13 +1,13 @@
-import { Component, inject, signal, computed, type OnInit } from '@angular/core';
+import { Component, inject, signal, computed, effect, viewChild, ElementRef, type OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { isValidEmail } from '../../../utils/validators/email';
 import { DatePipe, CurrencyPipe, DecimalPipe } from '@angular/common';
-import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { AdminStateService } from '../admin-state.service';
 import { UsageGaugesComponent } from '../../../components/usage-gauges/usage-gauges.component';
 import { CreditsWidgetComponent } from '../../../components/credits-widget/credits-widget.component';
 import { ApiService, type CostForecastV2 } from '../../../services/api.service';
+import { StripeService } from '../../../services/stripe.service';
 import { ToastService } from '../../../services/toast.service';
 import { ConfirmService } from '../../../services/confirm.service';
 import { TelemetryService } from '../../../services/telemetry.service';
@@ -219,21 +219,15 @@ interface ForecastBar {
             </app-dialog-shell>
           }
 
-          <!-- Embedded Stripe Checkout iframe — src is a host-validated SafeResourceUrl (BILL-02). -->
-          @if (embeddedCheckoutOpen() && embeddedCheckoutUrl()) {
+          <!-- Real Stripe.js embedded checkout — Stripe mounts its own secure iframe into
+               #embeddedMount via initEmbeddedCheckout(clientSecret) (BILL-02). -->
+          @if (embeddedCheckoutOpen()) {
             <div class="card mt-2">
               <div class="flex items-center justify-between mb-3">
                 <h2 class="m-0 text-base font-semibold text-white text-sm">Stripe Checkout</h2>
-                <button class="btn-ghost" (click)="embeddedCheckoutOpen.set(false)">Close</button>
+                <button class="btn-ghost" (click)="closeEmbeddedCheckout()">Close</button>
               </div>
-              <div data-testid="stripe-embedded-iframe" class="billing-embedded-frame" aria-label="Stripe embedded checkout">
-                <iframe
-                  [src]="embeddedCheckoutUrl()"
-                  title="Stripe Checkout"
-                  allow="payment"
-                  class="w-full h-96 border-0 rounded-lg bg-white/5">
-                </iframe>
-              </div>
+              <div #embeddedMount data-testid="stripe-embedded-iframe" class="billing-embedded-frame min-h-96 w-full rounded-lg bg-white/5" aria-label="Stripe embedded checkout"></div>
             </div>
           }
         </div>
@@ -1480,7 +1474,6 @@ export class AdminBillingComponent implements OnInit {
   private confirmSvc = inject(ConfirmService);
   private telemetry = inject(TelemetryService);
   private route = inject(ActivatedRoute);
-  private sanitizer = inject(DomSanitizer);
   private router = inject(Router);
   credits = signal<CreditState | null>(null);
 
@@ -1540,9 +1533,39 @@ export class AdminBillingComponent implements OnInit {
   cancelingSubscription = signal(false);
 
   embeddedCheckoutOpen = signal(false);
-  /** Sanitized iframe src — a plain string in an iframe[src] is blocked by Angular's
-   *  resource-URL sanitizer (console error), so the URL is host-validated then trusted. */
-  embeddedCheckoutUrl = signal<SafeResourceUrl | null>(null);
+  /** The Stripe embedded-session `client_secret` from POST /billing/embedded-checkout —
+   *  handed to Stripe.js `initEmbeddedCheckout()` (NOT an iframe URL; Stripe blocks framing
+   *  checkout.stripe.com directly, which is why the old placeholder iframe never rendered). */
+  embeddedClientSecret = signal<string | null>(null);
+  /** The Stripe.js embedded-checkout host element (only present while the panel is open). */
+  private readonly embeddedMount = viewChild<ElementRef<HTMLElement>>('embeddedMount');
+  /** The mounted checkout handle — kept so we can tear it down on close. */
+  private embeddedCheckout: { unmount(): void; destroy(): void } | null = null;
+  private embeddedMounting = false;
+  private readonly stripe = inject(StripeService);
+
+  /**
+   * Mount the REAL Stripe embedded checkout once the panel's host element renders
+   * AND we have a client_secret — replaces the former placeholder iframe. Runs in an
+   * effect so the conditionally-rendered `#embeddedMount` div is available before mount.
+   */
+  private readonly _embeddedMountFx = effect(() => {
+    const host = this.embeddedMount()?.nativeElement;
+    const secret = this.embeddedClientSecret();
+    if (!this.embeddedCheckoutOpen() || !host || !secret || this.embeddedCheckout || this.embeddedMounting) return;
+    this.embeddedMounting = true;
+    this.stripe
+      .mountEmbeddedCheckout(secret, host)
+      .then((handle) => {
+        this.embeddedMounting = false;
+        if (handle) this.embeddedCheckout = handle as { unmount(): void; destroy(): void };
+        else this.toast.error('Secure checkout could not load — please try again.');
+      })
+      .catch(() => {
+        this.embeddedMounting = false;
+        this.toast.error('Secure checkout could not load — please try again.');
+      });
+  });
 
   // ── Add-ons tab ──
 
@@ -1626,30 +1649,30 @@ export class AdminBillingComponent implements OnInit {
   }
 
   openEmbeddedCheckout(): void {
+    // Fetch a REAL Stripe embedded-session client_secret and hand it to Stripe.js
+    // (the `_embeddedMountFx` effect mounts it once the host div renders). This
+    // replaces the old placeholder that iframed checkout.stripe.com directly —
+    // which Stripe blocks from framing, so the widget never actually loaded.
     this.api.post<{ client_secret: string }>('/billing/embedded-checkout', { plan: 'pro' }).subscribe({
       next: (r) => {
         const secret = (r as unknown as { data?: { client_secret: string } }).data?.client_secret ?? (r as { client_secret?: string }).client_secret ?? '';
         if (!secret) { this.toast.error('Could not start checkout — please try again.'); return; }
-        // In a real implementation the client_secret would be passed to Stripe.js.
-        // For E2E purposes we show the iframe panel so data-testid is visible.
-        const safe = this.toSafeStripeUrl(`https://checkout.stripe.com/c/pay/${encodeURIComponent(secret)}`);
-        if (!safe) { this.toast.error('Could not open the secure checkout.'); return; }
-        this.embeddedCheckoutUrl.set(safe);
+        this.embeddedClientSecret.set(secret);
         this.embeddedCheckoutOpen.set(true);
       },
       error: () => { /* api.service already toasted */ },
     });
   }
 
-  /** Trust a checkout URL for the iframe ONLY when it is https on checkout.stripe.com — never bypass an arbitrary URL into a resource-URL context. */
-  private toSafeStripeUrl(url: string): SafeResourceUrl | null {
+  /** Tear down the mounted Stripe embedded checkout + close the panel. */
+  closeEmbeddedCheckout(): void {
     try {
-      const u = new URL(url);
-      if (u.protocol === 'https:' && u.hostname === 'checkout.stripe.com') {
-        return this.sanitizer.bypassSecurityTrustResourceUrl(url);
-      }
-    } catch { /* malformed URL → reject */ }
-    return null;
+      this.embeddedCheckout?.destroy();
+    } catch { /* already torn down */ }
+    this.embeddedCheckout = null;
+    this.embeddedMounting = false;
+    this.embeddedClientSecret.set(null);
+    this.embeddedCheckoutOpen.set(false);
   }
 
   /** Return a redirect URL only when it is https on a stripe.com host (checkout/billing/connect)

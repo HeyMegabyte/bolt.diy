@@ -1,11 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { signal, SecurityContext } from '@angular/core';
-import { DomSanitizer } from '@angular/platform-browser';
+import { signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { of, throwError, Subject } from 'rxjs';
 import { AdminBillingComponent } from './billing.component';
 import { AdminStateService } from '../admin-state.service';
 import { ApiService } from '../../../services/api.service';
+import { StripeService } from '../../../services/stripe.service';
 import { ToastService } from '../../../services/toast.service';
 import { TelemetryService } from '../../../services/telemetry.service';
 import { ConfirmService } from '../../../services/confirm.service';
@@ -456,15 +456,16 @@ describe('AdminBillingComponent (Stripe Connect onboard — useful error, not ge
  * a failure fires the generic ApiService toast on top of the specific one.
  */
 /**
- * The embedded Stripe Checkout iframe binds `[src]="embeddedCheckoutUrl()"`. A plain
- * string in an iframe[src] (RESOURCE_URL context) is BLOCKED by Angular's sanitizer
- * (console error) and an arbitrary trusted URL is an injection risk — so the URL must
- * be host-validated (https + checkout.stripe.com) then wrapped as a SafeResourceUrl.
+ * The embedded checkout uses the REAL Stripe.js flow: openEmbeddedCheckout fetches a
+ * Stripe embedded-session `client_secret` from POST /billing/embedded-checkout and opens
+ * the panel; an effect then hands the secret to `StripeService.mountEmbeddedCheckout`
+ * which mounts Stripe's own secure iframe (the old placeholder iframed checkout.stripe.com
+ * directly — Stripe blocks framing, so it never rendered). closeEmbeddedCheckout tears down.
  */
-describe('AdminBillingComponent (embedded checkout iframe src is a sanitized SafeResourceUrl)', () => {
+describe('AdminBillingComponent (embedded checkout = real Stripe.js mount)', () => {
   afterEach(() => TestBed.resetTestingModule());
 
-  function makeC(post: jasmine.Spy): AdminBillingComponent {
+  function makeC(post: jasmine.Spy, mount?: jasmine.Spy): AdminBillingComponent {
     TestBed.configureTestingModule({
       imports: [AdminBillingComponent],
       providers: [
@@ -475,29 +476,40 @@ describe('AdminBillingComponent (embedded checkout iframe src is a sanitized Saf
         { provide: ToastService, useValue: { info: () => 0, success: () => 0, warning: () => 0, error: () => 0 } },
         { provide: TelemetryService, useValue: { track: () => undefined } },
         { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+        {
+          provide: StripeService,
+          useValue: {
+            loadStripe: () => Promise.resolve(null),
+            mountEmbeddedCheckout: mount ?? (() => Promise.resolve({ unmount: () => 0, destroy: () => 0 })),
+          },
+        },
       ],
     });
     return TestBed.createComponent(AdminBillingComponent).componentInstance;
   }
 
-  it('openEmbeddedCheckout sets a SafeResourceUrl (not a raw string) resolving to checkout.stripe.com', () => {
-    const c = makeC(jasmine.createSpy('post').and.returnValue(of({ data: { client_secret: 'cs_test_abc' } })));
+  it('openEmbeddedCheckout fetches a client_secret and opens the panel (no placeholder URL)', () => {
+    const post = jasmine.createSpy('post').and.returnValue(of({ data: { client_secret: 'cs_test_abc' } }));
+    const c = makeC(post);
     c.openEmbeddedCheckout();
-    const safe = c.embeddedCheckoutUrl();
-    expect(safe).withContext('a value is set').not.toBeNull();
-    expect(typeof safe).withContext('SafeResourceUrl is an object Angular trusts, not a string it blocks').not.toBe('string');
-    expect(TestBed.inject(DomSanitizer).sanitize(SecurityContext.RESOURCE_URL, safe))
-      .withContext('resolves to the trusted Stripe host').toContain('checkout.stripe.com');
-    expect(c.embeddedCheckoutOpen()).toBeTrue();
+    expect(post).toHaveBeenCalledWith('/billing/embedded-checkout', { plan: 'pro' });
+    expect(c.embeddedClientSecret()).withContext('secret stored for Stripe.js').toBe('cs_test_abc');
+    expect(c.embeddedCheckoutOpen()).withContext('panel opened').toBeTrue();
   });
 
-  it('toSafeStripeUrl rejects non-stripe hosts + non-https schemes (iframe-src injection defense)', () => {
+  it('openEmbeddedCheckout with no client_secret does NOT open the panel', () => {
     const c = makeC(jasmine.createSpy('post').and.returnValue(of({ data: {} })));
-    const validate = (c as unknown as { toSafeStripeUrl(u: string): unknown }).toSafeStripeUrl.bind(c);
-    expect(validate('https://evil.example.com/c/pay/x')).withContext('foreign host rejected').toBeNull();
-    expect(validate('http://checkout.stripe.com/x')).withContext('non-https rejected').toBeNull();
-    expect(validate('not a url')).withContext('malformed rejected').toBeNull();
-    expect(validate('https://checkout.stripe.com/c/pay/ok')).withContext('trusted host allowed').not.toBeNull();
+    c.openEmbeddedCheckout();
+    expect(c.embeddedClientSecret()).toBeNull();
+    expect(c.embeddedCheckoutOpen()).toBeFalse();
+  });
+
+  it('closeEmbeddedCheckout clears the secret + closes the panel', () => {
+    const c = makeC(jasmine.createSpy('post').and.returnValue(of({ data: { client_secret: 'cs_test_abc' } })));
+    c.openEmbeddedCheckout();
+    c.closeEmbeddedCheckout();
+    expect(c.embeddedCheckoutOpen()).toBeFalse();
+    expect(c.embeddedClientSecret()).toBeNull();
   });
 
   // Every Stripe checkout/portal/onboard redirect (window.open _blank + same-tab
