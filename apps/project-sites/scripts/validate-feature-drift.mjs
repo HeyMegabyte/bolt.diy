@@ -387,6 +387,11 @@ async function isHandlerFlagGated(handlerName, indexSrc) {
     // (route-decomposition installment 19). Core, un-gated, org+user-scoped (need() + siteOwned() auth)
     // not flag-gated — same class as 'siteActivity'/'apiKeys'/'aiSettings'.
     'mcpConnections',
+    // siteMcpServer — /api/sites/:siteId/mcp/{tokens,tokens/:id,tools,tool-usage} (per-site MCP server
+    // admin: token mint/list/revoke + tool registry + 30d usage), #29 route wiring. Core, un-gated,
+    // org+user-scoped (need() + siteOwned() auth) — matches the always-on admin contract row
+    // (sites-mcp-server, flag:null); same class as 'mcpConnections'/'siteActivity'.
+    'siteMcpServer',
     // orgSecurity — /api/admin/security (GET/PUT: session TTL/idle/allowlist/2FA in the org_security
     // table), extracted to its own module from ai_admin.ts (route-decomposition installment 20). Core,
     // un-gated, org-scoped (need() auth) not flag-gated — same class as 'apiKeys'/'aiSettings'.
