@@ -120,6 +120,43 @@ const SOCIAL_META: Readonly<Record<string, SocialMeta>> = {
   },
 };
 
+/** DM-able social networks in outreach-priority order — a siteless business active
+ * on one of these is directly reachable there. Yelp/Google are LISTINGS (not DM
+ * channels), so they're intentionally excluded. */
+const OUTREACH_DM_ORDER = ['instagram', 'facebook', 'x', 'linkedin', 'tiktok', 'threads', 'youtube'] as const;
+
+/** The recommended outreach channel for a lead, or null when no contact was captured. */
+export interface OutreachChannel {
+  kind: 'social' | 'email' | 'phone';
+  /** Human label for the badge, e.g. "Instagram DM", "Email", "Phone". */
+  label: string;
+  /** Present when kind==='social' — the network key (for an icon). */
+  network?: string;
+}
+
+/**
+ * Pick the best outreach channel from a lead's captured contact data (AL-029) —
+ * "reach them on the channel they use." Priority: an active social DM (proven
+ * engaged surface for a no-website business) → email (direct) → phone. Pure +
+ * honest — derived only from real captured fields; returns null when none exist.
+ *
+ * @example bestOutreachChannel({ socials: { instagram: 'u' }, email: null, phone: null })
+ *   // → { kind: 'social', network: 'instagram', label: 'Instagram DM' }
+ */
+export function bestOutreachChannel(lead: {
+  socials?: Record<string, string> | null;
+  email?: string | null;
+  phone?: string | null;
+}): OutreachChannel | null {
+  const socials = lead.socials ?? {};
+  for (const n of OUTREACH_DM_ORDER) {
+    if (socials[n]) return { kind: 'social', network: n, label: `${SOCIAL_META[n]?.label ?? n} DM` };
+  }
+  if (lead.email && lead.email.trim()) return { kind: 'email', label: 'Email' };
+  if (lead.phone && lead.phone.trim()) return { kind: 'phone', label: 'Phone' };
+  return null;
+}
+
 /**
  * Super-Admin lead scanner (#9). Runs a Google-Places no-website scan
  * (`POST /api/admin/leads/scan`), lists scanned leads (`GET /api/admin/leads`),
@@ -337,6 +374,14 @@ const SOCIAL_META: Readonly<Record<string, SocialMeta>> = {
                           >Priority</span
                         >
                       }
+                      @if (reachVia(lead); as ch) {
+                        <span
+                          class="inline-flex min-h-[24px] items-center rounded-full bg-primary/10 px-2.5 text-xs font-medium text-primary/90"
+                          [attr.title]="'Best outreach channel for ' + lead.businessName + ' (based on captured contact data)'"
+                          data-testid="lead-reach-via"
+                          >Reach via {{ ch.label }}</span
+                        >
+                      }
                     </span>
                   </td>
                   <td class="px-4 py-3">
@@ -512,6 +557,11 @@ export class AdminLeadsComponent implements OnInit {
   /** True while this lead's contact info is being deep-discovered. */
   isEnriching(id: string): boolean {
     return this.enrichingId() === id;
+  }
+
+  /** Best outreach channel for this lead's captured contact data (template helper). */
+  reachVia(lead: LeadSummary): OutreachChannel | null {
+    return bestOutreachChannel(lead);
   }
 
   ngOnInit(): void {

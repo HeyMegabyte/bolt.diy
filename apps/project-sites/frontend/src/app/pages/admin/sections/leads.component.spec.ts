@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 
-import { AdminLeadsComponent } from './leads.component';
+import { AdminLeadsComponent, bestOutreachChannel } from './leads.component';
 import { ApiService } from '../../../services/api.service';
 import { ToastService } from '../../../services/toast.service';
 
@@ -154,5 +154,40 @@ describe('AdminLeadsComponent', () => {
     c.scanOsm();
     expect(c.osmScanning()).toBe(false);
     expect(api.post).toHaveBeenCalledWith('/admin/leads/scan-osm', jasmine.any(Object));
+  });
+});
+
+// AL-036 (roadmap B pt.1): "Reach via" best-channel — reach a siteless business on
+// the channel they actually use, derived only from real captured contact data.
+describe('bestOutreachChannel', () => {
+  it('prefers a DM-able social (Instagram first) over email/phone', () => {
+    expect(
+      bestOutreachChannel({ socials: { instagram: 'u', facebook: 'f' }, email: 'e@x.com', phone: '555' }),
+    ).toEqual({ kind: 'social', network: 'instagram', label: 'Instagram DM' });
+  });
+
+  it('follows the network priority order (facebook before x)', () => {
+    expect(bestOutreachChannel({ socials: { x: 'u', facebook: 'f' } })).toEqual({
+      kind: 'social',
+      network: 'facebook',
+      label: 'Facebook DM',
+    });
+  });
+
+  it('falls back to email when there is no DM-able social', () => {
+    // Yelp/Google are listings, NOT DM channels → must not be chosen.
+    expect(bestOutreachChannel({ socials: { yelp: 'y', google: 'g' }, email: 'owner@x.com' })).toEqual({
+      kind: 'email',
+      label: 'Email',
+    });
+  });
+
+  it('falls back to phone when only a phone is captured', () => {
+    expect(bestOutreachChannel({ phone: '+19735550100' })).toEqual({ kind: 'phone', label: 'Phone' });
+  });
+
+  it('returns null when no contact was captured (no false "reach via")', () => {
+    expect(bestOutreachChannel({ socials: {}, email: null, phone: null })).toBeNull();
+    expect(bestOutreachChannel({ socials: { yelp: 'y' }, email: '  ', phone: '' })).toBeNull();
   });
 });
