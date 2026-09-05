@@ -36,7 +36,11 @@ const OVERPASS_MIRRORS: ReadonlyArray<string> = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
-  'https://overpass.osm.ch/api/interpreter',
+  // maps.mail.ru is a full GLOBAL mirror — replaces overpass.osm.ch, which 200s with
+  // an EMPTY body for non-European bboxes (a false-empty that short-circuited the
+  // fallback chain and made US scans report "0 found"). Verified 2026-09-05: mail.ru
+  // returns 88 elements for the same Newark query osm.ch returned 0 for.
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ];
 
 /** Free Nominatim instance for query → bbox geocoding. */
@@ -251,6 +255,11 @@ function sleep(ms: number): Promise<void> {
  */
 async function fetchOverpass(query: string, fetchImpl: typeof fetch): Promise<OverpassElement[]> {
   let lastErr: unknown = null;
+  // A 200-with-0-elements is AMBIGUOUS: it can be a genuinely-empty area OR a
+  // regional mirror that has no data for this bbox (returns 200 + []). Never let it
+  // short-circuit the chain — remember it and keep trying a mirror that HAS the data.
+  // Only accept empty when every mirror that answered agreed it was empty.
+  let sawAuthoritativeEmpty = false;
   for (let round = 0; round < 2; round++) {
     for (const base of OVERPASS_MIRRORS) {
       try {
@@ -269,13 +278,20 @@ async function fetchOverpass(query: string, fetchImpl: typeof fetch): Promise<Ov
           continue;
         }
         const body = (await res.json().catch(() => ({}))) as { elements?: OverpassElement[] };
-        return Array.isArray(body.elements) ? body.elements : [];
+        const elements = Array.isArray(body.elements) ? body.elements : [];
+        // Populated response is authoritative — return immediately.
+        if (elements.length > 0) return elements;
+        // 200 + [] → note it, but keep trying other mirrors before trusting the empty.
+        sawAuthoritativeEmpty = true;
       } catch (err) {
         lastErr = err;
       }
       await sleep(1200); // politeness + shared-IP rate-limit relief
     }
   }
+  // Every answering mirror said empty (and none had data) → genuine empty area.
+  if (sawAuthoritativeEmpty) return [];
+  // No mirror ever answered 2xx → transport failure; caller surfaces an honest note.
   throw lastErr instanceof Error ? lastErr : new Error('overpass unavailable');
 }
 
