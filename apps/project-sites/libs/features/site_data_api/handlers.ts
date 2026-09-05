@@ -64,6 +64,124 @@ const ALLOWED_PUBLIC_TABLES = new Set([
   'policies',
 ]);
 
+// ── Data Overview (real site-scoped platform tables) ─────────────────────────
+//
+// The `site_data` CMS store above is empty for nearly every site; the data a
+// site OWNER actually cares about lives in the shared platform tables, scoped by
+// `site_id`. This registry powers the editor "Data" tab + admin data overview:
+// a curated, read-only view of THIS site's real rows. Each entry carries an
+// EXPLICIT safe-column allowlist for browsing — `form_submissions` has PII
+// (email/payload/ip) and `mcp_connections` has encrypted tokens, so those
+// columns are NEVER selected. `email` is additionally masked at render.
+
+interface OverviewTable {
+  /** URL-safe key + `:table` param value. */
+  key: string;
+  /** Human label for the UI. */
+  label: string;
+  /** One-line description. */
+  description: string;
+  /** COUNT(*) query — a single `?` bound to siteId. */
+  countSql: string;
+  /** Browse query — `?` siteId then `?` limit; selects only safe columns. */
+  browseSql: string;
+  /** Safe columns returned by browseSql (for UI headers + drift clarity). */
+  columns: string[];
+  /** When true, mask the `email` column value before returning. */
+  maskEmail?: boolean;
+}
+
+/** Curated, read-only site-scoped tables. Column lists are the security boundary. */
+export const SITE_DATA_OVERVIEW_TABLES: readonly OverviewTable[] = [
+  {
+    key: 'visitor_events',
+    label: 'Visitor Events',
+    description: 'Analytics pageviews and events',
+    countSql: `SELECT COUNT(*) AS n FROM visitor_events WHERE site_id = ?`,
+    browseSql: `SELECT event_type, path, referrer, created_at FROM visitor_events WHERE site_id = ? ORDER BY created_at DESC LIMIT ?`,
+    columns: ['event_type', 'path', 'referrer', 'created_at'],
+  },
+  {
+    key: 'form_submissions',
+    label: 'Form Submissions',
+    description: 'Contact and lead form entries',
+    countSql: `SELECT COUNT(*) AS n FROM form_submissions WHERE site_id = ?`,
+    // PII-safe: no payload / ip_address / user_agent; email is masked below.
+    browseSql: `SELECT form_name, status, email, created_at FROM form_submissions WHERE site_id = ? ORDER BY created_at DESC LIMIT ?`,
+    columns: ['form_name', 'status', 'email', 'created_at'],
+    maskEmail: true,
+  },
+  {
+    key: 'site_snapshots',
+    label: 'Snapshots',
+    description: 'Saved build versions',
+    countSql: `SELECT COUNT(*) AS n FROM site_snapshots WHERE site_id = ? AND deleted_at IS NULL`,
+    browseSql: `SELECT snapshot_name, build_version, created_at FROM site_snapshots WHERE site_id = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT ?`,
+    columns: ['snapshot_name', 'build_version', 'created_at'],
+  },
+  {
+    key: 'mcp_connections',
+    label: 'MCP Connections',
+    description: 'Connected integrations',
+    // Token columns (access_token_encrypted, refresh_token_encrypted) are NEVER selected.
+    countSql: `SELECT COUNT(*) AS n FROM mcp_connections WHERE site_id = ?`,
+    browseSql: `SELECT provider, display_name, status, connected_at FROM mcp_connections WHERE site_id = ? ORDER BY connected_at DESC LIMIT ?`,
+    columns: ['provider', 'display_name', 'status', 'connected_at'],
+  },
+  {
+    key: 'site_data',
+    label: 'Content Store',
+    description: 'CMS rows synced to the live site',
+    countSql: `SELECT COUNT(*) AS n FROM site_data WHERE site_id = ? AND deleted_at IS NULL`,
+    browseSql: `SELECT table_name, data_json, created_at FROM site_data WHERE site_id = ? AND deleted_at IS NULL ORDER BY created_at DESC LIMIT ?`,
+    columns: ['table_name', 'data_json', 'created_at'],
+  },
+];
+
+/**
+ * Look up an overview table by its key. Returns undefined for an unknown key so
+ * the browse route can reject it (allowlist — never interpolate a user string).
+ *
+ * @param key - the `:table` path param
+ * @returns the matching {@link OverviewTable} or undefined
+ * @example overviewTable('visitor_events')?.label // 'Visitor Events'
+ */
+export function overviewTable(key: string): OverviewTable | undefined {
+  return SITE_DATA_OVERVIEW_TABLES.find((t) => t.key === key);
+}
+
+/**
+ * Clamp a browse `limit` query param to a safe 1–100 range (default 25).
+ * A non-numeric / missing value falls back to 25; never returns 0 or negatives.
+ *
+ * @param raw - the raw `limit` query string
+ * @returns an integer in [1, 100]
+ * @example clampBrowseLimit('9999') // 100 ; clampBrowseLimit(undefined) // 25
+ */
+export function clampBrowseLimit(raw: string | undefined | null): number {
+  const n = Number.parseInt(String(raw ?? ''), 10);
+  if (!Number.isFinite(n) || n <= 0) return 25;
+  return Math.min(n, 100);
+}
+
+/**
+ * Mask an email local part for display: `brian@x.com` → `b***@x.com`.
+ * Non-string / malformed values return '' so a browse row never leaks a raw
+ * address. A one-char local part still masks fully (`a@x.com` → `*@x.com`).
+ *
+ * @param email - the raw email value from the row
+ * @returns the masked email, or '' when the input isn't a valid-looking address
+ * @example maskEmailValue('brian@megabyte.space') // 'b***@megabyte.space'
+ */
+export function maskEmailValue(email: unknown): string {
+  if (typeof email !== 'string' || !email.includes('@')) return '';
+  const [local, ...rest] = email.split('@');
+  const domain = rest.join('@');
+  if (!local || !domain) return '';
+  const head = local.length > 1 ? `${local[0]}***` : '*';
+  return `${head}@${domain}`;
+}
+
 siteDataApi.get('/api/public-data/:table', async (c) => {
   const table = c.req.param('table');
   if (!ALLOWED_PUBLIC_TABLES.has(table)) {
@@ -222,4 +340,73 @@ siteDataApi.get('/api/sites/:siteId/data', async (c) => {
     .all();
 
   return c.json({ data: result.results || [] });
+});
+
+/**
+ * Data overview: the site's REAL platform tables (visitor_events, form_submissions,
+ * snapshots, MCP connections, content store) with live row counts. Read-only,
+ * org-scoped (IDOR-guarded), fail-soft per table (a missing table → 0, never 500).
+ * Powers the editor "Data" tab + admin data overview.
+ */
+siteDataApi.get('/api/sites/:siteId/data-overview', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId)
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Must be authenticated' } }, 401);
+  const siteId = c.req.param('siteId');
+  if (!(await ownsSiteData(c.env.DB, siteId, orgId)))
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Site not found' } }, 404);
+
+  const tables = await Promise.all(
+    SITE_DATA_OVERVIEW_TABLES.map(async (t) => {
+      let rowCount = 0;
+      try {
+        const row = await c.env.DB.prepare(t.countSql).bind(siteId).first<{ n: number }>();
+        rowCount = Number(row?.n ?? 0);
+      } catch {
+        rowCount = 0; // a missing/renamed table must never 500 the whole overview
+      }
+      return {
+        key: t.key,
+        label: t.label,
+        description: t.description,
+        columns: t.columns,
+        row_count: rowCount,
+        browsable: true,
+      };
+    }),
+  );
+
+  return c.json({ data: { tables } });
+});
+
+/**
+ * Browse the most-recent rows of one overview table. Read-only; only the table's
+ * safe-column allowlist is selected (never PII payloads or encrypted tokens);
+ * `email` is masked. Unknown table → 400; missing table at runtime → empty rows.
+ */
+siteDataApi.get('/api/sites/:siteId/data-overview/:table', async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId)
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Must be authenticated' } }, 401);
+  const { siteId, table } = c.req.param();
+  if (!(await ownsSiteData(c.env.DB, siteId, orgId)))
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Site not found' } }, 404);
+  const spec = overviewTable(table);
+  if (!spec) {
+    return c.json({ error: { code: 'BAD_REQUEST', message: 'Unknown table' } }, 400);
+  }
+  const limit = clampBrowseLimit(c.req.query('limit'));
+
+  let rows: Record<string, unknown>[] = [];
+  try {
+    const result = await c.env.DB.prepare(spec.browseSql).bind(siteId, limit).all();
+    rows = (result.results || []) as Record<string, unknown>[];
+  } catch {
+    rows = []; // fail-soft: a missing/renamed table returns empty, never 500
+  }
+  if (spec.maskEmail) {
+    rows = rows.map((r) => ('email' in r ? { ...r, email: maskEmailValue(r['email']) } : r));
+  }
+
+  return c.json({ data: { table: spec.key, columns: spec.columns, rows } });
 });

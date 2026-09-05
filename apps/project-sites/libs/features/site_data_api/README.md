@@ -18,6 +18,20 @@ feature.
 | PUT    | `/api/sites/:siteId/data/:table/:rowId`| orgId  |
 | DELETE | `/api/sites/:siteId/data/:table/:rowId`| orgId  |
 | GET    | `/api/sites/:siteId/data`              | orgId  |
+| GET    | `/api/sites/:siteId/data-overview`     | orgId  |
+| GET    | `/api/sites/:siteId/data-overview/:table` | orgId |
+
+### Data overview (real site-scoped platform tables)
+
+`site_data` above is empty for nearly every site; a site OWNER's real data lives
+in shared platform tables scoped by `site_id`. `data-overview` returns a curated,
+read-only view of THOSE (`visitor_events`, `form_submissions`, `site_snapshots`,
+`mcp_connections`, `site_data`) with live row counts, and `data-overview/:table`
+browses recent rows. Powers the editor **Data** tab + admin data overview. Each
+table carries an EXPLICIT safe-column allowlist (`SITE_DATA_OVERVIEW_TABLES`) —
+`form_submissions` PII (payload/ip/user_agent) and `mcp_connections` encrypted
+tokens are NEVER selected; `email` is masked (`maskEmailValue`). Same `ownsSiteData`
+IDOR guard; fail-soft per table (a missing table → 0 / empty, never 500).
 
 ## Boundaries
 

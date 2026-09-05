@@ -1,0 +1,95 @@
+/**
+ * @file Unit tests for the data-overview pure helpers + the per-table
+ * safe-column security invariant. No D1 mocking — these guard the boundary that
+ * keeps PII (form payloads/IP) and encrypted MCP tokens out of the browse rows.
+ */
+import {
+  SITE_DATA_OVERVIEW_TABLES,
+  overviewTable,
+  clampBrowseLimit,
+  maskEmailValue,
+} from '../handlers';
+
+describe('data-overview registry', () => {
+  it('exposes the five real site-scoped tables', () => {
+    expect(SITE_DATA_OVERVIEW_TABLES.map((t) => t.key)).toEqual([
+      'visitor_events',
+      'form_submissions',
+      'site_snapshots',
+      'mcp_connections',
+      'site_data',
+    ]);
+  });
+
+  it('NEVER selects PII or token columns in any browse query (security boundary)', () => {
+    const FORBIDDEN = [
+      'payload',
+      'ip_address',
+      'user_agent',
+      'access_token_encrypted',
+      'refresh_token_encrypted',
+      'reply_body',
+    ];
+    for (const t of SITE_DATA_OVERVIEW_TABLES) {
+      for (const bad of FORBIDDEN) {
+        expect(t.browseSql.includes(bad)).toBe(false);
+      }
+    }
+  });
+
+  it('every browse query is read-only (SELECT), site-scoped, and limited', () => {
+    for (const t of SITE_DATA_OVERVIEW_TABLES) {
+      expect(t.browseSql.trim().startsWith('SELECT')).toBe(true);
+      expect(t.browseSql).toContain('WHERE site_id = ?');
+      expect(t.browseSql).toContain('LIMIT ?');
+      expect(t.countSql).toContain('WHERE site_id = ?');
+    }
+  });
+
+  it('flags form_submissions for email masking', () => {
+    expect(overviewTable('form_submissions')?.maskEmail).toBe(true);
+    // Tables without PII do not carry the mask flag.
+    expect(overviewTable('visitor_events')?.maskEmail).toBeUndefined();
+  });
+});
+
+describe('overviewTable', () => {
+  it('resolves a known key', () => {
+    expect(overviewTable('visitor_events')?.label).toBe('Visitor Events');
+  });
+  it('returns undefined for an unknown key (allowlist reject)', () => {
+    expect(overviewTable('users')).toBeUndefined();
+    expect(overviewTable('sqlite_master')).toBeUndefined();
+    expect(overviewTable('')).toBeUndefined();
+  });
+});
+
+describe('clampBrowseLimit', () => {
+  it('defaults to 25 for missing/invalid input', () => {
+    expect(clampBrowseLimit(undefined)).toBe(25);
+    expect(clampBrowseLimit(null)).toBe(25);
+    expect(clampBrowseLimit('abc')).toBe(25);
+    expect(clampBrowseLimit('0')).toBe(25);
+    expect(clampBrowseLimit('-5')).toBe(25);
+  });
+  it('passes through valid values and caps at 100', () => {
+    expect(clampBrowseLimit('10')).toBe(10);
+    expect(clampBrowseLimit('100')).toBe(100);
+    expect(clampBrowseLimit('9999')).toBe(100);
+  });
+});
+
+describe('maskEmailValue', () => {
+  it('masks the local part of a normal address', () => {
+    expect(maskEmailValue('brian@megabyte.space')).toBe('b***@megabyte.space');
+  });
+  it('fully masks a one-char local part', () => {
+    expect(maskEmailValue('a@x.com')).toBe('*@x.com');
+  });
+  it('returns empty string for non-email / non-string input (never leaks raw)', () => {
+    expect(maskEmailValue('notanemail')).toBe('');
+    expect(maskEmailValue(null)).toBe('');
+    expect(maskEmailValue(123)).toBe('');
+    expect(maskEmailValue('@nolocal.com')).toBe('');
+  });
+});
