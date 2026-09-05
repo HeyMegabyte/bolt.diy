@@ -109,6 +109,13 @@ import { Hono } from 'hono';
 import type { Env, Variables } from '../types/env.js';
 import { dbExecute, dbInsert, dbQuery, dbQueryOne } from '../services/db.js';
 import { gatherProfileContext } from '../services/profile_context.js';
+import {
+  PageAudioInputSchema,
+  lookupPageAudio,
+  getOrCreatePageAudio,
+  fetchPageAudioObject,
+  siteExistsForSlug,
+} from '../services/page_audio.js';
 import { knowledgeForVertical } from '../services/concierge_knowledge.js';
 import { getMemory, setMemory } from '../services/anthropic_memory.js';
 import { isSafeWebhookUrl } from '../services/outbound_webhooks.js';
@@ -3699,6 +3706,66 @@ api.post('/api/chat/:slug', async (c) => {
       },
     });
   }
+});
+
+/**
+ * "Listen to this page" — AI-summarized audio, spoken by MeloTTS (`@cf/myshell-ai/melotts`,
+ * OSS TTS on Workers AI). The generated site's PageAudio widget POSTs the page's readable
+ * text; we AI-SUMMARIZE it (Llama 3.3 70B — a warm spoken overview, NOT a verbatim read of
+ * the whole page) then MeloTTS the summary and cache the WAV in R2. Cache hits skip the
+ * rate limit (zero AI spend); a cache miss is gated 8/min per slug+IP.
+ *
+ * @route POST /api/page-audio/:slug
+ * @auth None — public; generated sites call this for anonymous visitors. Operator
+ *   killswitch: `PAGE_AUDIO_DISABLED='true'` → 404.
+ * @body `{ text: string(1-12000), route?: string }`.
+ * @returns 200 `{ data: { audioUrl: string|null, summary: string|null, cached: boolean } }`.
+ *   Fail-soft: `audioUrl: null` ⇒ the widget degrades to on-device speechSynthesis;
+ *   a broken model must never break the button.
+ */
+api.post('/api/page-audio/:slug', async (c) => {
+  if (c.env.PAGE_AUDIO_DISABLED === 'true') return c.notFound(); // operator killswitch
+  const slug = c.req.param('slug');
+  const parsed = PageAudioInputSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) {
+    return c.json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid page text.' } }, 400);
+  }
+  const { route, text } = parsed.data;
+
+  // Cache hit → serve immediately: no rate limit, no AI spend.
+  const cached = await lookupPageAudio(c.env, { slug, route, text }).catch(() => null);
+  if (cached) return c.json({ data: cached });
+
+  // Cache miss → gate the (paid) summarize+TTS at 8/min per slug+IP.
+  const ip = c.req.header('cf-connecting-ip') || 'anon';
+  const rlKey = `paudiorl:${slug}:${ip}`;
+  const used = parseInt((await c.env.CACHE_KV.get(rlKey)) || '0', 10);
+  if (used >= 8) return c.json({ data: { audioUrl: null, summary: null, cached: false } });
+  c.executionCtx.waitUntil(
+    c.env.CACHE_KV.put(rlKey, String(used + 1), { expirationTtl: 60 }).catch(() => {}),
+  );
+
+  if (!(await siteExistsForSlug(c.env, slug))) {
+    return c.json({ data: { audioUrl: null, summary: null, cached: false } });
+  }
+  const result = await getOrCreatePageAudio(c.env, { slug, route, text });
+  return c.json({ data: result });
+});
+
+/**
+ * Stream a cached page-audio WAV from R2 (hash-keyed + immutable → 1-year cache).
+ *
+ * @route GET /api/page-audio/:slug/a/:file  (`:file` = `<20-hex>.wav`)
+ * @returns 200 `audio/wav` stream, or 404 when the object is absent / the filename
+ *   fails the `<20-hex>.wav` path-escape guard.
+ */
+api.get('/api/page-audio/:slug/a/:file', async (c) => {
+  const obj = await fetchPageAudioObject(c.env, c.req.param('slug'), c.req.param('file'));
+  if (!obj) return c.notFound();
+  return c.body(obj.body, 200, {
+    'content-type': 'audio/wav',
+    'cache-control': 'public, max-age=31536000, immutable',
+  });
 });
 
 /**

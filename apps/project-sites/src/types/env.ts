@@ -275,6 +275,8 @@ export interface Env {
   GTM_CONTAINER_ID?: string;
   /** Operator killswitch for the app.js concierge chat — set to `'true'` → POST /api/chat/:slug returns 404. */
   CONCIERGE_CHAT_DISABLED?: string;
+  /** Operator killswitch for the "Listen to this page" AI audio — set to `'true'` → POST /api/page-audio/:slug returns 404. */
+  PAGE_AUDIO_DISABLED?: string;
   /** Google Analytics Data API credentials (service account JSON, base64-encoded). */
   GA4_SERVICE_ACCOUNT_JSON?: string;
   /** GA4 Property ID for Data API queries (numeric, e.g., 123456789). */
