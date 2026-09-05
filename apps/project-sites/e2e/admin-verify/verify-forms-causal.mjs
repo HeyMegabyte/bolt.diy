@@ -8,7 +8,14 @@
  * From a real browser (origin=projectsites.dev is allow-listed; real fingerprint passes
  * Bot Fight Mode — a direct curl 403s): submit a VALID + an INJECTION-shaped submission,
  * then log in as brian and assert /admin/forms shows them AND the XSS payload renders as
- * inert TEXT (Angular escapes it — no alert dialog fires). D1 cleanup is done by the caller.
+ * inert TEXT (Angular escapes it — no alert dialog fires).
+ *
+ * TARGET = `northstar-functions-lab-sf` (brian's empty scaffold site), NOT `megabytespace`
+ * (his showcase). `form_submissions` has no DELETE endpoint, so the causal rows this probe
+ * writes can't be cleaned up via API — keeping them off the showcase inbox (AL-017; the
+ * AL-010 "point the probe at a dedicated test site" follow-up). Brian owns both sites, so
+ * the brian-login /admin/forms check still works. Periodic `DELETE … WHERE email LIKE
+ * 'causal-%'` on northstar is fine hygiene but no longer touches real customer data.
  * Creds (get-secret): BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID, E2E_TEST_PASSWORD.
  */
 import { chromium } from '@playwright/test';
@@ -42,7 +49,7 @@ try {
   cur = 'submit';
   const submit = await page.evaluate(async ({ ve, ie, iname }) => {
     const post = async (email, fields) => {
-      const res = await fetch('/api/v1/forms/submit', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Site-Slug': 'megabytespace' }, body: JSON.stringify({ form_name: 'Contact', email, fields }) });
+      const res = await fetch('/api/v1/forms/submit', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Site-Slug': 'northstar-functions-lab-sf' }, body: JSON.stringify({ form_name: 'Contact', email, fields }) });
       return { status: res.status, body: (await res.text()).slice(0, 160) };
     };
     return {
@@ -62,7 +69,7 @@ try {
   cur = 'forms-api';
   const apiRows = await page.evaluate(async () => {
     const tok = JSON.parse(localStorage.getItem('ps_session') || '{}').token;
-    const res = await fetch('/api/sites/site-megabytespace-001/forms', { headers: { Authorization: `Bearer ${tok}` } });
+    const res = await fetch('/api/sites/f84f5ab1-df49-4b3c-9fc7-c09e4e696e58/forms', { headers: { Authorization: `Bearer ${tok}` } });
     const j = await res.json().catch(() => ({}));
     const rows = j?.data ?? [];
     return { total: rows.length, causalEmails: rows.map((r) => r.email).filter((e) => /causal-/.test(e || '')) };
@@ -73,15 +80,17 @@ try {
   cur = 'forms-ui';
   await page.goto('https://projectsites.dev/admin/forms', { waitUntil: 'domcontentloaded', timeout: 45000 });
   await page.waitForTimeout(4500);
-  // Select the SAME site we submitted to (X-Site-Slug: megabytespace). /admin/forms
-  // defaults to whichever site AdminState picks first (often the newest — e.g. Northstar
-  // with 0 forms), so clicking the FIRST option reads the WRONG site and false-🔴s while
-  // the product is honest (the store→API→UI chain is correct per-site). Match by text.
+  // Select the SAME site we submitted to (northstar-functions-lab-sf). /admin/forms
+  // defaults to whichever site AdminState picks first, so clicking the FIRST option can
+  // read the WRONG site and false-🔴 while the product is honest (the store→API→UI chain
+  // is correct per-site). Match by text. We target northstar (brian's empty scaffold), NOT
+  // megabytespace (his showcase) — form_submissions has no DELETE endpoint, so causal test
+  // rows can't be cleaned; keep them off the showcase inbox (AL-010/AL-017 follow-up).
   const sw = page.locator('button[aria-label="Select site"]');
   if (await sw.count()) {
     await sw.click();
-    const mega = page.locator('button[role="option"]', { hasText: /megabyte/i }).first();
-    const opt = (await mega.count()) ? mega : page.locator('button[role="option"]').first();
+    const target = page.locator('button[role="option"]', { hasText: /northstar/i }).first();
+    const opt = (await target.count()) ? target : page.locator('button[role="option"]').first();
     await opt.waitFor({ state: 'visible', timeout: 4000 }); await opt.click(); await page.waitForTimeout(3000);
   }
   await page.waitForTimeout(1500);
