@@ -123,7 +123,7 @@ auditLogs.get('/api/audit-logs', async (c) => {
   // column when present and parse `metadata_json.site_id` in JS as a
   // fallback so hostname/billing events still surface their site context.
   const baseSql = `
-    SELECT a.id, a.action, a.target_type, a.target_id, a.actor_id,
+    SELECT a.id, a.action, a.message, a.target_type, a.target_id, a.actor_id,
            a.metadata_json, a.request_id, a.created_at, s.slug AS site_slug
     FROM audit_logs a
     LEFT JOIN sites s ON s.id = a.target_id AND s.org_id = a.org_id
@@ -143,6 +143,7 @@ auditLogs.get('/api/audit-logs', async (c) => {
     .all<{
       id: string;
       action: string;
+      message: string | null;
       target_type: string | null;
       target_id: string | null;
       actor_id: string | null;
@@ -183,6 +184,11 @@ auditLogs.get('/api/audit-logs', async (c) => {
     return {
       id: r.id,
       action: r.action,
+      // The human-readable statement written at audit time (e.g. "MCP 'resend'
+      // disconnected from site 'vito-salon'"). Was omitted from the SELECT, so the
+      // forensics grid always fell back to the generic humanized action — the rich
+      // message (already shown on the dashboard) never reached the audit view.
+      message: r.message ?? null,
       target_type: r.target_type,
       target_id: r.target_id,
       actor_id: r.actor_id,

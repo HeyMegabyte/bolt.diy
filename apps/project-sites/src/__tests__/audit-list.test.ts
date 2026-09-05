@@ -40,6 +40,7 @@ const mockDbQueryOne = dbQueryOne as jest.Mock;
 interface MockRow {
   id: string;
   action: string;
+  message?: string | null;
   target_type: string | null;
   target_id: string | null;
   actor_id: string | null;
@@ -146,6 +147,33 @@ describe('GET /api/audit-logs', () => {
     expect(body.data).toHaveLength(2);
     expect(body.data[0]).toEqual(expect.objectContaining({ id: 'r1', site: SITE_SLUG }));
     expect(body.data[1]).toEqual(expect.objectContaining({ id: 'r2', site: null }));
+  });
+
+  it('SELECTs and returns the stored `message` (rich statement, not a dropped column)', async () => {
+    // Regression: the SELECT omitted `a.message`, so the forensics grid always
+    // fell back to a generic humanized action ("Mcp disconnected") instead of the
+    // rich stored statement ("MCP 'resend' disconnected from site 'vito-salon'").
+    const RICH = "MCP 'resend' disconnected from site 'vitos-mens-salon'";
+    const { db, captured } = makeMockDb([
+      {
+        id: 'r1',
+        action: 'mcp.disconnected',
+        message: RICH,
+        target_type: 'mcp_connection',
+        target_id: SITE_ID,
+        actor_id: 'user-1',
+        metadata_json: null,
+        request_id: 'req-1',
+        created_at: '2026-05-21T12:00:00.000Z',
+        site_slug: SITE_SLUG,
+      },
+    ]);
+    const { app, env } = createAuthedApp(db);
+    const res = await app.request('/api/audit-logs', {}, env);
+    expect(res.status).toBe(200);
+    expect(captured.sql).toContain('a.message');
+    const body = (await res.json()) as { data: Array<{ message: string | null }> };
+    expect(body.data[0].message).toBe(RICH);
   });
 
   it('caps `limit` at 500 even when caller requests more', async () => {
