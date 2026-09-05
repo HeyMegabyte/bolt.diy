@@ -226,6 +226,9 @@ export async function listLeads(
  * @param leadId  - The lead id.
  * @param contact - Discovered `{ website?, phone?, email?, socials? }`.
  * @param nowIso  - Injected ISO timestamp for `enriched_at` (testable clock).
+ * @param leadScore - Optional recomputed intent-weighted score (from `scoreLead`
+ *   over the enriched signals). When provided, re-ranks the lead in the list;
+ *   omit to leave the existing score unchanged.
  * @returns `{ updated: boolean }` — false when the lead does not exist.
  */
 export async function updateLeadContact(
@@ -233,6 +236,7 @@ export async function updateLeadContact(
   leadId: string,
   contact: { website?: string; phone?: string; email?: string; socials?: Record<string, string> },
   nowIso: string,
+  leadScore?: number,
 ): Promise<{ updated: boolean }> {
   const existing = await dbQueryOne<{
     id: string;
@@ -265,6 +269,7 @@ export async function updateLeadContact(
            email = COALESCE(?, email),
            website = COALESCE(?, website),
            socials_json = ?,
+           lead_score = COALESCE(?, lead_score),
            profile_json = ?,
            enriched_at = ?
      WHERE id = ?`,
@@ -273,6 +278,7 @@ export async function updateLeadContact(
       contact.email ?? null,
       contact.website ?? null,
       socialsJson,
+      leadScore ?? null,
       profileJson,
       nowIso,
       leadId,

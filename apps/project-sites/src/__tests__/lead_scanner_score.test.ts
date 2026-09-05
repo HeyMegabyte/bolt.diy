@@ -137,4 +137,36 @@ describe('scoreLead', () => {
     expect(scoreLead({ countryCode: 'NZ' }).priority).toBe(true);
     expect(scoreLead({ countryCode: 'JP' }).priority).toBe(false);
   });
+
+  // ── Intent signal (AL-030): socials-present + no-website = hottest lead ──────
+  it('adds +20 for any social presence on a no-website lead (breaks the flat OSM tie)', () => {
+    const flat = scoreLead({}); // no website +45
+    const withSocial = scoreLead({ socials: { facebook: 'https://facebook.com/x' } });
+    expect(flat.leadScore).toBe(45);
+    expect(withSocial.leadScore).toBe(65); // 45 + 20
+    expect(withSocial.leadScore).toBeGreaterThan(flat.leadScore);
+  });
+
+  it('ranks a MULTI-platform siteless business highest (+5 per extra network, capped +10)', () => {
+    const one = scoreLead({ socials: { facebook: 'a' } }); // 45 + 20 = 65
+    const two = scoreLead({ socials: { facebook: 'a', instagram: 'b' } }); // 45 + 20 + 5 = 70
+    const three = scoreLead({ socials: { facebook: 'a', instagram: 'b', x: 'c' } }); // 45 + 20 + 10 = 75
+    const four = scoreLead({ socials: { facebook: 'a', instagram: 'b', x: 'c', yelp: 'd' } }); // cap → 75
+    expect(one.leadScore).toBe(65);
+    expect(two.leadScore).toBe(70);
+    expect(three.leadScore).toBe(75);
+    expect(four.leadScore).toBe(75); // extra bonus capped at +10
+  });
+
+  it('adds +5 for a reachable email', () => {
+    expect(scoreLead({ email: 'owner@shop.test' }).leadScore).toBe(50); // 45 + 5
+    expect(scoreLead({ email: '   ' }).leadScore).toBe(45); // blank ignored
+  });
+
+  it('leaves scores unchanged when socials/email absent (non-breaking add)', () => {
+    // The pre-existing 100 contract still holds with the new (undefined) fields.
+    expect(
+      scoreLead({ phone: '+12015551234', userRatingsTotal: 42, countryCode: 'US', types: ['plumber'] }).leadScore,
+    ).toBe(100);
+  });
 });

@@ -37,6 +37,14 @@ export interface PlaceRecord {
   userRatingsTotal?: number | null;
   types?: string[];
   countryCode?: string | null;
+  /**
+   * Discovered social profile URLs by network key (see `social_links.ts`). The
+   * intent signal: an active social presence with NO website = a business that
+   * has proven it wants to be online but hasn't built a site — the hottest lead.
+   */
+  socials?: Record<string, string> | null;
+  /** Contact email (reachability signal). */
+  email?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -149,6 +157,17 @@ export function scoreLead(p: PlaceRecord): {
   const typesLower = (p.types ?? []).map((t) => t.toLowerCase());
   const hasServiceType = SERVICE_TYPE_KEYWORDS.some((kw) => typesLower.some((t) => t.includes(kw)));
   if (hasServiceType) score += 10;
+
+  // Intent signal (the differentiator): an active social presence with NO
+  // website is proven online-intent, unsolved — the hottest lead. This is what
+  // breaks the flat tie among no-contact OSM leads (which otherwise all score
+  // ~45-55). A multi-platform presence with no site ranks highest of all.
+  const socialCount = p.socials ? Object.keys(p.socials).length : 0;
+  if (socialCount > 0) {
+    score += 20; // has any social presence
+    score += Math.min((socialCount - 1) * 5, 10); // +5 per extra network, capped +10
+  }
+  if (p.email != null && p.email.trim() !== '') score += 5; // directly reachable
 
   return {
     hasWebsite,

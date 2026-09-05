@@ -86,6 +86,10 @@ export async function scanResultsToLeads(
       rating: r.rating,
       userRatingsTotal: r.review_count,
       types: r.types,
+      // Intent signals captured from OSM contact:* tags (AL-029) — a siteless
+      // business with an active social presence is the hottest lead.
+      socials: r.socials,
+      email: r.email,
     });
 
     if (onlyNoWebsite && score.hasWebsite) {

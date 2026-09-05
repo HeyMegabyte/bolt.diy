@@ -19,6 +19,7 @@ import { isFlagOn } from '../modules/feature_flags/services.js';
 import { isSuperAdmin } from '../services/sysadmin.js';
 import { searchPlacesByQuery } from '../services/places_search.js';
 import { scanResultsToLeads } from '../services/lead_scan.js';
+import { scoreLead } from '../services/lead_scanner_score.js';
 import { createLead, listLeads, getLead, updateLeadContact } from '../services/lead_store.js';
 import { enrichLeadContact } from '../services/lead_enrichment.js';
 import { discoverLeadsForQuery } from '../services/lead_query_discovery.js';
@@ -341,6 +342,17 @@ adminLeads.post('/api/admin/leads/:id/enrich', async (c) => {
     },
   );
 
-  await updateLeadContact(c.env.DB, leadId, contact, new Date().toISOString());
-  return c.json({ contact, updated: true }, 200);
+  // Re-rank with the intent-weighted scorer over the enriched signals — a lead
+  // that turns out to have an active social presence but no website jumps toward
+  // the top (proven online intent, unsolved). Places metrics (rating/reviews/
+  // country) aren't available for an enriched OSM lead, so they contribute 0.
+  const rescored = scoreLead({
+    website: contact.website ?? lead.profile.existingWebsite ?? null,
+    phone: contact.phone ?? lead.profile.phone ?? null,
+    email: contact.email ?? lead.profile.email ?? null,
+    socials: contact.socials ?? lead.profile.socials ?? null,
+    types: lead.profile.category ? [lead.profile.category] : [],
+  });
+  await updateLeadContact(c.env.DB, leadId, contact, new Date().toISOString(), rescored.leadScore);
+  return c.json({ contact, updated: true, leadScore: rescored.leadScore }, 200);
 });

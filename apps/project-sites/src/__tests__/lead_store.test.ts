@@ -191,13 +191,14 @@ describe('updateLeadContact', () => {
     const [, sql, params] = mockExecute.mock.calls[0];
     expect(sql).toMatch(/UPDATE scanned_leads/i);
     expect(sql).toMatch(/enriched_at\s*=\s*\?/i);
-    // params: [phone, email, website, socials_json, profile_json, enriched_at, id]
+    // params: [phone, email, website, socials_json, lead_score, profile_json, enriched_at, id]
     const socialsJson = JSON.parse(params[3] as string);
     expect(socialsJson).toEqual({
       facebook: 'https://facebook.com/acme',
       instagram: 'https://instagram.com/acme',
     });
-    const profile = JSON.parse(params[4] as string);
+    expect(params[4]).toBeNull(); // leadScore omitted → COALESCE keeps existing
+    const profile = JSON.parse(params[5] as string);
     expect(profile).toEqual(
       expect.objectContaining({
         businessName: 'Acme',
@@ -207,8 +208,26 @@ describe('updateLeadContact', () => {
         socials: expect.objectContaining({ instagram: 'https://instagram.com/acme' }),
       }),
     );
-    expect(params[5]).toBe('2026-09-05T12:00:00Z');
-    expect(params[6]).toBe('lead_1');
+    expect(params[6]).toBe('2026-09-05T12:00:00Z');
+    expect(params[7]).toBe('lead_1');
+  });
+
+  it('persists a recomputed leadScore via COALESCE when provided (re-rank on enrich)', async () => {
+    mockQueryOne.mockResolvedValue({
+      id: 'lead_1',
+      profile_json: JSON.stringify({ businessName: 'Acme' }),
+      socials_json: null,
+    });
+    await updateLeadContact(
+      db,
+      'lead_1',
+      { socials: { facebook: 'a', instagram: 'b' } },
+      '2026-09-05T12:00:00Z',
+      75,
+    );
+    const [, sql, params] = mockExecute.mock.calls[0];
+    expect(sql).toMatch(/lead_score\s*=\s*COALESCE\(\?, lead_score\)/i);
+    expect(params[4]).toBe(75); // the recomputed intent-weighted score
   });
 
   it('leaves profile_json untouched when the stored profile is corrupt (columns still update)', async () => {
@@ -220,6 +239,6 @@ describe('updateLeadContact', () => {
     const r = await updateLeadContact(db, 'lead_1', { phone: '555' }, '2026-09-05T00:00:00Z');
     expect(r).toEqual({ updated: true });
     const [, , params] = mockExecute.mock.calls[0];
-    expect(params[4]).toBe('{not json'); // profile_json passed through unchanged
+    expect(params[5]).toBe('{not json'); // profile_json (index shifted by lead_score) passed through unchanged
   });
 });
