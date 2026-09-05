@@ -156,16 +156,26 @@ import {
                     <span class="block text-[0.9rem] text-white font-medium truncate">{{ memberEmail(m) }}</span>
                     <span class="block text-[0.74rem] text-text-secondary capitalize">{{ m.role }}</span>
                   </div>
-                  <button
-                    type="button"
-                    (click)="removeMember(m)"
-                    [disabled]="isBusy(memberKey(m))"
-                    [attr.aria-label]="'Remove ' + memberEmail(m)"
-                    data-testid="team-member-remove"
-                    class="min-h-[44px] shrink-0 rounded-lg border border-red-500/25 bg-transparent px-3 text-[0.8rem] font-semibold text-red-300 transition-colors hover:bg-red-500/10 focus-visible:ring-2 focus-visible:ring-red-500/40 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {{ isBusy(memberKey(m)) ? 'Removing…' : 'Remove' }}
-                  </button>
+                  @if (isLastOwner(m)) {
+                    <span
+                      class="shrink-0 rounded-lg px-3 py-2 text-[0.74rem] font-medium text-text-secondary/70"
+                      data-testid="team-last-owner"
+                      title="Promote another member to owner before removing the last owner."
+                    >
+                      Last owner
+                    </span>
+                  } @else {
+                    <button
+                      type="button"
+                      (click)="removeMember(m)"
+                      [disabled]="isBusy(memberKey(m))"
+                      [attr.aria-label]="'Remove ' + memberEmail(m)"
+                      data-testid="team-member-remove"
+                      class="min-h-[44px] shrink-0 rounded-lg border border-red-500/25 bg-transparent px-3 text-[0.8rem] font-semibold text-red-300 transition-colors hover:bg-red-500/10 focus-visible:ring-2 focus-visible:ring-red-500/40 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {{ isBusy(memberKey(m)) ? 'Removing…' : 'Remove' }}
+                    </button>
+                  }
                 </li>
               }
             </ul>
@@ -251,6 +261,8 @@ export class TeamComponent {
   readonly seatsFull = computed(
     () => !this.seatsUnlimited() && this.seatsUsed() >= this.seatLimit(),
   );
+  /** How many owners the org has — drives the last-owner remove guard. */
+  readonly ownerCount = computed(() => this.members().filter((m) => m.role === 'owner').length);
 
   constructor() {
     void this.load();
@@ -345,6 +357,15 @@ export class TeamComponent {
     } else {
       this.error.set(res.error);
     }
+  }
+
+  /**
+   * True when this member is the org's SOLE owner — removing them would leave
+   * the org ownerless, which the server rejects (409). Mirror that guard on the
+   * client so the destructive control is never offered (no confusing 409 toast).
+   */
+  isLastOwner(m: OrgMember): boolean {
+    return m.role === 'owner' && this.ownerCount() <= 1;
   }
 
   /** Stable key for a member row — prefer id, fall back to email. */

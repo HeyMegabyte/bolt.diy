@@ -176,4 +176,44 @@ describe('TeamComponent (org members + invites — idea #24)', () => {
     await fixture.componentInstance.removeMember(FULL_ORG.members[1]);
     expect(orgApi.removeMember).not.toHaveBeenCalled();
   });
+
+  it('guards the SOLE owner — shows "Last owner", not a Remove button (mirrors server 409)', async () => {
+    // FULL_ORG has exactly one owner (owner@acme.test) + one member (dev@acme.test).
+    const { fixture } = await setup();
+    const c = fixture.componentInstance;
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(c.ownerCount()).toBe(1);
+    expect(c.isLastOwner(FULL_ORG.members[0])).toBeTrue(); // the sole owner
+    expect(c.isLastOwner(FULL_ORG.members[1])).toBeFalse(); // a plain member
+
+    // The sole owner's row offers the non-destructive "Last owner" label…
+    expect(el.querySelectorAll('[data-testid="team-last-owner"]').length).toBe(1);
+    // …and only the member row keeps a Remove button.
+    expect(el.querySelectorAll('[data-testid="team-member-remove"]').length).toBe(1);
+  });
+
+  it('allows removing an owner when the org has TWO owners (no last-owner lock)', async () => {
+    const api = makeOrgApiMock();
+    api.getFullOrganization.and.resolveTo(
+      ok({
+        id: 'org_two',
+        name: 'Duo',
+        members: [
+          { id: 'mem_1', role: 'owner', email: 'a@acme.test' },
+          { id: 'mem_2', role: 'owner', email: 'b@acme.test' },
+        ],
+        invitations: [],
+      } as FullOrganization),
+    );
+    const { fixture } = await setup(api);
+    const c = fixture.componentInstance;
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(c.ownerCount()).toBe(2);
+    expect(c.isLastOwner(c.members()[0])).toBeFalse();
+    // Both owners are removable → 2 Remove buttons, 0 "Last owner" labels.
+    expect(el.querySelectorAll('[data-testid="team-member-remove"]').length).toBe(2);
+    expect(el.querySelectorAll('[data-testid="team-last-owner"]').length).toBe(0);
+  });
 });
