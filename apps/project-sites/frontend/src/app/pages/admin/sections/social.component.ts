@@ -1450,11 +1450,24 @@ export class AdminSocialComponent implements OnInit {
     this.content.set(cur.trim() ? `${cur.replace(/\s+$/, '')}\n\n${t.content}` : t.content);
   }
 
-  /** Delete a saved template. */
+  /**
+   * Delete a saved template. Destructive + no undo, so confirm first via the
+   * file's action-armed toast pattern (matches deletePost / disconnect) — a bare
+   * one-click `×` was too easy to fire by accident.
+   */
   deleteTemplate(id: string): void {
+    const name = this.templates().find((t) => t.id === id)?.name ?? 'this template';
+    this.toast.warning(`Delete template “${name}”? This can’t be undone.`, {
+      action: { label: 'Delete', run: () => this.performDeleteTemplate(id) },
+      duration: 7000,
+    });
+  }
+
+  private performDeleteTemplate(id: string): void {
     const next = this.templates().filter((t) => t.id !== id);
     this.templates.set(next);
     this.persistTemplates(next);
+    this.toast.success('Template deleted.');
   }
 
   /* ── S26 — bulk Draft/Queue actions (selection persisted to localStorage) ── */

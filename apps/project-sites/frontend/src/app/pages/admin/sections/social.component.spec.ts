@@ -572,6 +572,16 @@ describe('AdminSocialComponent (destructive actions are confirm-guarded)', () =>
     expect(del).toHaveBeenCalledWith('/social/accounts/acct-1', { silent: true });
   });
 
+  it('deleteTemplate asks for confirmation first — no immediate removal until the toast action runs', () => {
+    const c = build();
+    c.templates.set([{ id: 't1', name: 'My Template', content: 'hello' }]);
+    c.deleteTemplate('t1');
+    expect(warning).toHaveBeenCalled();
+    expect(c.templates().some((t) => t.id === 't1')).toBeTrue(); // not yet removed
+    lastAction?.run();
+    expect(c.templates().some((t) => t.id === 't1')).toBeFalse(); // removed only after confirm
+  });
+
   it('publishNow passes {silent:true} so a failure shows only the section-specific toast (no generic double-toast)', () => {
     const post = jasmine.createSpy('post').and.returnValue(of({ data: {} }));
     TestBed.resetTestingModule();
