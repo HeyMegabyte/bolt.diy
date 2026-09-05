@@ -372,12 +372,17 @@ mcpOauth.get('/api/mcp/:provider/callback', async (c) => {
     .run();
   await c.env.DB.prepare(`DELETE FROM mcp_oauth_states WHERE state = ?`).bind(state).run();
 
+  // Resolve the slug so the audit message names the site, not a raw UUID.
+  const oauthSiteRow = await c.env.DB.prepare(`SELECT slug FROM sites WHERE id = ?`)
+    .bind(stateRow.site_id)
+    .first<{ slug: string }>();
+
   c.executionCtx.waitUntil(
     auditService.writeAuditLog(c.env.DB, {
       org_id: stateRow.org_id,
       actor_id: null,
       action: 'mcp.connected',
-      message: `MCP '${provider}' connected via OAuth to site '${stateRow.site_id}'`,
+      message: `MCP '${provider}' connected via OAuth to site '${auditService.auditSiteLabel(oauthSiteRow?.slug, stateRow.site_id)}'`,
       target_type: 'mcp_connection',
       target_id: stateRow.site_id,
       metadata_json: { provider, site_id: stateRow.site_id, flow: 'oauth' },
@@ -458,12 +463,17 @@ mcpOauth.post('/api/mcp/:provider/paste', async (c) => {
   if (state)
     await c.env.DB.prepare(`DELETE FROM mcp_oauth_states WHERE state = ?`).bind(state).run();
 
+  // Resolve the slug so the audit message names the site, not a raw UUID.
+  const pasteSiteRow = await c.env.DB.prepare(`SELECT slug FROM sites WHERE id = ?`)
+    .bind(siteId)
+    .first<{ slug: string }>();
+
   c.executionCtx.waitUntil(
     auditService.writeAuditLog(c.env.DB, {
       org_id: orgId,
       actor_id: c.get('userId') ?? null,
       action: 'mcp.connected',
-      message: `MCP '${provider}' connected via pasted API key to site '${siteId}'`,
+      message: `MCP '${provider}' connected via pasted API key to site '${auditService.auditSiteLabel(pasteSiteRow?.slug, siteId)}'`,
       target_type: 'mcp_connection',
       target_id: siteId,
       metadata_json: { provider, site_id: siteId, flow: 'paste_key' },

@@ -64,6 +64,24 @@ function actionToFallbackMessage(action: string): string {
 }
 
 /**
+ * Resolve the human-readable site reference for an audit MESSAGE — the site's
+ * slug when known, otherwise the raw id as a last-resort fallback. Audit
+ * messages must read like "…to site 'vito-salon'", never "…to site
+ * '9df831e5-fba0-…-uuid'": a raw UUID in the activity feed / audit log is
+ * meaningless to the operator reading it (they can't tell which site it is).
+ *
+ * @param slug   - The site slug (from `SELECT slug FROM sites`), or null/undefined if the lookup missed.
+ * @param siteId - The site id (UUID) — the fallback when no slug is available.
+ * @returns The slug when non-blank, else the `siteId`.
+ * @example
+ * auditSiteLabel('vito-salon', '9df8…') // → 'vito-salon'
+ * auditSiteLabel(null, '9df8…')         // → '9df8…' (never a blank reference)
+ */
+export function auditSiteLabel(slug: string | null | undefined, siteId: string): string {
+  return slug && slug.trim() ? slug.trim() : siteId;
+}
+
+/**
  * Write an audit log entry to D1.
  *
  * Failures are logged but **never throw** — audit logging must not break

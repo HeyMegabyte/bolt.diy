@@ -4,7 +4,7 @@ jest.mock('../services/db.js', () => ({
 }));
 
 import { dbQuery, dbInsert } from '../services/db.js';
-import { writeAuditLog, getAuditLogs } from '../services/audit.js';
+import { writeAuditLog, getAuditLogs, auditSiteLabel } from '../services/audit.js';
 import { createAuditLogSchema } from '@project-sites/shared';
 
 const mockInsert = dbInsert as jest.MockedFunction<typeof dbInsert>;
@@ -190,5 +190,27 @@ describe('getAuditLogs', () => {
 
     expect(result.data).toEqual([]);
     expect(result.error).toBe('Query failed');
+  });
+});
+
+// ─── auditSiteLabel ──────────────────────────────────────────
+// Audit MESSAGES must name the site by slug, never a raw UUID (which is
+// meaningless in the activity feed / audit log). Regression for the MCP
+// connect/disconnect messages that leaked `site_id`.
+
+describe('auditSiteLabel', () => {
+  it('returns the slug when one is known', () => {
+    expect(auditSiteLabel('vito-salon', '9df831e5-fba0-48f2-a950-b4766cc7ee01')).toBe('vito-salon');
+  });
+
+  it('trims a padded slug', () => {
+    expect(auditSiteLabel('  vito-salon  ', 'id-1')).toBe('vito-salon');
+  });
+
+  it('falls back to the site id when the slug is null/undefined/blank (never a blank reference)', () => {
+    expect(auditSiteLabel(null, 'id-1')).toBe('id-1');
+    expect(auditSiteLabel(undefined, 'id-1')).toBe('id-1');
+    expect(auditSiteLabel('', 'id-1')).toBe('id-1');
+    expect(auditSiteLabel('   ', 'id-1')).toBe('id-1');
   });
 });

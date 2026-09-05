@@ -104,12 +104,18 @@ mcpConnections.delete('/api/sites/:siteId/mcp/connections/:id', async (c) => {
     .bind(connectionId, siteId)
     .run();
 
+  // Resolve the site slug so the audit message reads "…from site 'vito-salon'"
+  // instead of a meaningless raw UUID (falls back to the id if the lookup misses).
+  const siteRow = await c.env.DB.prepare(`SELECT slug FROM sites WHERE id = ?`)
+    .bind(siteId)
+    .first<{ slug: string }>();
+
   c.executionCtx.waitUntil(
     auditService.writeAuditLog(c.env.DB, {
       org_id: orgId,
       actor_id: c.get('userId') ?? null,
       action: 'mcp.disconnected',
-      message: `MCP '${connection?.provider ?? 'unknown'}' disconnected from site '${siteId}'`,
+      message: `MCP '${connection?.provider ?? 'unknown'}' disconnected from site '${auditService.auditSiteLabel(siteRow?.slug, siteId)}'`,
       target_type: 'mcp_connection',
       target_id: connectionId,
       metadata_json: { site_id: siteId, provider: connection?.provider ?? null },
