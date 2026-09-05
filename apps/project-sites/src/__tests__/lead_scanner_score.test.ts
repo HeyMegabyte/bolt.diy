@@ -166,7 +166,12 @@ describe('scoreLead', () => {
   it('leaves scores unchanged when socials/email absent (non-breaking add)', () => {
     // The pre-existing 100 contract still holds with the new (undefined) fields.
     expect(
-      scoreLead({ phone: '+12015551234', userRatingsTotal: 42, countryCode: 'US', types: ['plumber'] }).leadScore,
+      scoreLead({
+        phone: '+12015551234',
+        userRatingsTotal: 42,
+        countryCode: 'US',
+        types: ['plumber'],
+      }).leadScore,
     ).toBe(100);
   });
 });
