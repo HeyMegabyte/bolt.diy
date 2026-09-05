@@ -492,7 +492,10 @@ describe('AdminBillingComponent (embedded checkout = real Stripe.js mount)', () 
     const post = jasmine.createSpy('post').and.returnValue(of({ data: { client_secret: 'cs_test_abc' } }));
     const c = makeC(post);
     c.openEmbeddedCheckout();
-    expect(post).toHaveBeenCalledWith('/billing/embedded-checkout', { plan: 'pro' });
+    expect(post).toHaveBeenCalledWith(
+      '/billing/embedded-checkout',
+      jasmine.objectContaining({ plan: 'pro', return_url: jasmine.stringMatching(/\/admin\/billing/) }),
+    );
     expect(c.embeddedClientSecret()).withContext('secret stored for Stripe.js').toBe('cs_test_abc');
     expect(c.embeddedCheckoutOpen()).withContext('panel opened').toBeTrue();
   });

@@ -1653,7 +1653,11 @@ export class AdminBillingComponent implements OnInit {
     // (the `_embeddedMountFx` effect mounts it once the host div renders). This
     // replaces the old placeholder that iframed checkout.stripe.com directly —
     // which Stripe blocks from framing, so the widget never actually loaded.
-    this.api.post<{ client_secret: string }>('/billing/embedded-checkout', { plan: 'pro' }).subscribe({
+    // The endpoint REQUIRES return_url (createEmbeddedCheckoutSession → Stripe embedded
+    // session return_url); posting only {plan} was the pre-existing 400 that (together
+    // with the placeholder iframe) meant the embedded checkout never actually opened.
+    const returnUrl = `${window.location.origin}/admin/billing?checkout=complete`;
+    this.api.post<{ client_secret: string }>('/billing/embedded-checkout', { plan: 'pro', return_url: returnUrl }).subscribe({
       next: (r) => {
         const secret = (r as unknown as { data?: { client_secret: string } }).data?.client_secret ?? (r as { client_secret?: string }).client_secret ?? '';
         if (!secret) { this.toast.error('Could not start checkout — please try again.'); return; }
