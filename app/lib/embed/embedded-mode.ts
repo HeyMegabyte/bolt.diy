@@ -8,6 +8,8 @@
  * @module embed/embedded-mode
  */
 
+import type { DirectoryNode, FileSystemTree } from '@webcontainer/api';
+
 // ── Types ────────────────────────────────────────────────────
 
 /** Parent → Child messages */
@@ -415,8 +417,8 @@ export function restoreMaterializedFiles(): void {
 }
 
 /** Nest flat `{relPath -> contents}` into the WebContainer `FileSystemTree` shape. */
-function filesToTree(files: Record<string, string>): Record<string, unknown> {
-  const tree: Record<string, unknown> = {};
+function filesToTree(files: Record<string, string>): FileSystemTree {
+  const tree: FileSystemTree = {};
 
   for (const [rawPath, contents] of Object.entries(files)) {
     const parts = rawPath.replace(/^\/+/, '').split('/').filter(Boolean);
@@ -425,12 +427,14 @@ function filesToTree(files: Record<string, string>): Record<string, unknown> {
       continue;
     }
 
-    let node = tree;
+    let node: FileSystemTree = tree;
 
     for (let i = 0; i < parts.length - 1; i++) {
       const dir = parts[i];
-      node[dir] = (node[dir] as { directory: Record<string, unknown> }) ?? { directory: {} };
-      node = (node[dir] as { directory: Record<string, unknown> }).directory;
+      if (!node[dir]) {
+        node[dir] = { directory: {} };
+      }
+      node = (node[dir] as DirectoryNode).directory;
     }
 
     node[parts[parts.length - 1]] = { file: { contents } };
