@@ -35,6 +35,7 @@ const PROBES = [
   { label: 'surf @1280', file: 'admin-surf-audit.mjs', env: {} },
   { label: 'surf @390', file: 'admin-surf-audit.mjs', env: { VIEWPORT: '390' } },
   { label: 'reconcile', file: 'reconcile-surfaces.mjs', env: {} },
+  { label: 'funnel-reconcile', file: 'verify-funnel-reconcile.mjs', env: {} },
   ...causal,
   { label: 'billing-checkout', file: 'verify-billing-checkout.mjs', env: {} },
   { label: 'editor-datatab', file: 'verify-editor-datatab.mjs', env: {} },
