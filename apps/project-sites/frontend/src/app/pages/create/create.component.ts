@@ -225,6 +225,9 @@ export class CreateComponent implements OnInit, OnDestroy {
   categories = [
     '',
     'Restaurant / Café',
+    'Bar / Nightlife / Brewery',
+    'Bakery / Coffee Shop',
+    'Beauty / Spa / Wellness',
     'Salon / Barbershop',
     'Legal / Law Firm',
     'Medical / Healthcare',
@@ -929,6 +932,42 @@ export class CreateComponent implements OnInit, OnDestroy {
 
   private inferCategoryFromName(name: string): string {
     const n = name.toLowerCase();
+    // Specific hospitality signals first — a lounge/brewery is noir, a
+    // bakery/roaster is retro, a spa is artisan (each a distinct elaborate
+    // theme), so route them before the broad "Restaurant / Café" catch below.
+    if (
+      n.includes('cocktail') ||
+      n.includes('speakeasy') ||
+      n.includes('taproom') ||
+      n.includes('nightclub') ||
+      n.includes('brewery') ||
+      n.includes('brewing') ||
+      n.includes('tavern') ||
+      n.includes('lounge') ||
+      /\bpub\b/.test(n) ||
+      /\bbar\b/.test(n)
+    )
+      return 'Bar / Nightlife / Brewery';
+    if (
+      n.includes('bakery') ||
+      n.includes('bakehouse') ||
+      n.includes('patisserie') ||
+      n.includes('coffee') ||
+      n.includes('espresso') ||
+      n.includes('roaster') ||
+      n.includes('roastery')
+    )
+      return 'Bakery / Coffee Shop';
+    if (
+      n.includes('spa') ||
+      n.includes('wellness') ||
+      n.includes('massage') ||
+      n.includes('facial') ||
+      n.includes('skincare') ||
+      n.includes('apothecary') ||
+      n.includes('holistic')
+    )
+      return 'Beauty / Spa / Wellness';
     if (
       n.includes('pizza') ||
       n.includes('restaurant') ||
@@ -1115,6 +1154,69 @@ export class CreateComponent implements OnInit, OnDestroy {
         ],
         extras:
           'Include a menu section with prices. Add OpenTable or reservation widget placeholder. Show business hours prominently.',
+      },
+      'Bar / Nightlife / Brewery': {
+        style: 'Cinematic after-dark lounge with dramatic single-source light',
+        themeStyle: 'noir',
+        primaryColor: '#0e0e12',
+        accentColor: '#c8a24a',
+        headingFont: 'Cinzel',
+        bodyFont: 'Manrope',
+        audience: 'Cocktail enthusiasts and night-out crowds seeking an intimate atmosphere',
+        sections: [
+          'Hero with spotlight wordmark',
+          'Signature cocktails / tap list',
+          'The room & ambiance',
+          'Events & live music',
+          'Reservations',
+          'Gallery',
+          'Hours & location',
+          'Contact',
+        ],
+        extras:
+          'Include a "Reserve a table" CTA and a signature-drinks / tap-list menu in a moody, spotlit grid.',
+      },
+      'Bakery / Coffee Shop': {
+        style: 'Nostalgic, playful retro with warm color blocks and badges',
+        themeStyle: 'retro',
+        primaryColor: '#4a2f1a',
+        accentColor: '#e08a2e',
+        headingFont: 'Bricolage Grotesque',
+        bodyFont: 'DM Sans',
+        audience: 'Regulars and newcomers looking for a warm, fun neighborhood spot',
+        sections: [
+          'Hero with sunburst headline',
+          'Menu & daily bakes',
+          'Our story',
+          'Order & pickup',
+          'Gallery',
+          'Reviews',
+          'Hours & location',
+          'Contact',
+        ],
+        extras:
+          'Include an "Order online" CTA and a daily-bakes / menu board laid out in warm retro color blocks.',
+      },
+      'Beauty / Spa / Wellness': {
+        style: 'Handcrafted, earthy and calming with a tactile natural palette',
+        themeStyle: 'artisan',
+        primaryColor: '#3a2f28',
+        accentColor: '#b8794f',
+        headingFont: 'Spectral',
+        bodyFont: 'Karla',
+        audience: 'Clients seeking restorative, natural self-care and small-batch craft',
+        sections: [
+          'Hero with treatment ambiance',
+          'Services & rituals',
+          'Our practitioners',
+          'Products & ingredients',
+          'Booking',
+          'Testimonials',
+          'Location & hours',
+          'Contact',
+        ],
+        extras:
+          'Include a "Book a treatment" CTA and an ingredients / provenance story block with a tactile, handcrafted feel.',
       },
       'Salon / Barbershop': {
         style: 'Sleek and premium with dark accents',
