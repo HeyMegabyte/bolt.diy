@@ -141,6 +141,21 @@ if (topForm?.id) {
   rows.push({ key: 'form_subs', store: storeN, display: displayN, ok: !d.err && Number.isFinite(displayN) && displayN === storeN });
 }
 
+// Subscription (money-adjacent) — a VALUE reconcile, not a count: the displayed
+// plan+status MUST equal the store, else billing lies about what the customer is on
+// (a serious wrong-source). Store `free/active` must match `/api/billing/subscription`.
+const sub = d1(
+  `SELECT plan, status FROM subscriptions WHERE org_id='${ORG}' AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT 1;`,
+);
+if (sub) {
+  const d = await display('/api/billing/subscription', (j) => {
+    const s = j.data ?? j;
+    return `${s.plan}/${s.status}`;
+  });
+  const storeV = `${sub.plan}/${sub.status}`;
+  rows.push({ key: 'subscription', store: storeV, display: d.err ?? d.n, ok: !d.err && d.n === storeV });
+}
+
 const fails = rows.filter((r) => !r.ok);
 for (const r of rows) {
   console.log(`  ${r.ok ? '✓' : '✗'} ${r.key.padEnd(11)} store=${r.store}  display=${r.display}${r.ok ? '' : '  ← DIVERGENCE (lying-empty / wrong-source)'}`);
