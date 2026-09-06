@@ -29,6 +29,11 @@ const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (
 const MODALS = [
   { section: 'api-tokens', trigger: /new token/i, name: 'create-token' },
   { section: 'user', testid: 'apikey-create-button', name: 'generate-user-key' },
+  // Destructive-confirm variant (danger button + "Revoke X?" title). SAFE: clicking "Revoke"
+  // only OPENS the confirm (`confirmRevoke` sets the target) — the DELETE fires solely from the
+  // confirm button, which this probe NEVER clicks. Validates the danger-button contrast/label
+  // + the confirm dialog's a11y, not just the create dialogs.
+  { section: 'api-tokens', trigger: /^revoke/i, name: 'revoke-confirm', destructive: true },
 ];
 
 const browser = await chromium.launch();
