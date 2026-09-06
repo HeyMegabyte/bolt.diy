@@ -192,8 +192,7 @@ export function assessDrainHealth(summary: DrainSummary, limit = 50): DrainHealt
   const hasFailures = summary.failed > 0;
   const softFailed = summary.softFailed ?? 0;
   const atCapacity = summary.read >= limit;
-  const level: 'info' | 'warn' =
-    hasFailures || atCapacity || softFailed > 0 ? 'warn' : 'info';
+  const level: 'info' | 'warn' = hasFailures || atCapacity || softFailed > 0 ? 'warn' : 'info';
   const parts: string[] = [];
   if (hasFailures)
     parts.push(`${summary.failed} event(s) failed dispatch (retrying → dead-letter)`);
