@@ -43,7 +43,26 @@ interface HistoryResponse {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (loaded()) {
+    @if (loading()) {
+      <!-- Reserve the wallet card's height while the balance fetches, so the Plan card
+           below it (and the rest of the subscription tab) doesn't shift when it lands —
+           a top /admin/billing layout-shift contributor (CLS 0.12 → ≤0.05). aria-hidden;
+           collapses (honest-empty) when the flag is off / no balance. -->
+      <div class="card cw cw-skeleton" aria-hidden="true" data-testid="credits-skeleton">
+        <div class="flex items-start justify-between gap-3 flex-wrap mb-3">
+          <div>
+            <span class="cw-skel cw-skel-title"></span>
+            <span class="cw-skel cw-skel-sub"></span>
+          </div>
+          <span class="cw-skel cw-skel-balance"></span>
+        </div>
+        <ul class="cw-list">
+          @for (i of skelRows; track i) {
+            <li class="cw-row"><span class="cw-skel cw-skel-chip"></span><span class="cw-skel cw-skel-desc"></span><span class="cw-skel cw-skel-amt"></span></li>
+          }
+        </ul>
+      </div>
+    } @else if (loaded()) {
       <div class="card cw" data-testid="credits-widget">
         <div class="flex items-start justify-between gap-3 flex-wrap mb-3">
           <div>
@@ -90,6 +109,17 @@ interface HistoryResponse {
     .cw-amt--pos { color: #34d399; }
     .cw-amt--neg { color: rgba(255,255,255,0.7); }
     .cw-empty { font-size: 0.8rem; color: rgba(255,255,255,0.45); margin: 0; }
+    /* Loading skeleton — reuses .cw / .cw-row so its height matches the real wallet card
+       (reserves space → no CLS when the balance lands). */
+    .cw-skel { display: block; border-radius: 6px; background: rgba(255,255,255,0.06); animation: cw-pulse 1.4s ease-in-out infinite; }
+    .cw-skel-title { width: 7rem; height: 1rem; }
+    .cw-skel-sub { width: 10rem; height: 0.7rem; margin-top: 6px; }
+    .cw-skel-balance { width: 5rem; height: 1.8rem; border-radius: 8px; }
+    .cw-skel-chip { flex-shrink: 0; width: 3.4rem; height: 1rem; border-radius: 999px; }
+    .cw-skel-desc { flex: 1; min-width: 0; height: 0.8rem; }
+    .cw-skel-amt { flex-shrink: 0; width: 2.2rem; height: 0.82rem; }
+    @keyframes cw-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.9; } }
+    @media (prefers-reduced-motion: reduce) { .cw-skel { animation: none; } }
   `],
 })
 export class CreditsWidgetComponent implements OnInit {
@@ -98,6 +128,9 @@ export class CreditsWidgetComponent implements OnInit {
   private readonly bal = signal<BalanceResponse | null>(null);
   private readonly rowsSig = signal<LedgerRow[]>([]);
   private readonly seenBalance = signal(false);
+  /** Flips true once the balance fetch resolves (success OR error) — distinguishes
+   *  "loading" from "settled-empty" (flag off), both of which leave seenBalance false. */
+  private readonly settled = signal(false);
 
   readonly balance = computed(() => this.bal()?.balance ?? 0);
   readonly allowance = computed(() => this.bal()?.monthly_allowance ?? 0);
@@ -105,6 +138,11 @@ export class CreditsWidgetComponent implements OnInit {
   readonly rows = computed(() => this.rowsSig());
   /** Show once the balance loads (200 = flag on). */
   readonly loaded = computed(() => this.seenBalance());
+  /** True until the balance fetch resolves — drives the height-reserving skeleton so the
+   *  wallet card doesn't shift the Plan card below it when it lands. */
+  readonly loading = computed(() => !this.settled());
+  /** Skeleton ledger-row placeholders — reserves a representative wallet height. */
+  readonly skelRows = [0, 1, 2, 3];
 
   ngOnInit(): void {
     this.api.get<BalanceResponse>('/credits/balance', undefined, { silent: true }).subscribe({
@@ -113,8 +151,9 @@ export class CreditsWidgetComponent implements OnInit {
           this.bal.set(res);
           this.seenBalance.set(true);
         }
+        this.settled.set(true);
       },
-      error: () => this.seenBalance.set(false),
+      error: () => this.settled.set(true),
     });
     this.api.get<HistoryResponse>('/credits/history', undefined, { silent: true }).subscribe({
       next: (res) => this.rowsSig.set(Array.isArray(res?.rows) ? res.rows : []),
