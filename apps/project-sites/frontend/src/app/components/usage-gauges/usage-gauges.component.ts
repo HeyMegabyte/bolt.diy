@@ -35,7 +35,23 @@ interface UsageResponse {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (gauges().length > 0) {
+    @if (loading()) {
+      <!-- Reserve the gauges card's height while /usage fetches, so the Credit wallet +
+           Plan card below don't shift when it lands — the largest remaining /admin/billing
+           layout-shift contributor (267px). aria-hidden; collapses (honest-empty) when the
+           flag is off / no usage. -->
+      <div class="card ug ug-skeleton" aria-hidden="true" data-testid="usage-gauges-skeleton">
+        <div class="mb-3"><span class="ug-skel ug-skel-title"></span><span class="ug-skel ug-skel-sub"></span></div>
+        <ul class="ug-list">
+          @for (i of skelRows; track i) {
+            <li class="ug-item">
+              <div class="ug-row"><span class="ug-skel ug-skel-label"></span><span class="ug-skel ug-skel-val"></span></div>
+              <div class="ug-track"></div>
+            </li>
+          }
+        </ul>
+      </div>
+    } @else if (gauges().length > 0) {
       <div class="card ug" data-testid="usage-gauges">
         <div class="flex items-start justify-between gap-3 flex-wrap mb-3">
           <div>
@@ -81,6 +97,15 @@ interface UsageResponse {
     .ug-fill--warn { background: #fbbf24; }
     .ug-fill--danger { background: #f87171; }
     .ug-over { font-size: 0.7rem; color: #f87171; margin: 0.35rem 0 0; }
+    /* Loading skeleton — reuses .ug / .ug-item / .ug-track so its height matches the real
+       gauges card (reserves space → no CLS when /usage lands). */
+    .ug-skel { display: inline-block; border-radius: 6px; background: rgba(255,255,255,0.06); animation: ug-pulse 1.4s ease-in-out infinite; }
+    .ug-skel-title { width: 6rem; height: 1rem; }
+    .ug-skel-sub { display: block; width: 13rem; height: 0.7rem; margin-top: 6px; }
+    .ug-skel-label { width: 5rem; height: 0.82rem; }
+    .ug-skel-val { width: 3.5rem; height: 0.8rem; }
+    @keyframes ug-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.9; } }
+    @media (prefers-reduced-motion: reduce) { .ug-skel { animation: none; } }
   `],
 })
 export class UsageGaugesComponent implements OnInit {
@@ -88,6 +113,12 @@ export class UsageGaugesComponent implements OnInit {
 
   private readonly data = signal<UsageGauge[] | null>(null);
   readonly gauges = computed(() => this.data() ?? []);
+  /** True until /usage resolves (data still null) — drives the height-reserving skeleton
+   *  so the wallet + Plan card below don't shift when the gauges land. (data → [] on
+   *  empty/error, so `=== null` cleanly means "still loading".) */
+  readonly loading = computed(() => this.data() === null);
+  /** Skeleton gauge placeholders — reserves a representative gauges-card height. */
+  readonly skelRows = [0, 1, 2, 3];
 
   ngOnInit(): void {
     // `silent: true` — a 404 (flag off) is expected, never a user-facing toast.
