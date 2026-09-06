@@ -170,7 +170,7 @@ function actionToFallbackMessage(action: string): string {
         } @else if (showStats()) {
           <!-- Hidden when the load errored with no data — definitive "0 events ·
                0 actions · …" over the error card is wrong (unknown, not 0). -->
-          <div class="card"><div class="muted-h">Events</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="rows().length" [duration]="1100" /></div></div>
+          <div class="card"><div class="muted-h">Events</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="totalCount()" [duration]="1100" /></div></div>
           <div class="card"><div class="muted-h">Unique actions</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="uniqueActions()" [duration]="1100" /></div></div>
           <div class="card"><div class="muted-h">Last 24h</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="last24h()" [duration]="1100" /></div></div>
           <div class="card"><div class="muted-h">Actors</div><div class="text-2xl font-bold text-white"><app-rolling-counter [value]="uniqueActors()" [duration]="1100" /></div></div>
@@ -179,8 +179,8 @@ function actionToFallbackMessage(action: string): string {
 
       @if (hasHiddenEvents()) {
         <p class="text-[0.7rem] text-amber-300/90 mt-1" role="status" data-testid="audit-cap-note"
-           title="The table + stats above cover the {{ rows().length }} most recent events. Older ones are still stored.">
-          Showing the latest {{ rows().length }} of {{ totalCount() }} events — older events are still stored.
+           title="The stat cards count EVERY event (server-side totals); only the table below is capped at the {{ rows().length }} most recent rows. Older rows are still stored.">
+          Showing the latest {{ rows().length }} of {{ totalCount() }} events in the table — the stat cards above count all {{ totalCount() }}.
         </p>
       }
 
@@ -574,6 +574,11 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
   rows = signal<AuditRow[]>([]);
   /** Raw `meta.total` from the last load (a worker COUNT(*)); 0 when unknown. */
   private readonly metaTotal = signal(0);
+  /** TRUE org-wide (or site-scoped) aggregate stats from the worker (`meta.stats`),
+   *  computed over the FULL set — independent of the ≤500-row page. Null for an older
+   *  worker → the cards fall back to computing over the loaded rows (which UNDERCOUNTS
+   *  once the org logs >500 events, e.g. "Last 24h" showing 500 for 1338 real). */
+  private readonly metaStats = signal<{ unique_actions: number; actors: number; last_24h: number } | null>(null);
   /** TRUE org-wide audit-event count from the worker (independent of the ≤500-row
    *  page loaded). Falls back to the loaded length for an older worker w/o meta;
    *  never reports fewer than what's on screen. */
@@ -818,9 +823,13 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
     return Math.min((this.pagination().pageIndex + 1) * this.pagination().pageSize, this.filteredCount());
   }
 
-  uniqueActions(): number { return new Set(this.rows().map((r) => r.action)).size; }
-  uniqueActors(): number { return new Set(this.rows().map((r) => r.actor_id).filter(Boolean)).size; }
+  // Prefer the worker's TRUE full-set aggregates (meta.stats); fall back to the loaded
+  // rows only for an older worker without meta.stats (undercounts past the 500-row page).
+  uniqueActions(): number { return this.metaStats()?.unique_actions ?? new Set(this.rows().map((r) => r.action)).size; }
+  uniqueActors(): number { return this.metaStats()?.actors ?? new Set(this.rows().map((r) => r.actor_id).filter(Boolean)).size; }
   last24h(): number {
+    const s = this.metaStats();
+    if (s) return s.last_24h;
     const cutoff = Date.now() - 24 * 3600 * 1000;
     return this.rows().filter((r) => Date.parse(r.created_at) >= cutoff).length;
   }
@@ -876,17 +885,22 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
     this.loadErrorRef.set('');
     const params: Record<string, string> = { limit: '500' };
     this.api
-      .get<{ data: AuditRow[]; meta?: { total?: number; has_more?: boolean } }>(
-        '/audit-logs',
-        params,
-        { silent: true },
-      )
+      .get<{
+        data: AuditRow[];
+        meta?: {
+          total?: number;
+          has_more?: boolean;
+          stats?: { unique_actions: number; actors: number; last_24h: number };
+        };
+      }>('/audit-logs', params, { silent: true })
       .subscribe({
       next: (r) => {
         this.rows.set(r.data ?? []);
         // TRUE org-wide count so the operator knows when the 500-row window hides
         // events; metaTotal=0 (older worker) falls back to the loaded length.
         this.metaTotal.set(r.meta?.total ?? 0);
+        // TRUE full-set stat aggregates so the KPI cards don't undercount from the page.
+        this.metaStats.set(r.meta?.stats ?? null);
         this.loading.set(false);
         this.lastSyncAt.set(Date.now());
         this.consecutiveErrors.set(0); // success → resume auto-poll

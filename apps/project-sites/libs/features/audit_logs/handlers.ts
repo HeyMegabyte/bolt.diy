@@ -199,25 +199,44 @@ auditLogs.get('/api/audit-logs', async (c) => {
     };
   });
 
-  // True count of matching rows (unpaginated) so the admin count reflects reality
-  // and the grid can paginate past the 500-row cap — a hardcoded LIMIT with no
-  // total silently hides audit events (compliance/security records) once an org
-  // gets active. Mirrors form-submissions + /sites/:id/logs, which already return
-  // `meta.total`; audit-logs was the un-upgraded {data}-only outlier.
-  const countSql = scopedSiteId
-    ? `SELECT COUNT(*) AS n FROM audit_logs a WHERE a.org_id = ? AND (a.target_id = ? OR a.metadata_json LIKE ?)`
-    : `SELECT COUNT(*) AS n FROM audit_logs a WHERE a.org_id = ?`;
-  const countParams: (string | number)[] = scopedSiteId
+  // Aggregate stats over the FULL matching set (NOT the ≤500-row page) so the admin's
+  // stat cards show TRUE totals. Computing `unique_actions` / `actors` / `last_24h`
+  // client-side over the loaded 500 rows silently UNDERCOUNTS once an org logs >500
+  // events (e.g. "Last 24h: 500" displayed while 1338 real events occurred in 24h) —
+  // a lying-number that violates display==store. `total` (unpaginated COUNT) also lets
+  // the grid page past the 500 cap without hiding compliance/security records.
+  const statsWhere = scopedSiteId
+    ? `a.org_id = ? AND (a.target_id = ? OR a.metadata_json LIKE ?)`
+    : `a.org_id = ?`;
+  const statsParams: (string | number)[] = scopedSiteId
     ? [orgId, scopedSiteId, `%"site_id":"${scopedSiteId}"%`]
     : [orgId];
-  const countRow = await c.env.DB.prepare(countSql)
-    .bind(...countParams)
-    .first<{ n: number }>();
-  const total = Number(countRow?.n ?? data.length);
+  const statsRow = await c.env.DB.prepare(
+    `SELECT COUNT(*) AS total,
+            COUNT(DISTINCT a.action) AS unique_actions,
+            COUNT(DISTINCT a.actor_id) AS actors,
+            SUM(CASE WHEN a.created_at >= datetime('now', '-1 day') THEN 1 ELSE 0 END) AS last_24h
+     FROM audit_logs a WHERE ${statsWhere}`,
+  )
+    .bind(...statsParams)
+    .first<{ total: number; unique_actions: number; actors: number; last_24h: number }>();
+  const total = Number(statsRow?.total ?? data.length);
 
   return c.json({
     data,
-    meta: { limit, offset, total, has_more: offset + data.length < total },
+    meta: {
+      limit,
+      offset,
+      total,
+      has_more: offset + data.length < total,
+      // True org-wide (or site-scoped) aggregates so the FE stat cards never
+      // undercount from the loaded page. See the FE audit.component fallback.
+      stats: {
+        unique_actions: Number(statsRow?.unique_actions ?? 0),
+        actors: Number(statsRow?.actors ?? 0),
+        last_24h: Number(statsRow?.last_24h ?? 0),
+      },
+    },
   });
 });
 

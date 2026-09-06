@@ -87,7 +87,15 @@ function makeMockDb(
           if (isMain) captured.params = params;
           return {
             all: jest.fn().mockResolvedValue({ results: rows, success: true }),
-            first: jest.fn().mockResolvedValue({ n: total ?? rows.length }),
+            // The stats query is a single aggregate row (total + unique_actions + actors +
+            // last_24h) over the FULL set — not the old {n} count. Derive the distincts from
+            // the mock rows; total/last_24h default to the loaded count unless overridden.
+            first: jest.fn().mockResolvedValue({
+              total: total ?? rows.length,
+              unique_actions: new Set(rows.map((r) => r.action)).size,
+              actors: new Set(rows.map((r) => r.actor_id).filter(Boolean)).size,
+              last_24h: total ?? rows.length,
+            }),
           };
         }),
       };
@@ -314,13 +322,24 @@ describe('GET /api/audit-logs', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
       data: unknown[];
-      meta?: { total?: number; has_more?: boolean; limit?: number; offset?: number };
+      meta?: {
+        total?: number;
+        has_more?: boolean;
+        limit?: number;
+        offset?: number;
+        stats?: { unique_actions: number; actors: number; last_24h: number };
+      };
     };
     expect(body.data).toHaveLength(2);
     expect(body.meta?.total).toBe(4200);
     expect(body.meta?.has_more).toBe(true);
     expect(body.meta?.limit).toBe(2);
     expect(body.meta?.offset).toBe(0);
+    // Full-set aggregates (over ALL 4200, NOT the 2 loaded rows) so the FE KPI cards
+    // never undercount — the "Last 24h shows 500 for 1338 real" class this fixes.
+    expect(body.meta?.stats?.last_24h).toBe(4200);
+    expect(body.meta?.stats?.unique_actions).toBe(2);
+    expect(body.meta?.stats?.actors).toBe(1);
   });
 
   it('meta.has_more is false when the whole store fits in the page', async () => {

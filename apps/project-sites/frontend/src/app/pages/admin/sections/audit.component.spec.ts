@@ -124,6 +124,25 @@ describe('AdminAuditComponent (load + KPI logic)', () => {
     expect(c.hasHiddenEvents()).toBeTrue();
   });
 
+  // The KPI cards MUST reflect the server's full-set aggregates (meta.stats), never a
+  // count over the ≤500 loaded rows — else "Last 24h" undercounts once an org logs >500
+  // events/day (observed 500 shown for 1338 real). display MUST == store.
+  it('KPI cards use server meta.stats totals, not the loaded page (Last 24h never undercounts)', () => {
+    const c = make(
+      jasmine.createSpy('get').and.returnValue(
+        of({
+          data: [ROW()],
+          meta: { total: 12372, has_more: true, stats: { unique_actions: 12, actors: 1, last_24h: 1338 } },
+        }),
+      ),
+    );
+    c.load();
+    expect(c.last24h()).withContext('Last 24h from the server, not the 1 loaded row').toBe(1338);
+    expect(c.uniqueActions()).toBe(12);
+    expect(c.uniqueActors()).toBe(1);
+    expect(c.totalCount()).toBe(12372);
+  });
+
   it('no hidden-events note when the whole store is loaded (meta absent → total === loaded)', () => {
     const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [ROW(), ROW()] })));
     c.load();
