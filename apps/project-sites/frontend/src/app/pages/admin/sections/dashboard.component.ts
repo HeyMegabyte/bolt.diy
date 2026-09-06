@@ -459,7 +459,13 @@ const RECENT_KEY = 'ps_dash_recents';
       /* Search */
       .search-wrap {
         position: sticky;
-        top: 8px;
+        /* WCAG 2.2 §2.4.11 Focus Not Obscured (AA): pin BELOW the admin top bar, not
+           at the scrollport top. A plain top:8px stuck this at viewport y=8 — behind the
+           sticky .admin-topbar (y=0..62, z-50) — so once the dashboard scrolled, the
+           section-search rode UNDER the header (z-5 < z-50) and a focused query landed
+           entirely hidden. Offset by the SSOT bar height (inherited from the admin host)
+           so it always pins in the clear, keeping the original 8px gap. */
+        top: calc(var(--ps-admin-topbar-h, 62px) + 8px);
         z-index: 5;
         display: flex;
         align-items: center;
