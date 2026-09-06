@@ -28,7 +28,30 @@ interface ReferralCodeResponse {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (visible()) {
+    @if (loading()) {
+      <!-- Reserve the card height while the referral code fetches, so the groups below
+           don't shift when it lands (a top /admin dashboard CLS contributor; CLS 0.23 →
+           ≤0.05). aria-hidden — presentational; collapses (honest-empty) if the flag is
+           off / no code, a rare one-time shift. -->
+      <section class="rc rc-skeleton" aria-hidden="true" data-testid="referral-skeleton">
+        <header class="rc-head">
+          <div>
+            <span class="rc-skel rc-skel-eyebrow"></span>
+            <span class="rc-skel rc-skel-title"></span>
+          </div>
+          <div class="rc-stats">
+            <span class="rc-skel rc-skel-stat"></span>
+            <span class="rc-skel rc-skel-stat"></span>
+          </div>
+        </header>
+        <span class="rc-skel rc-skel-copy"></span>
+        <div class="rc-linkrow">
+          <span class="rc-skel rc-skel-url"></span>
+          <span class="rc-skel rc-skel-btn"></span>
+        </div>
+        <span class="rc-skel rc-skel-code"></span>
+      </section>
+    } @else if (visible()) {
       <section class="rc" role="region" aria-labelledby="rc-heading" data-testid="referral-widget">
         <header class="rc-head">
           <div>
@@ -96,6 +119,18 @@ interface ReferralCodeResponse {
     @media (prefers-reduced-motion: reduce) { .rc-copy-btn { transition: none; } .rc-copy-btn:hover { transform: none; } }
     .rc-code { font-size: 0.72rem; color: rgba(255,255,255,0.45); margin: 0; }
     .rc-code strong { color: #a78bfa; font-family: 'JetBrains Mono', ui-monospace, monospace; letter-spacing: 0.04em; }
+    /* Loading skeleton — reuses .rc / .rc-head / .rc-linkrow so its height matches the
+       real card (reserves space → no CLS when the code lands). */
+    .rc-skel { display: block; border-radius: 6px; background: rgba(255,255,255,0.06); animation: rc-pulse 1.4s ease-in-out infinite; }
+    .rc-skel-eyebrow { width: 7rem; height: 0.6rem; margin-bottom: 6px; }
+    .rc-skel-title { width: 9rem; height: 1rem; }
+    .rc-skel-stat { width: 2.4rem; height: 1.6rem; border-radius: 8px; }
+    .rc-skel-copy { width: 80%; height: 0.8rem; margin: 0.5rem 0 0.7rem; }
+    .rc-skel-url { flex: 1; min-width: 0; height: 2.1rem; border-radius: 10px; }
+    .rc-skel-btn { width: 6rem; height: 2.1rem; border-radius: 10px; }
+    .rc-skel-code { width: 8rem; height: 0.72rem; }
+    @keyframes rc-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.9; } }
+    @media (prefers-reduced-motion: reduce) { .rc-skel { animation: none; } }
   `],
 })
 export class ReferralCardComponent implements OnInit {
@@ -103,18 +138,30 @@ export class ReferralCardComponent implements OnInit {
 
   readonly data = signal<ReferralCodeResponse | null>(null);
   readonly copied = signal(false);
+  /** Flips true once the fetch resolves (success OR error) — distinguishes "loading"
+   *  (data null, no response yet) from "settled-empty" (404/flag-off, also null). */
+  readonly settled = signal(false);
 
   /** Show only when we have a real (non-empty) referral code. */
   readonly visible = computed(() => {
     const d = this.data();
     return !!d && !!d.code && !!d.referral_url;
   });
+  /** True until the fetch resolves — drives the height-reserving skeleton so the card
+   *  doesn't shift the groups below when it lands (a top dashboard CLS contributor). */
+  readonly loading = computed(() => !this.settled());
 
   ngOnInit(): void {
     // `silent: true` — a 404 (flag off) is expected, never a user-facing toast.
     this.api.get<ReferralCodeResponse>('/referral/code', undefined, { silent: true }).subscribe({
-      next: (res) => this.data.set(res),
-      error: () => this.data.set(null),
+      next: (res) => {
+        this.data.set(res);
+        this.settled.set(true);
+      },
+      error: () => {
+        this.data.set(null);
+        this.settled.set(true);
+      },
     });
   }
 

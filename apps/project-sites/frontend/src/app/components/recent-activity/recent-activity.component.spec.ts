@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { RecentActivityComponent } from './recent-activity.component';
 import { ApiService } from '../../services/api.service';
 
@@ -135,5 +135,48 @@ describe('RecentActivityComponent — clean() strips stray undefined (AL-001)', 
   it('leaves a clean message untouched', () => {
     const c = TestBed.createComponent(RecentActivityComponent).componentInstance;
     expect(c.clean('Site published')).toBe('Site published');
+  });
+});
+
+/**
+ * CLS: the feed card must RESERVE its height while the fetch is in flight (a
+ * height-matched skeleton), so the populated card doesn't shove the section-guide
+ * groups below it down when it lands — the dominant /admin dashboard layout shift
+ * (measured CLS 0.23). Loaded-non-empty → real card; loaded-empty → nothing.
+ */
+describe('RecentActivityComponent (loading skeleton reserves height — anti-CLS)', () => {
+  const ENTRY2 = { id: 'x', kind: 'site.published', summary: 'Published acme', actorName: null, targetType: null, targetName: null, siteSlug: 'acme', timestamp: '2026-09-06T00:00:00Z' };
+  afterEach(() => TestBed.resetTestingModule());
+
+  function withFeed(get: () => unknown) {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ providers: [{ provide: ApiService, useValue: { get } }] });
+    const fx = TestBed.createComponent(RecentActivityComponent);
+    fx.detectChanges();
+    return fx;
+  }
+
+  it('shows the skeleton (not the real card) while the feed is loading', () => {
+    const fx = withFeed(() => new Subject()); // never emits → data stays null → loading
+    const el = fx.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="recent-activity-skeleton"]')).withContext('skeleton reserves height').not.toBeNull();
+    expect(el.querySelector('[data-testid="recent-activity"]')).withContext('real card not shown yet').toBeNull();
+    expect(fx.componentInstance.loading()).toBeTrue();
+  });
+
+  it('swaps skeleton → real card when the feed loads with entries', () => {
+    const fx = withFeed(() => of({ data: [ENTRY2], cursor: null, hasMore: false }));
+    const el = fx.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="recent-activity-skeleton"]')).withContext('skeleton gone').toBeNull();
+    expect(el.querySelector('[data-testid="recent-activity"]')).withContext('real card shown').not.toBeNull();
+    expect(fx.componentInstance.loading()).toBeFalse();
+  });
+
+  it('collapses to nothing (honest-empty) when the feed loads empty', () => {
+    const fx = withFeed(() => of({ data: [], cursor: null, hasMore: false }));
+    const el = fx.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="recent-activity-skeleton"]')).toBeNull();
+    expect(el.querySelector('[data-testid="recent-activity"]')).toBeNull();
+    expect(fx.componentInstance.loading()).withContext('settled, not loading').toBeFalse();
   });
 });

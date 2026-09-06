@@ -72,6 +72,31 @@ describe('AdminDashboardComponent (Getting Started hub)', () => {
     expect(make('owner@example.com', 1).isSysAdmin()).toBe(false);
     expect(make('brian@megabyte.space', 1).isSysAdmin()).toBe(true);
   });
+
+  // ccLoading() drives the command-center skeleton that reserves the Site-status + CWV
+  // space, so those async sections don't shove the section-guide groups down when they
+  // pop in — the residual dashboard CLS after recent-activity/referral were reserved. It
+  // MUST span BOTH the sites fetch (isLoading) AND the separately-timed CWV metrics fetch.
+  it('ccLoading() spans BOTH the sites and the (later) CWV-metrics fetch (anti-CLS reserve)', () => {
+    TestBed.resetTestingModule();
+    const loading = signal(true);
+    TestBed.configureTestingModule({
+      imports: [AdminDashboardComponent],
+      providers: [
+        { provide: AdminStateService, useValue: { sites: signal([]), loading } },
+        { provide: AuthService, useValue: { email: signal('owner@example.com') } },
+      ],
+    });
+    TestBed.overrideComponent(AdminDashboardComponent, { set: { template: '<div></div>', imports: [] } });
+    const c = TestBed.createComponent(AdminDashboardComponent).componentInstance;
+    expect(c.ccLoading()).withContext('reserved while sites load').toBe(true);
+    loading.set(false);
+    expect(c.ccLoading()).withContext('sites done, no metrics in flight → released').toBe(false);
+    c.metricsLoading.set(true);
+    expect(c.ccLoading()).withContext('still reserved while the CWV metrics fetch runs').toBe(true);
+    c.metricsLoading.set(false);
+    expect(c.ccLoading()).withContext('released once BOTH resolve').toBe(false);
+  });
 });
 
 /**

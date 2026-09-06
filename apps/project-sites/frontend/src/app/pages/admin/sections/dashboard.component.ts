@@ -175,6 +175,27 @@ const RECENT_KEY = 'ps_dash_recents';
           </section>
         }
       } @else {
+        <!-- Reserve the command-center height while EITHER the sites OR the (later,
+             separate) CWV-metrics fetch is in flight, so Site status + CWV appearing
+             (staggered) never shove the section-guide groups down — the residual
+             dashboard layout shift after recent-activity/referral were fixed (CLS ≤0.05).
+             Skeleton doubles as a loading affordance; the reserve (324px) matches the
+             loaded status+CWV height (317px incl. margins) so the swap is height-neutral. -->
+        <div class="cc-slot" [class.cc-reserve]="ccLoading() || hasSites()">
+        @if (ccLoading()) {
+          <div class="cc-skeleton" data-testid="dash-cc-skeleton" aria-hidden="true">
+            <div class="cc-skel-line" style="width: 8rem"></div>
+            <div class="cc-skel-strip">
+              <div class="cc-skel-tile"></div><div class="cc-skel-tile"></div>
+              <div class="cc-skel-tile"></div><div class="cc-skel-tile"></div>
+            </div>
+            <div class="cc-skel-line" style="width: 11rem; margin-top: 16px"></div>
+            <div class="cc-skel-pills">
+              <div class="cc-skel-pill"></div><div class="cc-skel-pill"></div>
+              <div class="cc-skel-pill"></div><div class="cc-skel-pill"></div>
+            </div>
+          </div>
+        } @else {
         <!-- ── Site status command-center strip (P4) ──────────────
              Real data from the already-loaded sites list; each tile is a
              metric→record link into the FIRST matching site's detail
@@ -248,6 +269,8 @@ const RECENT_KEY = 'ps_dash_recents';
             }
           </section>
         }
+        }
+        </div>
 
         <!-- ── Pinned ─────────────────────────────────────────── -->
         @if (pinnedCards().length > 0) {
@@ -813,6 +836,68 @@ const RECENT_KEY = 'ps_dash_recents';
         font-size: 0.9rem;
         opacity: 0.7;
       }
+      /* ── Command-center loading skeleton + reserve (kills the CLS from Site status +
+         CWV inserting after their async fetches; see the template comment). ── */
+      .cc-slot.cc-reserve {
+        /* ≥ the loaded status+CWV height incl. section margins (measured 317px) so the
+           slot never grows when data lands — the skeleton→content swap is height-neutral. */
+        min-height: 324px;
+      }
+      .cc-skeleton {
+        margin-bottom: 8px;
+      }
+      .cc-skel-line {
+        height: 14px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        margin-bottom: 12px;
+      }
+      .cc-skel-strip {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+      }
+      .cc-skel-tile {
+        height: 74px;
+        border-radius: var(--ps-radius-lg, 14px);
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .cc-skel-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .cc-skel-pill {
+        height: 44px;
+        width: 92px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      .cc-skeleton > * {
+        animation: cc-pulse 1.4s ease-in-out infinite;
+      }
+      @keyframes cc-pulse {
+        0%,
+        100% {
+          opacity: 0.5;
+        }
+        50% {
+          opacity: 0.85;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .cc-skeleton > * {
+          animation: none;
+        }
+      }
+      @media (max-width: 640px) {
+        .cc-slot.cc-reserve {
+          min-height: 364px;
+        }
+      }
+
       /* ── Site-status command-center strip (P4) ── */
       .status-source {
         margin: -2px 0 10px;
@@ -1032,6 +1117,12 @@ export class AdminDashboardComponent {
   readonly isSysAdmin = computed(() => isSysAdminEmail(this.auth.email()));
   readonly siteCount = computed(() => this.state.sites().length);
   readonly hasSites = computed(() => this.siteCount() > 0);
+  /** True while the SITES fetch is in flight (AdminStateService.loading). */
+  readonly isLoading = computed(() => this.state.loading());
+  /** True while EITHER the sites OR the (separately-timed, ~1s later) CWV-metrics fetch
+   *  is in flight — drives the command-center skeleton. Spanning both keeps the reserved
+   *  .cc-slot filled until status + CWV can swap in together (zero CLS from the late CWV). */
+  readonly ccLoading = computed(() => this.isLoading() || this.metricsLoading());
   readonly latestMetrics = signal<SnapshotMetrics | null>(null);
   readonly metricsLoading = signal(false);
   /**

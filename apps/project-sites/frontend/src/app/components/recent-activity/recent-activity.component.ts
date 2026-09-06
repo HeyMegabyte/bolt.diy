@@ -38,7 +38,27 @@ interface ActivityFeedResponse {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (visible()) {
+    @if (loading()) {
+      <!-- Reserve the card's height (mirrors the real header + 8 rows) while the feed
+           fetches, so the section-guide groups below don't get shoved down when the
+           populated card appears — this was the dominant /admin dashboard layout shift
+           (CLS 0.23 → ≤0.05). aria-hidden: purely presentational; the real feed replaces
+           it. An org with no activity collapses it (honest-empty) — a rare one-time shift. -->
+      <section class="ra ra-skeleton" aria-hidden="true" data-testid="recent-activity-skeleton">
+        <header class="ra-head"><span class="ra-skel ra-skel-title"></span></header>
+        <ul class="ra-list">
+          @for (i of skelRows; track i) {
+            <li class="ra-item">
+              <span class="ra-dot ra-skel-dot" aria-hidden="true"></span>
+              <span class="ra-body">
+                <span class="ra-skel ra-skel-l1"></span>
+                <span class="ra-skel ra-skel-l2"></span>
+              </span>
+            </li>
+          }
+        </ul>
+      </section>
+    } @else if (visible()) {
       <section class="ra" role="region" aria-labelledby="ra-heading" data-testid="recent-activity">
         <header class="ra-head">
           <h2 id="ra-heading" class="ra-title">Recent activity</h2>
@@ -85,6 +105,15 @@ interface ActivityFeedResponse {
     .ra-body { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
     .ra-summary { font-size: 0.84rem; color: var(--ps-ink, #f4f4ff); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .ra-meta { font-size: 0.68rem; color: var(--ps-text-muted, rgba(255,255,255,0.6)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* Loading skeleton — reuses .ra / .ra-head / .ra-item so its height matches the real
+       card row-for-row (reserves space → no CLS when the feed lands). */
+    .ra-skel { display: block; border-radius: 6px; background: rgba(255,255,255,0.06); animation: ra-pulse 1.4s ease-in-out infinite; }
+    .ra-skel-title { width: 8rem; height: 0.92rem; }
+    .ra-skel-dot { background: rgba(255,255,255,0.12); animation: ra-pulse 1.4s ease-in-out infinite; }
+    .ra-skel-l1 { width: 70%; height: 0.84rem; margin-bottom: 3px; }
+    .ra-skel-l2 { width: 45%; height: 0.68rem; }
+    @keyframes ra-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.9; } }
+    @media (prefers-reduced-motion: reduce) { .ra-skel, .ra-skel-dot { animation: none; } }
   `],
 })
 export class RecentActivityComponent implements OnInit {
@@ -95,6 +124,12 @@ export class RecentActivityComponent implements OnInit {
   readonly entries = computed(() => this.data() ?? []);
   /** Show only when the feed has real entries (flag on + non-empty). */
   readonly visible = computed(() => this.entries().length > 0);
+  /** True until the feed fetch resolves (data still null) — drives the height-reserving
+   *  skeleton so the populated card doesn't shift the groups below when it lands. */
+  readonly loading = computed(() => this.data() === null);
+  /** Skeleton row placeholders — mirrors the API's `limit: 8` so the reserved height
+   *  matches a full feed (the common active-org case the CLS probe measures). */
+  readonly skelRows = [0, 1, 2, 3, 4, 5, 6, 7];
 
   ngOnInit(): void {
     // `silent: true` — a 404 (flag off) is expected, never a user-facing toast.
