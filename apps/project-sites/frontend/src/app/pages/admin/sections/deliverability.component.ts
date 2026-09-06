@@ -9,6 +9,12 @@
  * never auto-hammered). An optional domain override checks a different sending
  * domain than the site's primary hostname.
  *
+ * Before a check runs (idle, `showPreview()`), a neutral 3-slot preview rail
+ * (SPF · DKIM · DMARC, each "Not checked yet") fills the fold so the surface reads
+ * as a dashboard of what it inspects — not one thin card in empty space. The rail
+ * is `aria-hidden` (purely presentational); the real, announced score card replaces
+ * it on the first result. (Polish pass AL-062, 2026-09-06.)
+ *
  * Backend is flag-gated (`email_deliverability_wizard`); when off it 404s and
  * this surface shows a friendly "not available" error (never leaks existence).
  */
@@ -48,7 +54,13 @@ interface DeliverabilityResponse {
   template: `
     <section class="max-w-3xl mx-auto px-5 py-7" appReveal>
       <header class="mb-6">
-        <p class="font-mono uppercase tracking-wider text-[0.7rem] text-primary mb-1">Inbox placement</p>
+        <p class="flex items-center gap-2 font-mono uppercase tracking-wider text-[0.7rem] text-primary mb-1">
+          <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+            <path d="m9 12 2 2 4-4" />
+          </svg>
+          Inbox placement
+        </p>
         @if (level === 'h2') {
           <h2 class="text-2xl font-semibold text-light" data-testid="deliv-heading">Email Deliverability</h2>
         } @else {
@@ -92,7 +104,7 @@ interface DeliverabilityResponse {
             <button
               hlmBtn
               data-testid="deliverability-check-btn"
-              class="min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-dark"
+              class="min-h-[40px] bg-primary text-dark font-medium border-transparent hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-dark"
               [disabled]="loading() || domainInvalid() || flagDisabled()"
               [attr.aria-busy]="loading()"
               (click)="check()"
@@ -101,6 +113,28 @@ interface DeliverabilityResponse {
             </button>
             <span class="text-[0.72rem] text-text-secondary">Live DNS lookup — read-only.</span>
           </div>
+        </div>
+      }
+
+      @if (showPreview()) {
+        <!-- Idle/pre-check: a neutral 3-slot rail so the fold reads as a dashboard
+             (what we check) instead of one thin card in a void. Purely presentational
+             (aria-hidden) — the real, announced result replaces it after a check. -->
+        <div data-testid="deliverability-preview" class="mt-6" aria-hidden="true">
+          <div class="grid gap-2 sm:grid-cols-3">
+            @for (rec of previewRecords; track rec.key) {
+              <div class="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3.5">
+                <p class="text-light text-sm font-medium">{{ rec.key }}</p>
+                <p class="text-text-secondary text-[0.7rem] mt-0.5">{{ rec.label }}</p>
+                <p class="mt-2 flex items-center gap-1.5 text-text-secondary text-[0.78rem]">
+                  <span class="h-1.5 w-1.5 rounded-full bg-white/25"></span> Not checked yet
+                </p>
+              </div>
+            }
+          </div>
+          <p class="mt-3 text-center text-[0.72rem] text-text-secondary">
+            Run a check to score your SPF, DKIM and DMARC and get concrete DNS fixes.
+          </p>
         </div>
       }
 
@@ -242,6 +276,25 @@ export class AdminDeliverabilityComponent {
   /** No sending domain to check (site has no custom domain + no override typed) → calm neutral prompt, NOT a red error. */
   readonly noDomain = signal(false);
   readonly report = signal<DeliverabilityReport | null>(null);
+
+  /** Static descriptors for the idle preview rail (what a check inspects). */
+  readonly previewRecords = [
+    { key: 'SPF', label: 'Authorizes your senders' },
+    { key: 'DKIM', label: 'Signs your mail' },
+    { key: 'DMARC', label: 'Sets the spoofing policy' },
+  ] as const;
+
+  /** Idle state: a site is selected but no result / error / gate / load is active →
+   *  render the neutral 3-slot preview rail instead of empty space. */
+  readonly showPreview = computed(
+    () =>
+      !!this.site() &&
+      !this.report() &&
+      !this.error() &&
+      !this.noDomain() &&
+      !this.flagDisabled() &&
+      !this.loading(),
+  );
 
   /** The domain override is OPTIONAL (empty → the site's own domain). When the
    *  operator DOES type something, validate the bare-hostname format client-side

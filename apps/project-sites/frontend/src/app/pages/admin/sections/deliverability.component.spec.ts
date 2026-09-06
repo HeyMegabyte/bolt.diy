@@ -57,6 +57,28 @@ describe('AdminDeliverabilityComponent', () => {
     expect(q('[data-testid="deliverability-check-btn"]')).toBeNull();
   });
 
+  it('shows the idle preview rail (SPF/DKIM/DMARC "not checked yet") once a site is selected, before any check', () => {
+    build({ id: 'site1', name: 'Acme', slug: 'acme' });
+    const preview = q('[data-testid="deliverability-preview"]');
+    expect(preview).withContext('idle preview rail fills the pre-check fold').not.toBeNull();
+    // purely presentational — the real, announced result replaces it after a check
+    expect(preview?.getAttribute('aria-hidden')).toBe('true');
+    for (const rec of ['SPF', 'DKIM', 'DMARC']) expect(preview?.textContent).toContain(rec);
+    expect(preview?.textContent).toContain('Not checked yet');
+    expect(q('[data-testid="deliverability-result"]')).withContext('no result card before a check').toBeNull();
+    expect(fixture.componentInstance.showPreview()).toBeTrue();
+  });
+
+  it('replaces the preview rail with the real result after a check', () => {
+    build({ id: 'site1', name: 'Acme', slug: 'acme' });
+    expect(q('[data-testid="deliverability-preview"]')).not.toBeNull();
+    (q('[data-testid="deliverability-check-btn"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(q('[data-testid="deliverability-preview"]')).withContext('preview hidden once a result exists').toBeNull();
+    expect(q('[data-testid="deliverability-result"]')).not.toBeNull();
+    expect(fixture.componentInstance.showPreview()).toBeFalse();
+  });
+
   it('checks the selected site and renders the report', () => {
     build({ id: 'site1', name: 'Acme', slug: 'acme' });
     (q('[data-testid="deliverability-check-btn"]') as HTMLButtonElement).click();

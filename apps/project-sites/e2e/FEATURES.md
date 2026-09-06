@@ -76,6 +76,7 @@
 | Feature flags — public API | `feature-flags.spec.ts` | convergence | GREEN | 5 tests ✅ |
 | Accessibility — 8 routes × 6bp | `accessibility.spec.ts` | convergence | GREEN | 48 scans ✅ |
 | Site lifecycle — extended | `site-lifecycle-extended.spec.ts` | convergence | GREEN | 6 tests ✅ |
+| Deliverability — idle preview rail | `admin/deliverability.spec.ts` | loop | GREEN | AL-062 — pre-check SPF/DKIM/DMARC "not checked yet" dashboard (aria-hidden), replaced by the real result after a check; unit-locked in `deliverability.component.spec.ts` |
 | **TOTAL** | **19 specs** | convergence | **135+ tests GREEN** | Passes 1-28 |
 
 ## Blockers / Next-prompt work
