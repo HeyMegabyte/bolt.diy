@@ -179,7 +179,11 @@ describe('GET /api/usage/burn (token_burn_meter)', () => {
 
   it('401s when there is no authed org (never falls back to a client org_id)', async () => {
     const { env } = makeDb();
-    const res = await mountWithOrg(undefined).request('/api/usage/burn?org_id=org-attacker', {}, env);
+    const res = await mountWithOrg(undefined).request(
+      '/api/usage/burn?org_id=org-attacker',
+      {},
+      env,
+    );
     expect(res.status).toBe(401);
   });
 

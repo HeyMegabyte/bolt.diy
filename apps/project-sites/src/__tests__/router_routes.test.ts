@@ -86,11 +86,17 @@ describe('POST /api/router/pick (model_registry)', () => {
   });
 
   it('routes the prompt through with the AUTHED org, ignoring a client org_id (IDOR regression)', async () => {
-    const res = await post('org-real', '/api/router/pick', { prompt: 'refactor safety', org_id: 'org-victim' });
+    const res = await post('org-real', '/api/router/pick', {
+      prompt: 'refactor safety',
+      org_id: 'org-victim',
+    });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ model: 'claude-sonnet-4-6', shape: 'implement' });
     // orgId is the AUTHED session org, NEVER the client-supplied 'org-victim'
-    expect(mockAutoRoute).toHaveBeenCalledWith(env, { prompt: 'refactor safety', orgId: 'org-real' });
+    expect(mockAutoRoute).toHaveBeenCalledWith(env, {
+      prompt: 'refactor safety',
+      orgId: 'org-real',
+    });
   });
 
   it('falls back to the demo prompt when the body is empty (still the authed org)', async () => {
