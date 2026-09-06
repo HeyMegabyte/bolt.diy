@@ -26,7 +26,11 @@
  *   3. RECONCILE — Delivered.sites must be within [0.8 * groundTruth, ∞) AND
  *      degraded must be false. `display << store` (0 or a single tenant's count) is
  *      the lying-empty / wrong-source signal → FAIL.
- *   Plus a cross-window monotonicity sanity (365d ≥ 30d ≥ 7d).
+ *   Plus a cross-window monotonicity sanity (365d ≥ 30d ≥ 7d) AND an outbox-health
+ *   check: 0 DEAD-LETTERED rows (a stuck `failed`/attempts>=5 row means a REQUIRED
+ *   target — Tinybird — is failing, or the AL-050 best-effort-Hatchet fix regressed;
+ *   the pipeline that FEEDS this funnel is unhealthy). AL-053 requeued the last
+ *   pre-AL-050 false-failure (Hatchet-only dead-letter whose Tinybird ingest succeeded).
  *
  * Auth path uses workers.dev (project-sites.manhattan.workers.dev) so the
  * super-admin test-login + admin API dodge the prod-domain bot challenge (same
@@ -71,6 +75,19 @@ function groundTruthPublished() {
   return Number(arr[0]?.results?.[0]?.c ?? 0);
 }
 
+/** D1 outbox health: count of DEAD-LETTERED rows (status=failed, attempts>=MAX_OUTBOX_ATTEMPTS=5).
+ *  A stuck dead-letter means a REQUIRED target (Tinybird) is failing, OR the AL-050
+ *  best-effort-Hatchet fix regressed (a Hatchet-only failure re-dead-lettering a row
+ *  whose Tinybird ingest succeeded). Either is a pipeline-health alarm feeding the funnel. */
+function groundTruthDeadLetters() {
+  const cmd =
+    `npx wrangler d1 execute ${DB} --remote --env production --json ` +
+    `--command "SELECT COUNT(*) c FROM outbox_events WHERE status='failed' AND attempts>=5;"`;
+  const raw = execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  const arr = parseWranglerJson(raw);
+  return Number(arr[0]?.results?.[0]?.c ?? 0);
+}
+
 /** Delivered.sites for a given window (global). */
 function deliveredSites(funnel) {
   const s = (funnel?.stages ?? []).find((x) => x.stage === 'site.published');
@@ -107,27 +124,36 @@ try {
 
   // 2) GROUND TRUTH
   const store = groundTruthPublished();
+  const deadLetters = groundTruthDeadLetters();
 
   // 3) RECONCILE
   const floor = Math.floor(store * 0.8);
   const notEmpty = display > 0 || store === 0;
   const reconciles = display >= floor; // display must reflect the store, not 0 / one-tenant
   const monotonic = deliveredSites(f365) >= deliveredSites(f30) && deliveredSites(f30) >= deliveredSites(f7);
-  const ok = !degraded && notEmpty && reconciles && monotonic;
+  const outboxHealthy = deadLetters === 0; // a stuck dead-letter = required-target failure / AL-050 regression
+  const ok = !degraded && notEmpty && reconciles && monotonic && outboxHealthy;
 
-  console.log('\n=== ACTIVATION FUNNEL: display vs D1 store ===');
+  console.log('\n=== ACTIVATION FUNNEL: display vs D1 store (+ outbox pipeline health) ===');
   console.log(`  D1 published (store, all tenants): ${store}`);
   console.log(`  funnel Delivered.sites (display, 365d): ${display}  (30d=${deliveredSites(f30)} 7d=${deliveredSites(f7)})`);
-  console.log(`  degraded: ${f365?.degraded}`);
+  console.log(`  degraded: ${f365?.degraded}   outbox dead-letters: ${deadLetters}`);
   console.log(
     `\nVERDICT: ${ok ? '✅ PASS' : '🔴 CHECK'} — display ${display} vs store ${store} ` +
-      `(floor ${floor}); degraded=${f365?.degraded}; monotonic=${monotonic}`,
+      `(floor ${floor}); degraded=${f365?.degraded}; monotonic=${monotonic}; deadLetters=${deadLetters}`,
   );
   if (!ok && !reconciles) {
     console.log(
       '   ↳ Delivered << published-site count → LYING-EMPTY / WRONG-SOURCE. Either the outbox→Tinybird ' +
         'pipeline is broken (no events) or the global funnel collapsed to one tenant (last-wins). ' +
         'See AL-050 (missing outbox_events table) + AL-051 (per-tenant sum).',
+    );
+  }
+  if (!ok && !outboxHealthy) {
+    console.log(
+      `   ↳ ${deadLetters} outbox row(s) DEAD-LETTERED (status=failed, attempts>=5) → a REQUIRED target ` +
+        '(Tinybird) is failing OR the AL-050 best-effort-Hatchet fix regressed. Inspect: ' +
+        "SELECT type,last_error FROM outbox_events WHERE status='failed'.",
     );
   }
   process.exit(ok ? 0 : 1);
