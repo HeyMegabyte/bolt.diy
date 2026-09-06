@@ -404,8 +404,10 @@ describe('GET /api/sites/:siteId/forms', () => {
     expect(json.error?.code).toBe('NOT_FOUND');
   });
 
-  it('returns 200 with parsed submissions for an owned site', async () => {
-    mockDbQueryOne.mockResolvedValueOnce(OWNED_SITE); // loadOwnedSite
+  it('returns 200 with parsed submissions + meta.total for an owned site', async () => {
+    mockDbQueryOne
+      .mockResolvedValueOnce(OWNED_SITE) // loadOwnedSite
+      .mockResolvedValueOnce({ n: 3 }); // COUNT(*) total stored
     mockDbQuery.mockResolvedValueOnce({
       data: [
         {
@@ -429,10 +431,54 @@ describe('GET /api/sites/:siteId/forms', () => {
     const env = makeEnv();
     const res = await request(makeApp(AUTH), '/api/sites/site-1/forms', {}, env);
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { data: Array<Record<string, unknown>> };
+    const json = (await res.json()) as {
+      data: Array<Record<string, unknown>>;
+      meta: { total: number; returned: number; limit: number };
+    };
     expect(json.data).toHaveLength(1);
     expect(json.data[0]['payload']).toEqual({ msg: 'hi' }); // safeJson parsed
     expect(json.data[0]['forwarded_to']).toEqual(['mailchimp:int-1']);
+    // meta.total is the FULL stored count (COUNT(*)), not the returned page.
+    expect(json.meta.total).toBe(3);
+    expect(json.meta.returned).toBe(1);
+  });
+
+  // Regression (paginated-silent-cap class): a LIMIT-capped page MUST expose the full
+  // count via meta.total so a consumer can tell a truncation from the whole set — a
+  // `{data}`-only response silently hides the rest (lying-UI: "50 submissions" when 250 exist).
+  it('meta.total exposes the FULL count when the page is LIMIT-capped (no silent truncation)', async () => {
+    mockDbQueryOne
+      .mockResolvedValueOnce(OWNED_SITE) // loadOwnedSite
+      .mockResolvedValueOnce({ n: 250 }); // 250 stored, page caps at 200
+    mockDbQuery.mockResolvedValueOnce({
+      data: Array.from({ length: 200 }, (_unused, i) => ({
+        id: `sub-${i}`,
+        site_id: 'site-1',
+        form_name: 'contact',
+        email: null,
+        payload: '{}',
+        ip_address: null,
+        user_agent: null,
+        origin_url: null,
+        forwarded_to: null,
+        status: 'received',
+        created_at: '2026-01-01T00:00:00Z',
+        replied_at: null,
+        reply_subject: null,
+      })),
+      error: null,
+    });
+    const env = makeEnv();
+    const res = await request(makeApp(AUTH), '/api/sites/site-1/forms?limit=200', {}, env);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      data: unknown[];
+      meta: { total: number; returned: number; limit: number };
+    };
+    expect(json.data).toHaveLength(200);
+    expect(json.meta.returned).toBe(200);
+    expect(json.meta.total).toBe(250); // the 50 hidden rows are DISCOVERABLE, not silently dropped
+    expect(json.meta.limit).toBe(200);
   });
 });
 

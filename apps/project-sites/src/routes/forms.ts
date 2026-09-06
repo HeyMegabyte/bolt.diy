@@ -456,6 +456,17 @@ forms.get('/api/sites/:siteId/forms', async (c) => {
     [site.id, limit],
   );
 
+  // Total stored count (worker COUNT(*)) so a consumer can tell a LIMIT-capped page
+  // from the whole set — closes the paginated-silent-cap lying-UI (a site with >limit
+  // submissions otherwise returns a partial list with NO signal more exist). Mirrors
+  // the sibling GET /form-submissions `meta.total` the admin inbox already relies on.
+  const totalRow = await dbQueryOne<{ n: number }>(
+    c.env.DB,
+    `SELECT COUNT(*) AS n FROM form_submissions WHERE site_id = ?`,
+    [site.id],
+  );
+  const total = Number(totalRow?.n ?? result.data.length);
+
   return c.json({
     data: result.data.map((r) => ({
       id: r.id,
@@ -472,6 +483,7 @@ forms.get('/api/sites/:siteId/forms', async (c) => {
       replied_at: r.replied_at,
       reply_subject: r.reply_subject,
     })),
+    meta: { total, limit, returned: result.data.length },
   });
 });
 
