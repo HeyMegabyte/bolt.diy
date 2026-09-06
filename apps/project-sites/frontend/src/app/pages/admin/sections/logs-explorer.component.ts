@@ -181,7 +181,7 @@ const LEVEL_COLORS: Record<string, string> = {
       @if (rows().length > 0) {
         <section>
           <div class="flex items-center justify-between mb-2">
-            <span class="text-xs text-text-secondary">{{ rows().length }} results</span>
+            <span class="text-xs text-text-secondary">{{ rows().length }} {{ rows().length === 1 ? 'result' : 'results' }}</span>
             @if (nextCursor()) {
               <button class="btn-ghost text-xs" (click)="loadMore()" [disabled]="searching()">Load more</button>
             }

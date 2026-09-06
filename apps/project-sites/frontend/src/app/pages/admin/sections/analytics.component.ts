@@ -353,7 +353,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
         <div class="flex items-center justify-between mb-1 gap-2 flex-wrap">
           <h3 class="section-h m-0 text-base font-semibold text-white">Page views over time</h3>
           <span class="text-[0.7rem] text-text-secondary">
-            {{ envelope()?.series?.length || 0 }} days · peak {{ formatCount(peakDayVisits()) }}
+            {{ envelope()?.series?.length || 0 }} {{ (envelope()?.series?.length || 0) === 1 ? 'day' : 'days' }} · peak {{ formatCount(peakDayVisits()) }}
           </span>
         </div>
         <!-- On-figure source + as-of label (P4 — figures carry source+timestamp). -->

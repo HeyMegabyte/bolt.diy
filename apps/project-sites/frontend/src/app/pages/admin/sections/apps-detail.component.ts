@@ -138,7 +138,7 @@ const INFRA_META: Readonly<Record<InfraDep, { glyph: string; label: string }>> =
             <article class="card">
               <header class="flex items-center justify-between flex-wrap gap-2 mb-3">
                 <h3 class="card-h m-0">Environment variables</h3>
-                <span class="text-[0.66rem] text-text-secondary font-mono">{{ a.env.length }} keys · {{ requiredCount(a) }} required</span>
+                <span class="text-[0.66rem] text-text-secondary font-mono">{{ a.env.length }} {{ a.env.length === 1 ? 'key' : 'keys' }} · {{ requiredCount(a) }} required</span>
               </header>
               @if (a.env.length === 0) {
                 <p class="text-[0.78rem] text-text-secondary m-0">No env vars required — container runs with defaults.</p>
