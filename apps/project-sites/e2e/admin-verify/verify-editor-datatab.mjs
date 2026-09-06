@@ -30,7 +30,9 @@ const BB = process.env.BROWSERBASE_API_KEY,
   PROJ = process.env.BROWSERBASE_PROJECT_ID,
   PW = process.env.E2E_TEST_PASSWORD;
 if (!BB || !PROJ || !PW) {
-  console.log('::notice:: verify-editor-datatab skipped — Browserbase creds / E2E_TEST_PASSWORD unset');
+  console.log(
+    '::notice:: verify-editor-datatab skipped — Browserbase creds / E2E_TEST_PASSWORD unset',
+  );
   process.exit(0);
 }
 const BOOT_BUDGET_MS = 100_000; // WebContainer cold-boot ceiling before we SKIP (not fail)
@@ -41,7 +43,9 @@ const r = await fetch('https://api.browserbase.com/v1/sessions', {
   body: JSON.stringify({ projectId: PROJ, timeout: 900 }),
 });
 if (!r.ok) {
-  console.log(`::notice:: verify-editor-datatab skipped — Browserbase session create failed (${r.status})`);
+  console.log(
+    `::notice:: verify-editor-datatab skipped — Browserbase session create failed (${r.status})`,
+  );
   process.exit(0);
 }
 const { id } = await r.json();
@@ -53,7 +57,8 @@ try {
   const ctx = browser.contexts()[0] ?? (await browser.newContext());
   const page = ctx.pages()[0] ?? (await ctx.newPage());
   page.on('console', (m) => {
-    if (m.type() === 'error' && !/Failed to load resource/i.test(m.text())) consoleErrs.push(m.text().slice(0, 100));
+    if (m.type() === 'error' && !/Failed to load resource/i.test(m.text()))
+      consoleErrs.push(m.text().slice(0, 100));
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('https://projectsites.dev/', { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -66,9 +71,19 @@ try {
     });
     const j = await res.json().catch(() => ({}));
     if (j?.data?.token)
-      localStorage.setItem('ps_session', JSON.stringify({ token: j.data.token, identifier: 'brian@megabyte.space', issuedAt: Date.now() }));
+      localStorage.setItem(
+        'ps_session',
+        JSON.stringify({
+          token: j.data.token,
+          identifier: 'brian@megabyte.space',
+          issuedAt: Date.now(),
+        }),
+      );
   }, PW);
-  await page.goto('https://projectsites.dev/admin/editor', { waitUntil: 'domcontentloaded', timeout: 45000 });
+  await page.goto('https://projectsites.dev/admin/editor', {
+    waitUntil: 'domcontentloaded',
+    timeout: 45000,
+  });
   await page.waitForSelector('iframe', { timeout: 30000 }).catch(() => {});
 
   // Poll for the workbench Data tab inside the bolt iframe within the boot budget.
@@ -77,54 +92,123 @@ try {
   while (Date.now() < deadline) {
     await page.waitForTimeout(5000);
     bf = page.frames().find((f) => /editor\.projectsites\.dev/.test(f.url()));
-    if (bf && (await bf.locator('button:has-text("Data")').first().count().catch(() => 0))) break;
+    if (
+      bf &&
+      (await bf
+        .locator('button:has-text("Data")')
+        .first()
+        .count()
+        .catch(() => 0))
+    )
+      break;
     bf = null;
   }
   if (!bf) {
-    console.log('::notice:: verify-editor-datatab skipped — editor WebContainer did not boot within budget (headless flakiness, not a Data-tab defect)');
+    console.log(
+      '::notice:: verify-editor-datatab skipped — editor WebContainer did not boot within budget (headless flakiness, not a Data-tab defect)',
+    );
     process.exit(0);
   }
 
   // OVERVIEW: click Data → assert real tables render (not the old SQLite/Neon/Redis mock).
   await bf.locator('button:has-text("Data")').first().click();
   await page.waitForTimeout(3500);
-  const overview = await bf.locator('body').innerText().catch(() => '');
-  const hasRealTables = /Visitor Events|Form Submissions|Snapshots|Content Store|MCP Connections/.test(overview);
+  const overview = await bf
+    .locator('body')
+    .innerText()
+    .catch(() => '');
+  const hasRealTables =
+    /Visitor Events|Form Submissions|Snapshots|Content Store|MCP Connections/.test(overview);
   const hasMock = /bricklabor|Upstash|Neon|Redis/i.test(overview);
 
   // BROWSE: click a populated table → assert a row grid renders with back-nav.
-  await bf.locator('button:has-text("Visitor Events")').first().click().catch(() => {});
+  await bf
+    .locator('button:has-text("Visitor Events")')
+    .first()
+    .click()
+    .catch(() => {});
   await page.waitForTimeout(4000);
-  const browse = await bf.locator('body').innerText().catch(() => '');
-  const browsedRows = /Tables/.test(browse) && /Event Type|event_type|Created At|pageview/i.test(browse);
+  const browse = await bf
+    .locator('body')
+    .innerText()
+    .catch(() => '');
+  const browsedRows =
+    /Tables/.test(browse) && /Event Type|event_type|Created At|pageview/i.test(browse);
 
   // FUNCTIONS tab (AL-004's other half): click → assert the panel mounts with REAL
   // functions/ derivation. A project with no functions/ folder shows the HONEST empty
   // state ("No functions/ folder yet"); one with functions/ shows derived routes. Either
   // proves de-mock — the old hardcoded mock (bricklabor / fixed routes) must be gone.
   let functionsReal = false,
-    functionsMockGone = true;
+    functionsMockGone = true,
+    createCtrlPresent = false,
+    scaffoldWorked = false;
   const fnBtn = bf.locator('button:has-text("Functions")').first();
   if (await fnBtn.count().catch(() => 0)) {
     await fnBtn.click().catch(() => {});
     await page.waitForTimeout(2500);
-    const fn = await bf.locator('body').innerText().catch(() => '');
+    const fn = await bf
+      .locator('body')
+      .innerText()
+      .catch(() => '');
     functionsReal = /functions\/? folder yet|Routes \(\d+\)|deploy ready|no routes/i.test(fn);
     functionsMockGone = !/bricklabor/i.test(fn);
+
+    // CREATE-A-FUNCTION control (AL-060 / item-8 "create/edit/deploy a function"): assert the
+    // new "+ New" affordance is present (header toggle OR empty-state button), then CAUSALLY
+    // scaffold a real function — click → type a unique route → Create → the panel's own route
+    // table must surface it. Proves scaffoldFunction + workbenchStore.createFile write a real
+    // functions/ file in the booted WebContainer (the derived route picks it up live). The file
+    // is ephemeral WebContainer state (fresh per boot), so scaffolding a probe route is safe.
+    const newBtn = bf
+      .locator('[data-testid="functions-new-btn"], [data-testid="functions-new-empty-btn"]')
+      .first();
+    createCtrlPresent = (await newBtn.count().catch(() => 0)) > 0;
+    if (createCtrlPresent) {
+      await newBtn.click().catch(() => {});
+      await page.waitForTimeout(600);
+      const input = bf.locator('[data-testid="functions-new-input"]').first();
+      if (await input.count().catch(() => 0)) {
+        await input.fill('api/loop-probe-fn').catch(() => {});
+        await bf
+          .locator('[data-testid="functions-new-create"]')
+          .first()
+          .click()
+          .catch(() => {});
+        await page.waitForTimeout(2500);
+        const after = await bf
+          .locator('body')
+          .innerText()
+          .catch(() => '');
+        scaffoldWorked = /\/api\/loop-probe-fn/.test(after);
+      }
+    }
   }
 
   const ok =
-    hasRealTables && !hasMock && browsedRows && functionsReal && functionsMockGone && consoleErrs.length === 0;
+    hasRealTables &&
+    !hasMock &&
+    browsedRows &&
+    functionsReal &&
+    functionsMockGone &&
+    createCtrlPresent &&
+    scaffoldWorked &&
+    consoleErrs.length === 0;
   console.log(
-    `${ok ? '✅' : '🔴'} editor tabs — Data[realTables=${hasRealTables} mockGone=${!hasMock} browsedRows=${browsedRows}] Functions[real=${functionsReal} mockGone=${functionsMockGone}] consoleErrs=${consoleErrs.length}`,
+    `${ok ? '✅' : '🔴'} editor tabs — Data[realTables=${hasRealTables} mockGone=${!hasMock} browsedRows=${browsedRows}] Functions[real=${functionsReal} mockGone=${functionsMockGone} createCtrl=${createCtrlPresent} scaffold=${scaffoldWorked}] consoleErrs=${consoleErrs.length}`,
   );
   if (consoleErrs.length) for (const e of consoleErrs.slice(0, 3)) console.log(`   · ${e}`);
   console.log(
-    `\nVERDICT: ${ok ? '✅ PASS' : '🔴 CHECK'} — editor Data + Functions tabs ${ok ? 'render live connected data (no mock)' : 'did NOT fully verify'}`,
+    `\nVERDICT: ${ok ? '✅ PASS' : '🔴 CHECK'} — editor Data + Functions tabs ${ok ? 'render live connected data (no mock) + "+ New" scaffolds a real function' : 'did NOT fully verify'}`,
   );
   process.exit(ok ? 0 : 1);
 } catch (err) {
-  console.log(`\n::notice:: verify-editor-datatab skipped — ${err instanceof Error ? err.message : String(err)}`.slice(0, 160));
+  console.log(
+    `\n::notice:: verify-editor-datatab skipped — ${err instanceof Error ? err.message : String(err)}`.slice(
+      0,
+      160,
+    ),
+  );
   process.exit(0);
 } finally {
   await browser.close();
