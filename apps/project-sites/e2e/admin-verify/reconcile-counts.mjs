@@ -141,6 +141,24 @@ if (topForm?.id) {
   rows.push({ key: 'form_subs', store: storeN, display: displayN, ok: !d.err && Number.isFinite(displayN) && displayN === storeN });
 }
 
+// Snapshots — per-site version history (/admin/snapshots). The list endpoint returns only
+// ACTIVE snapshots (`deleted_at IS NULL`); a site accretes many soft-deleted ones, so a naive
+// all-rows count is a phantom (top e2e site: 59 total vs 1 active — verified AL-085). Reconcile
+// display (`res.data.length`) vs the ACTIVE count on a LIVE site (parent `sites.deleted_at IS
+// NULL` too — a deleted site's endpoint 404s, another phantom). Guards the soft-delete filter:
+// if it ever drops, display jumps to the full history and this FAILS loudly.
+const topSnap = d1(
+  `SELECT ss.site_id AS id, COUNT(*) AS n FROM site_snapshots ss JOIN sites s ON s.id=ss.site_id
+   WHERE s.org_id='${ORG}' AND s.deleted_at IS NULL AND ss.deleted_at IS NULL
+   GROUP BY ss.site_id ORDER BY COUNT(*) DESC LIMIT 1;`,
+);
+if (topSnap?.id) {
+  const d = await display(`/api/sites/${topSnap.id}/snapshots`, (j) => (Array.isArray(j.data) ? j.data.length : NaN));
+  const storeN = Number(topSnap.n);
+  const displayN = d.err ? d.err : Number(d.n);
+  rows.push({ key: 'snapshots', store: storeN, display: displayN, ok: !d.err && Number.isFinite(displayN) && displayN === storeN });
+}
+
 // Subscription (money-adjacent) — a VALUE reconcile, not a count: the displayed
 // plan+status MUST equal the store, else billing lies about what the customer is on
 // (a serious wrong-source). Store `free/active` must match `/api/billing/subscription`.
