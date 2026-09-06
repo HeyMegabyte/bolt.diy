@@ -467,7 +467,13 @@ const POLL_INTERVAL_MS = 10_000;
               <path d="M4 4h16v12H5.5L4 18z"/><path d="M8 9h8M8 13h5"/>
             </svg>
             <h3 class="empty-title">No submissions yet</h3>
-            <p class="empty-body">Drop the snippet on your site and form replies will stream in here. Press ⌘K → "Copy app.js install snippet" to get started.</p>
+            <p class="empty-body">Drop the app.js snippet on your site and form replies stream in here — no backend, no config.</p>
+            <button type="button" class="empty-snippet-btn" data-testid="forms-copy-snippet"
+                    (click)="copyInstallSnippet()"
+                    [brnTooltip]="'Copy the app.js script tag to paste on your site'">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy install snippet
+            </button>
             <!--
               Card-style CTA pulled out of the page header so the call-to-action
               to open the Prompt Designer is front-and-centre while there are no
@@ -911,6 +917,25 @@ const POLL_INTERVAL_MS = 10_000;
       .empty-cta:hover { transform: none; }
       .empty-cta:hover .empty-cta-arrow { transform: none; }
     }
+    /* Secondary CTA in the empty state — copies the app.js install <script> inline
+       (no ⌘K needed → works on mobile). Accent only on border+icon; text stays
+       near-white so it clears AA in both dark + light admin themes. */
+    .empty-snippet-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      min-height: 40px; padding: 8px 16px; margin-bottom: 2px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(0, 229, 255, 0.28);
+      border-radius: 999px;
+      color: #e6fcff;
+      font-family: 'Sora', system-ui, sans-serif;
+      font-size: 0.78rem; font-weight: 600; letter-spacing: -0.005em;
+      cursor: pointer;
+      transition: border-color var(--ps-dur-fast, 140ms) ease, background var(--ps-dur-fast, 140ms) ease;
+    }
+    .empty-snippet-btn:hover { border-color: rgba(0,229,255,0.55); background: rgba(0,229,255,0.08); }
+    .empty-snippet-btn:focus-visible { outline: var(--ps-ring-focus, 2px solid #00E5FF); outline-offset: 2px; }
+    .empty-snippet-btn svg { color: rgba(0,229,255,0.85); flex-shrink: 0; }
+    @media (prefers-reduced-motion: reduce) { .empty-snippet-btn { transition: none; } }
     .submission-success { border: 1px solid rgba(16,185,129,0.32); background: rgba(16,185,129,0.06); border-radius: 12px; padding: 0.9rem; animation: success-in 260ms cubic-bezier(0.16, 1, 0.3, 1); }
     .success-head { display: flex; gap: 0.7rem; align-items: flex-start; }
     .success-check { width: 32px; height: 32px; flex-shrink: 0; border-radius: 999px; background: rgba(16,185,129,0.18); display: inline-flex; align-items: center; justify-content: center; color: #34d399; }
@@ -1685,6 +1710,20 @@ export class AdminFormsComponent implements OnInit, OnDestroy {
     navigator.clipboard.writeText(text).then(
       () => this.toast.success('Trace copied'),
       () => this.toast.error('Copy failed — select + ⌘C from the textarea instead'),
+    );
+  }
+
+  /** Copy the app.js install `<script>` snippet for the selected site to the
+   *  clipboard, with a toast confirm. Surfaces the primary onboarding action
+   *  inline from the empty state — no ⌘K required (so it works on mobile too).
+   *  Matches the `<script src=".../app.js" data-slug=…>` tag app.js self-locates
+   *  (data-slug drives `POST /api/contact-form/<slug>`; falls back to hostname). */
+  copyInstallSnippet(): void {
+    const slug = this.state.selectedSite()?.slug || 'your-site';
+    const snippet = `<script src="https://projectsites.dev/app.js" data-slug="${slug}" defer></script>`;
+    navigator.clipboard.writeText(snippet).then(
+      () => this.toast.success('Install snippet copied — paste it before </body> on your site'),
+      () => this.toast.error('Copy failed — open ⌘K → "Copy app.js install snippet" instead'),
     );
   }
 

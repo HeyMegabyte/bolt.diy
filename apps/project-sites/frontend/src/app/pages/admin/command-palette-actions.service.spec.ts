@@ -69,6 +69,23 @@ describe('CommandPaletteActionsService (Cmd+K command set)', () => {
     expect(signOut).toHaveBeenCalled();
   });
 
+  // The Forms empty state + onboarding checklist both tell users to press ⌘K →
+  // "Copy app.js install snippet". That command MUST exist (it was missing — a dead
+  // instruction) and copy the correct data-slug script tag app.js self-locates.
+  it('wires "Copy app.js install snippet" to copy the data-slug script tag', () => {
+    const s = svc();
+    const { ctx } = ctxOf();
+    const copy = ctx.copy as jasmine.Spy;
+    const actions = s.build(ctx as never);
+    const cmd = actions.find((a) => a.id === 'act-copy-appjs');
+    expect(cmd).withContext('the app.js install-snippet command must exist').toBeTruthy();
+    cmd!.run();
+    expect(copy).toHaveBeenCalled();
+    const [snippet] = copy.calls.mostRecent().args as [string, string];
+    expect(snippet).toContain('src="https://projectsites.dev/app.js"');
+    expect(snippet).toContain('data-slug="demo"');
+  });
+
   it('emits per-site quick-switch entries when sites are supplied', () => {
     const s = svc(); // one service instance; build() is pure — call it twice
     const withSites = s.build(ctxOf().ctx as never).length;

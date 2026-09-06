@@ -187,6 +187,7 @@ export class CommandPaletteActionsService {
       { id: 'act-preview',      title: 'Open live preview',      section: 'Actions', icon: ICONS.ext, keywords: ['view', 'iframe'], run: () => slug && openExt(`https://${slug}.projectsites.dev`) },
       { id: 'act-copy-page',    title: 'Copy current page URL',  section: 'Actions', icon: ICONS.copy, keywords: ['url', 'clipboard'], run: () => copy(window.location.href, 'Page URL copied') },
       { id: 'act-copy-site',    title: 'Copy site URL',          section: 'Actions', icon: ICONS.copy, keywords: ['url', 'clipboard'], run: () => slug && copy(`https://${slug}.projectsites.dev`, 'Site URL copied') },
+      { id: 'act-copy-appjs',   title: 'Copy app.js install snippet', section: 'Actions', icon: ICONS.copy, keywords: ['app.js', 'install', 'snippet', 'embed', 'script', 'form', 'contact', 'tracking'], run: () => copy(`<script src="https://projectsites.dev/app.js" data-slug="${slug || 'your-site'}" defer></script>`, 'Install snippet copied') },
       { id: 'act-open-site',    title: 'Open site in new tab',   section: 'Actions', icon: ICONS.ext, keywords: ['visit'], run: () => slug && openExt(`https://${slug}.projectsites.dev`) },
       { id: 'act-new-key',      title: 'Generate new API key',   section: 'Actions', icon: ICONS.plus, keywords: ['token', 'access'], run: () => go('/admin/user?action=create-key') },
       { id: 'act-invite',       title: 'Invite a teammate',      section: 'Actions', icon: ICONS.user, keywords: ['team', 'member'], run: () => go('/admin/settings?action=invite#team') },
