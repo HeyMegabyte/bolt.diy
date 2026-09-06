@@ -14,11 +14,16 @@
  * brian's account (measured separately via `wrangler d1 execute`). A divergence
  * where ground-truth > 0 but the endpoint returns 0/empty is a LYING-EMPTY bug.
  *
- * Ground truth (org-brian-001 / site-megabytespace-001, measured 2026-08-06):
+ * Ground truth (org-brian-001 / site-megabytespace-001, measured 2026-08-06; re-swept 2026-09-05):
  *   sites 1 · visitor_events 109pv · analytics_daily 9 · media_assets 2 ·
  *   site_snapshots 4 · audit_logs 1129 · voice_numbers 1 · mcp_connections 2 ·
- *   memberships 1 · ai_env_vars 3 · (api_tokens/hostnames/form_submissions/leads/
- *   social/app_instances = 0 = honest-empty; api_tokens was 1 on 2026-08-06, now 0)
+ *   memberships 1 · ai_env_vars 3 · app_instances 3 · social_accounts 3 ·
+ *   subscriptions 1 · notifications 5 (user-brian-001) ·
+ *   (api_tokens/hostnames/form_submissions/webhook_endpoints/domain_purchases = 0 = honest-empty)
+ *   AL-039 re-sweep: app_instances/social/subscriptions/notifications GREW data since 2026-08-06
+ *   and are NOW reconciled below (were the static blind spot). The form-CRM `leads` table has
+ *   6 SEED rows on site-megabytespace-001 but NO worker endpoint reads it → unwired, NOT a
+ *   lying-empty (no surface claims it); tracked as a completeness item, not reconciled here.
  *
  * NOT reconciled here on purpose (verified 2026-09-05):
  *   - forms/submissions: this SITE's form_submissions is honest-empty (0), and the
@@ -79,6 +84,18 @@ const SURFACES = [
   // so verify POPULATED (>0), not an exact count (avoids stale-gt false PARTIALs).
   { name: 'team members', endpoint: '/api/team', gt: 1, extract: (d) => arr(d?.data, 'members').length },
   { name: 'env vars', endpoint: '/api/env-vars', gt: 3, mode: 'populated', extract: (d) => arr(d, 'vars').length },
+  // AL-039 (2026-09-05): closed the static-reconcile blind spot. A D1 ground-truth sweep on
+  // brian's org found FOUR data-bearing admin surfaces NOT previously reconciled — all
+  // verified display==store at the time (apps 3, social 3, sub 1, notifications 5). They're
+  // MUTABLE/GROWING counts, so verify POPULATED (>0) not an exact gt (avoids stale-gt false
+  // PARTIALs per validator-precision-discipline). Guards each against a lying-empty regression.
+  { name: 'apps (app_instances)', endpoint: '/api/apps/instances', gt: 3, mode: 'populated', extract: (d) => arr(d, 'instances', 'data').length },
+  { name: 'social accounts', endpoint: '/api/social/accounts', gt: 3, mode: 'populated', extract: (d) => arr(d, 'data', 'accounts').length },
+  { name: 'notifications', endpoint: '/api/notifications', gt: 5, mode: 'populated', extract: (d) => arr(d, 'data', 'notifications', 'items').length },
+  // billing subscription is a SINGLE-object surface (not a list): populated == a subscription
+  // object is present (brian's is the `sub_smoke_brian` seed — expired period is honest seed data,
+  // per AL-015 — but the endpoint must still RETURN it; a `{}`/null body would be lying-empty).
+  { name: 'billing subscription', endpoint: '/api/billing/subscription', gt: 1, mode: 'populated', extract: (d) => { const x = d?.data ?? d; return x && (x.status || x.plan || x.subscription || x.stripe_subscription_id || x.id) ? 1 : 0; } },
 ];
 
 // --- tiny envelope helpers (kept inline; no external deps) ---
