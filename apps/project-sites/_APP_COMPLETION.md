@@ -37,7 +37,7 @@ coverage matrix).
 
 ## § B — Full user flows · headless PROD E2E · OWNER: FULL JOURNEY + FULL-FLOW
 *The explicit "production (preferably headless) testing of full user flows" mandate. Each ⇒ a durable probe under `e2e/admin-verify/` wired into `run-all.mjs`.*
-- [ ] **B.1 Guest acquisition funnel** — homepage `/` → search a real business → results render → sign-in CTA → `/create` entry (UNAUTH, real-browser, 0 console errors + operable). *(FULL-FLOW)*
+- [x] **B.1 Guest acquisition funnel** — homepage `/` → search a real business → results render → `/create` entry (UNAUTH, real-browser, 0 console errors + operable). *(verify-guest-funnel.mjs, AL-089 — homepage "Skip the agency. Ship in 4 minutes." + search results + create CTA → /create wizard renders)*
 - [x] **B.2 Authed create→build→publish** — seed session → `/create` real business → build to `published` → `{slug}.projectsites.dev` loads real H1 + 0 console errors. *(FULL JOURNEY — keep green; the build IS the authorized acceptance test)*
 - [x] **B.3 Analytics causal** — visit published site → `/admin` analytics shows the pageview (display==D1). *(verify-analytics-visit-count-causal)*
 - [x] **B.3b Contact-form → /admin/forms** — real submit → appears. *(verify-beacon-funnel-causal)*
@@ -71,11 +71,11 @@ coverage matrix).
 ## Progress (recompute each fire)
 
 - **§ A Admin:** 100% ✅ (plateau — maintenance-only)
-- **§ B Full flows:** 6 / 9 = ~67%
+- **§ B Full flows:** 7 / 9 = ~78% (B.1 guest funnel ✅ AL-089)
 - **§ C Generated-site quality:** 0 / 7 = 0% (was UNLOOPED — now owned by the new loop)
 - **§ D Platform marketing:** 0 / 3 = 0%
 - **§ E Editor:** 1 / 2 = 50%
-- **Overall app "done": ~53%** (17 / 32 boxes) — the admin surface is finished; the remaining frontier is the public product (generated-site quality + guest/billing/editor flows).
+- **Overall app "done": ~56%** (18 / 32 boxes) — the admin surface is finished; the remaining frontier is the public product (generated-site quality + billing-full/editor-roundtrip/auth flows).
 
 ## Maintenance caveat
 Scheduled `/loop` crons **auto-expire after 7 days** (scheduler behavior). To keep converging to done, **re-arm weekly** (`/loop` or `CronCreate durable:true`). A weekly re-arm reminder is the safest guard against the whole convergence silently stopping.

@@ -42,6 +42,7 @@ const PROBES = [
   { label: 'completeness', file: 'completeness-stub-scan.mjs', env: {} },
   { label: 'funnel-reconcile', file: 'verify-funnel-reconcile.mjs', env: {} },
   ...causal,
+  { label: 'guest-funnel', file: 'verify-guest-funnel.mjs', env: {} },
   { label: 'billing-checkout', file: 'verify-billing-checkout.mjs', env: {} },
   { label: 'editor-datatab', file: 'verify-editor-datatab.mjs', env: {} },
 ].filter((p) => !filter || p.label.toLowerCase().includes(filter) || p.file.toLowerCase().includes(filter));

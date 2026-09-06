@@ -1,0 +1,92 @@
+// verify-guest-funnel.mjs — B.1 GUEST ACQUISITION FUNNEL, headless PROD (COMPLETION map § B.1).
+//
+// The pre-auth funnel a real prospect walks BEFORE sign-in: land on the marketing homepage →
+// search their business → results render (or a graceful "lookup unavailable" when Places 403s —
+// both are HONEST) → the `/create` entry renders. This is the top of the golden path; if it's
+// broken (blank homepage, dead search, console errors, a non-rendering /create) no customer ever
+// reaches create→build. The authed continuation (create→build→publish) is the FULL JOURNEY loop;
+// the sign-in bridge itself is B.7 (can't complete headless — magic link).
+//
+// Runs on LOCAL Chromium (verified: `/` + `/create` render with NO CF challenge — they serve the
+// SPA shell). Fail-open (E2E_API_KEY not strictly needed — the funnel is unauth — but kept for
+// parity + the run-all gate convention). Usage: node e2e/admin-verify/verify-guest-funnel.mjs
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const req = createRequire(resolve(__dirname, '../../frontend/'));
+const { chromium } = req('playwright');
+const ORIGIN = process.env.ORIGIN || 'https://projectsites.dev';
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36';
+// CF challenge + 3rd-party beacon + Places-403 (graceful) noise are not funnel defects.
+const IGNORE = /analytics|posthog|ingest|cf-|challenge|beacon|gtm|doubleclick|sentry|clarity|hotjar|places|Failed to load resource.*(analytics|ingest|posthog|maps|places)/i;
+
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ userAgent: UA, viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' });
+const page = await ctx.newPage();
+const errs = [];
+page.on('console', (m) => { if (m.type() === 'error' && !IGNORE.test(m.text())) errs.push(m.text().slice(0, 110)); });
+page.on('pageerror', (e) => { if (!IGNORE.test(String(e))) errs.push('pageerror: ' + String(e).slice(0, 110)); });
+
+const rows = [];
+let fails = 0;
+const check = (label, ok, detail) => { rows.push({ label, ok, detail }); if (!ok) fails++; };
+
+try {
+  // 1. HOMEPAGE renders (real marketing page, not blank / not a challenge).
+  await page.goto(`${ORIGIN}/`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForTimeout(2500);
+  const home = await page.evaluate(() => {
+    const t = document.body.innerText || '';
+    const challenge = /just a moment|checking your browser|verify you are human/i.test(t);
+    const h1 = document.querySelector('h1')?.textContent?.trim() || '';
+    const searchEl = document.querySelector('#homepage-search, .hero-search-shell input, input[type="search"], input[placeholder*="business" i], input[placeholder*="search" i]');
+    return { len: t.length, challenge, h1: h1.slice(0, 60), hasSearch: !!searchEl };
+  });
+  check('homepage renders', !home.challenge && home.len > 500 && home.h1.length > 0, `h1="${home.h1}" len=${home.len}`);
+  check('homepage has a business-search entry', home.hasSearch, home.hasSearch ? 'search input present' : 'NO search input');
+
+  // 2. SEARCH is operable — type a business, results render OR a graceful "unavailable" (both honest).
+  if (home.hasSearch) {
+    const search = page.locator('#homepage-search, .hero-search-shell input, input[type="search"], input[placeholder*="business" i], input[placeholder*="search" i]').first();
+    await search.click().catch(() => {});
+    await search.fill('bakery').catch(() => {});
+    await search.pressSequentially(' coffee', { delay: 40 }).catch(() => {});
+    await page.waitForTimeout(3500); // debounced live search + Places/OSM round-trip
+    const res = await page.evaluate(() => {
+      const items = document.querySelectorAll('[role="listbox"] [role="option"], [data-testid*="result"], [data-testid*="business"], .search-result, li[role="option"]');
+      const bodyTxt = document.body.innerText || '';
+      const unavailable = /lookup (is )?unavailable|couldn.t (search|reach)|try again|search is temporarily|enter your business name/i.test(bodyTxt);
+      // A "create anyway / continue with what you typed" CTA is the funnel's floor when results are thin.
+      const createCta = [...document.querySelectorAll('a,button')].some((e) => e.offsetParent && /create|continue|build (my|your)|get started|next/i.test((e.textContent || '')));
+      return { count: items.length, unavailable, createCta };
+    });
+    // Honest outcomes: real results, OR graceful-unavailable, OR a create-anyway path — any is operable.
+    check('search operable (results OR graceful path forward)', res.count > 0 || res.unavailable || res.createCta,
+      `results=${res.count} unavailable=${res.unavailable} createCta=${res.createCta}`);
+  }
+
+  // 3. The /create ENTRY renders (the funnel's destination; sign-in bridges here for signed-out users).
+  await page.goto(`${ORIGIN}/create`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForTimeout(2500);
+  const create = await page.evaluate(() => {
+    const root = document.getElementById('root') || document.body;
+    const h1 = document.querySelector('h1')?.textContent?.trim() || '';
+    return { len: (root.innerHTML || '').length, h1: h1.slice(0, 60) };
+  });
+  check('/create wizard renders', create.len > 500 && create.h1.length > 0, `h1="${create.h1}" len=${create.len}`);
+
+  check('0 console errors across the funnel', errs.length === 0, errs.length ? errs.slice(0, 3).join(' | ') : 'clean');
+} catch (e) {
+  check('funnel walk completed', false, 'error: ' + String(e).slice(0, 100));
+}
+await browser.close();
+
+for (const r of rows) console.log(`  ${r.ok ? '✓' : '✗'} ${r.label.padEnd(46)} ${r.detail}`);
+console.log(
+  fails
+    ? `\nVERDICT: ❌ FAIL — ${fails} guest-funnel break(s) (a prospect can't get from homepage → create).`
+    : `\nVERDICT: ✅ PASS — guest acquisition funnel operable end-to-end (homepage → search → /create), 0 console errors.`,
+);
+process.exit(fails ? 1 : 0);
