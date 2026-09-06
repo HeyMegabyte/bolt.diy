@@ -83,6 +83,31 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     expect(el.querySelectorAll('[data-testid="mcp-aivars-list"] li').length).withContext('expands to all 10').toBe(10);
   });
 
+  it('brand-asset uploaders: a branded button opens a HIDDEN typed input + a format/size hint (no native "No file chosen")', () => {
+    build({ id: 's', slug: 'demo' });
+    fixture.componentInstance.setTab('general');
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const logo = el.querySelector('[data-testid="business-logo-upload"]') as HTMLInputElement;
+    const icon = el.querySelector('[data-testid="business-icon-upload"]') as HTMLInputElement;
+    // native inputs are HIDDEN (so the browser's unpolished "No file chosen" never shows)…
+    expect(logo).withContext('logo input present').not.toBeNull();
+    expect(logo.classList.contains('hidden')).withContext('logo input hidden').toBeTrue();
+    expect(icon.classList.contains('hidden')).withContext('icon input hidden').toBeTrue();
+    // …but keep their type-constraint contract (locks settings-upload-affordances.spec.ts)
+    expect(logo.getAttribute('accept')).toBe('image/*');
+    expect(icon.getAttribute('accept')).toBe('image/png,image/jpeg,image/webp');
+    // a format/size hint sets expectations BEFORE upload (matches the on-change size cap)
+    const hints = Array.from(el.querySelectorAll('.biz-file-hint')).map((h) => h.textContent || '');
+    expect(hints.some((t) => /up to 5.*MB/.test(t))).withContext('logo 5MB hint').toBeTrue();
+    expect(hints.some((t) => /up to 2.*MB/.test(t))).withContext('icon 2MB hint').toBeTrue();
+    // the branded trigger opens the hidden input (label→input association replaced by a click)
+    const btn = el.querySelector('.biz-file-btn') as HTMLButtonElement;
+    const clickSpy = spyOn(logo, 'click');
+    btn.click();
+    expect(clickSpy).withContext('button triggers the hidden file input').toHaveBeenCalled();
+  });
+
   it('emailInvalid flags a malformed contact email (empty optional = valid); saveGeneral no-ops when invalid', () => {
     build({ id: 's', slug: 'demo' });
     const c = fixture.componentInstance;

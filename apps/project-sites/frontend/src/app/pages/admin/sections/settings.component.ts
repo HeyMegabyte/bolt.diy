@@ -137,28 +137,43 @@ const PROVIDERS = MCP_PROVIDERS;
                 </div>
               </fieldset>
 
-              <!-- Group: Brand assets -->
+              <!-- Group: Brand assets. Hidden native inputs (mirrors the AI-Chat
+                   knowledge dropzone pattern) triggered by a branded button — no
+                   unpolished native "No file chosen" text; a format/size hint sets
+                   expectations BEFORE upload (the size cap is also validated on change). -->
               <fieldset class="biz-group">
                 <legend class="biz-legend">Brand assets</legend>
                 <div class="grid md:grid-cols-2 gap-4">
-                  <label class="block">
+                  <div class="block">
                     <span class="muted-h">Logo</span>
                     <div class="biz-file-wrap mt-1">
-                      <input type="file" accept="image/*" data-testid="business-logo-upload"
+                      <button type="button" class="biz-file-btn" aria-label="Choose a logo image to upload"
+                              (click)="logoInput.click()">Choose file</button>
+                      <input #logoInput type="file" accept="image/*" class="hidden" data-testid="business-logo-upload"
                              (change)="onBusinessLogo($any($event.target).files)" aria-describedby="biz-err-logo" />
-                      @if (business.logoFile) { <span class="biz-file-pill">{{ business.logoFile.name }}</span> }
+                      @if (business.logoFile) {
+                        <span class="biz-file-pill">{{ business.logoFile.name }}</span>
+                      } @else {
+                        <span class="biz-file-hint">PNG, JPG or WebP · up to 5&nbsp;MB</span>
+                      }
                     </div>
                     <p id="biz-err-logo" class="biz-err" aria-live="polite">{{ businessErrors().logo || '' }}</p>
-                  </label>
-                  <label class="block">
+                  </div>
+                  <div class="block">
                     <span class="muted-h">App icon</span>
                     <div class="biz-file-wrap mt-1">
-                      <input type="file" accept="image/png,image/jpeg,image/webp" data-testid="business-icon-upload"
+                      <button type="button" class="biz-file-btn" aria-label="Choose an app icon image to upload"
+                              (click)="iconInput.click()">Choose file</button>
+                      <input #iconInput type="file" accept="image/png,image/jpeg,image/webp" class="hidden" data-testid="business-icon-upload"
                              (change)="onBusinessIcon($any($event.target).files)" aria-describedby="biz-err-icon" />
-                      @if (business.iconFile) { <span class="biz-file-pill">{{ business.iconFile.name }}</span> }
+                      @if (business.iconFile) {
+                        <span class="biz-file-pill">{{ business.iconFile.name }}</span>
+                      } @else {
+                        <span class="biz-file-hint">Square PNG, JPG or WebP · up to 2&nbsp;MB</span>
+                      }
                     </div>
                     <p id="biz-err-icon" class="biz-err" aria-live="polite">{{ businessErrors().icon || '' }}</p>
-                  </label>
+                  </div>
                 </div>
               </fieldset>
 
@@ -782,11 +797,7 @@ const PROVIDERS = MCP_PROVIDERS;
     }
     .biz-err { font-size: 0.66rem; color: #f87171; margin: 0.3rem 0 0; min-height: 0.66rem; }
     .biz-file-wrap { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; font-size: 0.72rem; color: rgba(255,255,255,0.75); }
-    .biz-file-wrap input[type="file"] {
-      font-size: 0.7rem;
-      color: rgba(255,255,255,0.6);
-    }
-    .biz-file-wrap input[type="file"]::file-selector-button {
+    .biz-file-btn {
       padding: 0.35rem 0.75rem;
       border-radius: 6px;
       background: rgba(255,255,255,0.05);
@@ -794,11 +805,11 @@ const PROVIDERS = MCP_PROVIDERS;
       border: 1px solid rgba(255,255,255,0.1);
       font-size: 0.7rem;
       cursor: pointer;
-      margin-right: 0.6rem;
+      transition: border-color 0.15s ease;
     }
-    .biz-file-wrap input[type="file"]::file-selector-button:hover {
-      border-color: rgba(0,229,255,0.35);
-    }
+    .biz-file-btn:hover { border-color: rgba(0,229,255,0.35); }
+    .biz-file-btn:focus-visible { outline: 2px solid rgba(0,229,255,0.6); outline-offset: 2px; }
+    .biz-file-hint { font-size: 0.66rem; color: rgba(255,255,255,0.6); }
     .biz-file-pill {
       padding: 0.18rem 0.55rem;
       border-radius: 999px;
