@@ -422,12 +422,12 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
                 <div class="skel skel-line w-full h-4"></div>
               }
             </div>
-          } @else if ((envelope()?.top_pages?.length ?? 0) === 0) {
+          } @else if (displayTopPages().length === 0) {
             <app-mini-empty text="No visits recorded yet.">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
             </app-mini-empty>
           } @else {
-            @for (r of envelope()!.top_pages; track r.path) {
+            @for (r of displayTopPages(); track r.path) {
               <div class="bar-row">
                 <div class="flex justify-between mb-1 gap-2">
                   <span class="font-mono text-[0.72rem] truncate text-white" [attr.title]="r.path">{{ r.path }}</span>
@@ -1340,7 +1340,27 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
     return b == null ? 'Bounce rate unavailable — no per-session data' : `${b} percent estimated bounce rate`;
   });
 
-  maxPage = computed(() => Math.max(1, ...(this.envelope()?.top_pages ?? []).map((p) => p.views)));
+  /**
+   * The edge counts EVERY HTTP request, so the raw `top_pages` includes PWA/SEO/static
+   * infra (`/site.webmanifest`, `/offline.html`, favicons, `/robots.txt`, `*.js/.css`, …)
+   * — not pages a visitor "viewed". Filter those from the DISPLAY so "Top pages" shows
+   * real pages (the CSV export keeps the full raw list). Frontend-only — the worker/edge
+   * data is untouched. Real pages on generated sites are extensionless routes (`/`,
+   * `/contact`), so an extension/infra denylist never hides a genuine page. (CLS-neutral:
+   * confirmed the analytics CLS variance is the chart's late-load, not this filter.)
+   */
+  private isRealPage(path: string): boolean {
+    if (!path) return false;
+    const p = path.split('?')[0].toLowerCase();
+    if (p.startsWith('/.well-known/') || p.startsWith('/assets/')) return false;
+    if (/^\/(offline\.html|sw\.js|ngsw-worker\.js|ngsw\.json|robots\.txt|sitemap[\w-]*\.xml|manifest[\w.-]*|browserconfig\.xml|humans\.txt|security\.txt|favicon[\w.-]*)$/.test(p))
+      return false;
+    return !/\.(webmanifest|xml|txt|ico|js|css|map|png|jpe?g|gif|svg|webp|avif|woff2?|ttf|json)$/.test(p);
+  }
+  /** Top pages with static-asset / infra paths filtered out — what the "Top pages" list renders. */
+  readonly displayTopPages = computed(() => (this.envelope()?.top_pages ?? []).filter((r) => this.isRealPage(r.path)));
+
+  maxPage = computed(() => Math.max(1, ...this.displayTopPages().map((p) => p.views)));
   maxReferrer = computed(() => Math.max(1, ...(this.envelope()?.top_referrers ?? []).map((r) => r.views)));
   peakDayVisits = computed(() => Math.max(0, ...(this.envelope()?.series ?? []).map((d) => d.page_views)));
 

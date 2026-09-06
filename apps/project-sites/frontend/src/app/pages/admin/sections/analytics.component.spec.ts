@@ -644,4 +644,26 @@ describe('AdminAnalyticsComponent (Top referrers — accurate channel labels)', 
     expect(c.referrerTag('direct')).toBe('');
     expect(c.referrerTag('organic')).toBe('');
   });
+
+  // Truthfulness: the edge counts EVERY HTTP request, so raw top_pages includes PWA /
+  // static infra (/site.webmanifest, /offline.html, favicons, robots.txt, *.js). "Top
+  // PAGES" must show pages a visitor viewed — displayTopPages() filters the infra out
+  // (real pages on generated SPAs are extensionless routes, so none are hidden).
+  it('displayTopPages filters PWA/static-asset paths from the Top-pages list (real pages only)', () => {
+    c.envelope.set({
+      top_pages: [
+        { path: '/', views: 212 },
+        { path: '/site.webmanifest', views: 3 },
+        { path: '/offline.html', views: 2 },
+        { path: '/contact', views: 2 },
+        { path: '/robots.txt', views: 1 },
+        { path: '/assets/main-ABC.js', views: 5 },
+        { path: '/favicon.ico', views: 4 },
+        { path: '/blog/launch', views: 6 },
+      ],
+    } as never);
+    expect(c.displayTopPages().map((r: { path: string }) => r.path))
+      .withContext('real extensionless pages kept; PWA/static infra dropped')
+      .toEqual(['/', '/contact', '/blog/launch']);
+  });
 });
