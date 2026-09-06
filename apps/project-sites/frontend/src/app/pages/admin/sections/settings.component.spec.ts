@@ -41,7 +41,7 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
         { provide: ToastService, useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success'), info: jasmine.createSpy('info'), warning: jasmine.createSpy('warning') } },
         { provide: ConfirmService, useValue: { confirm: jasmine.createSpy('confirm').and.resolveTo(false) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
-        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: null, url: [] } } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, fragment: of(null), snapshot: { fragment: null, url: [] } } },
         { provide: AdminStateService, useValue: { selectedSite, loadData: () => undefined } },
       ],
     });
@@ -216,7 +216,7 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
         { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
-        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: 'webhooks', url: [] } } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, fragment: of('webhooks'), snapshot: { fragment: 'webhooks', url: [] } } },
         { provide: AdminStateService, useValue: { selectedSite, loadData: () => undefined } },
       ],
     });
@@ -244,7 +244,7 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
         { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
-        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: 'domains', url: [], queryParamMap: { get: () => null } } } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, fragment: of('domains'), snapshot: { fragment: 'domains', url: [], queryParamMap: { get: () => null } } } },
         { provide: AdminStateService, useValue: { selectedSite, loadData: () => undefined } },
       ],
     });
@@ -274,7 +274,7 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
         { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
-        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: 'api-tokens', url: [], queryParamMap: { get: () => null } } } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, fragment: of('api-tokens'), snapshot: { fragment: 'api-tokens', url: [], queryParamMap: { get: () => null } } } },
         // orgId() is read by AdminApiTokensComponent.loadTokens (constructor effect).
         { provide: AdminStateService, useValue: { selectedSite, loadData: () => undefined, orgId: () => 'org-1' } },
       ],
@@ -302,7 +302,7 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
         { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
-        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: 'email', url: [] } } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, fragment: of('email'), snapshot: { fragment: 'email', url: [] } } },
         { provide: AdminStateService, useValue: { selectedSite, loadData: () => undefined } },
       ],
     });
@@ -392,6 +392,34 @@ describe('AdminSettingsComponent (cyan/black cohesion + a11y)', () => {
     expect(fixture.componentInstance.tab()).toBe('mcp');
   });
 
+  // AL-044: the in-app cross-tab links (`routerLink="." [fragment]="'mcp'"` / `'env-vars'`)
+  // change the URL fragment WITHOUT re-running ngOnInit, so the snapshot-only read left them
+  // dead — confirmed in a real browser (URL → #env-vars, tab stayed on MCP). ngOnInit now
+  // subscribes to route.fragment; a fragment-only nav switches the tab. Unknown fragments
+  // are ignored (guarded by TABS membership).
+  it('switches the tab on a fragment-only navigation AFTER init (fixes the dead cross-tab links)', () => {
+    const frag = new Subject<string | null>();
+    selectedSite = signal({ id: 's', slug: 'demo' });
+    TestBed.configureTestingModule({
+      imports: [AdminSettingsComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: null }), put: () => of({}), post: () => of({}), delete: () => of({}) } },
+        { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
+        { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, fragment: frag.asObservable(), snapshot: { fragment: null, url: [] } } },
+        { provide: AdminStateService, useValue: { selectedSite, loadData: () => undefined, orgId: () => 'org-1' } },
+      ],
+    });
+    fixture = TestBed.createComponent(AdminSettingsComponent);
+    fixture.detectChanges(); // ngOnInit subscribes; starts on 'general'
+    expect(fixture.componentInstance.tab()).toBe('general');
+    frag.next('env-vars'); // the in-app [fragment=env-vars] link → fragment-only nav
+    expect(fixture.componentInstance.tab()).withContext('dead cross-tab link now switches the tab').toBe('env-vars');
+    frag.next('not-a-real-tab'); // an unknown fragment must be ignored, not blank the panel
+    expect(fixture.componentInstance.tab()).withContext('unknown fragment ignored').toBe('env-vars');
+  });
+
 });
 
 /**
@@ -413,7 +441,7 @@ describe('AdminSettingsComponent (invite email validation)', () => {
         { provide: ToastService, useValue: { error, success: () => 0, info: () => 0, warning: () => 0 } },
         { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
         { provide: Router, useValue: { navigate: () => undefined } },
-        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: null, url: [] } } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, fragment: of(null), snapshot: { fragment: null, url: [] } } },
         { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 's' }), loadData: () => undefined } },
       ],
     });
@@ -470,7 +498,7 @@ describe('AdminSettingsComponent (invite control accessible names)', () => {
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
         { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
         { provide: Router, useValue: { navigate: () => undefined } },
-        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: null, url: [] } } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, fragment: of(null), snapshot: { fragment: null, url: [] } } },
         { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 's' }), loadData: () => undefined } },
       ],
     });
@@ -516,7 +544,7 @@ describe('AdminSettingsComponent (paste-key connect is double-submit-safe)', () 
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
         { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
         { provide: Router, useValue: { navigate: () => undefined } },
-        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: null, url: [] } } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, fragment: of(null), snapshot: { fragment: null, url: [] } } },
         { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'demo' }), loadData: () => undefined } },
       ],
     });
@@ -566,7 +594,7 @@ describe('AdminSettingsComponent (2FA toggle async-save is announced to AT)', ()
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
         { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
         { provide: Router, useValue: { navigate: () => undefined } },
-        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: null, url: [] } } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, fragment: of(null), snapshot: { fragment: null, url: [] } } },
         { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 's' }), loadData: () => undefined } },
       ],
     });
@@ -623,7 +651,7 @@ describe('AdminSettingsComponent (MCP paste-key input accessible name)', () => {
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
         { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
         { provide: Router, useValue: { navigate: () => undefined } },
-        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: null, url: [] } } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, fragment: of(null), snapshot: { fragment: null, url: [] } } },
         { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'demo' }), loadData: () => undefined } },
       ],
     });
@@ -667,7 +695,7 @@ describe('AdminSettingsComponent (disconnect in-flight guard)', () => {
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: () => 0, warning: () => 0 } },
         { provide: ConfirmService2, useValue: { confirm: () => Promise.resolve(false) } },
         { provide: Router2, useValue: { navigate: () => 0 } },
-        { provide: ActivatedRoute2, useValue: { firstChild: null, snapshot: { fragment: null, url: [] } } },
+        { provide: ActivatedRoute2, useValue: { firstChild: null, fragment: of(null), snapshot: { fragment: null, url: [] } } },
         { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1', slug: 'a' }), loadData: () => undefined } },
       ],
     });
@@ -699,7 +727,7 @@ describe('AdminSettingsComponent — MCP connectOauth (bearer fetch, MailChimp a
         { provide: ToastService, useValue: { error: () => 0, success: () => 0, info: jasmine.createSpy('info'), warning: () => 0 } },
         { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(false) } },
         { provide: Router, useValue: { navigate: () => 0 } },
-        { provide: ActivatedRoute, useValue: { firstChild: null, snapshot: { fragment: null, url: [] } } },
+        { provide: ActivatedRoute, useValue: { firstChild: null, fragment: of(null), snapshot: { fragment: null, url: [] } } },
         { provide: AdminStateService, useValue: { selectedSite, loadData: () => undefined } },
       ],
     });

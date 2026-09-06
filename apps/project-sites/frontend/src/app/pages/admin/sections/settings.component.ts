@@ -1123,6 +1123,15 @@ export class AdminSettingsComponent implements OnInit {
     const child = this.route.firstChild;
     const initial = (child?.snapshot.url[0]?.path ?? this.route.snapshot.fragment ?? 'general') as Tab;
     if (TABS.some((t) => t.id === initial)) this.tab.set(initial);
+    // React to fragment-only navigations AFTER init, not just the initial snapshot. The
+    // in-app cross-tab links (`routerLink="." [fragment]="'mcp'"` / `'env-vars'`, lines
+    // ~374/403/424) change the URL fragment WITHOUT re-running ngOnInit, so a snapshot-only
+    // read left them dead — the URL switched to #env-vars but the tab stayed put (confirmed
+    // in a real browser, AL-044). This subscription switches the tab on any valid fragment
+    // change; setTab's own fragment navigation re-emits harmlessly (guarded by tab()!==frag).
+    this.route.fragment.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((frag) => {
+      if (frag && this.tab() !== frag && TABS.some((t) => t.id === frag)) this.tab.set(frag as Tab);
+    });
     this.loadGeneral();
     this.loadTeam();
     this.loadConnections();
