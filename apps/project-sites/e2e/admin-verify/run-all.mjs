@@ -37,6 +37,7 @@ const PROBES = [
   { label: 'reconcile', file: 'reconcile-surfaces.mjs', env: {} },
   { label: 'reconcile-counts', file: 'reconcile-counts.mjs', env: {} },
   { label: 'billing-entitlements', file: 'verify-billing-entitlements-display.mjs', env: {} },
+  { label: 'notif-badge', file: 'verify-notification-badge-honest.mjs', env: {} },
   { label: 'focus-obscured', file: 'focus-not-obscured.mjs', env: {} },
   { label: 'target-size', file: 'target-size-scan.mjs', env: {} },
   { label: 'modal-a11y', file: 'modal-a11y-scan.mjs', env: {} },
