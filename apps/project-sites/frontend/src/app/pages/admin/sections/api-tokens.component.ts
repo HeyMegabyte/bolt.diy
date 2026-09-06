@@ -220,8 +220,13 @@ const ALL_SCOPES = [
           <div class="at-qs-header">
             <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></svg>
             Quick start
+            <button type="button" class="at-qs-copy" data-testid="at-qs-copy" (click)="copyCurlSnippet(qsCode.textContent || '')" aria-label="Copy the quick-start request to the clipboard">Copy</button>
           </div>
-          <pre class="at-code"><code>curl https://projectsites.dev/v1/sites \
+          <!-- tabindex=0: the snippet scrolls horizontally on narrow viewports (.at-code
+               overflow-x:auto) so WCAG 2.1.1 / axe scrollable-region-focusable requires a
+               scrollable region be keyboard-reachable. No aria-label on the pre element — it
+               would suppress the code content for a screen reader (the code IS the name). -->
+          <pre #qsCode class="at-code" tabindex="0"><code>curl https://projectsites.dev/v1/sites \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json"</code></pre>
           <div class="at-qs-footer">
@@ -364,6 +369,10 @@ const ALL_SCOPES = [
     .at-qs-footer { padding: 10px 14px; border-top: 1px solid rgba(0,229,255,0.08); background: rgba(0,229,255,0.02); }
     .at-link { font-size: 12px; color: var(--ps-accent); text-decoration: none; }
     .at-link:hover { text-decoration: underline; }
+    /* Copy button lives at the right of the uppercase "Quick start" header (margin-left:auto).
+       min-height 26px keeps it ≥ the WCAG 2.5.8 24px target-size floor (target-size-scan gate). */
+    .at-qs-copy { margin-left: auto; display: inline-flex; align-items: center; min-height: 26px; padding: 4px 12px; border: 1px solid var(--ps-accent-line, rgba(0,229,255,0.22)); border-radius: 6px; background: rgba(0,229,255,0.06); color: var(--ps-accent); font-size: 11px; font-weight: 600; letter-spacing: 0.4px; cursor: pointer; transition: background 160ms ease, border-color 160ms ease; }
+    .at-qs-copy:hover { background: rgba(0,229,255,0.12); border-color: var(--ps-accent); }
 
     /* Dialog body / fields (chrome handled by app-dialog-shell). */
     .at-dialog-body { display: flex; flex-direction: column; gap: 18px; }
@@ -637,6 +646,21 @@ export class AdminApiTokensComponent {
       setTimeout(() => this.copied.set(false), 2500);
     } catch {
       this.toast.show('Copy failed — select the token text manually', 'warning');
+    }
+  }
+
+  /**
+   * Copy the quick-start curl example to the clipboard (dev value-add — this is the
+   * developer API-token section). Reads the rendered `<pre>` textContent so there's a
+   * single source of truth (the displayed snippet), never a drifting duplicate string.
+   */
+  async copyCurlSnippet(text: string): Promise<void> {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      this.toast.show('Copied the quick-start request', 'success');
+    } catch {
+      this.toast.show('Copy failed — select the text manually', 'warning');
     }
   }
 

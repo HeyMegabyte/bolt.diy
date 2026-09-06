@@ -49,35 +49,47 @@ function* walk(dir) {
 }
 
 /**
- * Find every block comment containing a backtick inside the `@Component(...)`
- * decorator region (template + styles literals).
+ * Find every comment containing a backtick inside the `@Component(...)` decorator:
+ *   • CSS `/* … *​/` in the `styles: [ … ]` literal, and
+ *   • HTML `<!-- … -->` in the `template: \` … \`` literal.
+ * Either closes its enclosing template literal early (tsc tolerates, ng build does not).
  */
 function findViolations(source) {
   const violations = [];
   const compIdx = source.indexOf('@Component(');
   if (compIdx === -1) return violations;
 
-  // Locate the inline `styles: [` literal within the decorator. No inline
-  // styles → nothing to check (styleUrls / template-only components are safe).
-  const stylesMatch = /styles\s*:\s*\[/.exec(source.slice(compIdx));
-  if (!stylesMatch) return violations;
-  const stylesIdx = compIdx + stylesMatch.index;
+  // Decorator region ends at the class declaration (all decorator literals live before it).
+  const classMatch = /\n\s*(?:export\s+)?(?:abstract\s+)?class\s/.exec(source.slice(compIdx));
+  const decoratorEnd = classMatch ? compIdx + classMatch.index : source.length;
 
-  // The styles literal runs until the class declaration (it is the last decorator
-  // property by convention; `})` + `class …` follow it).
-  const classMatch = /\n\s*(?:export\s+)?(?:abstract\s+)?class\s/.exec(source.slice(stylesIdx));
-  const stylesEnd = classMatch ? stylesIdx + classMatch.index : source.length;
-  const region = source.slice(stylesIdx, stylesEnd);
-
-  const commentRx = /\/\*[\s\S]*?\*\//g;
-  let m;
-  while ((m = commentRx.exec(region)) !== null) {
-    if (!m[0].includes('`')) continue;
-    const absIdx = stylesIdx + m.index;
+  const record = (absIdx) => {
     const line = source.slice(0, absIdx).split('\n').length;
     const snippet = (source.split('\n')[line - 1] ?? '').trim();
     violations.push({ line, snippet: snippet.length > 110 ? snippet.slice(0, 107) + '...' : snippet });
+  };
+
+  // 1. CSS block comments — SCOPED to the `styles: [` literal. `/*` collides with template
+  //    attribute data (accept="image/*", route:/api/sites/*), so scanning it only inside
+  //    styles avoids false positives (validator-precision).
+  const stylesMatch = /styles\s*:\s*\[/.exec(source.slice(compIdx));
+  if (stylesMatch) {
+    const stylesIdx = compIdx + stylesMatch.index;
+    const region = source.slice(stylesIdx, decoratorEnd);
+    const rx = /\/\*[\s\S]*?\*\//g;
+    let m;
+    while ((m = rx.exec(region)) !== null) if (m[0].includes('`')) record(stylesIdx + m.index);
   }
+
+  // 2. HTML comments — scanned across the whole decorator. `<!-- … -->` delimiters are
+  //    unambiguous (they never appear as template attribute data), so this is false-positive
+  //    safe. Catches the backtick-in-template-comment break (api-tokens quick-start, AL-084)
+  //    that the styles-only scan missed.
+  const htmlRx = /<!--[\s\S]*?-->/g;
+  const decoratorRegion = source.slice(compIdx, decoratorEnd);
+  let h;
+  while ((h = htmlRx.exec(decoratorRegion)) !== null) if (h[0].includes('`')) record(compIdx + h.index);
+
   return violations;
 }
 
@@ -89,7 +101,7 @@ function main() {
     failures += violations.length;
     const rel = relative(ROOT, file);
     for (const v of violations) {
-      process.stderr.write(`${rel}:${v.line}  backtick inside a decorator block comment — it closes the template/styles literal — ${v.snippet}\n`);
+      process.stderr.write(`${rel}:${v.line}  backtick inside a decorator comment (CSS /* */ or HTML <!-- -->) — it closes the template/styles literal — ${v.snippet}\n`);
     }
   }
   if (failures > 0) {

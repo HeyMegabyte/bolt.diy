@@ -244,6 +244,37 @@ describe('AdminApiTokensComponent (no premature active-tokens count while loadin
     fx.detectChanges();
     expect(statLabel(fx)).withContext('2 tokens → "active tokens"').toBe('active tokens');
   });
+
+  // The quick-start <pre> scrolls horizontally on narrow viewports (overflow-x:auto). axe
+  // scrollable-region-focusable (serious, @390) fires unless it's keyboard-reachable.
+  const withTokens = (): ComponentFixture<AdminApiTokensComponent> => {
+    const fx = render();
+    fx.detectChanges(); // settle auto-load first (detectChanges-first, else it clobbers)
+    fx.componentInstance.loading.set(false);
+    fx.componentInstance.tokens.set([{ id: 'a', name: 'CI' } as never]); // QUICK START renders only with ≥1 token
+    fx.detectChanges();
+    return fx;
+  };
+
+  it('the quick-start <pre> is keyboard-focusable (tabindex=0) — WCAG 2.1.1 scrollable-region-focusable', () => {
+    const pre = (withTokens().nativeElement as HTMLElement).querySelector('pre.at-code');
+    expect(pre).withContext('quick-start snippet renders with a token').not.toBeNull();
+    expect(pre?.getAttribute('tabindex')).withContext('scrollable region must be keyboard-reachable').toBe('0');
+  });
+
+  it('the quick-start Copy button copies the rendered curl snippet to the clipboard', async () => {
+    const fx = withTokens();
+    const btn = (fx.nativeElement as HTMLElement).querySelector('[data-testid="at-qs-copy"]') as HTMLButtonElement | null;
+    expect(btn).withContext('Copy button present in the quick-start header').not.toBeNull();
+    const writeText = jasmine.createSpy('writeText').and.resolveTo(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    btn!.click();
+    await Promise.resolve();
+    expect(writeText).withContext('copies on click').toHaveBeenCalled();
+    expect(writeText.calls.mostRecent().args[0] as string)
+      .withContext('copied text is the actual rendered curl example (SSOT — no drifting duplicate)')
+      .toContain('curl https://projectsites.dev/v1/sites');
+  });
 });
 
 /**
