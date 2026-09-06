@@ -100,12 +100,24 @@ for (const s of SECTIONS) {
       const boundary = /something went wrong|section (failed|crashed|error)|reset this section|an error occurred/i.test(txt);
       // Admin not-found shell — a >min-chars, axe-clean, console-clean page that is NOT a real section.
       const soft404 = /this admin page does(?:n['’]t| not) exist/i.test(txt);
+      // Horizontal-overflow (mobile) — scrollWidth > clientWidth means content spills past
+      // the viewport (sideways scroll = a real mobile defect axe/console are blind to).
+      // Capture the widest offending element in <main> as a debugging hint.
+      const d = document.documentElement;
+      const clientW = d.clientWidth;
+      let worst = '', worstW = clientW;
+      document.querySelectorAll('main *').forEach((el) => {
+        if (el.scrollWidth > worstW + 4) { worstW = el.scrollWidth; worst = (el.tagName + '.' + (el.className || '').toString().trim().split(/\s+/).slice(0, 2).join('.')).slice(0, 44); }
+      });
       return {
         url: location.pathname + (location.hash || ''),
         len: (root?.innerHTML || '').length,
         textLen: txt.trim().length,
         boundary,
         soft404,
+        scrollW: d.scrollWidth,
+        clientW,
+        worstOverflow: worst,
       };
     });
     // axe at the current viewport. WCAG critical/serious drives the pass/fail gate
@@ -133,15 +145,24 @@ for (const s of SECTIONS) {
     } catch { /* axe injection can fail on a redirected shell — treat as no data */ }
     bpTotal += axeBp.length;
     const blank = info.textLen < 40;
+    // Horizontal-overflow GATE — mobile only (VW ≤ 480). >8px spill past the viewport =
+    // sideways scroll, a real mobile defect the axe/console/boundary checks are all blind
+    // to. Desktop is exempt (wide data tables legitimately scroll a container there). The
+    // 8px tolerance absorbs sub-pixel rounding. Verified 0 across all sections @390 (AL-042)
+    // → ships green + guards the class the per-fire probe previously missed (CI's
+    // responsive-*.spec.ts caught it, but never this per-fire gate).
+    const hOverflow = VW <= 480 ? Math.max(0, info.scrollW - info.clientW) : 0;
+    const overflowing = hOverflow > 8;
     // best-practice (region/heading-order/landmark) now GATES too — stable at 0 across
     // 2 runs (desktop + mobile), so a regression should fail the audit, not just log.
-    const bad = errors.length > 0 || info.boundary || info.soft404 || blank || axeSerious.length > 0 || axeBp.length > 0;
+    const bad = errors.length > 0 || info.boundary || info.soft404 || blank || axeSerious.length > 0 || axeBp.length > 0 || overflowing;
     if (bad) problems++;
     const flags = [
       errors.length ? `${errors.length} console-err` : null,
       info.boundary ? 'ERROR-BOUNDARY' : null,
       info.soft404 ? 'SOFT-404 (admin not-found shell)' : null,
       blank ? 'BLANK' : null,
+      overflowing ? `H-OVERFLOW ${hOverflow}px${info.worstOverflow ? ' (' + info.worstOverflow + ')' : ''}` : null,
       axeSerious.length ? `${axeSerious.length} axe` : null,
       axeBp.length ? `${axeBp.length} best-practice(${axeBp.map((v) => v.id).join('/')})` : null,
     ].filter(Boolean).join(', ');
