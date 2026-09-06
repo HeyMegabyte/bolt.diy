@@ -44,8 +44,12 @@ for (const slug of SITES) {
   const desc = (/<meta[^>]+name=["']description["'][^>]*content=["']([^"']*)["']/i.exec(html) || /<meta[^>]+content=["']([^"']*)["'][^>]*name=["']description["']/i.exec(html) || [])[1] || '';
   flag(desc.length >= 120 && desc.length <= 156, 'meta.description_length', `desc ${desc.length} chars — want 120-156`);
 
-  // JSON-LD ≥4 blocks.
-  const jsonld = (html.match(/<script[^>]+type=["']application\/ld\+json["']/gi) || []).length;
+  // JSON-LD ≥4 blocks. Count the marker directly (robust to attribute order,
+  // single-vs-double quotes, and minified shells — the `<script...type=` form
+  // under-counted, reporting 0 when a block was present). A curl shell can't see
+  // purely client-injected JSON-LD, but a low shell count is a real SEO/GEO gap
+  // regardless (crawlers read the shell), so the marker count is the right signal.
+  const jsonld = (html.match(/application\/ld\+json/gi) || []).length;
   flag(jsonld >= 4, 'jsonld.count_below_threshold', `${jsonld} blocks — want ≥4 (WebSite+Organization+WebPage+BreadcrumbList)`);
 
   // Exactly 1 H1 in the shell.
