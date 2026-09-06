@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { isValidEmail } from '../../../utils/validators/email';
 import {
   OrgApiService,
@@ -23,7 +24,7 @@ import {
 @Component({
   selector: 'app-admin-team',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
   template: `
     <section class="bg-dark text-white px-6 py-8 max-md:px-4" data-testid="team-page">
       <header class="mb-6 max-w-3xl">
@@ -62,7 +63,7 @@ import {
         @if (seatsFull()) {
           <span class="text-amber-300/90" data-testid="team-seats-full">
             · Seat limit reached —
-            <a href="/admin/billing" class="underline hover:text-amber-200">upgrade your plan</a>
+            <a routerLink="/admin/billing" class="underline hover:text-amber-200">upgrade your plan</a>
             to invite more.
           </span>
         }

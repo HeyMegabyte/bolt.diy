@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { signal } from '@angular/core';
 import { SiteDoctorComponent } from './site-doctor.component';
@@ -24,6 +25,7 @@ function make(opts: { get?: jasmine.Spy; site?: unknown } = {}) {
   TestBed.configureTestingModule({
     imports: [SiteDoctorComponent],
     providers: [
+      provideRouter([]),
       { provide: ApiService, useValue: { get } },
       { provide: AdminStateService, useValue: { selectedSite } },
     ],

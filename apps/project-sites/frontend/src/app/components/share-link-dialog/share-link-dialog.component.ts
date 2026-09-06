@@ -19,6 +19,7 @@
 
 import { Component, computed, inject, input, output, signal, type OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { ToastService } from '../../services/toast.service';
@@ -48,7 +49,7 @@ const PW_NOUNS = ['otter', 'falcon', 'cedar', 'harbor', 'comet', 'meadow', 'lant
 @Component({
   selector: 'app-share-link-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, DialogShellComponent, HlmButtonDirective, HlmInputDirective],
+  imports: [CommonModule, FormsModule, RouterLink, DialogShellComponent, HlmButtonDirective, HlmInputDirective],
   template: `
     <app-dialog-shell (closed)="close()">
       <svg dialogIcon width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -60,7 +61,7 @@ const PW_NOUNS = ['otter', 'falcon', 'cedar', 'harbor', 'comet', 'meadow', 'lant
         @if (flagDisabled()) {
           <div data-testid="share-link-flag-gate" class="rounded-xl border border-primary/30 bg-primary/[0.06] p-4 text-sm text-text-secondary">
             Sharing isn't enabled yet. Turn on <strong class="text-light">approval_workflow</strong> in
-            <a class="text-primary underline" href="/admin/feature-flags">Feature Flags</a> to create share links.
+            <a class="text-primary underline" routerLink="/admin/feature-flags" (click)="close()">Feature Flags</a> to create share links.
           </div>
         } @else if (created(); as c) {
           <!-- Result view: link is already on the clipboard. -->

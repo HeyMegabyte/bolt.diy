@@ -1,4 +1,5 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { ShareLinkDialogComponent } from './share-link-dialog.component';
 import { ApiService } from '../../services/api.service';
@@ -23,6 +24,7 @@ describe('ShareLinkDialogComponent', () => {
     TestBed.configureTestingModule({
       imports: [ShareLinkDialogComponent],
       providers: [
+        provideRouter([]),
         { provide: ApiService, useValue: { get, post } },
         { provide: ToastService, useValue: { success: () => 0, error: () => 0 } },
       ],

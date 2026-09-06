@@ -1,4 +1,5 @@
 import { Component, signal, computed, inject, effect, DestroyRef } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiService } from '../../../services/api.service';
 import { AdminStateService } from '../admin-state.service';
@@ -27,6 +28,7 @@ interface DoctorReport {
 @Component({
   selector: 'app-site-doctor',
   standalone: true,
+  imports: [RouterLink],
   template: `
     <section class="px-6 pb-6 max-md:px-4" data-testid="site-doctor">
       <h2 class="text-[1.05rem] font-bold text-white tracking-tight m-0">Site health</h2>
@@ -67,7 +69,7 @@ interface DoctorReport {
               </div>
               @if (i.locked) {
                 <a class="mt-1.5 inline-block text-[0.78rem] text-primary underline"
-                   href="/admin/billing?upsell=site_doctor" data-testid="site-doctor-upsell">
+                   routerLink="/admin/billing" [queryParams]="{ upsell: 'site_doctor' }" data-testid="site-doctor-upsell">
                   🔒 Unlock this fix with Pro →
                 </a>
               } @else {

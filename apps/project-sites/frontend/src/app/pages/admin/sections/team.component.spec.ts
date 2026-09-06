@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, RouterLink } from '@angular/router';
+import { By } from '@angular/platform-browser';
 import { TeamComponent } from './team.component';
 import {
   OrgApiService,
@@ -99,6 +100,13 @@ describe('TeamComponent (org members + invites — idea #24)', () => {
     fixture.detectChanges();
     const submit = el.querySelector('[data-testid="team-invite-submit"]') as HTMLButtonElement;
     expect(submit.disabled).toBeTrue();
+
+    // The "upgrade your plan" link is a routerLink (SPA nav) — NOT a raw href that
+    // full-reloads the admin (destroying the bolt iframe + polling state).
+    const upgradeLink = fixture.debugElement
+      .queryAll(By.directive(RouterLink))
+      .find((d) => /upgrade/i.test((d.nativeElement as HTMLElement).textContent ?? ''));
+    expect(upgradeLink).withContext('seat-limit "upgrade your plan" must use routerLink, not href').toBeTruthy();
   });
 
   it('treats a seat limit of -1 as unlimited (never full)', async () => {
