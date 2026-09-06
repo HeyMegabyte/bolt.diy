@@ -38,14 +38,8 @@ if (!KEY || !CF_KEY) {
   process.exit(0);
 }
 
-/** Read every store count in ONE remote D1 query (org is a trusted constant — safe to inline). */
-function groundTruth() {
-  const sql = `SELECT
-    (SELECT COUNT(*) FROM sites WHERE org_id='${ORG}' AND deleted_at IS NULL) AS sites,
-    (SELECT COUNT(*) FROM media_assets WHERE org_id='${ORG}' AND deleted_at IS NULL) AS media,
-    (SELECT COUNT(*) FROM ai_env_vars WHERE org_id='${ORG}' AND deleted_at IS NULL) AS env_vars,
-    (SELECT COUNT(*) FROM api_tokens WHERE org_id='${ORG}' AND revoked_at IS NULL AND deleted_at IS NULL) AS api_tokens,
-    (SELECT COUNT(*) FROM audit_logs WHERE org_id='${ORG}') AS audit_logs;`;
+/** Run ONE remote D1 query and return its first result row (org is a trusted constant — safe to inline). */
+function d1(sql) {
   const r = spawnSync(
     'npx',
     ['wrangler', 'd1', 'execute', DB, '--remote', '--env', 'production', '--json', '--command', sql],
@@ -64,6 +58,14 @@ function groundTruth() {
   }
 }
 
+/** Every org-scoped store count in one query. */
+const COUNT_SQL = `SELECT
+  (SELECT COUNT(*) FROM sites WHERE org_id='${ORG}' AND deleted_at IS NULL) AS sites,
+  (SELECT COUNT(*) FROM media_assets WHERE org_id='${ORG}' AND deleted_at IS NULL) AS media,
+  (SELECT COUNT(*) FROM ai_env_vars WHERE org_id='${ORG}' AND deleted_at IS NULL) AS env_vars,
+  (SELECT COUNT(*) FROM api_tokens WHERE org_id='${ORG}' AND revoked_at IS NULL AND deleted_at IS NULL) AS api_tokens,
+  (SELECT COUNT(*) FROM audit_logs WHERE org_id='${ORG}') AS audit_logs;`;
+
 /** Fetch a display count from the authed admin API (workers.dev bypasses Bot-Fight). */
 async function display(path, pick) {
   const res = await fetch(`${API}${path}`, { headers: { authorization: `Bearer ${KEY}`, 'user-agent': UA } });
@@ -73,7 +75,7 @@ async function display(path, pick) {
   return { n: pick(j) };
 }
 
-const store = groundTruth();
+const store = d1(COUNT_SQL);
 if (!store) {
   console.log('::notice:: reconcile-counts skipped — could not read D1 ground truth (wrangler auth?)');
   process.exit(0);
@@ -95,6 +97,34 @@ for (const s of SURFACES) {
   const displayN = d.err ? d.err : Number(d.n);
   const ok = !d.err && Number.isFinite(displayN) && displayN === storeN;
   rows.push({ key: s.key, store: storeN, display: displayN, ok });
+}
+
+// Analytics — the incident class (verify-against-source-of-truth: "109 pageviews shown
+// as 0"). Reconcile a real published site's DISPLAYED pageview total vs the visitor_events
+// store. A windowed display (windowDays) legitimately differs from all-time, so PASS when
+// display matches EITHER the windowed or the all-time store count; FAIL only when it
+// diverges from both (the true lying-empty / wrong-source signal).
+const top = d1(
+  `SELECT v.site_id AS id, COUNT(*) AS all_time FROM visitor_events v JOIN sites s ON s.id=v.site_id
+   WHERE s.org_id='${ORG}' AND s.deleted_at IS NULL AND v.event_type='pageview'
+   GROUP BY v.site_id ORDER BY COUNT(*) DESC LIMIT 1;`,
+);
+if (top?.id) {
+  const res = await fetch(`${API}/api/sites/${top.id}/analytics`, { headers: { authorization: `Bearer ${KEY}`, 'user-agent': UA } });
+  const j = res.ok ? await res.json().catch(() => null) : null;
+  const env = j?.data ?? j;
+  const displayPv = Number(env?.traffic?.pageviews);
+  const win = Number(env?.windowDays) || 30;
+  const allTime = Number(top.all_time);
+  const wq = d1(`SELECT COUNT(*) AS pv FROM visitor_events WHERE site_id='${top.id}' AND event_type='pageview' AND created_at >= datetime('now','-${win} days');`);
+  const windowed = Number(wq?.pv);
+  const ok = Number.isFinite(displayPv) && (displayPv === windowed || displayPv === allTime);
+  rows.push({
+    key: 'analytics_pv',
+    store: `${windowed}(${win}d)/${allTime}(all)`,
+    display: res.ok ? (Number.isFinite(displayPv) ? displayPv : 'no-field') : `HTTP ${res.status}`,
+    ok,
+  });
 }
 
 const fails = rows.filter((r) => !r.ok);
