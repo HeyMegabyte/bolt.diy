@@ -44,6 +44,21 @@ const HATCHET_EVENT_TYPES: ReadonlySet<EventType> = new Set<EventType>([
 ]);
 
 /**
+ * Targets whose failure MUST retry the outbox row. Tinybird is the analytics SSOT
+ * — EVERY event must land there (it feeds the activation funnel + all telemetry),
+ * so a Tinybird rejection keeps the row drainable for redelivery.
+ *
+ * Hatchet is deliberately NOT required: it is best-effort orchestration for a
+ * subset of types. A Hatchet failure is recorded as a SOFT failure (logged +
+ * surfaced in drain health) but does NOT fail the row — otherwise the drain
+ * re-dispatches and RE-INGESTS Tinybird on every retry (duplicate analytics rows)
+ * until the row dead-letters. Incident 2026-09-06: a stale `HATCHET_API_TOKEN`
+ * returned `http_error` on every push, so one `lead.discovered` ingested to
+ * Tinybird 3× (and climbing) while the funnel's distinct-site count masked it.
+ */
+const REQUIRED_TARGETS: ReadonlySet<DispatchTarget> = new Set<DispatchTarget>(['tinybird']);
+
+/**
  * Decide which backends an event fans to. Pure + total. Tinybird gets everything
  * (analytics); Hatchet gets orchestration types only.
  *
@@ -59,12 +74,17 @@ export function eventDispatchTargets(event: ProjectSitesEvent): DispatchTarget[]
 
 /** Result of dispatching one event. */
 export interface DispatchResult {
-  /** True when every CONFIGURED target accepted (an unconfigured target is a no-op skip). */
+  /** True when every REQUIRED target accepted. A best-effort (soft) target's
+   *  failure does NOT flip this — see {@link REQUIRED_TARGETS}. An unconfigured
+   *  target is a no-op skip (never a failure). */
   ok: boolean;
   /** Targets actually attempted (configured ones only). */
   attempted: DispatchTarget[];
-  /** Per-target failures (target → reason) for `markFailed` / structured logging. */
+  /** REQUIRED-target failures (→ `markFailed`, the row retries). */
   failures: { target: DispatchTarget; reason: string }[];
+  /** Best-effort target failures (Hatchet): logged + surfaced in drain health,
+   *  but the row is still marked dispatched — they never strand it. */
+  softFailures: { target: DispatchTarget; reason: string }[];
 }
 
 /** Injectable adapter seams (default to the real ones) for testability. */
@@ -93,6 +113,11 @@ export async function dispatchOutboxEvent(
   const targets = eventDispatchTargets(event);
   const attempted: DispatchTarget[] = [];
   const failures: { target: DispatchTarget; reason: string }[] = [];
+  const softFailures: { target: DispatchTarget; reason: string }[] = [];
+  // Route a failure to `failures` (retries the row) or `softFailures` (logged,
+  // row still dispatched) by whether the target is REQUIRED.
+  const recordFailure = (target: DispatchTarget, reason: string) =>
+    (REQUIRED_TARGETS.has(target) ? failures : softFailures).push({ target, reason });
 
   const meta = { tenant_id: event.tenantId, ...(event.siteId ? { site_id: event.siteId } : {}) };
 
@@ -112,7 +137,7 @@ export async function dispatchOutboxEvent(
       producer: event.producer,
       payload: JSON.stringify(event.data ?? {}),
     });
-    if (!r.ok) failures.push({ target: 'tinybird', reason: r.reason ?? 'unknown' });
+    if (!r.ok) recordFailure('tinybird', r.reason ?? 'unknown');
   }
 
   if (targets.includes('hatchet') && resolveHatchet(env)) {
@@ -120,10 +145,12 @@ export async function dispatchOutboxEvent(
     const r = await push(env, event.type, event as unknown as Record<string, unknown>, {
       metadata: meta,
     });
-    if (!r.ok) failures.push({ target: 'hatchet', reason: r.reason ?? 'unknown' });
+    if (!r.ok) recordFailure('hatchet', r.reason ?? 'unknown');
   }
 
-  return { ok: failures.length === 0, attempted, failures };
+  // `ok` gates ONLY on REQUIRED-target failures — a soft (Hatchet) failure is
+  // surfaced but never retries the row (a retry would re-ingest Tinybird).
+  return { ok: failures.length === 0, attempted, failures, softFailures };
 }
 
 /** Summary of a drain pass. */
@@ -131,6 +158,9 @@ export interface DrainSummary {
   read: number;
   dispatched: number;
   failed: number;
+  /** Rows dispatched (all REQUIRED targets OK) that still had a best-effort
+   *  target (Hatchet) failure. Optional so pre-existing summaries stay valid. */
+  softFailed?: number;
 }
 
 /** Operator-facing health verdict for one drain pass. */
@@ -160,11 +190,17 @@ export interface DrainHealth {
  */
 export function assessDrainHealth(summary: DrainSummary, limit = 50): DrainHealth {
   const hasFailures = summary.failed > 0;
+  const softFailed = summary.softFailed ?? 0;
   const atCapacity = summary.read >= limit;
-  const level: 'info' | 'warn' = hasFailures || atCapacity ? 'warn' : 'info';
+  const level: 'info' | 'warn' =
+    hasFailures || atCapacity || softFailed > 0 ? 'warn' : 'info';
   const parts: string[] = [];
   if (hasFailures)
     parts.push(`${summary.failed} event(s) failed dispatch (retrying → dead-letter)`);
+  if (softFailed > 0)
+    parts.push(
+      `${softFailed} event(s) hit a best-effort backend failure (e.g. Hatchet) — analytics landed, orchestration skipped`,
+    );
   if (atCapacity) parts.push(`drain hit its ${limit}-row page — outbox may be backing up`);
   const message =
     parts.length > 0
@@ -197,12 +233,28 @@ export async function drainOutbox(
   }
   let dispatched = 0;
   let failed = 0;
+  let softFailed = 0;
   for (const event of pending) {
     const res = await dispatchOutboxEvent(env, event, deps);
     try {
       if (res.ok) {
         await markDispatched(env, event.id, now());
         dispatched++;
+        // Row delivered (every REQUIRED target accepted). A best-effort target
+        // (Hatchet) still failing is surfaced but must NOT re-fail the row —
+        // re-failing re-drains it and RE-INGESTS Tinybird on every retry.
+        if (res.softFailures.length > 0) {
+          softFailed++;
+          console.warn(
+            JSON.stringify({
+              level: 'warn',
+              msg: 'outbox soft-failure (best-effort target skipped)',
+              id: event.id,
+              type: event.type,
+              softFailures: res.softFailures.map((f) => `${f.target}:${f.reason}`),
+            }),
+          );
+        }
       } else {
         await markFailed(
           env,
@@ -215,7 +267,7 @@ export async function drainOutbox(
       failed++; // a DB write failure shouldn't abort the whole drain
     }
   }
-  return { read: pending.length, dispatched, failed };
+  return { read: pending.length, dispatched, failed, softFailed };
 }
 
 // nextOutboxAction is re-exported for callers wiring the dead-letter view.

@@ -115,6 +115,22 @@ describe('dispatchOutboxEvent', () => {
     expect(r.ok).toBe(false);
     expect(r.failures[0]).toEqual({ target: 'tinybird', reason: 'http_error' });
   });
+
+  // Regression (incident 2026-09-06): a Hatchet http_error must NOT fail the row.
+  // Tinybird (REQUIRED) landed → ok:true; the Hatchet miss is a SOFT failure only,
+  // so the drain marks the row dispatched instead of re-ingesting Tinybird on retry.
+  it('keeps ok:true when Tinybird lands but a best-effort Hatchet push fails', async () => {
+    const ingest = jest.fn().mockResolvedValue({ ok: true, status: 202 });
+    const push = jest.fn().mockResolvedValue({ ok: false, reason: 'http_error', status: 401 });
+    const env = { ...(ENV as object), HATCHET_API_TOKEN: hatchetTok() } as never;
+    const r = await dispatchOutboxEvent(env, ev('site.published'), {
+      ingestTinybird: ingest as never,
+      pushHatchet: push as never,
+    });
+    expect(r.ok).toBe(true);
+    expect(r.failures).toEqual([]);
+    expect(r.softFailures).toEqual([{ target: 'hatchet', reason: 'http_error' }]);
+  });
 });
 
 describe('drainOutbox', () => {
@@ -160,6 +176,23 @@ describe('drainOutbox', () => {
     expect(summary.dispatched).toBe(0);
   });
 
+  // Regression (incident 2026-09-06): Tinybird OK + Hatchet http_error → the row is
+  // DISPATCHED (not failed), counted under softFailed. Prevents the retry loop that
+  // re-ingested Tinybird once per drain until the row dead-lettered.
+  it('marks the row dispatched (softFailed) when only best-effort Hatchet fails', async () => {
+    const { db: DB, updates } = db([ev('site.published', { id: 'e1' })]);
+    const env = { ...(ENV as object), HATCHET_API_TOKEN: hatchetTok(), DB } as never;
+    const summary = await drainOutbox(env, {
+      ingestTinybird: (async () => ({ ok: true, status: 202 })) as never,
+      pushHatchet: (async () => ({ ok: false, reason: 'http_error', status: 401 })) as never,
+      now: () => 'NOW',
+    });
+    expect(summary.dispatched).toBe(1);
+    expect(summary.failed).toBe(0);
+    expect(summary.softFailed).toBe(1);
+    expect(updates).toContain('NOW'); // markDispatched ran, NOT markFailed
+  });
+
   it('returns zeros (never throws) when the read fails', async () => {
     const env = {
       DB: {
@@ -196,6 +229,13 @@ describe('assessDrainHealth', () => {
     expect(h.level).toBe('warn');
     expect(h.hasFailures).toBe(true);
     expect(h.message).toContain('2 event(s) failed');
+  });
+
+  it('warns on soft failures (best-effort backend down) without flagging row failures', () => {
+    const h = assessDrainHealth({ read: 4, dispatched: 4, failed: 0, softFailed: 4 });
+    expect(h.level).toBe('warn');
+    expect(h.hasFailures).toBe(false); // no ROW failures — Tinybird landed
+    expect(h.message).toContain('best-effort backend failure');
   });
 
   it('warns when the page is full (outbox may be backing up)', () => {
