@@ -127,6 +127,20 @@ if (top?.id) {
   });
 }
 
+// Forms — the contact-form → /admin/forms journey + the known lying-empty class
+// (`form_submissions` has NO deleted_at column, so a `deleted_at IS NULL` filter once
+// swallowed the query → 0). Reconcile the top site's displayed submissions vs the store.
+const topForm = d1(
+  `SELECT fs.site_id AS id, COUNT(*) AS n FROM form_submissions fs JOIN sites s ON s.id=fs.site_id
+   WHERE s.org_id='${ORG}' AND s.deleted_at IS NULL GROUP BY fs.site_id ORDER BY COUNT(*) DESC LIMIT 1;`,
+);
+if (topForm?.id) {
+  const d = await display(`/api/sites/${topForm.id}/forms`, (j) => j.meta?.total ?? (Array.isArray(j.data) ? j.data.length : NaN));
+  const storeN = Number(topForm.n);
+  const displayN = d.err ? d.err : Number(d.n);
+  rows.push({ key: 'form_subs', store: storeN, display: displayN, ok: !d.err && Number.isFinite(displayN) && displayN === storeN });
+}
+
 const fails = rows.filter((r) => !r.ok);
 for (const r of rows) {
   console.log(`  ${r.ok ? '✓' : '✗'} ${r.key.padEnd(11)} store=${r.store}  display=${r.display}${r.ok ? '' : '  ← DIVERGENCE (lying-empty / wrong-source)'}`);
