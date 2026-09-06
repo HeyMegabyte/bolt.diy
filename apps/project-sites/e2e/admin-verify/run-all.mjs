@@ -37,6 +37,7 @@ const PROBES = [
   { label: 'reconcile', file: 'reconcile-surfaces.mjs', env: {} },
   { label: 'reconcile-counts', file: 'reconcile-counts.mjs', env: {} },
   { label: 'focus-obscured', file: 'focus-not-obscured.mjs', env: {} },
+  { label: 'target-size', file: 'target-size-scan.mjs', env: {} },
   { label: 'completeness', file: 'completeness-stub-scan.mjs', env: {} },
   { label: 'funnel-reconcile', file: 'verify-funnel-reconcile.mjs', env: {} },
   ...causal,

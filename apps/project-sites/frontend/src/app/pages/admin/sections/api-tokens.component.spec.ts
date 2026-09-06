@@ -218,6 +218,32 @@ describe('AdminApiTokensComponent (no premature active-tokens count while loadin
     const activeChip = (fx.nativeElement as HTMLElement).querySelector('.at-stat-chip');
     expect(activeChip?.querySelector('app-rolling-counter')).withContext('real count once loaded').not.toBeNull();
   });
+
+  // Pluralization: "1 active tokens" (rendered uppercase → "1 ACTIVE TOKENS") is a grammar
+  // bug every one-token org sees. The stat noun must agree with tokens().length.
+  const statLabel = (fx: ComponentFixture<AdminApiTokensComponent>) =>
+    (fx.nativeElement as HTMLElement).querySelector('.at-stat-chip .at-stat-label')?.textContent?.replace(/\s+/g, ' ').trim();
+
+  it('the active-tokens stat noun is SINGULAR at exactly 1 token', () => {
+    const fx = render();
+    fx.detectChanges(); // settle the constructor auto-load (get→data:[]) BEFORE seeding, else it clobbers
+    fx.componentInstance.loading.set(false);
+    fx.componentInstance.tokens.set([{ id: 'a', name: 'CI' } as never]);
+    fx.detectChanges();
+    expect(statLabel(fx)).withContext('1 token → "active token"').toBe('active token');
+  });
+
+  it('the active-tokens stat noun is PLURAL at 0 and at 2+ tokens', () => {
+    const fx = render();
+    fx.detectChanges(); // settle the auto-load first (orgId unchanged → the effect won't re-fire + re-clobber)
+    fx.componentInstance.loading.set(false);
+    fx.componentInstance.tokens.set([]);
+    fx.detectChanges();
+    expect(statLabel(fx)).withContext('0 tokens → "active tokens"').toBe('active tokens');
+    fx.componentInstance.tokens.set([{ id: 'a', name: 'CI' }, { id: 'b', name: 'CD' }] as never);
+    fx.detectChanges();
+    expect(statLabel(fx)).withContext('2 tokens → "active tokens"').toBe('active tokens');
+  });
 });
 
 /**

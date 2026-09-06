@@ -122,7 +122,7 @@ const ALL_SCOPES = [
             } @else {
               <span class="at-stat-value"><app-rolling-counter [value]="tokens().length" [duration]="1100" /></span>
             }
-            <span class="at-stat-label">active tokens</span>
+            <span class="at-stat-label">active {{ tokens().length === 1 ? 'token' : 'tokens' }}</span>
           </div>
           <div class="at-stat-chip">
             <span class="at-stat-value"><app-rolling-counter [value]="scopeCount()" [duration]="1100" /></span>
