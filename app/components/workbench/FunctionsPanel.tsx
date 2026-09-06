@@ -15,7 +15,7 @@ import { useStore } from '@nanostores/react';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { WORK_DIR } from '~/utils/constants';
 import { classNames } from '~/utils/classNames';
-import { deriveRoutes, deriveWrangler, hasFunctionsFolder, FUNCTIONS_DIR } from './functions-panel-logic';
+import { deriveRoutes, deriveWrangler, hasFunctionsFolder, scaffoldFunction, FUNCTIONS_DIR } from './functions-panel-logic';
 
 const METHOD_COLORS: Record<string, string> = {
   GET: 'text-green-500 bg-green-500/10',
@@ -55,6 +55,36 @@ export const FunctionsPanel = memo(() => {
 
   const active = routes.find((r) => r.path === selectedRoute) ?? null;
 
+  // "Create a function" control (item-8 Brian directive): scaffold a real
+  // functions/ file via workbenchStore.createFile — the derived route table
+  // picks it up live + it deploys with the site. Not a mock/stub.
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [createError, setCreateError] = useState('');
+
+  const submitNewFunction = async () => {
+    const result = scaffoldFunction(newName, files);
+    if ('error' in result) {
+      setCreateError(result.error);
+      return;
+    }
+    const created = await workbenchStore.createFile(result.path, result.content);
+    if (!created) {
+      setCreateError('Could not create the file — open a project first.');
+      return;
+    }
+    setCreating(false);
+    setNewName('');
+    setCreateError('');
+    setSelectedRoute(result.route); // reveal the new route in the panel
+  };
+
+  const cancelNewFunction = () => {
+    setCreating(false);
+    setNewName('');
+    setCreateError('');
+  };
+
   return (
     <div className="h-full flex flex-col bg-bolt-elements-background-depth-1">
       {/* Header */}
@@ -68,12 +98,66 @@ export const FunctionsPanel = memo(() => {
               : 'Cloudflare Pages Functions'}
           </p>
         </div>
-        {hasFunctions && (
-          <span className="ml-auto text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-green-500/10 text-green-400">
-            {routes.length > 0 ? 'deploy ready' : 'no routes'}
-          </span>
-        )}
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          {hasFunctions && (
+            <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-green-500/10 text-green-400">
+              {routes.length > 0 ? 'deploy ready' : 'no routes'}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => (creating ? cancelNewFunction() : (setCreating(true), setCreateError('')))}
+            data-testid="functions-new-btn"
+            title="Scaffold a new Pages Function"
+            className="text-[10px] font-medium px-2 py-1 rounded border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 text-bolt-elements-item-contentAccent hover:bg-bolt-elements-background-depth-3 transition-colors flex items-center gap-1 cursor-pointer"
+          >
+            <div className={classNames('i-ph:plus transition-transform', creating && 'rotate-45')} /> New
+          </button>
+        </div>
       </div>
+
+      {/* Create-a-function inline form (shown in both empty + populated states). */}
+      {creating && (
+        <div className="border-b border-bolt-elements-borderColor/50 px-3 py-2 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-bolt-elements-textTertiary font-mono shrink-0">functions/</span>
+            <input
+              autoFocus
+              value={newName}
+              onChange={(e) => {
+                setNewName(e.target.value);
+                setCreateError('');
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submitNewFunction();
+                if (e.key === 'Escape') cancelNewFunction();
+              }}
+              placeholder="api/contact"
+              data-testid="functions-new-input"
+              spellCheck={false}
+              className="flex-1 min-w-0 bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor rounded px-2 py-1 text-xs font-mono text-bolt-elements-textPrimary focus:outline-none focus:border-bolt-elements-item-contentAccent"
+            />
+            <button
+              type="button"
+              onClick={submitNewFunction}
+              data-testid="functions-new-create"
+              className="text-[10px] font-medium px-2.5 py-1 rounded border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 text-bolt-elements-item-contentAccent hover:bg-bolt-elements-background-depth-3 shrink-0 cursor-pointer"
+            >
+              Create
+            </button>
+          </div>
+          {createError ? (
+            <p className="text-[10px] text-red-400" data-testid="functions-new-error">
+              {createError}
+            </p>
+          ) : (
+            <p className="text-[10px] text-bolt-elements-textTertiary">
+              Creates <code className="font-mono">functions/….ts</code> with an{' '}
+              <code className="font-mono">onRequestGet</code> handler — a live route on deploy.
+            </p>
+          )}
+        </div>
+      )}
 
       {!hasFunctions ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 p-8 text-center">
@@ -86,6 +170,19 @@ export const FunctionsPanel = memo(() => {
             <code className="font-mono">onRequestGet</code> — it becomes a live{' '}
             <code className="font-mono">/api/hello</code> endpoint on deploy.
           </p>
+          {!creating && (
+            <button
+              type="button"
+              onClick={() => {
+                setCreating(true);
+                setCreateError('');
+              }}
+              data-testid="functions-new-empty-btn"
+              className="mt-2 text-[11px] font-medium px-3 py-1.5 rounded border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 text-bolt-elements-item-contentAccent hover:bg-bolt-elements-background-depth-3 transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <div className="i-ph:plus" /> New function
+            </button>
+          )}
         </div>
       ) : (
         <>

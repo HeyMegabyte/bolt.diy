@@ -64,6 +64,47 @@ export function deriveRoutes(files: FileMap, resourceNames: Set<string>): RouteE
   return routes.sort((a, b) => a.path.localeCompare(b.path));
 }
 
+/** Result of scaffolding a new Pages Function from a user-typed route name. */
+export type ScaffoldResult = { path: string; route: string; content: string } | { error: string };
+
+/**
+ * Turn a user-typed route name (e.g. `"contact"`, `"api/booking"`) into a new Pages
+ * Function file under `functions/` + a starter `onRequestGet` handler. Pure — the
+ * caller writes it via `workbenchStore.createFile(path, content)`, after which
+ * {@link deriveRoutes} surfaces it live. Bare names default under `api/` (the
+ * convention every existing route follows: `contact` → `functions/api/contact.ts`
+ * → `/api/contact`). Rejects empty, unsafe, or already-existing names.
+ *
+ * @param rawName - The user's typed route name.
+ * @param existing - The current file map, to reject a collision.
+ * @returns `{ path, route, content }` to create, or `{ error }` to show inline.
+ */
+export function scaffoldFunction(rawName: string, existing: FileMap = {}): ScaffoldResult {
+  let name = (rawName || '').trim().toLowerCase();
+  name = name.replace(/^\/+|\/+$/g, ''); // strip leading/trailing slashes FIRST
+  name = name.replace(CODE_EXT, ''); // then a typed extension (now truly at the end)
+  if (!name) return { error: 'Enter a route name, e.g. "contact" or "api/webhook".' };
+  if (!/^[a-z0-9][a-z0-9/_-]*$/.test(name) || name.includes('..') || name.includes('//'))
+    return { error: 'Letters, digits, "-", "_", "/" only (e.g. "api/contact").' };
+  // Bare name (no folder) → under api/, matching the existing route convention.
+  const rel = name.includes('/') ? name : `api/${name}`;
+  const path = `${FUNCTIONS_DIR}/${rel}.ts`;
+  if (existing[path]) return { error: `functions/${rel}.ts already exists.` };
+  const route = fileToRoute(`/${rel}.ts`);
+  // NOTE: the comment must NOT contain an "onRequest…" token — deriveRoutes scans the
+  // whole file text for onRequest{Method}, so a mention in prose would fabricate phantom
+  // methods (and a bare "onRequest<" would flag it as an ALL-verb route).
+  const content = `/**
+ * ${route} — Cloudflare Pages Function (scaffolded). Each exported handler
+ * becomes a live route on deploy; duplicate it for other HTTP verbs.
+ */
+export async function onRequestGet() {
+  return Response.json({ ok: true, route: ${JSON.stringify(route)} });
+}
+`;
+  return { path, route, content };
+}
+
 /** Strip // and block comments so a wrangler.jsonc parses as JSON (URLs preserved). */
 export function stripJsonComments(s: string): string {
   return s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');

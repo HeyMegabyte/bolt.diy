@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deriveRoutes, deriveWrangler, fileToRoute, stripJsonComments } from './functions-panel-logic';
+import { deriveRoutes, deriveWrangler, fileToRoute, scaffoldFunction, stripJsonComments } from './functions-panel-logic';
 import type { FileMap } from '../../lib/stores/files';
 import { WORK_DIR } from '../../utils/constants';
 
@@ -94,5 +94,44 @@ describe('FunctionsPanel — deriveWrangler (bindings + script from wrangler.jso
   it('stripJsonComments removes // and block comments without corrupting URL values', () => {
     const out = stripJsonComments('{ "a": 1, // c\n "url": "http://x" }');
     expect(JSON.parse(out)).toEqual({ a: 1, url: 'http://x' });
+  });
+});
+
+describe('FunctionsPanel — scaffoldFunction (the "create a function" control)', () => {
+  const ok = (r: ReturnType<typeof scaffoldFunction>) => {
+    if ('error' in r) throw new Error(`expected success, got error: ${r.error}`);
+    return r;
+  };
+
+  it('a bare name scaffolds under api/ → the right file, route, and onRequestGet handler', () => {
+    const r = ok(scaffoldFunction('contact'));
+    expect(r.path).toBe(`${WORK_DIR}/functions/api/contact.ts`);
+    expect(r.route).toBe('/api/contact');
+    expect(r.content).toContain('export async function onRequestGet');
+    expect(r.content).toContain("route: \"/api/contact\"");
+    // The scaffold is a REAL route the panel's own deriver picks up (GET method).
+    const derived = deriveRoutes({ [r.path]: file(r.content) }, new Set());
+    expect(derived[0].path).toBe('/api/contact');
+    expect(derived[0].methods).toEqual(['GET']);
+  });
+
+  it('an explicit folder path is respected (not force-prefixed with api/)', () => {
+    expect(ok(scaffoldFunction('webhooks/stripe')).path).toBe(`${WORK_DIR}/functions/webhooks/stripe.ts`);
+    expect(ok(scaffoldFunction('webhooks/stripe')).route).toBe('/webhooks/stripe');
+    expect(ok(scaffoldFunction('api/booking')).path).toBe(`${WORK_DIR}/functions/api/booking.ts`);
+  });
+
+  it('normalizes a typed extension / slashes / case', () => {
+    expect(ok(scaffoldFunction('/API/Hello.ts/')).path).toBe(`${WORK_DIR}/functions/api/hello.ts`);
+  });
+
+  it('rejects empty, unsafe, and colliding names', () => {
+    expect('error' in scaffoldFunction('')).toBe(true);
+    expect('error' in scaffoldFunction('  ')).toBe(true);
+    expect('error' in scaffoldFunction('has spaces')).toBe(true);
+    expect('error' in scaffoldFunction('../etc/passwd')).toBe(true);
+    const existing: FileMap = { [`${WORK_DIR}/functions/api/contact.ts`]: file('x') };
+    const collision = scaffoldFunction('contact', existing);
+    expect('error' in collision && collision.error).toContain('already exists');
   });
 });
