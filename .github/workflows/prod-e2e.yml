@@ -477,3 +477,63 @@ jobs:
         env:
           E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
         run: node e2e/loop-eval/generated-site-a11y-probe.mjs 5
+
+  # The admin-verify SUITE as one scheduled gate — `npm run admin:verify` (run-all.mjs):
+  # surf ×2 → reconcile-surfaces → every verify-*-causal (globbed, auto-joins new probes) →
+  # billing-checkout mount → editor data/functions tabs. The causal + billing + editor
+  # probes run ONLY when the /admin INTEGRITY loop fires manually otherwise — this is their
+  # scheduled backstop (the loop's cron auto-expires after 7 days). Schedule + dispatch ONLY
+  # (the full suite is ~25 min of Browserbase — never per-push; excluded via the job `if`).
+  # Fail-open on E2E_API_KEY; each Browserbase probe self-skips when its own creds are unset,
+  # so a partial-secret env stays green (SKIP≠FAIL). Surf overlaps prod-a11y-guards by design
+  # — run-all runs the loop's exact suite as one cohesive, glob-auto-including unit.
+  admin-verify-suite:
+    name: Admin-verify suite (npm run admin:verify @ prod)
+    runs-on: ubuntu-latest
+    if: github.event_name != 'push'
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check E2E_API_KEY is configured
+        id: gate
+        env:
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
+        run: |
+          if [ -n "$E2E_API_KEY" ]; then
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::E2E_API_KEY secret not set — skipping admin-verify suite (fail-open)."
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.has_key == 'true'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/project-sites/package-lock.json
+
+      # createRequire('../../frontend/') in the probes resolves node_modules from
+      # apps/project-sites/ (dirname of that path) — install the WORKER deps (they carry
+      # playwright + @axe-core/playwright), matching prod-a11y-guards above.
+      - name: Install deps
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites
+        run: npm ci --legacy-peer-deps --ignore-scripts
+
+      - name: Install Playwright Chromium
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites
+        run: npx playwright install --with-deps chromium
+
+      - name: Run admin-verify suite (surf + reconcile + causal + billing + editor)
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites
+        env:
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
+          BROWSERBASE_API_KEY: ${{ secrets.BROWSERBASE_API_KEY }}
+          BROWSERBASE_PROJECT_ID: ${{ secrets.BROWSERBASE_PROJECT_ID }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+          PROD_URL: https://projectsites.dev
+        run: npm run admin:verify
