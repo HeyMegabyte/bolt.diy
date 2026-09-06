@@ -50,7 +50,10 @@ if (!PW || !CF_KEY) {
   process.exit(0);
 }
 
-const BASE = process.env.PROD_URL || 'https://project-sites.manhattan.workers.dev';
+// FUNNEL_BASE wins so the super-admin test-login + admin API can target workers.dev
+// (no bot challenge on authed internal endpoints) even when the shared suite sets
+// PROD_URL=projectsites.dev for the public-page probes.
+const BASE = process.env.FUNNEL_BASE || process.env.PROD_URL || 'https://project-sites.manhattan.workers.dev';
 const DB = process.env.PROD_D1 || 'project-sites-db-production';
 const ADMIN_EMAIL = process.env.FUNNEL_ADMIN_EMAIL || 'brian@megabyte.space';
 const UA =

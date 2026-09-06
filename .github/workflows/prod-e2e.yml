@@ -536,4 +536,12 @@ jobs:
           BROWSERBASE_PROJECT_ID: ${{ secrets.BROWSERBASE_PROJECT_ID }}
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
           PROD_URL: https://projectsites.dev
+          # verify-funnel-reconcile.mjs needs D1 ground truth (`wrangler d1` COUNT of
+          # published sites) + the super-admin funnel API (via FUNNEL_BASE=workers.dev,
+          # which dodges the prod-domain bot challenge on the authed admin endpoint).
+          # Without these it self-skips; with them the funnel display==store + outbox
+          # dead-letter guard (AL-052/053) runs as a nightly backstop. Read-only queries.
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+          FUNNEL_BASE: https://project-sites.manhattan.workers.dev
         run: npm run admin:verify
