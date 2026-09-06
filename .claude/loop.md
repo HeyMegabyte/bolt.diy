@@ -1,5 +1,30 @@
 # TOTAL REPOSITORY REFACTORING & CONVERGENCE LOOP
 
+## 🎯 WHOLE-APP TERMINAL TARGET — `apps/project-sites/_APP_COMPLETION.md` (Brian, 2026-09-06)
+
+"Finish the entire application" is now concrete + tracked. `_APP_COMPLETION.md` is the whole-app
+**Definition of Done** — every surface + every full user flow, `[ ]`/`[x]`, owning loop, acceptance
+criteria, and a running % done. **Every scheduled `/loop` fire reads it, advances the highest-value
+UNCHECKED item IN ITS LANE, ticks it with the proof (commit sha + prod probe), and recomputes %.**
+A lane all-`[x]` + green for ≥2 fires ⇒ that loop is maintenance-only (a healthy no-op is correct).
+
+### Scheduled loop roster (6) — collectively drive the WHOLE app to done
+- **ADMIN INTEGRITY** (30 min) — § A render+a11y · truthful-data · truthful-mutations
+- **ADMIN COMPLETENESS** (2 h) — § A real-journeys · edge-states · contract · every-control-real · editor tabs
+- **ADMIN QUALITY** (daily) — § A perf · security · polish/docs
+- **FULL JOURNEY (golden)** (8 h) — § B.2 create→build→publish→view→analytics + admin propagation + template
+- **FULL-FLOW E2E (headless prod)** (6 h, NEW) — § B.1/B.5–B.7 guest funnel · billing-full · editor round-trip · auth (the flows AROUND the golden path)
+- **GENERATED-SITE QUALITY (prod audit)** (12 h, NEW) — § C the deployed generated sites (the CORE PRODUCT) + § D platform marketing/SEO
+
+**Headless prod full-user-flow testing** (Brian, 2026-09-06): the two NEW loops close the gap the
+admin-centric loops left — the public **product** (generated `{slug}.projectsites.dev` sites) and
+the **customer flows** around create→build. All flows run headless (local Chromium) against PROD;
+each ships a durable probe wired into `e2e/admin-verify/run-all.mjs`.
+
+**Maintenance:** scheduled crons auto-expire after 7 days — re-arm weekly (`/loop` or `CronCreate durable:true`) or convergence silently stops.
+
+---
+
 > ## ⚠️⚠️⚠️ PRIME DIRECTIVE — VERIFY COMPLETE REAL USER FLOWS, NOT DEFENSIVE SCAFFOLDING
 > **(Brian, 2026-08-17 — 3rd time. Also said Aug 14 + Aug 15. STOP drifting into cheap wins.)**
 >
@@ -32,6 +57,71 @@ Every iteration dedicates ONE parallel agent to making the **sub-60-second `/cre
 2. **Wire + verify the IN-REPO `/create` path consumes it** — confirm the container/workflow build pipeline (`apps/project-sites/`, the `template.projectsites.dev` git-pull, R2 `templates/`) actually pulls the improved template AND that a REAL `/create` run produces the improved site. Close any drift where an improvement lands in a repo but never reaches `/create`.
 
 Prove it the loop's way (PRIME DIRECTIVE): a real `/create` → builds in ~60s from the improved template → the generated site shows the improvement → publish. **Measure the build wall-clock every iteration**; when it exceeds 60s, the next iteration's template-agent attacks the slowest step (fewer deps · prebuilt/cached assets · lighter base · cached `npm install`). This workstream runs in PARALLEL with the other agents every iteration — never let it stall behind them.
+
+---
+
+# LOOP POSTURE (Brian, 2026-08-28 — steers every fire)
+
+Four standing decisions. #1 **OVERRIDES the recurring prompt's `SMART WATCHDOG … terminate` clause.**
+
+1. **NEVER pure-terminate on a quiet tree — ADVANCE A STANDING TRACK.** "HEAD unchanged AND tree clean" is NOT a stop signal; it is permission to advance the loop's OWNED work that the concurrent fleet is NOT touching. Re-scanning the fleet's new commits for drift stays the FIRST action each fire — but "no drift found" → advance the highest ladder rung with a real next step, do NOT reply CONVERGED. Priority ladder (top-down):
+   1. **The 60-second-website** (§ STANDING WORKSTREAM) — improve `template.projectsites.dev` + verify `/create` consumes it. The DEFAULT quiet-fire track.
+   2. **Site-gen evals + quality** — eval cases + rubrics for the generation prompts / vertical classifier / `build_validators.ts`; make a delivered site beat its source on a measured dimension.
+   3. **Monolith decomposition** — one bounded ~1500-line `api.ts` range (or the next-largest file), mounts preserved, typecheck + test verified.
+   4. **Docs + AI-context truth** — reconcile a doc / `CLAUDE.md` / memory against the code; strip history.
+   Reserve `CONVERGED` for the rare fire where EVERY rung genuinely has no clean next step — not for a merely-quiet tree.
+
+2. **FOCUS = site-gen product quality.** When SELECTing work, weight the core product first — generation prompts, the vertical classifier, build validators, evals, the 60-second-website — over generic cleanup. A delivered site beating every source site is the point (PRIME DIRECTIVE).
+
+3. **SWING = adaptive.** Small (≤8 bounded, fully-verified increments) when the repo is converged; large multi-agent fan-out (3-6 parallel per § DO A LOT) when a big CLEAN target genuinely exists (an `api.ts` range, a new feature module, a template overhaul). Match the swing to the target — never fan out to manufacture work, never grind serially when independent units exist.
+
+4. **SCOPE = this repo + template + prod-verify.** Reusable patterns flow BACK to `template.projectsites.dev` the SAME fire. After any substantive change to a deployable surface: deploy + prod-E2E + a human-like browser click-around (§ BROWSER-VERIFY 9.1). A green local build is never "done".
+
+5. **BUILD BUDGET = DeepSeek-only, under $1 — then run REAL builds FREELY.** Real `/create` container builds that prove the money-path / 60-second-website are ENCOURAGED on every build-path fire — PROVIDED the build runs on **DeepSeek** (`BUILD_LLM_PROVIDER=deepseek`, inject `DEEPSEEK_API_KEY`, model `deepseek-chat` via the Anthropic-compatible endpoint) and stays **under ~$1** (easy with pre-built templates + prompts). This is the ONE sanctioned exception to "never spend on speculative builds": a sub-$1 DeepSeek build that PROVES a real user journey is not speculative. **Before triggering: confirm the provider resolves to DeepSeek and the cost will be <$1 — never let a build silently fall back to Anthropic/OpenAI** (that's the expensive path; `BUILD_LLM_PROVIDER=anthropic` is opt-in only). Cheap-real beats mocked (PRIME DIRECTIVE) — with the <$1 DeepSeek lever there is no excuse to fake the money-path.
+
+6. **OWNED LANE = the backend / product-generation surface.** To stop colliding with the frontend fleet, the loop OWNS + LEADS on: `template.projectsites.dev` · the site-gen pipeline (`workflows/site-generation.ts`, `scripts/container-server.mjs`, `src/prompts/`) · evals · `src/services/build_validators.ts` · the `api.ts` / worker decomposition · the `src/` worker · docs. It LEAVES the Angular `frontend/` admin features to the fleet — re-scan those for drift, do NOT build them. **Within its lane, swing big** (adaptive fan-out); **across the boundary, defer.**
+
+7. **FINISH LINE = 4 tiers, in priority order.** Measure EVERY fire against: (1) the MONEY PATH works flawlessly — `/create` → real DeepSeek build → view → edit a requirement → live update → publish; (2) delivered sites BEAT their source — AI-vision ≥9/10 AND outscore all 10 competitor dims by ≥15%; (3) build wall-clock ≤60s; (4) zero drift + every quality gate green (the PERFECT-REPOSITORY DIMENSIONS menu all ✅). A lower tier waits on the higher one being solid.
+
+8. **FIRST TARGET = the money path.** Until it is rock-solid, the default frontier is making `/create` → build → view → edit-a-requirement → live-update → publish work flawlessly against the REAL backend (tier-1 of the finish line, PRIME DIRECTIVE §5). Everything else is secondary while the revenue journey has any gap, dead-end, or stub.
+
+## Execution decisions (Brian, 2026-08-28 — round 3)
+
+- **QUALITY IS MEASURED — build a real automated eval harness.** Tier-2 ("beat the source") is scored, not asserted: screenshot the delivered site + the source → score each on the AI-vision rubric (≥9/10 gate) AND the 10 competitor dimensions (≥15% margin) → persist results + regression-track (D1 table or the connected Langfuse). The harness gates tier-2 every fire; a quality drop is a regression to fix.
+- **MONEY-PATH EDIT = the bolt.diy EDITOR, hardened first.** "Edit a requirement → live update" is the `/admin/editor` (bolt.diy) → publish path — harden THAT first: real edit in the embedded editor → save → publish → the live subdomain reflects it. The admin Editor EXTENDS bolt.diy; never a parallel editor.
+- **TEMPLATE = FULL CINEMATIC REBUILD authorized NOW.** Rebuild `template.projectsites.dev` to a top-tier cinematic bar (Stripe/Linear/Vercel-level, all 100 site-mode gates) — not just progressive tweaks. Multi-fire arc; each fire ships a real slice, verified `npm run build` + visual pass, pushed same-fire.
+- **ONE CHAT SURFACE = the Editor. REMOVE "Ask AI".** bolt.diy already IS the chat-as-UI. The separate **"Ask AI" popup (bottom-right of the admin) is redundant — DELETE it + ALL associated features** (trigger button, component, routes, services, state, tests) across its whole footprint. There is ONE place to chat with AI: the Editor. This is a convergence deletion + an explicit Brian directive, so it OVERRIDES the frontend-lane boundary. Cross-ref memory `editor-chat-tab-is-data-bound-dual-slot`.
+
+## Execution decisions (Brian, 2026-08-28 — round 4)
+
+- **REMOVE "Ask AI" = FULL FOOTPRINT (PRIORITY — Brian stressed twice).** Delete the bottom-right "Ask AI" trigger + popup component + every dedicated route/service/state/test AND any backend `/api` endpoint + D1/config that served it ONLY. The Editor's chat is the ONE chat — leave it untouched. Prove absence after deletion (recursive + alias search · imports/exports · routes · tests · deps). This is the first concrete task to land once verification (grep/typecheck/build) is available.
+- **PUBLISH = straight-to-subdomain, but publishing EDITS is PAID-gated.** Publish pushes live to `{slug}.projectsites.dev` immediately (no approval gate). **Publishing edits REQUIRES a paid account** — gate on the existing billing entitlement (free = create + preview; paid = publish edits). Server guard + UI guard both.
+- **NAVBAR DOMAIN DROPDOWN — add "CONNECT DOMAIN" when no domain.** If the account has no domain associated, the navbar domain dropdown surfaces a **"CONNECT DOMAIN"** entry — the on-ramp to attach/purchase a custom domain.
+- **DELIVERED-SITE EFFORT = per-page polish + density FIRST.** Fewer, richer, cinematic, information-dense pages that decisively beat the source, before recreating every source URL (depth before breadth).
+- **NO new AI-native delivered-site features right now** — the priority is the "Ask AI" removal, not adding AI surfaces.
+
+## Execution decisions (Brian, 2026-08-28 — round 5)
+
+- **PLAN GATE — Free = create + preview; Paid = publish + custom domain.** Free: create a site + preview it on the temp `{slug}.projectsites.dev`. Paid: publish edits live + connect a custom domain. Gate publish + domain on the paid entitlement (server guard + UI guard).
+- **"CONNECT DOMAIN" = BOTH buy + connect-existing.** The navbar dropdown's CONNECT DOMAIN offers (a) PURCHASE a new domain in-app (registrar + Stripe) → auto-provision, AND (b) CONNECT an existing domain via guided DNS / CF-for-SaaS custom hostname + auto-SSL.
+- **CINEMATIC TEMPLATE THEME = logo-luminance-driven.** Logo luminance picks light vs dark (per the site-gen doctrine); cinematic DARK-first fallback when there's no logo. Stripe/Linear/Vercel polish bar, all 100 site-mode gates.
+- **EVAL SCORING = auto-discover competitors + Workers AI vision (cheapest).** Auto-discover the top 5-10 audience competitors per vertical (competitor-research doctrine); score delivered-vs-source + the 10 competitor dims with Workers AI `@cf/meta/llama-4-scout-17b-16e-instruct` vision → near-zero eval cost. Persist + regression-track.
+
+## Execution decisions (Brian, 2026-08-28 — round 6)
+
+- **PAYMENTS = Stripe for BOTH flows.** Recurring publish subscription → Stripe Billing; one-time domain purchase → Stripe (one integration, NOT Square).
+- **DOMAIN PURCHASE = Cloudflare Registrar + retail markup.** Buy/hold domains in our CF account (at-cost, native DNS + CF-for-SaaS + auto-SSL) but charge the customer a marked-up retail price — the margin is revenue.
+- **SOCIAL = a SEPARATE side-menu feature — COMPLETE it.** The admin "Social" section is its own owned feature (native social is the stack; Postiz removed). If incomplete, FINISH it — audit the existing `social*.component.ts` surface + close the gaps. NOT part of the money-path arc, but a real deliverable in the loop's lane.
+- **OWNER ANALYTICS / LEADS = tier-4** (after the money path). The delivered-site owner's dashboard — real visitor analytics + captured leads/form submissions — is scoped now, built after create → build → edit → publish is flawless.
+
+## CONCRETE TASK BACKLOG (execute in order once verification/commit is available)
+
+1. **Remove "Ask AI" — full footprint** (twice-stressed priority): trigger + popup + component + routes/services/state/tests + any backend `/api` + D1 that served it ONLY; the Editor's chat is the sole chat. Prove absence.
+2. **Money path** (tier-1): `/create` → real sub-$1 DeepSeek build → view → edit in the bolt.diy Editor → publish → live subdomain reflects it. Fix every gap/stub end-to-end.
+3. **Paid-publish gate + "CONNECT DOMAIN"**: free = create+preview, paid = publish edits + custom domain (Stripe); navbar domain dropdown shows CONNECT DOMAIN (buy via CF Registrar+markup OR connect-existing) when no domain.
+4. **Cinematic template rebuild** (multi-fire): logo-luminance theme, Stripe/Linear/Vercel bar, 100 site-mode gates; per-page density before URL breadth.
+5. **Automated eval harness**: delivered-vs-source + 10 competitor dims via Workers-AI vision; persist + regression-gate tier-2.
+6. **Complete the Social feature**; then tier-4 owner analytics/leads.
 
 ---
 
@@ -334,6 +424,63 @@ While increasing:
 
 ---
 
+# PERFECT-REPOSITORY DIMENSIONS
+
+The sections below go deep on code, tests, CSS, Angular, and deletion. But a perfect
+repository is more than clean code. **Every iteration also sweeps this whole menu and
+converges the WEAKEST-covered dimension** — not just the code-shape ones. The `SELECT`
+step draws from here. A dimension marked `→ see …` already has a deep section; the rest
+are first-class convergence axes with equal standing. Pick the highest
+(gap × product-value × confidence / risk), prove behavior, converge it, verify, delete debris.
+
+## Correctness, types & contracts
+
+* **Zod at EVERY runtime boundary** — env, API request+response, route/query params, forms, webhooks, queue payloads, Durable-Object messages, AI outputs, tool in/out, storage reads, third-party responses. Infer types via `z.infer` — never hand-maintain a parallel `interface`. No `any`, no `@ts-ignore`, no `as`-cast past a boundary (→ TYPESCRIPT STRICTNESS RATCHET).
+* **Typed API contracts** — every route has a request AND response schema; OpenAPI is DERIVED from Zod, never hand-written; typed clients (`hc`) not bare fetch. One uniform RFC7807 error envelope (`code` + `correlationId` + `errors[]` + what-to-do-next) across ALL endpoints (→ ERROR-HANDLING CONVERGENCE).
+* **Contract-first AI** — every model output flows through a typed schema + repair-or-reject + fallback; no raw model text consumed as truth.
+
+## Feature architecture & flags
+
+* **Feature-module architecture** — every post-launch capability is `libs/features/<slug>/` (manifest + flag + schemas + service + handlers + README + colocated tests). No scattered route handler, no module without a manifest, no capability without an owning module. Drift is a merge-blocker (`validate:features`) (→ ELIMINATE ARCHITECTURAL DRIFT).
+* **Feature flags** — every non-trivial feature behind a typed flag defaulting `enabled=0, rollout=0, stage=experimental`. Server returns **404 (never 403)** when off; UI returns null; an admin toggle exists; no dead flags (nothing reads them); nothing permanently-on-at-launch; the frontend flag-off state MUST match the worker's 404 (a `// (flag:X)` comment is NOT a gate).
+
+## Security & supply chain
+
+* **Security posture** — no secrets in code; every self-generable secret auto-provisioned (HMAC/session/CSRF/JWT/salt); SSRF + injection + XSS + IDOR guards; CSP Level 3 strict-dynamic + nonce + Trusted Types; parameterized SQL only; auth on every protected route; org-scope from server context (`c.get('orgId')`) NEVER a client header; `*_encrypted` columns actually encrypted (→ SECURITY).
+* **Supply chain & CI health** — lockfile committed + in sync; `npm ci --ignore-scripts`; deps scanned (npm audit + semgrep + secret-scan); SBOM on release; SHA-pinned GitHub Actions; CI mirrors every local gate; NO silently-skipped/quarantined test; every gate green before merge (→ BUILD / TEST GATES).
+
+## Observability & data
+
+* **Observability** — structured JSON logs carrying `requestId` + `traceId` + `tenantId`; ZERO freeform `console.log`; every significant action emits a PostHog event + Sentry breadcrumb + trace span; a `/health` endpoint; correlation IDs stitch log↔trace↔event; PII redacted AT the log boundary; graceful degradation is logged (`X-Degraded`), never silently masked.
+* **Data & migrations** — applied migrations are immutable; ZERO schema drift (a column referenced must exist — a swallowed SQL error is a silent 404); orphan columns removed or documented-inert; indexes cover hot queries; UUIDv7 for records / v4 for tokens; write-table == read-table (admin writes the table the consumer reads); no unparameterized SQL.
+* **Verification truth** — every "fixed / populated / works" claim reconciles the DISPLAY against the AUTHORITATIVE STORE (display == store, not display == its-own-endpoint); for trackable surfaces run the CAUSAL probe (do X → store records it → UI shows it). A green render + screenshot is NOT proof of correct data (→ BROWSER-VERIFY).
+
+## Experience: a11y, performance, SEO, i18n
+
+* **Accessibility (WCAG 2.2 AA)** — axe 0 violations, BUT axe ≠ AA (the 6 new AA criteria need manual review); exactly one `<h1>` per view + logical heading order (axe is BLIND to page-has-heading-one); contrast ≥4.5:1 from tokens (no undefined-var fallbacks shipping a failing value); focus-visible rings; focus restored on close (WCAG 2.4.3); 24px targets; `prefers-reduced-motion` gates (→ ACCESSIBILITY IS PART OF E2E).
+* **Performance & budgets** — LCP ≤2.0s, INP ≤100ms, CLS ≤0.05; JS ≤200KB gz/route, CSS ≤30KB; lazy-load non-LCP images + heavy chunks; AVIF/WebP + `srcset`; no client-side data waterfalls; last-write-wins cancellation on any re-triggerable fetch (`switchMap`/stored-subscription-unsubscribe); debounce + AbortController (→ PERFORMANCE REVIEW).
+* **SEO & structured data** — per-route title 50-60 / meta-desc 120-156; canonical (never a hardcoded shell canonical that de-indexes SPA routes); OG 1200×630 branded card; JSON-LD per page (ACCURATE types only, never padded, FAQPage only with real Q&A); sitemap + `lastmod`; robots + humans + security.txt + llms.txt. Applies to generated sites AND admin/marketing.
+* **Internationalization** — no hardcoded user-facing copy; every string through the i18n layer; demographic-locale mirrors + hreflang where the audience warrants; EN/ES parity with zero leakage.
+
+## Consistency, config, naming, docs
+
+* **Consistency primitives** — one dialog primitive, one design-token source, one confirm service, one empty-state component, one API service, one markdown renderer. Re-implementing an existing primitive = drift; consolidate to the canonical owner.
+* **Config & env hygiene** — a single Zod-parsed `EnvSchema` that fails fast at boot; `.env.example` in sync with the schema; no dead config keys; no hardcoded value that belongs in config; `wrangler.toml` bindings match the code that reads them.
+* **Naming & vocabulary** — no transient prefixes (`wave28`/`sprint3`/`phaseN`), no vibe/hype names (`brilliant`/`magic`/`ultimate`); ONE term per concept globally; descriptive domain names; kebab files · PascalCase types · CONSTANT_CASE consts.
+* **Documentation truth** — README orients (what / why / how-to-run / where-next); `ARCHITECTURE.md` current; an ADR per one-way-door decision; JSDoc on every export; per-feature README; docs are CURRENT-STATE only (strip history, delete archival); every doc claim matches the code (→ DELETE DOCUMENTATION DRIFT).
+* **AI-context hygiene** — globally-loaded `CLAUDE.md` stays high-signal AND accurate (its routes/tables/gotchas match the code); narrow rules are path-scoped to `.claude/rules/`; one canonical owner per rule; project memory reflects current truth (a memory that names a fixed issue as open is stale — update it); prune any instruction that no longer changes a decision.
+
+## AI-native quality, resilience, cost, ethics
+
+* **Evals & AI-generation quality** — the CORE product's AI (site-generation prompts, the vertical classifier, categorization) has eval cases + structured rubrics + regression tracking; the prompt registry is versioned; classifier/generation logic is extracted into importable, unit-tested modules (not buried un-exported in a server entrypoint).
+* **PWA & resilience** — web-app manifest (maskable icons + screenshots + shortcuts); a service worker precaches + serves `offline.html` AND self-heals a stale bundle (stale SW must not serve old JS/`/api` for days); an error boundary shows a recovery card, never a white screen; forms `preventDefault` BEFORE validation returns (a native reload wipes the lead).
+* **Cost & Cloudflare-native** — reach for CF primitives (Workers/D1/R2/KV/DO/Queues/Workflows) before Neon/Upstash/Fly; AI Gateway on EVERY model call (cache + fallback); no orphaned CF resource; rollback-ready (wrangler rollback + D1 Time Travel + R2 versioning); per-request cost stays sane on the hot path.
+* **Legal, trust & ethos** — LICENSE present; security.txt reachable; privacy/terms where money or PII flows; zero dark patterns; built for the served population first (underserved + multilingual + accessibility-first), not for engineering aesthetics.
+
+**Removed services stay removed** (case-sensitive `\bLago\b`): Lago / Unkey / Nango / Inngest / Postiz / Novu / Resend / Supabase. Finding a reintroduction of any is a convergence hit — remove it across its whole footprint.
+
+---
+
 # EVERY ITERATION
 
 Every invocation must perform meaningful engineering work.
@@ -358,7 +505,11 @@ Inspect repository state and relevant subsystem.
 
 ## 3. SELECT
 
-Choose the highest-value unfinished convergence target.
+Choose the highest-value unfinished convergence target. Draw from the full
+**PERFECT-REPOSITORY DIMENSIONS** menu above — not only code-shape/deletion, but the
+weakest-covered of: types/contracts, feature-modules/flags, security/supply-chain,
+observability/data, a11y/perf/SEO/i18n, consistency/config/naming/docs, evals/PWA/cost/ethos.
+Rank by (dimension gap × product value × confidence / risk).
 
 ## 4. ESTABLISH BEHAVIOR
 
