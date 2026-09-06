@@ -108,7 +108,7 @@ interface Delivery {
             <button hlmBtn data-testid="webhooks-create-btn" [disabled]="creating() || !canSubmit() || flagDisabled()" (click)="create()">
               {{ creating() ? 'Creating…' : 'Add endpoint' }}
             </button>
-            <span class="text-[0.72rem] text-text-secondary">{{ selected().length }} event(s) selected</span>
+            <span class="text-[0.72rem] text-text-secondary" data-testid="webhooks-selected-count">{{ selected().length }} event{{ selected().length === 1 ? '' : 's' }} selected</span>
           </div>
         </div>
 

@@ -198,6 +198,18 @@ describe('AdminWebhooksComponent', () => {
     expect(c.selected()).not.toContain('site.published');
   });
 
+  // Copy polish: the selected-count pluralizes properly — "1 event selected"
+  // (singular), "2 events selected" (plural) — never the lazy "1 event(s) selected".
+  it('pluralizes the selected-event count correctly (singular vs plural, no "(s)")', () => {
+    build({ id: 's1' }); // default selection = ['site.published'] → exactly 1
+    const label = () => q('[data-testid="webhooks-selected-count"]')?.textContent?.trim() ?? '';
+    expect(label()).toBe('1 event selected');
+    expect(label()).not.toContain('(s)');
+    fixture.componentInstance.toggleEvent('form.submitted'); // → 2 selected
+    fixture.detectChanges();
+    expect(label()).toBe('2 events selected');
+  });
+
   it('deletes an endpoint after confirmation and reloads', async () => {
     build({ id: 's1' }); // confirm resolves true
     const before = get.calls.count();
