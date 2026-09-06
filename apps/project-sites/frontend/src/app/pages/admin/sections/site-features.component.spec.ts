@@ -109,6 +109,25 @@ describe('AdminSiteFeaturesComponent (owner Features layer)', () => {
     expect(component.loading()).toBeFalse();
   });
 
+  // Edge-state (AL-041): a search box over a 0-feature list is dead UX — hide the
+  // toolbar when there's nothing to search.
+  it('hides the search toolbar when there are 0 features', async () => {
+    await build({ features: [], plan: 'free' });
+    expect(fixture.nativeElement.querySelector('[data-testid="sf-search"]'))
+      .withContext('no dead search over an empty list').toBeNull();
+  });
+
+  // ...but keep it once populated, INCLUDING during "no matches" so the user can clear.
+  it('shows the search toolbar once populated and keeps it during a no-match query', async () => {
+    await build({ features: [feat()], plan: 'pro' });
+    const q = () => fixture.nativeElement.querySelector('[data-testid="sf-search"]');
+    expect(q()).withContext('search appears once there are features').not.toBeNull();
+    component.search.set('zzzznomatch'); // empties the LIST (filtered=0) but not the catalog
+    fixture.detectChanges();
+    expect(component.filtered().length).toBe(0);
+    expect(q()).withContext('search stays visible during "no matches" so it can be cleared').not.toBeNull();
+  });
+
   it('the header counts show "…" (not a false 0) while the catalog loads', async () => {
     await build(null); // GET pending → loading true, features empty
     const sub = fixture.nativeElement.querySelector('.sf-sub') as HTMLElement;

@@ -105,25 +105,31 @@ const FEATURE_CAPABILITIES: Readonly<Record<string, readonly string[]>> = {};
         </div>
       </header>
 
-      <div class="sf-toolbar">
-        <input
-          hlmInput
-          class="flex-1 min-w-0 basis-[240px]"
-          type="search"
-          placeholder="Search features…"
-          [ngModel]="search()"
-          (ngModelChange)="search.set($event)"
-          aria-label="Search site features"
-          data-testid="sf-search"
-        />
-        @if (isFiltering()) {
-          <span class="sf-count" data-testid="sf-filter-count" aria-hidden="true"
-            >{{ filtered().length }} <span class="sf-count-sep">of</span>
-            {{ features().length }}</span
-          >
-        }
-        <span class="sr-only" role="status" aria-live="polite">{{ filterAnnouncement() }}</span>
-      </div>
+      <!-- Only render the search toolbar when there's something to search. With 0
+           features (empty plan / load / error) a search box is dead UX — the empty
+           state below stands alone. Stays visible during "no matches" (features>0,
+           filtered=0) so the user can still clear/edit their query. -->
+      @if (features().length > 0) {
+        <div class="sf-toolbar">
+          <input
+            hlmInput
+            class="flex-1 min-w-0 basis-[240px]"
+            type="search"
+            placeholder="Search features…"
+            [ngModel]="search()"
+            (ngModelChange)="search.set($event)"
+            aria-label="Search site features"
+            data-testid="sf-search"
+          />
+          @if (isFiltering()) {
+            <span class="sf-count" data-testid="sf-filter-count" aria-hidden="true"
+              >{{ filtered().length }} <span class="sf-count-sep">of</span>
+              {{ features().length }}</span
+            >
+          }
+          <span class="sr-only" role="status" aria-live="polite">{{ filterAnnouncement() }}</span>
+        </div>
+      }
 
       @if (error()) {
         <app-error-card
