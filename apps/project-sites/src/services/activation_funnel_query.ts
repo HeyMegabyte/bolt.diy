@@ -89,20 +89,28 @@ export async function fetchActivationFunnel(
   );
   if (!res.ok) return { stages: zeroFunnel(), degraded: true };
 
-  // Index the pipe rows by stage, then project onto the canonical ordered stages
-  // so the response is always the full funnel (missing stages → 0), in order.
-  const byStage = new Map<string, PipeRow>();
+  // The pipe GROUPs BY tenant_id, so a GLOBAL query (no tenant_id) returns one row
+  // PER (tenant, stage). SUM per stage across tenants — event_id + site_id are each
+  // unique to a single tenant, so summing per-tenant DISTINCT counts equals the
+  // global DISTINCT total. (A prior last-wins `set` here silently collapsed the
+  // global funnel to ONE arbitrary tenant's count — masked while Tinybird was empty,
+  // exposed by the AL-051 backfill: 103 published sites read as Delivered=2.)
+  const byStage = new Map<string, { events: number; sites: number }>();
   for (const row of res.data) {
-    if (row.stage) byStage.set(row.stage, row);
+    if (!row.stage) continue;
+    const agg = byStage.get(row.stage) ?? { events: 0, sites: 0 };
+    agg.events += toNum(row.events);
+    agg.sites += toNum(row.sites);
+    byStage.set(row.stage, agg);
   }
   const stages = ACTIVATION_STAGES.map((s) => {
-    const row = byStage.get(s.event);
+    const agg = byStage.get(s.event);
     return {
       stage: s.event,
       label: s.label,
       ordinal: s.ordinal,
-      events: toNum(row?.events),
-      sites: toNum(row?.sites),
+      events: agg?.events ?? 0,
+      sites: agg?.sites ?? 0,
     };
   });
   return { stages, degraded: false };
