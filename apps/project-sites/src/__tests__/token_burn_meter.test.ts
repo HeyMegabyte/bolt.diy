@@ -23,6 +23,7 @@ jest.mock('../modules/feature_flags/services.js', () => ({
   isFlagOn: jest.fn(),
 }));
 
+import { Hono } from 'hono';
 import features from '../routes/features.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 import {
@@ -149,7 +150,22 @@ describe('getMonthlyBurn', () => {
   });
 });
 
-// ─── route layer (flag-gated) ───────────────────────────────────────────────
+// ─── route layer (flag-gated + org-scoped) ──────────────────────────────────
+// token_events is billing data — the routes take org from the AUTHED session
+// (c.get('orgId')), NEVER a client org_id (IDOR-hardened 2026-09-06, AL-061). We
+// mount `features` behind a seedable-orgId middleware standing in for the real auth
+// middleware (which runs before app.route('/', features)).
+
+/** Mount `features` behind a seedable-orgId middleware — stands in for the auth middleware. */
+function mountWithOrg(orgId?: string) {
+  const app = new Hono();
+  app.use('*', async (c, next) => {
+    if (orgId) c.set('orgId', orgId);
+    await next();
+  });
+  app.route('/', features);
+  return app;
+}
 
 describe('GET /api/usage/burn (token_burn_meter)', () => {
   beforeEach(() => mockIsFlagOn.mockResolvedValue(true));
@@ -157,17 +173,27 @@ describe('GET /api/usage/burn (token_burn_meter)', () => {
   it('404s when the flag is off', async () => {
     mockIsFlagOn.mockResolvedValue(false);
     const { env } = makeDb();
-    const res = await features.request('/api/usage/burn', {}, env);
+    const res = await mountWithOrg('org-1').request('/api/usage/burn', {}, env);
     expect(res.status).toBe(404);
   });
 
-  it('200s with the live aggregation for the org_id query', async () => {
-    const { env } = makeDb([
+  it('401s when there is no authed org (never falls back to a client org_id)', async () => {
+    const { env } = makeDb();
+    const res = await mountWithOrg(undefined).request('/api/usage/burn?org_id=org-attacker', {}, env);
+    expect(res.status).toBe(401);
+  });
+
+  it('aggregates for the AUTHED org, ignoring a client ?org_id (IDOR regression)', async () => {
+    const { env, binds } = makeDb([
       { model: 'claude-sonnet-4-6', input_tokens: 1_000_000, output_tokens: 0, usd_cents: 300 },
     ]);
-    const res = await features.request('/api/usage/burn?org_id=org-9', {}, env);
+    // authed org-1; an attacker appends ?org_id=org-victim to read another org's burn
+    const res = await mountWithOrg('org-1').request('/api/usage/burn?org_id=org-victim', {}, env);
     expect(res.status).toBe(200);
     expect(((await res.json()) as { used_usd: number }).used_usd).toBe(3);
+    // the D1 SELECT was bound to the AUTHED org, never the client-supplied victim
+    expect(binds[0][0]).toBe('org-1');
+    expect(binds.flat()).not.toContain('org-victim');
   });
 });
 
@@ -177,7 +203,7 @@ describe('POST /api/usage/record (token_burn_meter)', () => {
   it('404s when the flag is off', async () => {
     mockIsFlagOn.mockResolvedValue(false);
     const { env } = makeDb();
-    const res = await features.request(
+    const res = await mountWithOrg('org-1').request(
       '/api/usage/record',
       { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
       env,
@@ -185,15 +211,25 @@ describe('POST /api/usage/record (token_burn_meter)', () => {
     expect(res.status).toBe(404);
   });
 
-  it('200s + records the event with the rounded cost', async () => {
-    const { env, prepares } = makeDb();
-    const res = await features.request(
+  it('401s when there is no authed org', async () => {
+    const { env } = makeDb();
+    const res = await mountWithOrg(undefined).request(
+      '/api/usage/record',
+      { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' },
+      env,
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it('records under the AUTHED org, ignoring a client body org_id (IDOR regression)', async () => {
+    const { env, prepares, binds } = makeDb();
+    const res = await mountWithOrg('org-1').request(
       '/api/usage/record',
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          org_id: 'org-9',
+          org_id: 'org-victim',
           model: 'claude-sonnet-4-6',
           input_tokens: 1_000_000,
           output_tokens: 0,
@@ -204,5 +240,8 @@ describe('POST /api/usage/record (token_burn_meter)', () => {
     expect(res.status).toBe(200);
     expect(((await res.json()) as { cents: number }).cents).toBe(300);
     expect(prepares[0]).toMatch(/INSERT INTO token_events/);
+    // the INSERT bound the AUTHED org, never the body-supplied victim
+    expect(binds[0]).toEqual(expect.arrayContaining(['org-1']));
+    expect(binds.flat()).not.toContain('org-victim');
   });
 });

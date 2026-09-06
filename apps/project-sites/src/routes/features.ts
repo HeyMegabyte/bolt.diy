@@ -17,7 +17,7 @@
 import { Hono } from 'hono';
 import type { Context, Next } from 'hono';
 import { z } from 'zod';
-import type { Env } from '../types/env';
+import type { Env, Variables } from '../types/env';
 import { DOMAINS } from '@project-sites/shared';
 import { assertSiteOwned } from '../services/site_ownership.js';
 import { createReviewLink } from '../services/review_approval.js';
@@ -32,7 +32,7 @@ import {
 import { listFlags } from '../modules/feature_flags/registry.js';
 import { FLAG_DOCS, getDocs } from '../modules/feature_flags/docs.js';
 
-const features = new Hono<{ Bindings: Env }>();
+const features = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 /**
  * `true` only on the PLATFORM apex (`projectsites.dev` / `www` / `localhost` /
@@ -50,7 +50,7 @@ const features = new Hono<{ Bindings: Env }>();
  * megabytespace.projectsites.dev/robots.txt returned byte-identical platform
  * content.)
  */
-function isMarketingHost(c: Context<{ Bindings: Env }>): boolean {
+function isMarketingHost(c: Context<{ Bindings: Env; Variables: Variables }>): boolean {
   // Prefer the URL hostname (always present, HTTP/2-safe) with a Host-header
   // fallback — `Host` is absent under HTTP/2 (:authority) + in test harnesses.
   let hostname = '';
@@ -74,11 +74,15 @@ const ApprovalLinkBody = z
   .strip();
 
 function requireFlag(flagKey: string) {
-  return async (c: Context<{ Bindings: Env }>, next: Next) => {
+  return async (c: Context<{ Bindings: Env; Variables: Variables }>, next: Next) => {
+    // Prefer the AUTHED identity (set by auth middleware) over any client-supplied
+    // x-org-id/x-user-id header — a spoofable header must never target flag rollout
+    // as another org. Headers/query remain only as an unauthed fallback for the
+    // public flag-check path (no session → nothing to spoof against).
     const scope = {
-      orgId: c.req.header('x-org-id') ?? c.req.query('org_id'),
+      orgId: c.get('orgId') ?? c.req.query('org_id'),
       siteId: c.req.header('x-site-id') ?? c.req.query('site_id'),
-      userId: c.req.header('x-user-id'),
+      userId: c.get('userId') ?? c.req.header('x-user-id'),
       anonId: c.req.header('cf-ray'),
     };
     const on = await isFlagOn(c.env, flagKey, scope);
@@ -423,7 +427,7 @@ const PLAN_RANK: Record<string, number> = { free: 0, pro: 1, business: 2, enterp
 
 /** Read the caller's org plan tier (best-effort; defaults to 'free'). */
 async function readOrgPlan(
-  c: Context<{ Bindings: Env }>,
+  c: Context<{ Bindings: Env; Variables: Variables }>,
   orgId: string | undefined,
 ): Promise<'free' | 'pro' | 'business' | 'enterprise'> {
   if (!orgId) return 'free';
@@ -449,7 +453,7 @@ async function readOrgPlan(
 
 /** Read tenant-scoped enable/preview state for a site's features. */
 async function readSiteFeatureState(
-  c: Context<{ Bindings: Env }>,
+  c: Context<{ Bindings: Env; Variables: Variables }>,
   siteId: string | undefined,
 ): Promise<Record<string, { enabled: boolean; preview: boolean }>> {
   const out: Record<string, { enabled: boolean; preview: boolean }> = {};
@@ -581,20 +585,25 @@ features.post('/api/site-features/:key', async (c) => {
 
 // ─── Semantic per-feature endpoints (every endpoint flag-gated) ──────
 
-// Token-burn meter
-features.get('/api/usage/burn', requireFlag('token_burn_meter'), async (c) =>
-  c.json(await F.getMonthlyBurn(c.env, c.req.query('org_id') ?? 'demo-org')),
-);
+// Token-burn meter — org comes from the AUTHED session (c.get('orgId')), NEVER a
+// client org_id param. token_events is billing data; a client-supplied org_id let
+// any caller read (GET burn) or pollute (POST record) another org's spend (IDOR).
+features.get('/api/usage/burn', requireFlag('token_burn_meter'), async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) return c.json({ error: 'unauthorized' }, 401);
+  return c.json(await F.getMonthlyBurn(c.env, orgId));
+});
 features.post('/api/usage/record', requireFlag('token_burn_meter'), async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) return c.json({ error: 'unauthorized' }, 401);
   const body = (await c.req.json().catch(() => ({}))) as {
-    org_id?: string;
     model?: F.ModelId;
     input_tokens?: number;
     output_tokens?: number;
   };
   return c.json(
     await F.recordTokenEvent(c.env, {
-      orgId: body.org_id ?? 'demo-org',
+      orgId,
       model: body.model ?? '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
       inputTokens: body.input_tokens ?? 0,
       outputTokens: body.output_tokens ?? 0,
@@ -623,16 +632,20 @@ const json = async (c: { req: { json: () => Promise<unknown> } }) =>
 // AI model router — folded under model_registry (the AI-model platform flag);
 // the standalone ai_auto_router flag was retired 2026-08-14 as a duplicate.
 features.post('/api/router/pick', requireFlag('model_registry'), async (c) => {
-  const body = (await c.req.json().catch(() => ({}))) as { prompt?: string; org_id?: string };
+  const orgId = c.get('orgId');
+  if (!orgId) return c.json({ error: 'unauthorized' }, 401);
+  const body = (await c.req.json().catch(() => ({}))) as { prompt?: string };
   return c.json(
     await experimentalFeatures.autoRoutePrompt(c.env, {
       prompt: body.prompt ?? 'demo prompt',
-      orgId: body.org_id,
+      orgId,
     }),
   );
 });
-features.get('/api/router/stats', requireFlag('model_registry'), async (c) =>
-  c.json(await experimentalFeatures.getRouterStats(c.env, c.req.query('org_id') ?? 'demo-org')),
-);
+features.get('/api/router/stats', requireFlag('model_registry'), async (c) => {
+  const orgId = c.get('orgId');
+  if (!orgId) return c.json({ error: 'unauthorized' }, 401);
+  return c.json(await experimentalFeatures.getRouterStats(c.env, orgId));
+});
 
 export default features;
