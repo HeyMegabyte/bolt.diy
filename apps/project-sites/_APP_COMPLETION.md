@@ -45,7 +45,7 @@ coverage matrix).
 - [x] **B.4 Billing checkout MOUNTS** — embedded Stripe iframe mounts. *(verify-billing-checkout, local Chromium)*
 - [ ] **B.5 Billing FULL** — checkout → (Stripe TEST-mode) webhook → subscription flips `active` → entitlements unlock in `/admin/billing` (causal). *(FULL-FLOW)*
 - [ ] **B.6 Editor round-trip** — open site in `/admin/editor` → change a requirement → live `{slug}` updates → publish (real edit→publish persistence — the canonical loop.md flow). *(FULL-FLOW)*
-- [ ] **B.7 Auth** — magic-link request→verify + Google OAuth (headless-verifiable portions; render+state, not the emailed click). *(FULL-FLOW)*
+- [x] **B.7 Auth** — magic-link request→verify-fail-safe + Google OAuth init well-formed (headless-verifiable portions; the emailed-click token consumption needs the peek seam / a human inbox — out of headless scope). *(verify-auth-flow.mjs, AL-094 — 7/7 on prod: request 200+expiry · Zod 400 · verify missing/bad-token 302 fail-safe · Google 302 client_id+redirect_uri+scope+CSRF-state · callback graceful · me→401)*
 
 ## § C — Generated-site QUALITY (the CORE PRODUCT) · headless PROD audit · OWNER: GENERATED-SITE QUALITY
 *Audit DEPLOYED `{slug}.projectsites.dev` (vanta-strength-austin · ironhaus-houston · vantage-digital-studio-portland). Fix at ROOT CAUSE in the TEMPLATE (`github.com/HeyMegabyte/template.projectsites.dev`, lands next build) or the site-gen prompt / `build_validators.ts` — never a one-off. Ship a durable probe under `e2e/site-quality/` wired into run-all.*
@@ -72,11 +72,11 @@ coverage matrix).
 ## Progress (recompute each fire)
 
 - **§ A Admin:** 100% ✅ (plateau — maintenance-only)
-- **§ B Full flows:** 7 / 9 = ~78% (B.1 guest funnel ✅ AL-089)
+- **§ B Full flows:** 7 / 9 = ~78% (B.7 auth ✅ AL-094 · B.1 guest funnel ✅ AL-089 — remaining: B.5 billing-full, B.6 editor round-trip)
 - **§ C Generated-site quality:** 0 / 7 = 0% (was UNLOOPED — now owned by the new loop)
 - **§ D Platform marketing:** 0 / 3 = 0%
 - **§ E Editor:** 1 / 2 = 50%
-- **Overall app "done": ~56%** (18 / 32 boxes) — the admin surface is finished; the remaining frontier is the public product (generated-site quality + billing-full/editor-roundtrip/auth flows).
+- **Overall app "done": ~59%** (19 / 32 boxes) — the admin surface is finished; the remaining frontier is the public product (generated-site quality) + the two heaviest flows (B.5 billing-full = Stripe test-mode checkout→webhook→entitlement-unlock; B.6 editor round-trip = WebContainer edit→publish, Browserbase-gated).
 
 ## Maintenance caveat
 Scheduled `/loop` crons **auto-expire after 7 days** (scheduler behavior). To keep converging to done, **re-arm weekly** (`/loop` or `CronCreate durable:true`). A weekly re-arm reminder is the safest guard against the whole convergence silently stopping.

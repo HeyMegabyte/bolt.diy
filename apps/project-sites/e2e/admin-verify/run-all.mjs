@@ -41,6 +41,7 @@ const PROBES = [
   { label: 'target-size', file: 'target-size-scan.mjs', env: {} },
   { label: 'modal-a11y', file: 'modal-a11y-scan.mjs', env: {} },
   { label: 'auth-a11y', file: 'verify-auth-a11y.mjs', env: {} },
+  { label: 'auth-flow', file: 'verify-auth-flow.mjs', env: {} },
   { label: 'completeness', file: 'completeness-stub-scan.mjs', env: {} },
   { label: 'funnel-reconcile', file: 'verify-funnel-reconcile.mjs', env: {} },
   ...causal,
