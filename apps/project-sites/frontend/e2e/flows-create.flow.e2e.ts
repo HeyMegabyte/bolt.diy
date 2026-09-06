@@ -2,11 +2,12 @@
  * flows-create.flow.e2e.ts — Surface: /create (the site-creation wizard).
  *
  * The 3-step wizard ("1 Business" → "2 Details" → "3 Brand assets") that turns a
- * business into a generated site, with an "Auto-Populate with AI" accelerator, a
- * Turnstile CAPTCHA (`turnstile-widget`), and a final "Create site" action. Heading
- * "Create Your Website". These journeys prove the wizard renders + steps navigate +
- * fields accept input — WITHOUT ever submitting (Turnstile-gated + creates a real
- * site; a real create belongs in a seeded mutation test, not this UI walk).
+ * business into a generated site, with an "Auto-Populate with AI" accelerator and a
+ * final "Create site" action. Heading "Create Your Website". Create is AUTH-gated:
+ * an unauthed submit redirects to /signin then auto-submits, so auth (not a CAPTCHA)
+ * is the abuse gate for this authenticated flow. These journeys prove the wizard
+ * renders + steps navigate + fields accept input — WITHOUT ever submitting (a real
+ * create belongs in a seeded mutation test, not this UI walk).
  *
  * Run: E2E_API_KEY=$(get-secret E2E_API_KEY) \
  *   npx playwright test --config=playwright.prod.config.ts flows-create.flow --workers=3
@@ -95,14 +96,19 @@ test.describe('Full-flow · create wizard', () => {
     await snap(page, 'create-05-details');
   });
 
-  test('06 the Turnstile CAPTCHA widget is mounted (abuse protection on create)', async ({ page }) => {
+  // Turnstile-on-create is ASPIRATIONAL — the wizard does not render a Turnstile widget today
+  // (verified 2026-09-06: zero turnstile refs in create.component.ts). create-from-search is
+  // AUTH-gated (unauthed submit → /signin → auto-submit), so auth is the real abuse gate for
+  // this authenticated flow — mirrors sign-in.component's documented "does NOT yet render"
+  // Turnstile note. Kept as fixme so un-fixme-ing it validates a Turnstile widget once added.
+  test.fixme('06 abuse gate: Turnstile-on-create (aspirational — create is auth-gated at submit)', async ({ page }) => {
     await seedSession(page);
     await goCreate(page);
     const turnstile = page.locator('[data-testid="turnstile-widget"], iframe[src*="turnstile"], .cf-turnstile').first();
-    await expect(turnstile, 'create is Turnstile-protected').toBeVisible({ timeout: 15_000 });
+    await expect(turnstile, 'create renders a Turnstile widget').toBeVisible({ timeout: 15_000 });
   });
 
-  test('07 the "Create site" action is present (submission is Turnstile-gated — not exercised)', async ({
+  test('07 the "Create site" action is present (submission is auth-gated — not exercised)', async ({
     page,
   }) => {
     await seedSession(page);
@@ -141,7 +147,7 @@ test.describe('Full-flow · create wizard', () => {
     expectClean(errors);
   });
 
-  test.fixme('11 full journey: land → fill business → see auto-populate → advance a step → Turnstile mounted', async ({
+  test.fixme('11 full journey: land → fill business → see auto-populate → advance a step → Create action present', async ({
     page,
   }) => {
     const errors = attachConsole(page);
@@ -154,7 +160,7 @@ test.describe('Full-flow · create wizard', () => {
     const detailsTab = page.getByText(/2\s*details/i).first();
     if (await detailsTab.count()) await detailsTab.click();
     await page.waitForTimeout(500);
-    await expect(page.locator('[data-testid="turnstile-widget"], iframe[src*="turnstile"], .cf-turnstile').first()).toBeVisible();
+    await expect(page.getByText(/create site/i).first()).toBeVisible();
     await snap(page, 'create-11-journey');
     expectClean(errors);
   });
