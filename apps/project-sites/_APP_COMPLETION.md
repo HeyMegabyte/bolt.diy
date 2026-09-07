@@ -27,7 +27,7 @@ coverage matrix).
 ---
 
 ## § A — Admin dashboard (Angular SPA) · OWNER: INTEGRITY + COMPLETENESS + QUALITY
-**Status: ✅ verified plateau** — 23 sections, 11-probe headless-prod suite (`e2e/admin-verify/run-all.mjs`) green (16 pass · 4 skip · 0 fail).
+**Status: ✅ verified plateau** — 23 sections, 35-probe headless-prod suite (`e2e/admin-verify/run-all.mjs`) green (**35 pass · 0 skip · 0 fail**, AL-128 2026-09-07 — all Browserbase creds auto-resolve via get-secret, zero skips).
 - [x] Render+a11y — surf @1280+@390 CLEAN · focus-not-obscured (2.4.11) · target-size (2.5.8) · modal-a11y (open dialogs) — 0 violations
 - [x] Truthful data — reconcile-counts, 9 surfaces, display==store (exact active-on-live predicate)
 - [x] Truthful mutations — 9 causal write→read-back probes persist (no lying-success / dropped write)
