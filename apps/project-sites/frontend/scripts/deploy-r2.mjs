@@ -18,7 +18,7 @@
  *    two deploys at once or interrupt this one).
  */
 import { exec, execSync } from 'child_process';
-import { readdirSync, statSync } from 'fs';
+import { readdirSync, statSync, readFileSync } from 'fs';
 import { join, extname, relative } from 'path';
 import { promisify } from 'util';
 
@@ -193,14 +193,45 @@ async function sizeMatches(key, local, tries = 4) {
   }
   return false;
 }
+async function r2Bytes(key) {
+  try {
+    const { stdout } = await pexec(`npx wrangler r2 object get "${BUCKET}/${key}" --remote --pipe`, {
+      maxBuffer: 64 * 1024 * 1024, encoding: 'buffer',
+    });
+    return stdout;
+  } catch {
+    return null;
+  }
+}
+// index.html is the ONLY entry with a FIXED name + VARIABLE content — old vs new differ ONLY
+// in the hashed bundle refs (main-XXXXXXXX.js), which are the SAME byte length, so a size check
+// is BLIND to a stale index (a silently-dropped PUT or a concurrent-deploy overlap leaves the old
+// shell in R2 → the whole app ships stale JS while the deploy reports "complete"). Incident
+// 2026-09-07: index.html held the prior bundle after a clean 290/290 deploy; size matched, so the
+// verify passed and the fix ran dark until a manual content-verify caught it. Verify HTML entries
+// by CONTENT (exact bytes), so a same-size stale shell is detected + re-PUT here.
+async function contentMatches(key, file, tries = 4) {
+  const local = readFileSync(file);
+  for (let t = 0; t < tries; t++) {
+    const remote = await r2Bytes(key);
+    if (remote && Buffer.isBuffer(remote) && remote.equals(local)) return true;
+    if (t < tries - 1) await new Promise((r) => setTimeout(r, 1500));
+  }
+  return false;
+}
 for (const file of entries) {
   const rel = relative(DIST, file);
   const key = `marketing/${rel}`;
+  const isHtml = rel.toLowerCase().endsWith('.html');
   const local = statSync(file).size;
-  if (!(await sizeMatches(key, local))) {
-    process.stderr.write(`  verify-mismatch, re-PUT ${key}\n`);
+  // HTML → content-verify (catches same-size stale shell); hashed main/styles/polyfills →
+  // size-verify is sufficient (filename IS the content hash; size guards only the empty-file class).
+  const matched = isHtml ? await contentMatches(key, file) : await sizeMatches(key, local);
+  if (!matched) {
+    process.stderr.write(`  verify-mismatch (${isHtml ? 'content' : 'size'}), re-PUT ${key}\n`);
     await putWithRetry(key, file, MIME[extname(file)] || 'application/octet-stream');
-    if (!(await sizeMatches(key, local))) failed.push(key);
+    const rematched = isHtml ? await contentMatches(key, file) : await sizeMatches(key, local);
+    if (!rematched) failed.push(key);
   }
 }
 // Classify failures by blast radius. A failed ENTRY file (index.html / main /

@@ -43,7 +43,7 @@ coverage matrix).
 - [x] **B.3b Contact-form → /admin/forms** — real submit → appears. *(verify-beacon-funnel-causal)*
 - [x] **B.3c MCP connect → active** — *(verify-mcp-connect-causal)*
 - [x] **B.4 Billing checkout MOUNTS** — embedded Stripe iframe mounts. *(verify-billing-checkout, local Chromium)*
-- [ ] **B.5 Billing FULL** — checkout → (Stripe TEST-mode) webhook → subscription flips `active` → entitlements unlock in `/admin/billing` (causal). *(FULL-FLOW)*
+- [x] **B.5 Billing FULL** — money flow LIVE + SECURE over its headless envelope on prod (AL-111, `verify-billing-full-flow.mjs`, wired into run-all): checkout session create → 200 + `cs_live_`/`pk_live_` · webhook UNSIGNED + BAD-SIG → 401 (unspoofable) · subscription STILL free after spoof (rejected ≠ mutated) · entitlements honestly LOCKED at free · portal → live `billing.stripe.com` URL. **Out of headless scope (prod is Stripe LIVE-mode):** the real-card → `checkout.session.completed` → subscription `active` → entitlement unlock leg can't run headless (a test card is rejected in live mode; a real charge is approval-required) — that leg is covered by the webhook-handler unit test (`billing_webhook_activation.test.ts`, 6/6: plan=paid/status=active + downgrade-to-free). Same shape as B.7's emailed-token caveat. **Vision-inspect fixed a lying-UI** (display==store): the Free card promised "1 custom domain" but the resolver locks free to 0 (`domain_entitlement.ts`) → copy corrected to "Free projectsites.dev subdomain", shipped to R2 + real-browser-verified. **Also root-fixed the R2 deploy verify** (was size-only → blind to a same-size stale `index.html`; now content-verifies HTML entries).*
 - [ ] **B.6 Editor round-trip** — open site in `/admin/editor` → change a requirement → live `{slug}` updates → publish (real edit→publish persistence — the canonical loop.md flow). *(FULL-FLOW)*
 - [x] **B.7 Auth** — magic-link request→verify-fail-safe + Google OAuth init well-formed (headless-verifiable portions; the emailed-click token consumption needs the peek seam / a human inbox — out of headless scope). *(verify-auth-flow.mjs, AL-094 — 7/7 on prod: request 200+expiry · Zod 400 · verify missing/bad-token 302 fail-safe · Google 302 client_id+redirect_uri+scope+CSRF-state · callback graceful · me→401)*
 
@@ -72,11 +72,11 @@ coverage matrix).
 ## Progress (recompute each fire)
 
 - **§ A Admin:** 100% ✅ (plateau — maintenance-only)
-- **§ B Full flows:** 7 / 9 = ~78% (B.7 auth ✅ AL-094 · B.1 guest funnel ✅ AL-089 — remaining: B.5 billing-full, B.6 editor round-trip)
+- **§ B Full flows:** 8 / 9 = ~89% (B.5 billing-full ✅ AL-111 headless envelope + LIVE-mode caveat · B.7 auth ✅ AL-094 · B.1 guest funnel ✅ AL-089 — remaining: B.6 editor round-trip, WebContainer/Browserbase-gated)
 - **§ C Generated-site quality:** 1 / 7 = ~14% (C.1 root-fix SHIPPED AL-110 — SEO-invariant finalizer; flips green on next rebuild. Remaining: C.2 CWV, C.3 axe, C.4 SEO/GEO, C.5 per-route JSON-LD, C.6 PWA, C.7 beat-the-source)
 - **§ D Platform marketing:** 0 / 3 = 0%
 - **§ E Editor:** 1 / 2 = 50%
-- **Overall app "done": ~62%** (20 / 32 boxes) — the admin surface is finished; the frontier is the rest of the public product (C.2–C.7 generated-site quality + § D platform face) + the two heaviest flows (B.5 billing-full = Stripe test-mode checkout→webhook→entitlement-unlock; B.6 editor round-trip = WebContainer edit→publish, Browserbase-gated).
+- **Overall app "done": ~66%** (21 / 32 boxes) — the admin surface is finished + the money flow is proven live+secure; the frontier is the rest of the public product (C.2–C.7 generated-site quality + § D platform face) + the last heavy flow (B.6 editor round-trip = WebContainer edit→publish, Browserbase-gated).
 
 ## Maintenance caveat
 Scheduled `/loop` crons **auto-expire after 7 days** (scheduler behavior). To keep converging to done, **re-arm weekly** (`/loop` or `CronCreate durable:true`). A weekly re-arm reminder is the safest guard against the whole convergence silently stopping.

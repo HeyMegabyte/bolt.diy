@@ -446,7 +446,7 @@ interface ForecastBar {
             <ul class="list-none p-0 mt-3 space-y-1.5 text-[0.74rem] text-text-secondary">
               <li>· 1 project</li>
               <li>· 100 AI credits / month</li>
-              <li>· 1 custom domain</li>
+              <li>· Free projectsites.dev subdomain</li>
               <li>· Community support</li>
               <li>· projectsites.dev branding</li>
             </ul>

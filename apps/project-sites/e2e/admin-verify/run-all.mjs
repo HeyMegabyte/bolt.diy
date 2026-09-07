@@ -50,6 +50,7 @@ const PROBES = [
   ...causal,
   { label: 'guest-funnel', file: 'verify-guest-funnel.mjs', env: {} },
   { label: 'billing-checkout', file: 'verify-billing-checkout.mjs', env: {} },
+  { label: 'billing-full-flow', file: 'verify-billing-full-flow.mjs', env: {} },
   { label: 'editor-datatab', file: 'verify-editor-datatab.mjs', env: {} },
 ].filter((p) => !filter || p.label.toLowerCase().includes(filter) || p.file.toLowerCase().includes(filter));
 
