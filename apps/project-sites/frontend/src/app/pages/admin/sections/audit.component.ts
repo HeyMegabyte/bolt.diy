@@ -15,6 +15,7 @@ import { ToastService } from '../../../services/toast.service';
 import { AdminStateService } from '../admin-state.service';
 import { RollingCounterComponent } from '../../../components/rolling-counter/rolling-counter.component';
 import { ErrorCardComponent } from '../../../components/states';
+import { sanitizeAuditSummary } from '../../../utils/sanitize-audit-summary';
 
 /**
  * Shape of an audit row as returned by `GET /api/audit-logs`. The `site`
@@ -260,8 +261,8 @@ function actionToFallbackMessage(action: string): string {
                   <span
                     class="cell-message"
                     [class.is-fallback]="row.original.message == null"
-                    [title]="row.original.message ?? fallbackMsg(row.original.action)">
-                    {{ row.original.message ?? fallbackMsg(row.original.action) }}
+                    [title]="sanitize(row.original.message ?? fallbackMsg(row.original.action))">
+                    {{ sanitize(row.original.message ?? fallbackMsg(row.original.action)) }}
                   </span>
                 </td>
                 <td class="cell-when" [title]="isoOf(row.original.created_at)">{{ relTime(row.original.created_at) }}</td>
@@ -571,6 +572,9 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
    *  (which reflowed text + card width on resolve). Keep in sync with the
    *  loaded stat-card markup. */
   readonly statLabels = ['Events', 'Unique actions', 'Last 24h', 'Actors'] as const;
+  /** Scrub stray interpolated `undefined`/`null` from a stored summary at render
+   *  (legacy rows persist — shared with the dashboard widget). AL-139. */
+  readonly sanitize = sanitizeAuditSummary;
   rows = signal<AuditRow[]>([]);
   /** Raw `meta.total` from the last load (a worker COUNT(*)); 0 when unknown. */
   private readonly metaTotal = signal(0);

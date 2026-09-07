@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal, OnInit } from '@angular/core';
 import { ApiService } from '../../services/api.service';
+import { sanitizeAuditSummary } from '../../utils/sanitize-audit-summary';
 
 /** One activity entry, mirrors the worker `ActivityEntry` schema. */
 interface ActivityEntry {
@@ -187,24 +188,12 @@ export class RecentActivityComponent implements OnInit {
   }
 
   /**
-   * Defensive display guard: never render a stray `undefined`/`null` to the user.
-   * An older audit writer occasionally interpolated a missing field into a summary
-   * (e.g. "Stripe checkout session created for 'undefined' tier" — AL-001). Current
-   * code writes clean messages, but historical rows persist, so sanitize at render:
-   * drop a broken "for 'undefined' <word>" clause, neutralize any remaining quoted
-   * token, strip bare tokens, and tidy whitespace.
-   *
-   * @example clean("Stripe checkout session created for 'undefined' tier")
-   *   // → "Stripe checkout session created"
+   * Scrub a stray interpolated `undefined`/`null` from a stored summary before
+   * render (e.g. the checkout writer's "for 'undefined' tier"). Delegates to the
+   * shared {@link sanitizeAuditSummary} so this widget and the /admin/audit table
+   * stay byte-identical — AL-139 de-duplicated what was an inline copy here.
    */
   clean(summary: string): string {
-    if (!summary) return summary;
-    return summary
-      .replace(/\s*\b(for|to|as|on)\s+'(?:undefined|null)'\s+\S+/gi, '')
-      .replace(/'(?:undefined|null)'/gi, "'unknown'")
-      .replace(/\b(?:undefined|null)\b/g, '')
-      .replace(/\s{2,}/g, ' ')
-      .replace(/\s+([.,;:])/g, '$1')
-      .trim();
+    return sanitizeAuditSummary(summary);
   }
 }
