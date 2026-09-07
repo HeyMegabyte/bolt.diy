@@ -163,6 +163,15 @@ describe('buildPrompt — template-first, ≤14-min', () => {
     expect(out).toMatch(/NEVER invent a different name/i);
     expect(out).toMatch(/grep for leftover names/i);
   });
+
+  it('keeps the typography mandate (headings never system-ui; template auto-loads theme fonts) [2026-09-07 font-load fix]', () => {
+    const out = buildPrompt(p);
+    // Fonts are the #1 theme signal — 4/4 sampled sites had unloaded heading fonts
+    // (system-ui) until the template started auto-loading them. Guard the intent.
+    expect(out).toMatch(/system-ui/i);
+    expect(out).toMatch(/AUTO-LOAD|auto-load/);
+    expect(out).toMatch(/display (face|heading)/i);
+  });
 });
 
 // ─── Heartbeat-loop coverage (sequence-driven replay mock) ───────────────────
