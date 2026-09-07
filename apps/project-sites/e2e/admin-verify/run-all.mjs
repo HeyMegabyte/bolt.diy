@@ -44,6 +44,7 @@ const PROBES = [
   { label: 'auth-a11y', file: 'verify-auth-a11y.mjs', env: {} },
   { label: 'auth-flow', file: 'verify-auth-flow.mjs', env: {} },
   { label: 'completeness', file: 'completeness-stub-scan.mjs', env: {} },
+  { label: 'error-edge-states', file: 'verify-error-edge-states.mjs', env: {} },
   { label: 'funnel-reconcile', file: 'verify-funnel-reconcile.mjs', env: {} },
   ...causal,
   { label: 'guest-funnel', file: 'verify-guest-funnel.mjs', env: {} },
