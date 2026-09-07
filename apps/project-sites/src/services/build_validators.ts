@@ -1064,3 +1064,233 @@ export const repairDanglingEmDash = (files: BuildFile[]): [BuildFile[], number] 
   const changed = fixed.filter((f, i) => f.text !== files[i]?.text).length;
   return [fixed, changed];
 };
+
+export interface SeoFinalizeContext {
+  /** Real business name (params.businessName) — the fallback for the JSON-LD `name`. */
+  businessName: string;
+  /** Canonical site origin, e.g. `https://vanta-strength-austin.projectsites.dev` (no trailing slash). */
+  hostname: string;
+}
+
+export interface SeoFinalizeReport {
+  jsonLdInjected: number;
+  escapesRepaired: number;
+  descExpanded: number;
+  titleClamped: number;
+}
+
+const truncateAtWord = (s: string, max: number): string => {
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max);
+  const lastSpace = cut.lastIndexOf(' ');
+  return (lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).replace(/[\s,;:—–-]+$/, '');
+};
+
+/** Unescape invalid `\'` OUTSIDE `<script>`/`<style>` — a backslash-apostrophe is never valid in
+ * HTML (and never valid JSON either), so a `content="Houston\'s …"` meta ships literal `Houston\'s`
+ * to crawlers. Script/style bodies are left untouched (a JS `'it\'s'` string IS valid there). */
+const unescapeApostrophesOutsideScripts = (html: string): { text: string; count: number } => {
+  let count = 0;
+  const text = html.replace(/(<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>)|\\(')/gi, (m, block) => {
+    if (block) return block;
+    count++;
+    return "'";
+  });
+  return { text, count };
+};
+
+/** Read a meta/og/twitter description value with a delimiter-respecting backreference (same fix as
+ * metaDescText — a plain `[^"']*` truncates a valid double-quoted value at its first apostrophe). */
+const readAttrContent = (html: string, tagRe: RegExp): string => {
+  const tag = html.match(tagRe);
+  if (!tag) return '';
+  const c = tag[0].match(/\bcontent=(["'])([\s\S]*?)\1/i);
+  return c ? c[2].trim() : '';
+};
+
+/** Swap the `content=` value of the FIRST tag matching `tagRe`. No-op when the tag is absent. */
+const setAttrContent = (html: string, tagRe: RegExp, value: string): string => {
+  const tag = html.match(tagRe);
+  if (!tag) return html;
+  const safe = value.replace(/"/g, '&quot;');
+  const replaced = tag[0].replace(/\bcontent=(["'])[\s\S]*?\1/i, `content="${safe}"`);
+  return html.replace(tag[0], replaced);
+};
+
+const collectJsonLdTypes = (html: string): { count: number; types: Set<string> } => {
+  const types = new Set<string>();
+  let count = 0;
+  for (const m of html.matchAll(JSONLD_BLOCK)) {
+    const raw = (m[1] ?? '').trim();
+    if (!raw) continue;
+    count++;
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      const nodes = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray((parsed as Record<string, unknown>)?.['@graph'])
+          ? ((parsed as Record<string, unknown>)['@graph'] as unknown[])
+          : [parsed];
+      for (const n of nodes) {
+        const t = (n as Record<string, unknown>)?.['@type'];
+        if (typeof t === 'string') types.add(t);
+      }
+    } catch {
+      // malformed block still counts toward the total (validateJsonLdStructure owns quality)
+    }
+  }
+  return { count, types };
+};
+
+/**
+ * Deterministic SEO-invariant finalizer — the structured-data + meta backstop for C.1.
+ *
+ * The build LLM reliably UNDER-delivers three C.1 invariants (verified on prod 2026-09-07:
+ * deployed sites ship ZERO real JSON-LD blocks — the template carries the "open-now" CONSUMER
+ * widget that reads `script[type=application/ld+json]` but the build never EMITS the data — plus
+ * sub-120-char descriptions and JS-string `\'` escapes leaking into meta content). Report-mode
+ * validators log all of it but never block, so it ships live. This runs in finalize-build AFTER
+ * upload (same mid-build-authorship class as repairDoubleDotCanonical / repairDanglingEmDash),
+ * sourcing every value from signals ALREADY in the shell (og:title, canonical, meta description,
+ * og:image) + the real business name — no fabrication, no new plumbing. Pure — no input mutation.
+ *
+ * Per route HTML file (404/500/offline excluded), in order:
+ *   1. Unescape invalid `\'` outside script/style.
+ *   2. Description: expand <120 to 120-156 with clean name-derived CTAs (no fabricated facts);
+ *      truncate >156 at a word boundary. Rewrites meta + og + twitter descriptions in lockstep.
+ *   3. Title: truncate >60 at a word boundary (a <50 title needs city/category the shell lacks —
+ *      the build-prompt mandate owns lengthening; this only clamps the over-long case).
+ *   4. JSON-LD: when <4 real blocks, inject the missing standard blocks (WebSite + Organization +
+ *      WebPage + BreadcrumbList) built from the shell — accurate for every business site,
+ *      JSON.stringify-escaped, before </head>.
+ *
+ * @returns [repairedFiles, report]
+ */
+export const finalizeSeoInvariants = (
+  files: BuildFile[],
+  ctx: SeoFinalizeContext,
+): [BuildFile[], SeoFinalizeReport] => {
+  const report: SeoFinalizeReport = {
+    jsonLdInjected: 0,
+    escapesRepaired: 0,
+    descExpanded: 0,
+    titleClamped: 0,
+  };
+  const rootUrl = `${ctx.hostname.replace(/\/+$/, '')}/`;
+  const brandName = (ctx.businessName || 'Business').trim();
+
+  const fixed = files.map((f) => {
+    if (!isHtml(f.path) || !f.text || NON_ROUTE_HTML.test(f.path)) return f;
+    let text = f.text;
+
+    // 1. Invalid `\'` escapes outside script/style.
+    const esc = unescapeApostrophesOutsideScripts(text);
+    if (esc.count > 0) {
+      report.escapesRepaired += esc.count;
+      text = esc.text;
+    }
+
+    // Shell signals (read AFTER the escape repair so values are clean).
+    const ogTitle = readAttrContent(text, /<meta\s+[^>]*\bproperty=["']og:title["'][^>]*>/i);
+    const titleTag = text.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() ?? '';
+    const rawName = (ogTitle || titleTag || brandName).split(/\s+[—–|]\s+/)[0]?.trim() || brandName;
+    const canonical =
+      text.match(/<link\s+[^>]*rel=["']canonical["'][^>]*href=["']([^"']*)["']/i)?.[1]?.trim() ||
+      text.match(/<meta\s+[^>]*\bproperty=["']og:url["'][^>]*>/i)?.[0]?.match(/content=["']([^"']*)["']/i)?.[1]?.trim() ||
+      '';
+    const pageUrl = canonical || rootUrl;
+    const image = readAttrContent(text, /<meta\s+[^>]*\bproperty=["']og:image["'][^>]*>/i);
+
+    // 2. Description length 120-156.
+    const desc = readAttrContent(text, /<meta\s+[^>]*\bname=["']description["'][^>]*>/i);
+    let finalDesc = desc;
+    if (desc && (desc.length < 120 || desc.length > 156)) {
+      if (desc.length > 156) {
+        finalDesc = truncateAtWord(desc, 156);
+      } else {
+        const ctas = [
+          `Visit ${rawName} to learn more and get in touch today.`,
+          `Explore our services and see how ${rawName} can help you.`,
+        ];
+        let out = (desc.length >= 30 ? desc : titleTag || desc).trim();
+        for (const cta of ctas) {
+          if (out.length >= 120) break;
+          if (!/[.!?]$/.test(out)) out = `${out}.`; // clean sentence break before the CTA
+          out = `${out} ${cta}`.trim();
+        }
+        finalDesc = out.length > 156 ? truncateAtWord(out, 156) : out;
+      }
+      if (finalDesc !== desc && finalDesc.length >= 120 && finalDesc.length <= 156) {
+        text = setAttrContent(text, /<meta\s+[^>]*\bname=["']description["'][^>]*>/i, finalDesc);
+        text = setAttrContent(text, /<meta\s+[^>]*\bproperty=["']og:description["'][^>]*>/i, finalDesc);
+        text = setAttrContent(text, /<meta\s+[^>]*\bname=["']twitter:description["'][^>]*>/i, finalDesc);
+        report.descExpanded++;
+      }
+    }
+
+    // 3. Title clamp when >60 (leave <50 lengthening to the build-prompt mandate).
+    if (titleTag && titleTag.length > 60) {
+      const clamped = truncateAtWord(titleTag, 60);
+      if (clamped && clamped.length <= 60 && clamped !== titleTag) {
+        text = text.replace(/(<title[^>]*>)[\s\S]*?(<\/title>)/i, `$1${clamped}$2`);
+        text = setAttrContent(text, /<meta\s+[^>]*\bproperty=["']og:title["'][^>]*>/i, clamped);
+        text = setAttrContent(text, /<meta\s+[^>]*\bname=["']twitter:title["'][^>]*>/i, clamped);
+        report.titleClamped++;
+      }
+    }
+
+    // 4. JSON-LD ≥4 blocks — inject the missing standard types before </head>.
+    const { count, types } = collectJsonLdTypes(text);
+    if (count < 4 && /<\/head>/i.test(text)) {
+      const wantDesc = finalDesc || desc || rawName;
+      const candidates: Array<{ type: string; node: Record<string, unknown> }> = [
+        { type: 'WebSite', node: { '@context': 'https://schema.org', '@type': 'WebSite', name: rawName, url: rootUrl } },
+        {
+          type: 'Organization',
+          node: {
+            '@context': 'https://schema.org',
+            '@type': 'Organization',
+            name: rawName,
+            url: rootUrl,
+            ...(image ? { logo: image } : {}),
+          },
+        },
+        {
+          type: 'WebPage',
+          node: {
+            '@context': 'https://schema.org',
+            '@type': 'WebPage',
+            name: titleTag || rawName,
+            ...(wantDesc ? { description: wantDesc } : {}),
+            url: pageUrl,
+            isPartOf: { '@type': 'WebSite', name: rawName, url: rootUrl },
+          },
+        },
+        {
+          type: 'BreadcrumbList',
+          node: {
+            '@context': 'https://schema.org',
+            '@type': 'BreadcrumbList',
+            itemListElement: [{ '@type': 'ListItem', position: 1, name: 'Home', item: rootUrl }],
+          },
+        },
+      ];
+      const toAdd: string[] = [];
+      let total = count;
+      for (const c of candidates) {
+        if (total >= 4) break;
+        if (types.has(c.type)) continue;
+        toAdd.push(`<script type="application/ld+json">${JSON.stringify(c.node)}</script>`);
+        total++;
+      }
+      if (toAdd.length > 0) {
+        text = text.replace(/<\/head>/i, `${toAdd.join('\n')}\n</head>`);
+        report.jsonLdInjected += toAdd.length;
+      }
+    }
+
+    return text === f.text ? f : { ...f, text };
+  });
+
+  return [fixed, report];
+};

@@ -44,12 +44,15 @@ for (const slug of SITES) {
   const desc = (/<meta[^>]+name=["']description["'][^>]*content=["']([^"']*)["']/i.exec(html) || /<meta[^>]+content=["']([^"']*)["'][^>]*name=["']description["']/i.exec(html) || [])[1] || '';
   flag(desc.length >= 120 && desc.length <= 156, 'meta.description_length', `desc ${desc.length} chars — want 120-156`);
 
-  // JSON-LD ≥4 blocks. Count the marker directly (robust to attribute order,
-  // single-vs-double quotes, and minified shells — the `<script...type=` form
-  // under-counted, reporting 0 when a block was present). A curl shell can't see
-  // purely client-injected JSON-LD, but a low shell count is a real SEO/GEO gap
-  // regardless (crawlers read the shell), so the marker count is the right signal.
-  const jsonld = (html.match(/application\/ld\+json/gi) || []).length;
+  // JSON-LD ≥4 REAL blocks. Count actual <script type="application/ld+json"> tags with
+  // non-empty bodies — NOT the bare `application/ld+json` marker, which over-counts: the
+  // template's "open-now" widget contains `querySelector('script[type="application/ld+json"]')`,
+  // so the marker approach reported 1 when the shell truly had 0 blocks (verified 2026-09-07),
+  // masking the real gap. Attribute-order-robust; a curl shell can't see purely client-injected
+  // JSON-LD, but crawlers read the shell, so a low shell count is a real SEO/GEO gap regardless.
+  const jsonld = (
+    html.match(/<script\b[^>]*\btype=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || []
+  ).filter((b) => b.replace(/<script\b[^>]*>|<\/script>/gi, '').trim().length > 0).length;
   flag(jsonld >= 4, 'jsonld.count_below_threshold', `${jsonld} blocks — want ≥4 (WebSite+Organization+WebPage+BreadcrumbList)`);
 
   // Exactly 1 H1 in the shell.

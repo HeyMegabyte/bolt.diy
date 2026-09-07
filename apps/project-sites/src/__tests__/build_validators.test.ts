@@ -24,6 +24,7 @@ import {
   validateBrandNameMatch,
   repairDoubleDotCanonical,
   repairDanglingEmDash,
+  finalizeSeoInvariants,
   validateBuild,
   type BuildFile,
 } from '../services/build_validators';
@@ -1038,5 +1039,112 @@ describe('validateBrandNameMatch (short-brand sub-page titles — the SEO cap)',
       },
     ];
     expect(validateBrandNameMatch(ok, 'Cedar Ridge Bakeshop')).toEqual([]);
+  });
+});
+
+describe('finalizeSeoInvariants (C.1 structured-data + meta backstop)', () => {
+  const ctx = {
+    businessName: 'Vanta Strength Club',
+    hostname: 'https://vanta-strength-austin.projectsites.dev',
+  };
+
+  // Mirrors the real prod shell (verified 2026-09-07): ZERO real JSON-LD blocks — only the
+  // "open-now" widget's querySelector('script[type="application/ld+json"]') decoy string — plus
+  // a sub-120-char description and a `\'` JS-string escape leaking into meta content.
+  const prodLikeShell = `<!DOCTYPE html><html lang="en"><head>
+<title>Vanta Strength Club — Train Hard, Get Strong</title>
+<meta name="description" content="Houston\\'s dependable choice for strength training. Get stronger, one session at a time">
+<meta name="color-scheme" content="dark light">
+<link rel="canonical" href="https://vanta-strength-austin.projectsites.dev/">
+<meta property="og:title" content="Vanta Strength Club — Train Hard, Get Strong">
+<meta property="og:description" content="Houston\\'s dependable choice for strength training. Get stronger, one session at a time">
+<meta property="og:url" content="https://vanta-strength-austin.projectsites.dev/">
+<meta property="og:image" content="https://vanta-strength-austin.projectsites.dev/og-image.png">
+<meta name="twitter:description" content="Houston\\'s dependable choice for strength training. Get stronger, one session at a time">
+</head><body>
+<h1>Get stronger, one session at a time</h1>
+<script>(function(){var msg='it\\'s open';var blocks=document.querySelectorAll('script[type="application/ld+json"]');return msg;})();</script>
+</body></html>`;
+
+  const run = () =>
+    finalizeSeoInvariants([{ path: 'index.html', size: prodLikeShell.length, text: prodLikeShell }], ctx);
+
+  it('injects the 4 standard JSON-LD blocks when the shell has ZERO real ones (widget decoy excluded)', () => {
+    const [files, report] = run();
+    expect(report.jsonLdInjected).toBe(4);
+    const out = files[0].text as string;
+    const real = [
+      ...out.matchAll(/<script[^>]+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi),
+    ].map((m) => JSON.parse(m[1]));
+    expect(real).toHaveLength(4);
+    expect(real.map((n) => n['@type']).sort()).toEqual([
+      'BreadcrumbList',
+      'Organization',
+      'WebPage',
+      'WebSite',
+    ]);
+    // Accurate + shell-sourced: name stripped of the tagline, real canonical origin.
+    expect(real.find((n) => n['@type'] === 'Organization').name).toBe('Vanta Strength Club');
+    expect(real.find((n) => n['@type'] === 'WebSite').url).toBe(
+      'https://vanta-strength-austin.projectsites.dev/',
+    );
+  });
+
+  it("repairs an invalid `\\'` in meta content but NEVER inside <script> bodies", () => {
+    const [files, report] = run();
+    const out = files[0].text as string;
+    expect(report.escapesRepaired).toBeGreaterThanOrEqual(1);
+    expect(out).toContain("Houston's dependable"); // meta unescaped
+    expect(out).not.toContain("Houston\\'s"); // no backslash-apostrophe left in the meta
+    expect(out).toContain("var msg='it\\'s open'"); // JS body left untouched
+  });
+
+  it('expands a sub-120-char description into the 120-156 window across meta/og/twitter', () => {
+    const [files, report] = run();
+    const out = files[0].text as string;
+    expect(report.descExpanded).toBe(1);
+    const desc = /<meta\s+name="description"\s+content="([^"]*)"/i.exec(out)?.[1] ?? '';
+    expect(desc.length).toBeGreaterThanOrEqual(120);
+    expect(desc.length).toBeLessThanOrEqual(156);
+    expect(out).toContain(`property="og:description" content="${desc}"`);
+    expect(out).toContain(`name="twitter:description" content="${desc}"`);
+  });
+
+  it('is a NO-OP (same file reference) when the shell already satisfies the invariants', () => {
+    const good = completeBuild()[0]; // html() ships 4 blocks + in-range title/desc
+    const [files, report] = finalizeSeoInvariants([good], {
+      businessName: 'Acme Bakery',
+      hostname: 'https://acme.projectsites.dev',
+    });
+    expect(report).toEqual({
+      jsonLdInjected: 0,
+      escapesRepaired: 0,
+      descExpanded: 0,
+      titleClamped: 0,
+    });
+    expect(files[0]).toBe(good);
+  });
+
+  it('clamps an over-long (>60) title at a word boundary', () => {
+    const longTitle =
+      'Vanta Strength Club — The Absolute Best Premier Elite Strength And Conditioning Gym In Austin Texas';
+    const shell = `<head><title>${longTitle}</title><meta name="description" content="A perfectly sized meta description that already sits comfortably within the required one-hundred-twenty to one-fifty-six character window for search."><script type="application/ld+json">{"@type":"WebSite"}</script><script type="application/ld+json">{"@type":"Organization"}</script><script type="application/ld+json">{"@type":"WebPage"}</script><script type="application/ld+json">{"@type":"BreadcrumbList"}</script></head><body><h1>x</h1></body>`;
+    const [files, report] = finalizeSeoInvariants(
+      [{ path: 'index.html', size: shell.length, text: shell }],
+      ctx,
+    );
+    expect(report.titleClamped).toBe(1);
+    const t = /<title>([^<]*)<\/title>/i.exec(files[0].text as string)?.[1] ?? '';
+    expect(t.length).toBeLessThanOrEqual(60);
+    expect(t.length).toBeGreaterThan(40);
+  });
+
+  it('excludes 404/500/offline shells from finalization', () => {
+    const [files, report] = finalizeSeoInvariants(
+      [{ path: '404.html', size: prodLikeShell.length, text: prodLikeShell }],
+      ctx,
+    );
+    expect(report.jsonLdInjected).toBe(0);
+    expect(files[0].text).toBe(prodLikeShell);
   });
 });

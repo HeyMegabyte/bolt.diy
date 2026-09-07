@@ -294,7 +294,7 @@ export function buildPrompt(params: SiteGenerationParams): string {
     "   - Copy: replace EVERY template placeholder with the business's real content (_scraped_content.json + _research.json) on every page — hero, about, services, contact. No lorem ipsum, no placeholder text left behind.",
     '   - Images: wire _assets.json images into the hero + sections (>=6 on home, >=4 per sub-page).',
     '   - Domain sections: add the sections _domain_features.json calls for (menu / booking / donation / local-business) as NEW files in src/components/sections/.',
-    '   - SEO head per route: title 50-60 chars, meta description 120-156, canonical, JSON-LD, OG image.',
+    '   - SEO head per route (in the PRERENDERED HTML <head>, NOT script-injected): title 50-60 chars, meta description 120-156 chars, canonical, OG image, AND >=4 real JSON-LD blocks — WebSite + Organization + WebPage + BreadcrumbList minimum (LocalBusiness too when it is a physical business). Use straight quotes/apostrophes in meta content (never a backslash-escaped \\\' — that ships literal to crawlers). A deterministic finalizer backstops JSON-LD + escapes, but WRITE them correctly here so the copy is business-specific, not generic.',
     '3. `npm run build`. Fix any build errors before continuing.',
     '4. ONE validation pass: `node /home/cuser/run-validators.mjs dist`. Fix ONLY the reported blockers (the 13 build-breaking codes: manifest/asset/image/og/icon/meta/jsonld/html/sitemap/copy/js/lightbox), then re-run ONCE to confirm `blockers === 0`.',
     '5. `node /home/cuser/upload-to-r2.mjs` to publish. Env vars CF_API_TOKEN, CF_ACCOUNT_ID, R2_BUCKET_NAME, SITE_SLUG, SITE_VERSION are set.',
@@ -1632,6 +1632,7 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
               validateBrandNameMatch,
               repairDoubleDotCanonical,
               repairDanglingEmDash,
+              finalizeSeoInvariants,
             } = await import('../services/build_validators.js');
 
             // DOUBLE-DOT REPAIR + PERSIST — the container's pre-build token pass
@@ -1669,7 +1670,42 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
                 message: `Repaired dangling em-dash in ${dashRepaired} file(s) before the brand gate`,
               });
             }
-            const gatedFiles = dashRepaired > 0 ? dashRepairedFiles : files;
+            const dashFiles = dashRepaired > 0 ? dashRepairedFiles : files;
+
+            // SEO INVARIANT FINALIZER — deterministic structured-data + meta backstop
+            // (C.1). Prod ground-truth 2026-09-07: deployed sites ship ZERO real
+            // JSON-LD blocks (the template carries the open-now CONSUMER widget that
+            // reads script[type=application/ld+json] but the build never EMITS the
+            // data) + sub-120-char descriptions + JS `\'` escapes leaking into meta.
+            // Report-mode validators log it, never block → it ships live. Inject
+            // WebSite+Organization+WebPage+BreadcrumbList, expand/clamp meta, unescape
+            // — all from shell signals (og:title/canonical/og:image) + the real name,
+            // no fabrication. Persist the repaired copies, gate the finalized build.
+            const [seoFiles, seoReport] = finalizeSeoInvariants(dashFiles, {
+              businessName: params.businessName,
+              hostname: `https://${params.slug}${DOMAINS.SITES_SUFFIX}`,
+            });
+            const seoChanged =
+              seoReport.jsonLdInjected +
+              seoReport.escapesRepaired +
+              seoReport.descExpanded +
+              seoReport.titleClamped;
+            if (seoChanged > 0) {
+              for (let i = 0; i < seoFiles.length; i++) {
+                const f = seoFiles[i];
+                if (typeof f.text === 'string' && f.text !== dashFiles[i]?.text) {
+                  await env.SITES_BUCKET.put(`sites/${params.slug}/${version}/${f.path}`, f.text);
+                }
+              }
+              await wfLog('workflow.seo_invariants_finalized', {
+                jsonLdInjected: seoReport.jsonLdInjected,
+                escapesRepaired: seoReport.escapesRepaired,
+                descExpanded: seoReport.descExpanded,
+                titleClamped: seoReport.titleClamped,
+                message: `SEO finalizer before brand gate: +${seoReport.jsonLdInjected} JSON-LD block(s), ${seoReport.escapesRepaired} escape fix(es), ${seoReport.descExpanded} desc expanded, ${seoReport.titleClamped} title clamped`,
+              });
+            }
+            const gatedFiles = seoFiles;
 
             // BOTH brand gates: placeholders AND the invented-name mismatch.
             // (The name-match check was only wired into the report-only
