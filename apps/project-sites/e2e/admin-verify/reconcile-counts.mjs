@@ -22,10 +22,11 @@
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { resolveSecret } from './_browserbase-creds.mjs';
 
-const KEY = process.env.E2E_API_KEY;
-const CF_KEY = process.env.CLOUDFLARE_API_KEY;
-const CF_EMAIL = process.env.CLOUDFLARE_EMAIL || 'blzalewski@gmail.com';
+const KEY = resolveSecret('E2E_API_KEY');
+const CF_KEY = resolveSecret('CLOUDFLARE_API_KEY');
+const CF_EMAIL = resolveSecret('CLOUDFLARE_EMAIL') || 'blzalewski@gmail.com';
 const ORG = process.env.RECONCILE_ORG || 'e2e-test-org'; // the org E2E_API_KEY authenticates as
 const API = process.env.RECONCILE_API_BASE || 'https://project-sites.manhattan.workers.dev';
 const DB = 'project-sites-db-production';

@@ -42,9 +42,11 @@
  *        node e2e/admin-verify/verify-funnel-reconcile.mjs
  */
 import { execSync } from 'node:child_process';
+import { resolveSecret } from './_browserbase-creds.mjs';
 
-const PW = process.env.E2E_TEST_PASSWORD;
-const CF_KEY = process.env.CLOUDFLARE_API_KEY;
+const PW = resolveSecret('E2E_TEST_PASSWORD');
+const CF_KEY = resolveSecret('CLOUDFLARE_API_KEY');
+const CF_EMAIL = resolveSecret('CLOUDFLARE_EMAIL') || 'blzalewski@gmail.com';
 if (!PW || !CF_KEY) {
   console.log('::notice:: verify-funnel-reconcile skipped — E2E_TEST_PASSWORD / CLOUDFLARE_API_KEY unset');
   process.exit(0);
@@ -73,7 +75,11 @@ function groundTruthPublished() {
   const cmd =
     `npx wrangler d1 execute ${DB} --remote --env production --json ` +
     `--command "SELECT COUNT(DISTINCT id) c FROM sites WHERE status='published' AND deleted_at IS NULL;"`;
-  const raw = execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  const raw = execSync(cmd, {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+    env: { ...process.env, CLOUDFLARE_API_KEY: CF_KEY, CLOUDFLARE_EMAIL: CF_EMAIL },
+  });
   const arr = parseWranglerJson(raw);
   return Number(arr[0]?.results?.[0]?.c ?? 0);
 }
@@ -86,7 +92,11 @@ function groundTruthDeadLetters() {
   const cmd =
     `npx wrangler d1 execute ${DB} --remote --env production --json ` +
     `--command "SELECT COUNT(*) c FROM outbox_events WHERE status='failed' AND attempts>=5;"`;
-  const raw = execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  const raw = execSync(cmd, {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+    env: { ...process.env, CLOUDFLARE_API_KEY: CF_KEY, CLOUDFLARE_EMAIL: CF_EMAIL },
+  });
   const arr = parseWranglerJson(raw);
   return Number(arr[0]?.results?.[0]?.c ?? 0);
 }

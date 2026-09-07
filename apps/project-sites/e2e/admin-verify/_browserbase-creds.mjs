@@ -37,13 +37,24 @@ function fromSecretStore(key) {
 }
 
 /**
+ * Resolve ONE secret by name: the env value when set, else `get-secret <key>`, else undefined.
+ * The general primitive behind every admin-verify probe's creds (E2E_API_KEY, CLOUDFLARE_API_KEY,
+ * E2E_TEST_PASSWORD, BROWSERBASE_*) so the WHOLE suite auto-runs in local fires + fail-open in CI.
+ * @param {string} key
+ * @returns {string|undefined}
+ */
+export function resolveSecret(key) {
+  return process.env[key] || fromSecretStore(key);
+}
+
+/**
  * @returns {{ BB: string|undefined, PROJ: string|undefined, PW: string|undefined }}
  *   env value when set, else the get-secret value, else undefined (→ probe skips).
  */
 export function resolveBrowserbaseCreds() {
   return {
-    BB: process.env.BROWSERBASE_API_KEY || fromSecretStore('BROWSERBASE_API_KEY'),
-    PROJ: process.env.BROWSERBASE_PROJECT_ID || fromSecretStore('BROWSERBASE_PROJECT_ID'),
-    PW: process.env.E2E_TEST_PASSWORD || fromSecretStore('E2E_TEST_PASSWORD'),
+    BB: resolveSecret('BROWSERBASE_API_KEY'),
+    PROJ: resolveSecret('BROWSERBASE_PROJECT_ID'),
+    PW: resolveSecret('E2E_TEST_PASSWORD'),
   };
 }
