@@ -204,7 +204,11 @@ tabs.patch('/api/sites/:siteId/snapshots/:snapshotId', async (c) => {
   });
 
   // Re-read so the response reflects exactly what persisted (never a lying echo).
-  const updated = await dbQueryOne<{ id: string; snapshot_name: string; description: string | null }>(
+  const updated = await dbQueryOne<{
+    id: string;
+    snapshot_name: string;
+    description: string | null;
+  }>(
     c.env.DB,
     `SELECT id, snapshot_name, description FROM site_snapshots WHERE id = ?1 AND site_id = ?2`,
     [snapshotId, siteId],
