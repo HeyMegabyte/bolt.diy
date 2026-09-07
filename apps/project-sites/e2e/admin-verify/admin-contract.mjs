@@ -194,3 +194,20 @@ export const ALIAS_SECTIONS = ADMIN_CONTRACT.filter((s) => s.kind === 'alias');
 
 /** Hard sections gate the DONE state; soft ones are reported non-blocking. */
 export const HARD_SECTIONS = ADMIN_CONTRACT.filter((s) => s.severity === 'hard');
+
+// Running THIS file directly is a no-op by design — it's the section REGISTRY
+// (imported by contract-sweep.mjs), not the runnable gate. Guard the false-green
+// trap: `node admin-contract.mjs` used to exit 0 SILENTLY, so anyone following that
+// literal instruction then read a STALE _ADMIN_CONTRACT_REPORT.json (written by a
+// PRIOR contract-sweep run) and believed the contract was freshly verified. Emit a
+// loud pointer to the real gate instead. Fires only as the entry module; on `import`
+// (contract-sweep) argv[1] is the sweep, so this stays silent.
+if (process.argv[1]?.endsWith('admin-contract.mjs')) {
+  console.log(
+    '::notice:: admin-contract.mjs is the section REGISTRY (exports only) — NOT a runnable check.\n' +
+      `  Defines ${ADMIN_CONTRACT.length} sections (${RENDER_SECTIONS.length} rendered + ${ALIAS_SECTIONS.length} aliases; ${HARD_SECTIONS.length} hard).\n` +
+      '  → Run the ACTUAL dim-6 gate:  node e2e/admin-verify/contract-sweep.mjs\n' +
+      '     (drives every section vs PROD as brian in a real browser, writes _ADMIN_CONTRACT_REPORT.json).\n' +
+      '  Reading _ADMIN_CONTRACT_REPORT.json after running THIS file = a FALSE-GREEN — no fresh run happened.',
+  );
+}
