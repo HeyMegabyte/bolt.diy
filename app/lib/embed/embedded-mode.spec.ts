@@ -28,6 +28,23 @@ async function importWith(opts: { embedded: boolean }): Promise<{
 }> {
   vi.resetModules();
 
+  /*
+   * detectEmbedded() stamps localStorage.ps_embedded='1' when it sees ?embedded,
+   * then on a param-less reload FALLS BACK to that stamp. Without clearing it the
+   * embedded block's stamp leaks into the standalone block → isEmbedded wrongly
+   * true (the whole module gates on it), so postToParent posts + the message
+   * listener fires when it shouldn't. Remove the stamp per import so each block is
+   * truly independent regardless of describe/file order. GUARDED because jsdom's
+   * opaque origin throws on localStorage locally (where the stamp never persists,
+   * so tests passed) — the clear only matters in CI, where storage works and this
+   * leak was masked for months by the red lint step short-circuiting `Run tests`.
+   */
+  try {
+    window.localStorage.removeItem('ps_embedded');
+  } catch {
+    // localStorage unavailable (jsdom opaque origin) — nothing persisted to leak.
+  }
+
   const parentPostMessage = vi.fn();
 
   /*
