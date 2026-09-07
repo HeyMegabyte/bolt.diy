@@ -861,10 +861,20 @@ api.get('/api/auth/me', async (c) => {
   );
   if (!user) throw unauthorized('User not found');
 
+  // Org display name — lets the client label org-scoped surfaces (e.g. the audit
+  // "Org:" chip) with the REAL org instead of a hardcoded fallback. Fail-soft: a
+  // missing org row leaves org_name null (client degrades to the org_id / a generic).
+  const org = orgId
+    ? await dbQueryOne<{ name: string | null }>(c.env.DB, 'SELECT name FROM orgs WHERE id = ?', [
+        orgId,
+      ])
+    : null;
+
   return c.json({
     data: {
       user_id: userId,
       org_id: orgId,
+      org_name: org?.name ?? null,
       email: user.email,
       display_name: user.display_name,
       // Lets the client gate super-admin-only fetches (e.g. the feature-flags

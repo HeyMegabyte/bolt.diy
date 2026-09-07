@@ -986,6 +986,8 @@ export interface UserInfo {
   id: string;
   email: string;
   org_id: string;
+  /** Org display name (from `/api/auth/me`) — labels org-scoped surfaces with the real org. */
+  org_name?: string | null;
   /** True when the user is a platform super-admin (gates super-admin-only fetches). */
   is_super_admin?: boolean;
 }

@@ -285,11 +285,10 @@ describe('GET /api/auth/me', () => {
     expect(body.error.code).toBe('UNAUTHORIZED');
   });
 
-  it('returns user info when authenticated', async () => {
-    mockDbQueryOne.mockResolvedValueOnce({
-      email: 'alice@example.com',
-      display_name: 'Alice',
-    });
+  it('returns user info (incl. the real org_name) when authenticated', async () => {
+    mockDbQueryOne
+      .mockResolvedValueOnce({ email: 'alice@example.com', display_name: 'Alice' }) // user row
+      .mockResolvedValueOnce({ name: 'Acme Corp' }); // org row → labels org-scoped surfaces
 
     const { app, env } = createAuthenticatedApp({
       userId: 'user-123',
@@ -303,10 +302,26 @@ describe('GET /api/auth/me', () => {
     expect(body.data).toEqual({
       user_id: 'user-123',
       org_id: 'org-456',
+      org_name: 'Acme Corp',
       email: 'alice@example.com',
       display_name: 'Alice',
       is_super_admin: false,
     });
+  });
+
+  it('fail-soft: a missing org row leaves org_name null (never blocks /me)', async () => {
+    mockDbQueryOne
+      .mockResolvedValueOnce({ email: 'alice@example.com', display_name: 'Alice' }) // user row
+      .mockResolvedValueOnce(null); // org row absent
+
+    const { app, env } = createAuthenticatedApp({ userId: 'user-123', orgId: 'org-456' });
+
+    const res = await makeRequest(app, env, '/api/auth/me');
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.data.org_name).toBeNull();
+    expect(body.data.org_id).toBe('org-456');
   });
 
   it('returns 401 when user not found in DB', async () => {

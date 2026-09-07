@@ -613,13 +613,18 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
    *  "0 events · 0 actions · …" over the error card is wrong (unknown, not 0). */
   showStats = computed<boolean>(() => !this.loadError() || this.rows().length > 0);
   /**
-   * Default chip slug — `megabytespace` is the canonical org slug surfaced as
-   * the initial filter chip. The chip is purely a visual label here; the
-   * audit API call always loads events across ALL sites in the org. Clicking
-   * the chip's × clears the label without re-filtering the API call.
+   * The "Org:" chip is a purely visual scope label — the audit API always loads events
+   * across ALL sites in the caller's org; clicking the × clears the label without
+   * re-filtering. `scopeSlug` is a stable sentinel that drives the dismiss logic;
+   * `scopeName` is the TRUTHFUL org label, derived from the REAL org (name → id →
+   * generic). It was hardcoded to the literal `'megabytespace'` — a lie for every org
+   * but that one (e.g. "E2E Test Org" saw "Org: megabytespace"). See
+   * [[hardcoded-default-drifts-from-enforced-limit]] + [[verify-against-source-of-truth]].
    */
-  scopeSlug = signal<string | null>('megabytespace');
-  scopeName = signal<string>('megabytespace');
+  scopeSlug = signal<string | null>('org');
+  readonly scopeName = computed(
+    () => this.state.orgName() || this.state.orgId() || 'your organization',
+  );
 
   /**
    * Snapshot of the scope slug at component-mount time. The "Org:" chip is
@@ -926,8 +931,9 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
    * explicit control in the toolbar).
    */
   clearScope(): void {
+    // `scopeName` is a computed (the real org label); dismissing hides the chip via
+    // `scopeSlug → null` (showScopeChip flips false + @if removes it) — no label to clear.
     this.scopeSlug.set(null);
-    this.scopeName.set('');
   }
 
   /** Toggle the expanded state for an audit row — the detail `<tr>` renders

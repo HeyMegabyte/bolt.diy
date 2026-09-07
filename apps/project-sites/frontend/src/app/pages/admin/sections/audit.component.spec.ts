@@ -54,7 +54,14 @@ function make(get: jasmine.Spy): AdminAuditComponent {
         provide: ToastService,
         useValue: { error: jasmine.createSpy('error'), success: jasmine.createSpy('success') },
       },
-      { provide: AdminStateService, useValue: { selectedSite: signal({ id: 's1' }) } },
+      {
+        provide: AdminStateService,
+        useValue: {
+          selectedSite: signal({ id: 's1' }),
+          orgId: signal('e2e-test-org'),
+          orgName: signal('E2E Test Org'),
+        },
+      },
       {
         provide: Router,
         useValue: { navigate: jasmine.createSpy('navigate'), navigateByUrl: jasmine.createSpy('navigateByUrl'), events: of() },
@@ -303,6 +310,13 @@ describe('AdminAuditComponent (scope chip reactivity)', () => {
     c.clearScope();
     expect(c.scopeSlug()).toBeNull();
     expect(c.showScopeChip()).toBe(false);
+  });
+
+  it('the "Org:" chip shows the REAL org name — never the hardcoded "megabytespace" lie', () => {
+    const c = make(jasmine.createSpy('get').and.returnValue(of({ data: [] })));
+    // Mock org is "E2E Test Org" (id e2e-test-org) — the chip must reflect it, not a literal.
+    expect(c.scopeName()).toBe('E2E Test Org');
+    expect(c.scopeName()).not.toBe('megabytespace');
   });
 
   it('KPI accessors return numbers (rolling-counter binds numeric values)', () => {

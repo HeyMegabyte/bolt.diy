@@ -67,6 +67,10 @@ export class AdminStateService {
    * guard org-scoped calls on a non-empty value.
    */
   orgId = signal<string>('');
+  /** The caller's org display NAME (from `/api/auth/me`) — labels org-scoped surfaces
+   *  (e.g. the audit "Org:" chip) with the real org instead of a hardcoded fallback.
+   *  Empty until the first load resolves; consumers fall back to {@link orgId}. */
+  orgName = signal<string>('');
   /** Platform super-admin flag (from /api/auth/me) — gates super-admin-only fetches. */
   isSuperAdmin = signal<boolean>(false);
   selectedSiteId = signal<string | null>(readPersistedSelectedSite());
@@ -116,7 +120,13 @@ export class AdminStateService {
         .getMe({ silent: true })
         .pipe(
           catchError(() =>
-            of({ data: { org_id: '' } as { org_id?: string; is_super_admin?: boolean } }),
+            of({
+              data: { org_id: '' } as {
+                org_id?: string;
+                org_name?: string | null;
+                is_super_admin?: boolean;
+              },
+            }),
           ),
         ),
     }).subscribe({
@@ -125,6 +135,7 @@ export class AdminStateService {
         this.domainSummary.set(res.domains.data || { total: 0, active: 0, pending: 0, failed: 0 });
         this.subscription.set(res.sub.data || null);
         this.orgId.set(res.me?.data?.org_id ?? '');
+        this.orgName.set(res.me?.data?.org_name ?? '');
         this.isSuperAdmin.set(!!res.me?.data?.is_super_admin);
         this.loading.set(false);
         // Load analytics for selected site
