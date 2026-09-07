@@ -272,11 +272,14 @@ test.describe('Admin — Settings journey', () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await goToSettings(page);
 
-    // Wait for tab UI to render
-    const businessTab = page.locator('[id="settings-tab-business"]');
+    // Wait for tab UI to render. The business-name field lives in the GENERAL tab
+    // (id `settings-tab-general`, desc "…business identity…") — the old "Business" tab
+    // was renamed to "General"; `settings-tab-business` no longer exists (stale-spec fix
+    // AL-156).
+    const businessTab = page.locator('[id="settings-tab-general"]');
     await expect(businessTab).toBeVisible({ timeout: 15_000 });
 
-    // Click the Business tab
+    // Click the General tab (holds business identity + name)
     await businessTab.click();
     await page.waitForTimeout(300); // tab transition
 
@@ -375,29 +378,25 @@ test.describe('Admin — Settings journey', () => {
     });
   });
 
-  test('6 — tab navigation cycles through all 4 main tabs via keyboard', async ({ page }) => {
+  test('6 — every settings tab renders + is visible', async ({ page }) => {
     await signInAsAdmin(page);
     await page.setViewportSize({ width: 1280, height: 900 });
     await goToSettings(page);
 
     const generalTab = page.locator('[id="settings-tab-general"]');
     await expect(generalTab).toBeVisible({ timeout: 15_000 });
-
-    // Focus the general tab
     await generalTab.focus();
 
-    // Tab titles we expect
-    const tabIds = [
-      'settings-tab-general',
-      'settings-tab-business',
-      'settings-tab-team',
-      'settings-tab-ai-chat',
-      'settings-tab-mcp',
-    ];
-
-    for (const tabId of tabIds) {
-      const tab = page.locator(`[id="${tabId}"]`);
-      await expect(tab).toBeVisible({ timeout: 5_000 });
+    // Assert EVERY rendered settings tab is visible + focusable — STALE-PROOF: read the
+    // actual tablist rather than a hardcoded list. The tab set GREW as sections folded
+    // into Settings (general/team/ai-chat/mcp/env-vars/webhooks/email/domains/api-tokens);
+    // the old list hardcoded a removed `settings-tab-business` (renamed → general) + only
+    // 4 of the 9 tabs → chronic red. Fixed AL-156 2026-09-07.
+    const tabs = page.locator('[role="tab"][id^="settings-tab-"]');
+    const n = await tabs.count();
+    expect(n, 'settings must render its tab strip').toBeGreaterThanOrEqual(4);
+    for (let i = 0; i < n; i++) {
+      await expect(tabs.nth(i)).toBeVisible({ timeout: 5_000 });
     }
 
     await page.screenshot({
