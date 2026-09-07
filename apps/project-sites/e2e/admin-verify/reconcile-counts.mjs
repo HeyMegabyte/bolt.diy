@@ -65,7 +65,9 @@ const COUNT_SQL = `SELECT
   (SELECT COUNT(*) FROM media_assets WHERE org_id='${ORG}' AND deleted_at IS NULL) AS media,
   (SELECT COUNT(*) FROM ai_env_vars WHERE org_id='${ORG}' AND deleted_at IS NULL) AS env_vars,
   (SELECT COUNT(*) FROM api_tokens WHERE org_id='${ORG}' AND revoked_at IS NULL AND deleted_at IS NULL) AS api_tokens,
-  (SELECT COUNT(*) FROM audit_logs WHERE org_id='${ORG}') AS audit_logs;`;
+  (SELECT COUNT(*) FROM audit_logs WHERE org_id='${ORG}') AS audit_logs,
+  (SELECT COUNT(*) FROM memberships WHERE org_id='${ORG}' AND deleted_at IS NULL) AS team_members,
+  (SELECT COUNT(*) FROM mcp_connections WHERE org_id='${ORG}') AS mcp_connections;`;
 
 /** Fetch a display count from the authed admin API (workers.dev bypasses Bot-Fight). */
 async function display(path, pick) {
@@ -89,6 +91,11 @@ const SURFACES = [
   { key: 'env_vars', path: '/api/env-vars', pick: (j) => (Array.isArray(j.vars) ? j.vars.length : NaN) },
   { key: 'api_tokens', path: '/api/v1-tokens', pick: (j) => (Array.isArray(j.data) ? j.data.length : NaN) },
   { key: 'audit_logs', path: '/api/audit-logs', pick: (j) => j.meta?.total ?? NaN },
+  // Team seats (money-adjacent — a wrong member count mis-bills). Display = /api/team
+  // members[] (WHERE org_id AND deleted_at IS NULL); store COUNT matches that filter.
+  { key: 'team_members', path: '/api/team', pick: (j) => { const d = j.data ?? j; return Array.isArray(d.members) ? d.members.length : NaN; } },
+  // MCP connections (org-wide list, mcp_oauth.ts /api/mcp/connections → {data:[…]}).
+  { key: 'mcp_connections', path: '/api/mcp/connections', pick: (j) => (Array.isArray(j.data) ? j.data.length : Array.isArray(j) ? j.length : NaN) },
 ];
 
 const rows = [];
