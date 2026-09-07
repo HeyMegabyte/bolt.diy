@@ -11,7 +11,11 @@ import { ADMIN_CONTRACT, childPath } from './admin-contract.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const req = createRequire(resolve(__dirname, '../../frontend/'));
-const { chromium } = req('playwright');
+// `playwright-core` (not `playwright`) — it's the universal transitive both frontend AND
+// worker declare via `@playwright/test`, so it's reliably hoisted after a clean `npm ci`.
+// The bare `playwright` package is only a transitive that HAPPENS to hoist locally but
+// nests unpredictably in CI (`Cannot find module 'playwright'` — AL-144). Same chromium API.
+const { chromium } = req('playwright-core');
 const { default: AxeBuilder } = req('@axe-core/playwright');
 
 const KEY = process.env.E2E_API_KEY;
