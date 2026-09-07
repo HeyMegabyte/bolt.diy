@@ -94,9 +94,6 @@ observability:
 site_serving:
   serving:          { status: covered, specs: [site-serving.spec.ts] }
 
-collab:
-  realtime:         { status: covered, specs: [collab.spec.ts] }
-
 value_domains:
   auth_inputs:      { status: covered, specs: [value-domains-auth.spec.ts] }
   create_inputs:    { status: covered, specs: [value-domains-create.spec.ts] }
@@ -113,7 +110,7 @@ convergence:
   stagehand_visual:     { status: covered, specs: [stagehand-master-orchestrator.spec.ts] }
   admin_sections:       { status: covered, specs: [admin-sections-smoke.spec.ts, admin-social.spec.ts] }
   auth_oauth:           { status: covered, specs: [auth-oauth-buttons.spec.ts] }
-  marketing_seo:        { status: covered, specs: [marketing-seo.spec.ts] }
+  marketing_seo:        { status: covered, specs: [marketing-seo.spec.ts, marketing-meta-clientnav.spec.ts] }
   security_headers_ext: { status: covered, specs: [security-headers-extended.spec.ts] }
   integration_health:   { status: covered, specs: [integration-health.spec.ts] }
   feature_flags:        { status: covered, specs: [feature-flags.spec.ts, admin-feature-flags.spec.ts] }
@@ -208,6 +205,7 @@ admin_verification_sweeps:
       - admin-verify/admin-a11y-critical-overlays.spec.ts
       - admin-verify/admin-a11y-critical-site-scoped.spec.ts
       - admin-verify/admin-a11y-critical.spec.ts
+      - admin-verify/admin-a11y-critical-uncovered.spec.ts
       - admin-verify/admin-advertised-routes.spec.ts
       - admin-verify/admin-ag-grid-populated.spec.ts
       - admin-verify/admin-alias-redirects.spec.ts
@@ -340,10 +338,6 @@ admin_verification_sweeps:
       - admin-verify/webhooks-empty-state.spec.ts
       - admin-verify/webhooks-error-state.spec.ts
       - admin-verify/webhooks-url-value-domains.spec.ts
-  ai_actions:
-    status: covered
-    specs:
-      - ai-actions/export-safety.spec.ts
   api_safety:
     status: covered
     specs:
