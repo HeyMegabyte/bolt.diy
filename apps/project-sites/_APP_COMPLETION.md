@@ -65,7 +65,7 @@ coverage matrix).
 
 ## § E — Editor (bolt.diy) · OWNER: COMPLETENESS + FULL JOURNEY
 - [x] **E.1 Functions + Data workbench tabs** — real, connected (AL-004/018/038/060)
-- [ ] **E.2 WebContainer boot + edit→save→persist round-trip** — Browserbase-gated (see B.6)
+- [x] **E.2 WebContainer boot + edit→save→persist round-trip** — PROVEN live on prod via Browserbase real Chrome (AL-145, `verify-editor-webcontainer-roundtrip.mjs`, wired into run-all): booted the real WebContainer editor → typed a unique marker into CodeMirror → the "Save" affordance APPEARED (file dirty, `unsavedFiles.has`) → clicked Save → affordance CLEARED (workbench `saveFile` awaits the WebContainer FS write BEFORE removing from `unsavedFiles`, so cleared ⟺ persisted) → the marker SURVIVED a file-switch round-trip (re-read from the store/FS, not just the live buffer) → 0 console errors. Fail-open SKIP on boot-timeout (headless flakiness is the boot, not the round-trip); once the editor is interactive a broken round-trip FAILS. Closes the last heavy flow B.6 deferred as "$-gated by nature."
 
 ---
 
@@ -75,8 +75,8 @@ coverage matrix).
 - **§ B Full flows:** 9 / 9 = 100% ✅ (all flows have a headless-prod probe wired into run-all; B.5 billing-full AL-111 · B.6 editor round-trip AL-127 envelope · B.7 auth AL-094 · B.1 guest funnel AL-089. The out-of-headless legs — B.5 real-card charge, B.6 full WebContainer publish — are Browserbase/$-gated by nature + covered by unit tests / the FULL JOURNEY loop; FULL-FLOW is now maintenance-only)
 - **§ C Generated-site quality:** 2 / 7 = ~29% (C.1 SEO-invariant finalizer AL-110 + C.3 axe probe/muted-contrast lock AL-140 — both root-fixed, flip green on next rebuild. Remaining: C.2 CWV, C.4 SEO/GEO, C.5 per-route JSON-LD, C.6 PWA, C.7 beat-the-source)
 - **§ D Platform marketing:** 0 / 3 = 0%
-- **§ E Editor:** 1 / 2 = 50%
-- **Overall app "done": ~69%** (22 / 32 boxes) — the admin surface is finished + the money flow is proven live+secure; the frontier is the rest of the public product (C.2 CWV, C.4–C.7 generated-site quality + § D platform face) + the last heavy flow (B.6 editor round-trip = WebContainer edit→publish, Browserbase-gated).
+- **§ E Editor:** 2 / 2 = 100% ✅ (E.1 tabs AL-004/018/038/060 · E.2 WebContainer edit→save→persist round-trip PROVEN live via Browserbase AL-145 — the last heavy flow closed)
+- **Overall app "done": ~72%** (23 / 32 boxes) — the admin surface + the editor are finished and the money flow is proven live+secure; the sole remaining frontier is the public product: § C generated-site quality (C.2 CWV, C.4 SEO/GEO, C.5 per-route JSON-LD, C.6 PWA, C.7 beat-the-source) + § D platform marketing face — both owned by the GENERATED-SITE QUALITY cron.
 
 ## Maintenance caveat
 Scheduled `/loop` crons **auto-expire after 7 days** (scheduler behavior). To keep converging to done, **re-arm weekly** (`/loop` or `CronCreate durable:true`). A weekly re-arm reminder is the safest guard against the whole convergence silently stopping.

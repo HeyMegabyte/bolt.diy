@@ -53,6 +53,7 @@ const PROBES = [
   { label: 'billing-full-flow', file: 'verify-billing-full-flow.mjs', env: {} },
   { label: 'editor-datatab', file: 'verify-editor-datatab.mjs', env: {} },
   { label: 'editor-roundtrip', file: 'verify-editor-roundtrip.mjs', env: {} },
+  { label: 'editor-webcontainer-roundtrip', file: 'verify-editor-webcontainer-roundtrip.mjs', env: {} },
 ].filter((p) => !filter || p.label.toLowerCase().includes(filter) || p.file.toLowerCase().includes(filter));
 
 if (PROBES.length === 0) {
