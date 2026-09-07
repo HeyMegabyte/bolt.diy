@@ -34,7 +34,10 @@ export function iconForTable(key: string): string {
  * @example formatCellValue(null) // '—' ; formatCellValue({a:1}) // '{"a":1}'
  */
 export function formatCellValue(value: unknown): string {
-  if (value === null || value === undefined || value === '') return '—';
+  if (value === null || value === undefined || value === '') {
+    return '—';
+  }
+
   if (typeof value === 'object') {
     try {
       return JSON.stringify(value);
@@ -42,6 +45,7 @@ export function formatCellValue(value: unknown): string {
       return String(value);
     }
   }
+
   return String(value);
 }
 
@@ -72,7 +76,11 @@ export function summarizeTables(tables: readonly DataOverviewTable[] | undefined
  */
 export function newCorrelationId(seed?: string): string {
   const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (c && typeof c.randomUUID === 'function') return c.randomUUID();
+
+  if (c && typeof c.randomUUID === 'function') {
+    return c.randomUUID();
+  }
+
   return `data-${seed ?? String(Date.now())}`;
 }
 

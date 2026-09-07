@@ -560,8 +560,15 @@ export class FilesStore {
      * live-reload (HMR) on a user edit. The `#init` watcher syncs the WC fs
      * back into the files map, so PS_FILES_READY stays current there too.
      */
-    const embedded = new URLSearchParams(window.location.search).has('embedded') ||
-      (() => { try { return localStorage.getItem('ps_embedded') === '1'; } catch { return false; } })();
+    const embedded =
+      new URLSearchParams(window.location.search).has('embedded') ||
+      (() => {
+        try {
+          return localStorage.getItem('ps_embedded') === '1';
+        } catch {
+          return false;
+        }
+      })();
     const isolated = typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
 
     if (embedded && !isolated) {
@@ -574,6 +581,7 @@ export class FilesStore {
         isLocked,
       });
       logger.info('File saved (embedded — in-memory map)');
+
       return;
     }
 

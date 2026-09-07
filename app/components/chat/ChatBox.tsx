@@ -282,12 +282,15 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
               disabled={props.input.length === 0 || props.enhancingPrompt}
               className={classNames('transition-all', props.enhancingPrompt ? 'opacity-100' : '')}
               onClick={() => {
-                // Only celebrate when the handler EXISTS — a missing enhancePrompt
-                // prop (no-op click) used to toast a lying 'Prompt enhanced!'.
-                // The enhancer itself replaces the input; the toast confirms it ran.
+                /*
+                 * Only celebrate when the handler EXISTS — a missing enhancePrompt
+                 * prop (no-op click) used to toast a lying 'Prompt enhanced!'.
+                 * The enhancer itself replaces the input; the toast confirms it ran.
+                 */
                 if (!props.enhancePrompt) {
                   return;
                 }
+
                 props.enhancePrompt();
                 toast.success('Prompt enhanced!');
               }}
@@ -306,11 +309,14 @@ export const ChatBox: React.FC<ChatBoxProps> = (props) => {
                 }
                 className={classNames(
                   'font-mono text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border transition-opacity leading-none',
-                  // Both modes render as the same polished accent pill (resolves to
-                  // cyan in the dark theme / green in the light theme) — the LABEL is
-                  // the mode indicator. The old `build` state was a fill-less ghost
-                  // (tertiary 40%-opacity text + faint border) that read as a washed
-                  // "all white" chip on the chat surface (Brian, 2026-08-21).
+
+                  /*
+                   * Both modes render as the same polished accent pill (resolves to
+                   * cyan in the dark theme / green in the light theme) — the LABEL is
+                   * the mode indicator. The old `build` state was a fill-less ghost
+                   * (tertiary 40%-opacity text + faint border) that read as a washed
+                   * "all white" chip on the chat surface (Brian, 2026-08-21).
+                   */
                   'bg-bolt-elements-item-backgroundAccent text-bolt-elements-item-contentAccent border-bolt-elements-item-contentAccent hover:opacity-80',
                 )}
                 onClick={() => {

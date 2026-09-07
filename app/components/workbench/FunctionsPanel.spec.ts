@@ -1,6 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { deriveRoutes, deriveWrangler, fileToRoute, scaffoldFunction, stripJsonComments } from './functions-panel-logic';
-import type { FileMap } from '../../lib/stores/files';
+import {
+  deriveRoutes,
+  deriveWrangler,
+  fileToRoute,
+  scaffoldFunction,
+  stripJsonComments,
+} from './functions-panel-logic';
+import type { FileMap } from '~/lib/stores/files';
+
+/*
+ * WORK_DIR is a runtime value — vite-tsconfig-paths does NOT rewrite the `~/`
+ * alias for value imports inside a .spec.ts under vitest (only the type import
+ * above survives, since types are erased at transform). Import it relatively so
+ * the spec loads; the other workbench specs sidestep this by only importing `./`
+ * siblings.
+ */
+// eslint-disable-next-line no-restricted-imports
 import { WORK_DIR } from '../../utils/constants';
 
 /**
@@ -17,17 +32,22 @@ const FILES: FileMap = {
   [`${WORK_DIR}/functions/api/contact.ts`]: file(
     'export const onRequestPost: PagesFunction = async (ctx) => { await ctx.env.DB.prepare("…"); };',
   ),
-  [`${WORK_DIR}/functions/api/hello.ts`]: file('export const onRequestGet: PagesFunction = async () => new Response("hi");'),
+  [`${WORK_DIR}/functions/api/hello.ts`]: file(
+    'export const onRequestGet: PagesFunction = async () => new Response("hi");',
+  ),
   [`${WORK_DIR}/functions/api/ai/chat.ts`]: file('export const onRequestPost = async () => {};'),
   [`${WORK_DIR}/functions/api/[id].ts`]: file(
     'export const onRequestGet = async () => {}; export const onRequestDelete = async () => {};',
   ),
   [`${WORK_DIR}/functions/api/_middleware.ts`]: file('export const onRequest = async (ctx) => ctx.next();'),
+
   // Non-code artefacts under functions/ must be ignored
   [`${WORK_DIR}/functions/_routes.json`]: file('{ "version": 1, "include": ["/api/*"] }'),
   [`${WORK_DIR}/functions/README.md`]: file('# functions'),
+
   // A file OUTSIDE functions/ must never become a route
   [`${WORK_DIR}/src/app.tsx`]: file('export default function App() {}'),
+
   // wrangler.jsonc with comments + real binding blocks
   [`${WORK_DIR}/wrangler.jsonc`]: file(`{
     // the site worker
@@ -83,6 +103,7 @@ describe('FunctionsPanel — deriveWrangler (bindings + script from wrangler.jso
     const { bindings, script, compatDate } = deriveWrangler(FILES);
     expect(script).toBe('vanta-strength-site');
     expect(compatDate).toBe('2026-06-30');
+
     const byName = Object.fromEntries(bindings.map((b) => [b.name, b.type]));
     expect(byName).toEqual({ DB: 'd1', BUCKET: 'r2', PUBLIC_MODE: 'env' });
   });
@@ -99,7 +120,10 @@ describe('FunctionsPanel — deriveWrangler (bindings + script from wrangler.jso
 
 describe('FunctionsPanel — scaffoldFunction (the "create a function" control)', () => {
   const ok = (r: ReturnType<typeof scaffoldFunction>) => {
-    if ('error' in r) throw new Error(`expected success, got error: ${r.error}`);
+    if ('error' in r) {
+      throw new Error(`expected success, got error: ${r.error}`);
+    }
+
     return r;
   };
 
@@ -108,7 +132,8 @@ describe('FunctionsPanel — scaffoldFunction (the "create a function" control)'
     expect(r.path).toBe(`${WORK_DIR}/functions/api/contact.ts`);
     expect(r.route).toBe('/api/contact');
     expect(r.content).toContain('export async function onRequestGet');
-    expect(r.content).toContain("route: \"/api/contact\"");
+    expect(r.content).toContain('route: "/api/contact"');
+
     // The scaffold is a REAL route the panel's own deriver picks up (GET method).
     const derived = deriveRoutes({ [r.path]: file(r.content) }, new Set());
     expect(derived[0].path).toBe('/api/contact');
@@ -130,6 +155,7 @@ describe('FunctionsPanel — scaffoldFunction (the "create a function" control)'
     expect('error' in scaffoldFunction('  ')).toBe(true);
     expect('error' in scaffoldFunction('has spaces')).toBe(true);
     expect('error' in scaffoldFunction('../etc/passwd')).toBe(true);
+
     const existing: FileMap = { [`${WORK_DIR}/functions/api/contact.ts`]: file('x') };
     const collision = scaffoldFunction('contact', existing);
     expect('error' in collision && collision.error).toContain('already exists');

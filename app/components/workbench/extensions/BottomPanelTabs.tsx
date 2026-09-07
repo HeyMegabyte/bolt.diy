@@ -213,13 +213,15 @@ export const BottomPanelTabs = memo(() => {
                     )}
                   >
                     <div className="i-ph:terminal-window-duotone text-base" />
+
+                    {/*
+                      Close control INSIDE the tab button — must NOT be a nested <button>
+                      (invalid HTML: the browser restructures it and the masked `i-ph:x` icon
+                      rendered as a solid white square, Brian 2026-08-21). A keyboard-operable
+                      <span> is valid inside a button, and an inline SVG draws the ✕ with zero
+                      mask/CSP/data-URL dependency.
+                    */}
                     {index > 0 ? (
-                      // Close control INSIDE the tab button — must NOT be a nested
-                      // <button> (invalid HTML: the browser restructures it and the
-                      // masked `i-ph:x` icon rendered as a solid white square, Brian
-                      // 2026-08-21). A keyboard-operable <span> is valid inside a
-                      // button, and an inline SVG draws the ✕ with zero mask/CSP/
-                      // data-URL dependency.
                       <span
                         role="button"
                         tabIndex={0}

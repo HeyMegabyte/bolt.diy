@@ -35,12 +35,16 @@ describe('toLogLevel', () => {
 describe('isRedundantRequestMirror', () => {
   it('drops the bare CF request-mirror (request-shaped message, no structured fields)', () => {
     expect(isRedundantRequestMirror({ level: 'info', message: 'GET https://projectsites.dev/chunk-X.js' })).toBe(true);
-    expect(isRedundantRequestMirror({ level: 'info', message: 'POST https://projectsites.dev/api/analytics/track' })).toBe(true);
+    expect(
+      isRedundantRequestMirror({ level: 'info', message: 'POST https://projectsites.dev/api/analytics/track' }),
+    ).toBe(true);
     expect(isRedundantRequestMirror({ message: 'delete https://x/y' })).toBe(true); // case-insensitive method
   });
 
   it('keeps the structured http_request log (has method/msg — the rich duplicate we want)', () => {
-    expect(isRedundantRequestMirror({ msg: 'http_request', method: 'GET', path: '/chunk-X.js', status: 200 })).toBe(false);
+    expect(isRedundantRequestMirror({ msg: 'http_request', method: 'GET', path: '/chunk-X.js', status: 200 })).toBe(
+      false,
+    );
     expect(isRedundantRequestMirror({ method: 'GET', path: '/x' })).toBe(false);
     expect(isRedundantRequestMirror({ msg: 'boot ok' })).toBe(false);
   });
@@ -56,7 +60,14 @@ describe('mapEventToLogLine', () => {
   it('summarizes an http_request event as METHOD path → status (durationMs)', () => {
     const event: ObservabilityEvent = {
       timestamp: 1,
-      source: { level: 'info', method: 'GET', path: '/api/inbox/tasks', status: 200, durationMs: 227, scope: 'project-sites' },
+      source: {
+        level: 'info',
+        method: 'GET',
+        path: '/api/inbox/tasks',
+        status: 200,
+        durationMs: 227,
+        scope: 'project-sites',
+      },
     };
     const line = mapEventToLogLine(event, 0);
     expect(line.message).toBe('GET /api/inbox/tasks → 200 (227ms)');
@@ -95,6 +106,7 @@ describe('mapEventToLogLine', () => {
 
   it('never throws on an empty / sourceless event', () => {
     expect(() => mapEventToLogLine({}, 0)).not.toThrow();
+
     const line = mapEventToLogLine({}, 0);
     expect(line.timestamp).toBe('1970-01-01T00:00:00.000Z');
     expect(line.level).toBe('info');
@@ -105,7 +117,12 @@ describe('buildObservabilityQuery', () => {
   it('filters by $metadata.service and targets the workers dataset in events view', () => {
     const q = buildObservabilityQuery('project-sites', 1000, 2000, 50);
     expect(q.parameters.datasets).toEqual(['cloudflare-workers']);
-    expect(q.parameters.filters[0]).toEqual({ key: '$metadata.service', operation: 'eq', value: 'project-sites', type: 'string' });
+    expect(q.parameters.filters[0]).toEqual({
+      key: '$metadata.service',
+      operation: 'eq',
+      value: 'project-sites',
+      type: 'string',
+    });
     expect(q.timeframe).toEqual({ from: 1000, to: 2000 });
     expect(q.limit).toBe(50);
     expect(q.view).toBe('events');

@@ -3,13 +3,7 @@
  * convention — the `~/` alias resolves for app code but not spec direct imports).
  */
 import { describe, it, expect } from 'vitest';
-import {
-  iconForTable,
-  formatCellValue,
-  summarizeTables,
-  newCorrelationId,
-  columnLabel,
-} from './data-panel-logic';
+import { iconForTable, formatCellValue, summarizeTables, newCorrelationId, columnLabel } from './data-panel-logic';
 
 describe('iconForTable', () => {
   it('maps known table keys to phosphor icons', () => {
@@ -35,6 +29,7 @@ describe('formatCellValue', () => {
   });
   it('compact-JSONs objects and never throws on cycles', () => {
     expect(formatCellValue({ a: 1 })).toBe('{"a":1}');
+
     const cyclic: Record<string, unknown> = {};
     cyclic.self = cyclic;
     expect(typeof formatCellValue(cyclic)).toBe('string'); // no throw

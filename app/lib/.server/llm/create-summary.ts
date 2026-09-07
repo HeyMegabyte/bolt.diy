@@ -39,11 +39,13 @@ export async function createSummary(props: {
     return message;
   });
 
-  // ProjectSites AI override (same seam as stream-text): when PS_BOLT_AI=true
-  // the summarizer routes through the worker's edge router too — it previously
-  // resolved the conversation's cookie provider (e.g. Anthropic) and hit the
-  // user's dead-credit key directly → "Chat request failed" on long build
-  // chats. The worker owns the secrets; no cookie keys on this path.
+  /*
+   * ProjectSites AI override (same seam as stream-text): when PS_BOLT_AI=true
+   * the summarizer routes through the worker's edge router too — it previously
+   * resolved the conversation's cookie provider (e.g. Anthropic) and hit the
+   * user's dead-credit key directly → "Chat request failed" on long build
+   * chats. The worker owns the secrets; no cookie keys on this path.
+   */
   const projectsitesAi =
     serverEnv && (serverEnv as unknown as Record<string, string>).PS_BOLT_AI === 'true'
       ? PROVIDER_LIST.find((p) => p.name === 'ProjectSites AI')

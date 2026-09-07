@@ -324,13 +324,21 @@ export class ActionRunner {
      * WebContainer, so fall through to the real fs.writeFile below — the running
      * dev server then hot-reloads the edit into the Preview.
      */
-    const embedded = new URLSearchParams(window.location.search).has('embedded') ||
-      (() => { try { return localStorage.getItem('ps_embedded') === '1'; } catch { return false; } })();
+    const embedded =
+      new URLSearchParams(window.location.search).has('embedded') ||
+      (() => {
+        try {
+          return localStorage.getItem('ps_embedded') === '1';
+        } catch {
+          return false;
+        }
+      })();
     const isolated = typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
 
     if (embedded && !isolated) {
       const { workbenchStore } = await import('~/lib/stores/workbench');
       await workbenchStore.setVirtualFile(action.filePath, action.content);
+
       return;
     }
 

@@ -159,8 +159,10 @@ describe('materializeImportedFiles', () => {
     const { mod } = await importWith({ embedded: true });
     const count = mod.materializeImportedFiles([{ content: FILES_MESSAGE('') }]);
     expect(count).toBe(1);
+
     const raw = window.sessionStorage.getItem('ps_materialized_files');
     expect(raw).toBeTruthy();
+
     const files = JSON.parse(raw ?? '{}');
     expect(files['index.html']).toContain('<html><h1>Hello</h1></html>');
   });
@@ -179,6 +181,7 @@ describe('materializeImportedFiles', () => {
     window.sessionStorage.setItem('ps_materialized_files', JSON.stringify({ 'index.html': '<h1>x</h1>' }));
     mod.restoreMaterializedFiles();
     expect(window.sessionStorage.getItem('ps_materialized_files')).toBeNull();
+
     // A second restore is a no-op — nothing left to drain.
     expect(() => mod.restoreMaterializedFiles()).not.toThrow();
   });

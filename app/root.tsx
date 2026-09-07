@@ -160,11 +160,13 @@ function BootSkeleton() {
       }
     }, 200);
 
-    // Embedded mode never boots WC — listen for the chat-ready text probe.
-    // Accept BOTH the legacy dynamic placeholder AND the current chat input
-    // placeholder (journey 2026-08-19: the current placeholder is
-    // 'What are we shipping?' — the old single-string probe NEVER fired, so
-    // the skeleton only cleared via the 30s timeout).
+    /*
+     * Embedded mode never boots WC — listen for the chat-ready text probe.
+     * Accept BOTH the legacy dynamic placeholder AND the current chat input
+     * placeholder (journey 2026-08-19: the current placeholder is
+     * 'What are we shipping?' — the old single-string probe NEVER fired, so
+     * the skeleton only cleared via the 30s timeout).
+     */
     const READY_TEXTS = ['Build a professional website for', 'What are we shipping?', 'What are we discussing?'];
     const probe = () =>
       READY_TEXTS.some((t) => document.body?.innerText?.includes(t)) ||

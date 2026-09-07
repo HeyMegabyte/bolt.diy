@@ -63,8 +63,10 @@ interface ObservabilityQueryResult {
 
 const CF_API = 'https://api.cloudflare.com/client/v4';
 const TIMEOUT_MS = 30_000;
+
 /** First poll (no cursor) looks back this far. */
 const DEFAULT_WINDOW_MS = 5 * 60_000;
+
 /** Hard cap on events per poll — the client keeps only the last 2000 anyway. */
 const MAX_LINES = 200;
 const VALID_LEVELS = new Set(['info', 'warn', 'error', 'debug']);

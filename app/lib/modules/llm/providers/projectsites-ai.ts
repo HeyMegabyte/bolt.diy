@@ -26,12 +26,38 @@ export default class ProjectsitesAiProvider extends BaseProvider {
   };
 
   staticModels: ModelInfo[] = [
-    // The worker maps every name to its tier model; these mirror the fork's
-    // historical defaults so existing chats/model chips keep resolving.
-    { name: 'claude-opus-4-6', label: 'PS AI · Pro (AI Gateway)', provider: this.name, maxTokenAllowed: 200000, maxCompletionTokens: 32000 },
-    { name: 'claude-sonnet-4-6', label: 'PS AI · Sonnet (AI Gateway)', provider: this.name, maxTokenAllowed: 200000, maxCompletionTokens: 32000 },
-    { name: 'deepseek-chat', label: 'PS AI · Fast (DeepSeek)', provider: this.name, maxTokenAllowed: 64000, maxCompletionTokens: 8192 },
-    { name: 'glm-4.6', label: 'PS AI · GLM-4.6', provider: this.name, maxTokenAllowed: 200000, maxCompletionTokens: 65536 },
+    /*
+     * The worker maps every name to its tier model; these mirror the fork's
+     * historical defaults so existing chats/model chips keep resolving.
+     */
+    {
+      name: 'claude-opus-4-6',
+      label: 'PS AI · Pro (AI Gateway)',
+      provider: this.name,
+      maxTokenAllowed: 200000,
+      maxCompletionTokens: 32000,
+    },
+    {
+      name: 'claude-sonnet-4-6',
+      label: 'PS AI · Sonnet (AI Gateway)',
+      provider: this.name,
+      maxTokenAllowed: 200000,
+      maxCompletionTokens: 32000,
+    },
+    {
+      name: 'deepseek-chat',
+      label: 'PS AI · Fast (DeepSeek)',
+      provider: this.name,
+      maxTokenAllowed: 64000,
+      maxCompletionTokens: 8192,
+    },
+    {
+      name: 'glm-4.6',
+      label: 'PS AI · GLM-4.6',
+      provider: this.name,
+      maxTokenAllowed: 200000,
+      maxCompletionTokens: 65536,
+    },
   ];
 
   async getDynamicModels(): Promise<ModelInfo[]> {
@@ -44,22 +70,27 @@ export default class ProjectsitesAiProvider extends BaseProvider {
     apiKeys?: Record<string, string>;
     providerSettings?: Record<string, IProviderSetting>;
   }): LanguageModelV1 {
-    // Env-overridable endpoint; the default is the M2M workers.dev URL. The
-    // projectsites.dev ZONE challenges non-browser POSTs (Bot Fight Mode)
-    // before they reach the worker — the fork's server-side fetch has no
-    // browser fingerprint and was 403'd there. workers.dev has no zone WAF.
-    // (Per bot-fight-mode-blocks-inbound-webhooks.)
-    // BASE ends at /api/bolt: createOpenAI appends /chat/completions → the
-    // registered worker route /api/bolt/chat/completions (ending at /chat made
-    // the SDK produce /chat/chat/completions → 404 'Unknown API route').
+    /*
+     * Env-overridable endpoint; the default is the M2M workers.dev URL. The
+     * projectsites.dev ZONE challenges non-browser POSTs (Bot Fight Mode)
+     * before they reach the worker — the fork's server-side fetch has no
+     * browser fingerprint and was 403'd there. workers.dev has no zone WAF.
+     * (Per bot-fight-mode-blocks-inbound-webhooks.)
+     * BASE ends at /api/bolt: createOpenAI appends /chat/completions → the
+     * registered worker route /api/bolt/chat/completions (ending at /chat made
+     * the SDK produce /chat/chat/completions → 404 'Unknown API route').
+     */
     const serverEnv = options.serverEnv as unknown as Record<string, string> | undefined;
     const endpoint = serverEnv?.PS_BOLT_AI_ENDPOINT || 'https://project-sites.manhattan.workers.dev/api/bolt';
     const openai = createOpenAI({
       baseURL: endpoint,
       apiKey: 'ps-internal',
-      // The fork's chat calls the worker SERVER-SIDE (no session cookie, no
-      // Origin header) — the worker's soft-auth gate requires this explicit
-      // bolt-iframe signal, else every chat 403s ("Custom error: Forbidden").
+
+      /*
+       * The fork's chat calls the worker SERVER-SIDE (no session cookie, no
+       * Origin header) — the worker's soft-auth gate requires this explicit
+       * bolt-iframe signal, else every chat 403s ("Custom error: Forbidden").
+       */
       headers: { 'x-bolt-origin-check': 'bolt-iframe' },
     });
 

@@ -41,7 +41,6 @@ import { PromptSuggestions } from './PromptSuggestions';
 import { CostEstimateBadge } from './CostEstimateBadge';
 import { startChatStateMirror } from '~/lib/chat/chat-state-mirror';
 import { chatId } from '~/lib/persistence/useChatHistory';
-import { chatStore } from '~/lib/stores/chat';
 import { describeImage } from '~/lib/chat/voice-vision';
 import { isEmbedded } from '~/lib/embed/embedded-mode';
 import { workbenchStore } from '~/lib/stores/workbench';
@@ -164,25 +163,31 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
     const [qrModalOpen, setQrModalOpen] = useState(false);
     const [mentionQuery, setMentionQuery] = useState<string | null>(null);
     const currentChatId = useStore(chatId);
-    // First-load reveal gate (embedded /admin editor, Brian 2026-08-21): keep the
-    // whole surface blank until BOTH the chat and the z-workbench are up, then
-    // fade them in together — no flash of a half-built (chat-only) layout.
-    // Non-embedded reveals immediately (its pre-chat landing IS the intended first
-    // view). Failsafe reveal after 7s so a no-project landing never stays blank.
+
+    /*
+     * First-load reveal gate (embedded /admin editor, Brian 2026-08-21): keep the
+     * whole surface blank until BOTH the chat and the z-workbench are up, then
+     * fade them in together — no flash of a half-built (chat-only) layout.
+     * Non-embedded reveals immediately (its pre-chat landing IS the intended first
+     * view). Failsafe reveal after 7s so a no-project landing never stays blank.
+     */
     const workbenchVisible = useStore(workbenchStore.showWorkbench);
-    // Tablet/mobile (<1024px): the chat is rendered INSIDE the z-workbench as its
-    // own tab panel; desktop docks it as the left column. Same breakpoint the
-    // Workbench uses for its Chat tab.
+
+    /*
+     * Tablet/mobile (<1024px): the chat is rendered INSIDE the z-workbench as its
+     * own tab panel; desktop docks it as the left column. Same breakpoint the
+     * Workbench uses for its Chat tab.
+     */
     const isSmallViewport = useViewport(1024);
     const [editorRevealed, setEditorRevealed] = useState(!isEmbedded);
     useEffect(() => {
       if (editorRevealed) {
-        return;
+        return undefined;
       }
 
       if (chatStarted && workbenchVisible) {
         setEditorRevealed(true);
-        return;
+        return undefined;
       }
 
       const failsafe = setTimeout(() => setEditorRevealed(true), 7000);
@@ -529,10 +534,12 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
       }
     };
 
-    // Chat content (messages + input) — ONE instance. Rendered as the docked LEFT
-    // column on desktop, or INSIDE the z-workbench as its own tab panel on
-    // tablet/mobile (passed to <Workbench mobileChatPanel>), so it always stays in
-    // sync with the live chat (Brian 2026-08-22).
+    /*
+     * Chat content (messages + input) — ONE instance. Rendered as the docked LEFT
+     * column on desktop, or INSIDE the z-workbench as its own tab panel on
+     * tablet/mobile (passed to <Workbench mobileChatPanel>), so it always stays in
+     * sync with the live chat (Brian 2026-08-22).
+     */
     const chatPanelContent = chatStarted ? (
       <div className="flex flex-col h-full w-full overflow-hidden">
         <StickToBottom
@@ -677,13 +684,15 @@ export const BaseChat = React.forwardRef<HTMLDivElement, BaseChatProps>(
           </ClientOnly>
         </div>
 
-        {/* Chat + prompt — sidebar when !chatStarted, floating overlay when chatStarted */}
+        {/*
+          Chat + prompt — sidebar when !chatStarted, floating overlay when chatStarted.
+          Desktop (≥1024px): the chat is the docked LEFT column beside the z-workbench.
+          Tablet/mobile (<1024px): the chat renders INSIDE the z-workbench as its own tab
+          panel (see <Workbench mobileChatPanel>), so there is NO separate full-screen chat
+          here — just the workbench with a Chat tab that switches like Code / Preview
+          (Brian 2026-08-22).
+        */}
         {chatStarted ? (
-          // Desktop (≥1024px): the chat is the docked LEFT column beside the
-          // z-workbench. Tablet/mobile (<1024px): the chat renders INSIDE the
-          // z-workbench as its own tab panel (see <Workbench mobileChatPanel>),
-          // so there is NO separate full-screen chat here — just the workbench
-          // with a Chat tab that switches like Code / Preview (Brian 2026-08-22).
           !isSmallViewport ? (
             <div
               className={classNames(

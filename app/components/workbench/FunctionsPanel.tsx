@@ -15,7 +15,13 @@ import { useStore } from '@nanostores/react';
 import { workbenchStore } from '~/lib/stores/workbench';
 import { WORK_DIR } from '~/utils/constants';
 import { classNames } from '~/utils/classNames';
-import { deriveRoutes, deriveWrangler, hasFunctionsFolder, scaffoldFunction, FUNCTIONS_DIR } from './functions-panel-logic';
+import {
+  deriveRoutes,
+  deriveWrangler,
+  hasFunctionsFolder,
+  scaffoldFunction,
+  FUNCTIONS_DIR,
+} from './functions-panel-logic';
 
 const METHOD_COLORS: Record<string, string> = {
   GET: 'text-green-500 bg-green-500/10',
@@ -44,6 +50,7 @@ export const FunctionsPanel = memo(() => {
   const { routes, bindings, script, compatDate, hasFunctions } = useMemo(() => {
     const wr = deriveWrangler(files);
     const resourceNames = new Set(wr.bindings.map((b) => b.name));
+
     return {
       routes: deriveRoutes(files, resourceNames),
       bindings: wr.bindings,
@@ -55,24 +62,30 @@ export const FunctionsPanel = memo(() => {
 
   const active = routes.find((r) => r.path === selectedRoute) ?? null;
 
-  // "Create a function" control (item-8 Brian directive): scaffold a real
-  // functions/ file via workbenchStore.createFile — the derived route table
-  // picks it up live + it deploys with the site. Not a mock/stub.
+  /*
+   * "Create a function" control (item-8 Brian directive): scaffold a real
+   * functions/ file via workbenchStore.createFile — the derived route table
+   * picks it up live + it deploys with the site. Not a mock/stub.
+   */
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [createError, setCreateError] = useState('');
 
   const submitNewFunction = async () => {
     const result = scaffoldFunction(newName, files);
+
     if ('error' in result) {
       setCreateError(result.error);
       return;
     }
+
     const created = await workbenchStore.createFile(result.path, result.content);
+
     if (!created) {
       setCreateError('Could not create the file — open a project first.');
       return;
     }
+
     setCreating(false);
     setNewName('');
     setCreateError('');
@@ -129,8 +142,13 @@ export const FunctionsPanel = memo(() => {
                 setCreateError('');
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') submitNewFunction();
-                if (e.key === 'Escape') cancelNewFunction();
+                if (e.key === 'Enter') {
+                  submitNewFunction();
+                }
+
+                if (e.key === 'Escape') {
+                  cancelNewFunction();
+                }
               }}
               placeholder="api/contact"
               data-testid="functions-new-input"
@@ -281,8 +299,8 @@ export const FunctionsPanel = memo(() => {
             </div>
             {bindings.length === 0 ? (
               <div className="px-3 py-2 text-[10px] text-bolt-elements-textTertiary">
-                No bindings declared in <code className="font-mono">wrangler.jsonc</code> — Pages bindings may be
-                set in the dashboard.
+                No bindings declared in <code className="font-mono">wrangler.jsonc</code> — Pages bindings may be set in
+                the dashboard.
               </div>
             ) : (
               bindings.map((b) => (
@@ -290,7 +308,9 @@ export const FunctionsPanel = memo(() => {
                   key={b.name}
                   className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-bolt-elements-item-backgroundActive transition-colors"
                 >
-                  <div className={classNames(TYPE_ICONS[b.type] ?? 'i-ph:plug', 'text-bolt-elements-textTertiary text-sm')} />
+                  <div
+                    className={classNames(TYPE_ICONS[b.type] ?? 'i-ph:plug', 'text-bolt-elements-textTertiary text-sm')}
+                  />
                   <span className="text-bolt-elements-textPrimary font-mono">{b.name}</span>
                   <span className="text-bolt-elements-textTertiary text-[10px]">{b.type}</span>
                   <span className="ml-auto text-bolt-elements-textTertiary font-mono text-[10px] truncate max-w-[40%]">
@@ -319,13 +339,17 @@ export const FunctionsPanel = memo(() => {
                 { label: `${bindings.length} binding${bindings.length === 1 ? '' : 's'} declared`, ok: true },
               ].map(({ label, ok }) => (
                 <div key={label} className="flex items-center gap-2 text-xs">
-                  <div className={classNames(ok ? 'i-ph:check-circle text-green-500' : 'i-ph:warning text-yellow-500')} />
+                  <div
+                    className={classNames(ok ? 'i-ph:check-circle text-green-500' : 'i-ph:warning text-yellow-500')}
+                  />
                   <span className={ok ? 'text-bolt-elements-textSecondary' : 'text-yellow-500'}>{label}</span>
                 </div>
               ))}
             </div>
 
-            <div className="text-[10px] uppercase tracking-wider text-bolt-elements-textTertiary mt-3 mb-1">Plan Limits</div>
+            <div className="text-[10px] uppercase tracking-wider text-bolt-elements-textTertiary mt-3 mb-1">
+              Plan Limits
+            </div>
             {[
               ['CPU', '50ms (free) / 30s (paid)'],
               ['Subrequests', '50 (free) / 1000 (paid)'],

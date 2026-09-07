@@ -37,8 +37,11 @@ interface WorkspaceProps {
   };
   updateChatMestaData?: (metadata: any) => void;
   setSelectedElement?: (element: ElementInfo | null) => void;
-  /** Chat content rendered as a nested tab panel on tablet/mobile (<1024px) —
-   * the SAME instance BaseChat docks on desktop, so it stays in sync. */
+
+  /**
+   * Chat content rendered as a nested tab panel on tablet/mobile (<1024px) —
+   * the SAME instance BaseChat docks on desktop, so it stays in sync.
+   */
   mobileChatPanel?: ReactNode;
 }
 
@@ -190,8 +193,10 @@ export const Workbench = memo(
       }
     }, []);
 
-    // ── Draggable chat|workbench divider (Brian 2026-08-21) ──
-    // Restore the persisted split on mount; default stays 50/50.
+    /*
+     * ── Draggable chat|workbench divider (Brian 2026-08-21) ──
+     * Restore the persisted split on mount; default stays 50/50.
+     */
     useEffect(() => {
       try {
         const saved = localStorage.getItem('ps_workbench_split');
@@ -215,46 +220,45 @@ export const Workbench = memo(
       }
     }, []);
 
-    // `true` only while the divider is being dragged — the workbench drops its
-    // left/width transition so it tracks the cursor instantly (Brian 2026-08-21).
+    /*
+     * `true` only while the divider is being dragged — the workbench drops its
+     * left/width transition so it tracks the cursor instantly (Brian 2026-08-21).
+     */
     const [isWorkbenchResizing, setIsWorkbenchResizing] = useState(false);
 
-    const startWorkbenchResize = useCallback(
-      (event: React.PointerEvent<HTMLDivElement>) => {
-        event.preventDefault();
-        setIsWorkbenchResizing(true);
-        document.body.style.userSelect = 'none';
-        document.body.style.cursor = 'col-resize';
+    const startWorkbenchResize = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      setIsWorkbenchResizing(true);
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'col-resize';
 
-        const onMove = (ev: PointerEvent) => {
-          document.documentElement.style.setProperty(
-            '--workbench-split',
-            `${Math.min(80, Math.max(25, (ev.clientX / window.innerWidth) * 100))}%`,
-          );
-        };
-        const onUp = () => {
-          window.removeEventListener('pointermove', onMove);
-          window.removeEventListener('pointerup', onUp);
-          setIsWorkbenchResizing(false);
-          document.body.style.userSelect = '';
-          document.body.style.cursor = '';
+      const onMove = (ev: PointerEvent) => {
+        document.documentElement.style.setProperty(
+          '--workbench-split',
+          `${Math.min(80, Math.max(25, (ev.clientX / window.innerWidth) * 100))}%`,
+        );
+      };
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        setIsWorkbenchResizing(false);
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
 
-          const split = document.documentElement.style.getPropertyValue('--workbench-split').trim();
+        const split = document.documentElement.style.getPropertyValue('--workbench-split').trim();
 
-          try {
-            if (split) {
-              localStorage.setItem('ps_workbench_split', split);
-            }
-          } catch {
-            // ignore persistence failure
+        try {
+          if (split) {
+            localStorage.setItem('ps_workbench_split', split);
           }
-        };
+        } catch {
+          // ignore persistence failure
+        }
+      };
 
-        window.addEventListener('pointermove', onMove);
-        window.addEventListener('pointerup', onUp);
-      },
-      [],
-    );
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    }, []);
 
     return (
       chatStarted && (
@@ -270,8 +274,11 @@ export const Workbench = memo(
             <div
               className={classNames(
                 'fixed top-[var(--header-height)] bottom-0 w-[var(--workbench-inner-width)] z-0',
-                // Drop the left/width transition WHILE dragging so the divider tracks
-                // the cursor instantly; keep it for the open/close slide (Brian 2026-08-21).
+
+                /*
+                 * Drop the left/width transition WHILE dragging so the divider tracks
+                 * the cursor instantly; keep it for the open/close slide (Brian 2026-08-21).
+                 */
                 isWorkbenchResizing ? '' : 'transition-[left,width] duration-200 bolt-ease-cubic-bezier',
                 {
                   'w-full': isSmallViewport,
@@ -297,7 +304,8 @@ export const Workbench = memo(
                     e.preventDefault();
 
                     const cur =
-                      parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--workbench-split')) || 50;
+                      parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--workbench-split')) ||
+                      50;
                     setSplit(cur + (e.key === 'ArrowLeft' ? -2 : 2));
                   }}
                   data-dragging={isWorkbenchResizing ? 'true' : undefined}
@@ -501,9 +509,11 @@ export const Workbench = memo(
   },
 );
 
-// Panel layer — keeps its child mounted at all times and cross-fades via opacity.
-// Inactive panels stay alive (the Preview iframe never reloads, the editor never
-// re-inits) but go non-interactive + transparent. Honors prefers-reduced-motion.
+/*
+ * Panel layer — keeps its child mounted at all times and cross-fades via opacity.
+ * Inactive panels stay alive (the Preview iframe never reloads, the editor never
+ * re-inits) but go non-interactive + transparent. Honors prefers-reduced-motion.
+ */
 const PanelLayer = memo(({ active, children }: { active: boolean; children: JSX.Element }) => (
   <div
     aria-hidden={!active}

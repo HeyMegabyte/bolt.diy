@@ -104,10 +104,12 @@ export async function streamText(props: {
     return newMessage;
   });
 
-  // ProjectSites AI: when the Pages env flags it, bolt's chat routes through the
-  // worker's custom AI (tier routing + conditional AI Gateway) instead of any
-  // per-user provider — no cookie keys, no dead-credit keys. The worker owns
-  // the secrets; the editor just streams from /api/bolt/chat.
+  /*
+   * ProjectSites AI: when the Pages env flags it, bolt's chat routes through the
+   * worker's custom AI (tier routing + conditional AI Gateway) instead of any
+   * per-user provider — no cookie keys, no dead-credit keys. The worker owns
+   * the secrets; the editor just streams from /api/bolt/chat.
+   */
   const projectsitesAi = PROVIDER_LIST.find((p) => p.name === 'ProjectSites AI');
   const psEnv = serverEnv as unknown as Record<string, string> | undefined;
   const useProjectsitesAi = !!(psEnv?.PS_BOLT_AI === 'true') && !!projectsitesAi;

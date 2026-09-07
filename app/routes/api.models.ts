@@ -62,10 +62,12 @@ export async function loader({
 
   let modelList: ModelInfo[] = [];
 
-  // ProjectSites AI (PS_BOLT_AI=true): NO network model listing. The dynamic
-  // listing fires provider getDynamicModels with the user's COOKIE apiKeys —
-  // dead keys (Anthropic credit) surfaced "credit balance too low" errors at
-  // editor boot. Static chips only; the worker maps model names to tiers.
+  /*
+   * ProjectSites AI (PS_BOLT_AI=true): NO network model listing. The dynamic
+   * listing fires provider getDynamicModels with the user's COOKIE apiKeys —
+   * dead keys (Anthropic credit) surfaced "credit balance too low" errors at
+   * editor boot. Static chips only; the worker maps model names to tiers.
+   */
   const serverEnv = context.cloudflare?.env as unknown as Record<string, string> | undefined;
   const usePsAi = !!serverEnv && serverEnv.PS_BOLT_AI === 'true';
 

@@ -47,10 +47,12 @@ export async function selectContext(props: {
     return message;
   });
 
-  // ProjectSites AI override (same seam as stream-text / create-summary):
-  // the context-buffer selector previously resolved the conversation's cookie
-  // provider (e.g. Anthropic) and hit the user's dead-credit key directly —
-  // same "Chat request failed" class on long build chats.
+  /*
+   * ProjectSites AI override (same seam as stream-text / create-summary):
+   * the context-buffer selector previously resolved the conversation's cookie
+   * provider (e.g. Anthropic) and hit the user's dead-credit key directly —
+   * same "Chat request failed" class on long build chats.
+   */
   const projectsitesAi =
     serverEnv && (serverEnv as unknown as Record<string, string>).PS_BOLT_AI === 'true'
       ? PROVIDER_LIST.find((p) => p.name === 'ProjectSites AI')
@@ -242,28 +244,37 @@ export async function selectContext(props: {
    * there); embedded degrades to everything.
    */
   if (totalFiles == 0) {
-    // Fallback order: HTML files first (they carry the visible content the
-    // user edits), then JSON/JS — capped at ~120KB total so the /api/chat
-    // body stays under the worker's 256KB payload limit (journey
-    // 2026-08-19: an uncapped fallback pushed the request past it).
-    const candidates = Object.entries(files || {}).map(([path, content]) => {
-      let relativePath = path;
-      if (path.startsWith('/home/project/')) {
-        relativePath = path.replace('/home/project/', '');
-      }
-      return { relativePath, content: String(content ?? ''), size: String(content ?? '').length };
-    }).filter((c) => !ig.ignores(c.relativePath) && c.size > 0)
+    /*
+     * Fallback order: HTML files first (they carry the visible content the
+     * user edits), then JSON/JS — capped at ~120KB total so the /api/chat
+     * body stays under the worker's 256KB payload limit (journey
+     * 2026-08-19: an uncapped fallback pushed the request past it).
+     */
+    const candidates = Object.entries(files || {})
+      .map(([path, content]) => {
+        let relativePath = path;
+
+        if (path.startsWith('/home/project/')) {
+          relativePath = path.replace('/home/project/', '');
+        }
+
+        return { relativePath, content: String(content ?? ''), size: String(content ?? '').length };
+      })
+      .filter((c) => !ig.ignores(c.relativePath) && c.size > 0)
       .sort((a, b) => {
         const aHtml = a.relativePath.endsWith('.html') ? 0 : 1;
         const bHtml = b.relativePath.endsWith('.html') ? 0 : 1;
+
         return aHtml - bHtml || b.size - a.size;
       });
     const CAP_BYTES = 120_000;
     let budget = 0;
+
     for (const c of candidates) {
       if (budget + c.size > CAP_BYTES && Object.keys(filteredFiles).length > 0) {
         continue;
       }
+
       filteredFiles[c.relativePath] = {
         type: 'file',
         content: c.content,
@@ -271,8 +282,10 @@ export async function selectContext(props: {
       };
       budget += c.size;
     }
+
     const fallbackCount = Object.keys(filteredFiles).length;
     logger.info(`File selection empty — fallback included ${fallbackCount} files (${budget} bytes)`);
+
     if (fallbackCount == 0) {
       throw new Error(`Bolt failed to select files`);
     }

@@ -13,16 +13,11 @@
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { isEmbedded, postToParent, onParentMessage } from '~/lib/embed/embedded-mode';
 import type { DataOverviewTable, ParentToChildMessage } from '~/lib/embed/embedded-mode';
-import {
-  iconForTable,
-  formatCellValue,
-  summarizeTables,
-  newCorrelationId,
-  columnLabel,
-} from './data-panel-logic';
+import { iconForTable, formatCellValue, summarizeTables, newCorrelationId, columnLabel } from './data-panel-logic';
 import { classNames } from '~/utils/classNames';
 
 type Status = 'loading' | 'ready' | 'error' | 'standalone';
+
 const REQUEST_TIMEOUT_MS = 12_000;
 
 export const DataPanel = memo(() => {
@@ -41,12 +36,20 @@ export const DataPanel = memo(() => {
   const browseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const requestOverview = useCallback(() => {
-    if (!isEmbedded) return;
+    if (!isEmbedded) {
+      return;
+    }
+
     setStatus('loading');
     setOverviewError('');
+
     const cid = newCorrelationId();
     overviewCid.current = cid;
-    if (overviewTimer.current) clearTimeout(overviewTimer.current);
+
+    if (overviewTimer.current) {
+      clearTimeout(overviewTimer.current);
+    }
+
     overviewTimer.current = setTimeout(() => {
       if (overviewCid.current === cid) {
         setOverviewError('The editor bridge did not respond. Open this project from the projectsites.dev admin.');
@@ -62,9 +65,14 @@ export const DataPanel = memo(() => {
     setColumns([]);
     setBrowseError('');
     setBrowseLoading(true);
+
     const cid = newCorrelationId(key);
     browseCid.current = cid;
-    if (browseTimer.current) clearTimeout(browseTimer.current);
+
+    if (browseTimer.current) {
+      clearTimeout(browseTimer.current);
+    }
+
     browseTimer.current = setTimeout(() => {
       if (browseCid.current === cid) {
         setBrowseError('Timed out loading rows.');
@@ -76,46 +84,70 @@ export const DataPanel = memo(() => {
 
   // Subscribe to PS_DATA_RESPONSE from the admin parent.
   useEffect(() => {
-    if (!isEmbedded) return;
+    if (!isEmbedded) {
+      return undefined;
+    }
+
     const off = onParentMessage((msg: ParentToChildMessage) => {
-      if (msg.type !== 'PS_DATA_RESPONSE') return;
+      if (msg.type !== 'PS_DATA_RESPONSE') {
+        return;
+      }
 
       // Overview reply (no `table`).
       if (!msg.table && msg.correlationId === overviewCid.current) {
-        if (overviewTimer.current) clearTimeout(overviewTimer.current);
+        if (overviewTimer.current) {
+          clearTimeout(overviewTimer.current);
+        }
+
         overviewCid.current = null;
+
         if (msg.error) {
           setOverviewError(msg.error);
           setStatus('error');
+
           return;
         }
+
         setTables(msg.data?.tables ?? []);
         setStatus('ready');
+
         return;
       }
 
       // Browse reply (matching `table`).
       if (msg.table && msg.correlationId === browseCid.current) {
-        if (browseTimer.current) clearTimeout(browseTimer.current);
+        if (browseTimer.current) {
+          clearTimeout(browseTimer.current);
+        }
+
         browseCid.current = null;
         setBrowseLoading(false);
+
         if (msg.error) {
           setBrowseError(msg.error);
           return;
         }
+
         setColumns(msg.data?.columns ?? []);
         setRows(msg.data?.rows ?? []);
       }
     });
+
     return off;
   }, []);
 
   // Kick off the first overview request on mount.
   useEffect(() => {
     requestOverview();
+
     return () => {
-      if (overviewTimer.current) clearTimeout(overviewTimer.current);
-      if (browseTimer.current) clearTimeout(browseTimer.current);
+      if (overviewTimer.current) {
+        clearTimeout(overviewTimer.current);
+      }
+
+      if (browseTimer.current) {
+        clearTimeout(browseTimer.current);
+      }
     };
   }, [requestOverview]);
 
@@ -157,8 +189,8 @@ export const DataPanel = memo(() => {
           <div className="i-ph:plugs text-3xl text-bolt-elements-textTertiary" />
           <p className="text-sm text-bolt-elements-textSecondary">Live data lives with your site</p>
           <p className="text-[11px] text-bolt-elements-textTertiary max-w-xs">
-            Open this project from your projectsites.dev admin dashboard to browse its real visitor
-            events, form submissions, snapshots and more.
+            Open this project from your projectsites.dev admin dashboard to browse its real visitor events, form
+            submissions, snapshots and more.
           </p>
         </div>
       )}
@@ -222,9 +254,7 @@ export const DataPanel = memo(() => {
                 >
                   {t.row_count.toLocaleString()} {t.row_count === 1 ? 'row' : 'rows'}
                 </span>
-                {t.browsable && t.row_count > 0 && (
-                  <div className="i-ph:caret-right text-bolt-elements-textTertiary" />
-                )}
+                {t.browsable && t.row_count > 0 && <div className="i-ph:caret-right text-bolt-elements-textTertiary" />}
               </div>
             </button>
           ))}

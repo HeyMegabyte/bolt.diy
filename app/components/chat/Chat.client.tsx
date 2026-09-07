@@ -274,25 +274,26 @@ export const ChatImpl = memo(
                 exportDate: new Date().toISOString(),
               };
 
-              // Embedded mode: the ADMIN (parent frame) owns the deploy — its
-              // ApiService attaches the session bearer token, which the worker's
-              // ownership gate on :id/publish-bolt requires. The raw cross-origin
-              // fetch below sends NO auth header (editor → projectsites.dev has
-              // no session cookies), so every embedded publish 401/404'd after
-              // the IDOR gate landed — "Deploy failed" on a healthy build.
-              // Item 43 PS_DEPLOY_REQUEST → BoltEmbedService.uploadFiles.
+              /*
+               * Embedded mode: the ADMIN (parent frame) owns the deploy — its
+               * ApiService attaches the session bearer token, which the worker's
+               * ownership gate on :id/publish-bolt requires. The raw cross-origin
+               * fetch below sends NO auth header (editor → projectsites.dev has
+               * no session cookies), so every embedded publish 401/404'd after
+               * the IDOR gate landed — "Deploy failed" on a healthy build.
+               * Item 43 PS_DEPLOY_REQUEST → BoltEmbedService.uploadFiles.
+               */
               if (isEmbedded) {
                 postToParent({
                   type: 'PS_DEPLOY_REQUEST',
                   files: Object.fromEntries(fileList.map((f) => [f.path, f.content])),
                   chat: chatExport,
                   correlationId:
-                    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-                      ? crypto.randomUUID()
-                      : `${Date.now()}`,
+                    typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}`,
                 });
                 postTelemetryToParent('editor.first_deploy', { slug, files: fileList.length });
                 toast.info('Deploying through the admin bridge…');
+
                 return;
               }
 
@@ -608,6 +609,7 @@ export const ChatImpl = memo(
 
       if (importUrl && !importTriggeredRef.current) {
         importTriggeredRef.current = true;
+
         /*
          * Preserve `slug` (and keep the URL params minimal) instead of
          * clearing ALL search params — the import then navigates to
@@ -616,9 +618,13 @@ export const ChatImpl = memo(
          * lookup falls back to the 'default' chat id the console showed
          * (journey 2026-08-19).
          */
-        setSearchParams((prev) => {
+        setSearchParams(() => {
           const next = new URLSearchParams();
-          if (slug) next.set('slug', slug);
+
+          if (slug) {
+            next.set('slug', slug);
+          }
+
           return next;
         });
 
@@ -644,12 +650,12 @@ export const ChatImpl = memo(
                * Deploy's PS_FILES_READY carries the real site files.
                * (journey 2026-08-19 — the last publish-bridge rung)
                */
-              const materialized = materializeImportedFiles(
-                chatData.messages as Array<{ content?: string }>,
-              );
+              const materialized = materializeImportedFiles(chatData.messages as Array<{ content?: string }>);
+
               if (materialized > 0 && isEmbedded) {
                 toast.info(`Restoring ${materialized} files into the workbench...`);
               }
+
               importChat(chatData.description || 'Imported from Project Sites', chatData.messages as Message[]);
             } else {
               toast.error('Invalid chat data format');

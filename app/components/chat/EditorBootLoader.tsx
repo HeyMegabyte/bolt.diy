@@ -21,7 +21,7 @@ import { memo } from 'react';
  * @example
  * {!ready && <EditorBootLoader />}
  */
-export const EditorBootLoader = memo(function EditorBootLoader() {
+export const EditorBootLoader = memo(() => {
   return (
     <div className="ps-boot-loader" role="status" aria-live="polite" aria-label="Booting your editor">
       {/* Animated orbit + pulsing core, brand cyan on near-black. */}

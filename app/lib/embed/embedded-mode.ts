@@ -231,6 +231,7 @@ function detectEmbedded(): boolean {
 
   try {
     const inIframe = window.parent !== window;
+
     if (!inIframe) {
       return false;
     }
@@ -342,25 +343,31 @@ const FILE_ACTION_RE =
 export function materializeImportedFiles(messages: Array<{ content?: string }>): number {
   try {
     const files: Record<string, string> = {};
+
     for (const m of messages) {
       const content = typeof m?.content === 'string' ? m.content : '';
       FILE_ACTION_RE.lastIndex = 0;
+
       let match: RegExpExecArray | null;
+
       while ((match = FILE_ACTION_RE.exec(content)) !== null) {
         const filePath = (match[1] ?? '').trim();
+
         if (!filePath) {
           continue;
         }
-        const body = (match[2] ?? '')
-          .replace(/^\s*```\w*\n?/, '')
-          .replace(/\n```\s*$/, '');
+
+        const body = (match[2] ?? '').replace(/^\s*```\w*\n?/, '').replace(/\n```\s*$/, '');
         files[filePath] = body;
       }
     }
+
     const count = Object.keys(files).length;
+
     if (count > 0) {
       window.sessionStorage.setItem(MATERIALIZED_KEY, JSON.stringify(files));
     }
+
     return count;
   } catch {
     return 0;
@@ -370,47 +377,59 @@ export function materializeImportedFiles(messages: Array<{ content?: string }>):
 export function restoreMaterializedFiles(): void {
   try {
     const raw = window.sessionStorage.getItem(MATERIALIZED_KEY);
+
     if (!raw) {
       return;
     }
+
     window.sessionStorage.removeItem(MATERIALIZED_KEY);
+
     const files = JSON.parse(raw) as Record<string, string>;
-    import('~/lib/stores/workbench').then(({ workbenchStore }) => {
-      /*
-       * setVirtualFile — NOT createFile. createFile awaits the WebContainer
-       * promise which never settles in embedded mode, so an await-based
-       * restore hangs forever and getTextFiles() stays empty.
-       */
-      let restored = 0;
-      for (const [filePath, content] of Object.entries(files)) {
-        try {
-          workbenchStore.setVirtualFile(filePath, content);
-          restored++;
-        } catch {
-          // a single bad path must not abort the rest
+    import('~/lib/stores/workbench')
+      .then(({ workbenchStore }) => {
+        /*
+         * setVirtualFile — NOT createFile. createFile awaits the WebContainer
+         * promise which never settles in embedded mode, so an await-based
+         * restore hangs forever and getTextFiles() stays empty.
+         */
+        let restored = 0;
+
+        for (const [filePath, content] of Object.entries(files)) {
+          try {
+            workbenchStore.setVirtualFile(filePath, content);
+            restored++;
+          } catch {
+            // a single bad path must not abort the rest
+          }
         }
-      }
-      if (restored > 0) {
-        postToParent({ type: 'PS_TOAST', kind: 'info', level: 'info', message: `Editor workbench restored (${restored} files) — Save & Deploy now carries the site` });
-      }
 
-      /*
-       * If this embed is cross-origin-isolated, WebContainer CAN boot — so mount
-       * the imported project into its filesystem and run `npm install` + `npm run
-       * dev`, which makes the live Preview actually spin up (Brian 2026-08-21 —
-       * "ensure the npm command runs that causes the Preview to display"). Files
-       * were only written to the in-memory store above (for the FileTree +
-       * Save & Deploy bridge); the dev server needs them on the REAL WC disk. A
-       * non-isolated embed stays materialization-only — WebContainer never boots.
-       */
-      const isolated = typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
+        if (restored > 0) {
+          postToParent({
+            type: 'PS_TOAST',
+            kind: 'info',
+            level: 'info',
+            message: `Editor workbench restored (${restored} files) — Save & Deploy now carries the site`,
+          });
+        }
 
-      if (isolated && restored > 0) {
-        void spinUpWebContainerPreview(files);
-      }
-    }).catch(() => {
-      // workbench store failed to load — the stash is already drained; fail soft
-    });
+        /*
+         * If this embed is cross-origin-isolated, WebContainer CAN boot — so mount
+         * the imported project into its filesystem and run `npm install` + `npm run
+         * dev`, which makes the live Preview actually spin up (Brian 2026-08-21 —
+         * "ensure the npm command runs that causes the Preview to display"). Files
+         * were only written to the in-memory store above (for the FileTree +
+         * Save & Deploy bridge); the dev server needs them on the REAL WC disk. A
+         * non-isolated embed stays materialization-only — WebContainer never boots.
+         */
+        const isolated = typeof crossOriginIsolated !== 'undefined' && crossOriginIsolated;
+
+        if (isolated && restored > 0) {
+          void spinUpWebContainerPreview(files);
+        }
+      })
+      .catch(() => {
+        // workbench store failed to load — the stash is already drained; fail soft
+      });
   } catch {
     // malformed stash — drop it
   }
@@ -431,9 +450,11 @@ function filesToTree(files: Record<string, string>): FileSystemTree {
 
     for (let i = 0; i < parts.length - 1; i++) {
       const dir = parts[i];
+
       if (!node[dir]) {
         node[dir] = { directory: {} };
       }
+
       node = (node[dir] as DirectoryNode).directory;
     }
 
@@ -489,21 +510,30 @@ async function spinUpWebContainerPreview(files: Record<string, string>): Promise
       const install = await shell.executeCommand('ps-spinup', 'npm install');
 
       if (install && install.exitCode !== 0) {
-        postToParent({ type: 'PS_TOAST', kind: 'error', level: 'error', message: 'npm install failed — see the terminal' });
+        postToParent({
+          type: 'PS_TOAST',
+          kind: 'error',
+          level: 'error',
+          message: 'npm install failed — see the terminal',
+        });
         return;
       }
 
       postToParent({ type: 'PS_TOAST', kind: 'info', level: 'info', message: 'Starting dev server…' });
 
-      // Long-running — fire-and-forget so Vite keeps running + `server-ready`
-      // (PreviewsStore) surfaces the URL into the Preview tab.
+      /*
+       * Long-running — fire-and-forget so Vite keeps running + `server-ready`
+       * (PreviewsStore) surfaces the URL into the Preview tab.
+       */
       void shell.executeCommand('ps-spinup', `npm run ${devScript}`);
 
       return;
     }
 
-    // Fallback (terminal never attached): detached spawn — no visible output,
-    // but the dev server + Preview still come up.
+    /*
+     * Fallback (terminal never attached): detached spawn — no visible output,
+     * but the dev server + Preview still come up.
+     */
     const install = await wc.spawn('npm', ['install']);
 
     if ((await install.exit) !== 0) {
@@ -625,16 +655,18 @@ if (isEmbedded && typeof window !== 'undefined') {
       return;
     }
 
-    import('~/lib/stores/workbench').then(({ workbenchStore }) => {
-      const textFiles = workbenchStore.getTextFiles();
-      postToParent({
-        type: 'PS_FILES_READY',
-        files: textFiles,
-        correlationId: msg.correlationId,
+    import('~/lib/stores/workbench')
+      .then(({ workbenchStore }) => {
+        const textFiles = workbenchStore.getTextFiles();
+        postToParent({
+          type: 'PS_FILES_READY',
+          files: textFiles,
+          correlationId: msg.correlationId,
+        });
+      })
+      .catch((err) => {
+        console.warn('[embed] PS_REQUEST_FILES responder failed:', err);
       });
-    }).catch((err) => {
-      console.warn('[embed] PS_REQUEST_FILES responder failed:', err);
-    });
   });
 
   // ── Item 46: hook window-level errors + unhandled rejections ──
