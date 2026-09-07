@@ -35,13 +35,12 @@ import { writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RENDER_SECTIONS, ALIAS_SECTIONS, HARD_SECTIONS } from './admin-contract.mjs';
+import { resolveBrowserbaseCreds } from './_browserbase-creds.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPORT_FILE = resolve(HERE, '../../_ADMIN_CONTRACT_REPORT.json');
 const BASE = process.env.PROD_URL ?? 'https://projectsites.dev';
-const BB = process.env.BROWSERBASE_API_KEY;
-const PROJ = process.env.BROWSERBASE_PROJECT_ID;
-const PW = process.env.E2E_TEST_PASSWORD;
+const { BB, PROJ, PW } = resolveBrowserbaseCreds();
 
 const DEAD_COPY = /something went wrong|failed to load|internal server error|not available yet|isn't enabled|couldn't load|unable to load/i;
 const GATE_COPY = /enable this feature|feature is off|turned off|not enabled|coming soon|available on|upgrade|request access|restricted/i;

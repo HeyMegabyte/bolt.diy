@@ -25,10 +25,9 @@
  * Usage: BROWSERBASE_API_KEY=… BROWSERBASE_PROJECT_ID=… E2E_TEST_PASSWORD=… node e2e/admin-verify/verify-editor-datatab.mjs
  */
 import { chromium } from '@playwright/test';
+import { resolveBrowserbaseCreds } from './_browserbase-creds.mjs';
 
-const BB = process.env.BROWSERBASE_API_KEY,
-  PROJ = process.env.BROWSERBASE_PROJECT_ID,
-  PW = process.env.E2E_TEST_PASSWORD;
+const { BB, PROJ, PW } = resolveBrowserbaseCreds();
 if (!BB || !PROJ || !PW) {
   console.log(
     '::notice:: verify-editor-datatab skipped — Browserbase creds / E2E_TEST_PASSWORD unset',

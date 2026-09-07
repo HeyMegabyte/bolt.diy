@@ -7,7 +7,8 @@
  * Creds (get-secret): BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID, E2E_TEST_PASSWORD.
  */
 import { chromium } from '@playwright/test';
-const BB = process.env.BROWSERBASE_API_KEY, PROJ = process.env.BROWSERBASE_PROJECT_ID, PW = process.env.E2E_TEST_PASSWORD;
+import { resolveBrowserbaseCreds } from './_browserbase-creds.mjs';
+const { BB, PROJ, PW } = resolveBrowserbaseCreds();
 if (!BB || !PROJ || !PW) { console.log('::notice:: skipped — creds unset'); process.exit(0); }
 const r = await fetch('https://api.browserbase.com/v1/sessions', { method: 'POST', headers: { 'X-BB-API-Key': BB, 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId: PROJ, timeout: 500 }) });
 if (!r.ok) { console.log('session create failed', r.status); process.exit(3); }

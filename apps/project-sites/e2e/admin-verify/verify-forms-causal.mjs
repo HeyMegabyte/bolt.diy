@@ -20,7 +20,8 @@
  */
 import { chromium } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-const BB = process.env.BROWSERBASE_API_KEY, PROJ = process.env.BROWSERBASE_PROJECT_ID, PW = process.env.E2E_TEST_PASSWORD;
+import { resolveBrowserbaseCreds } from './_browserbase-creds.mjs';
+const { BB, PROJ, PW } = resolveBrowserbaseCreds();
 if (!BB || !PROJ || !PW) { console.log('::notice:: skipped — creds unset'); process.exit(0); }
 mkdirSync('/tmp/psvis', { recursive: true });
 const VALID_EMAIL = 'causal-forms-test@example.com', INJ_EMAIL = 'causal-inject-test@example.com';

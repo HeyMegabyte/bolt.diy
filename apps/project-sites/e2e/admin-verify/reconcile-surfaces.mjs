@@ -37,10 +37,9 @@
  * Exits 0 (skip) if any unset. Usage: node e2e/admin-verify/reconcile-surfaces.mjs
  */
 import { chromium } from '@playwright/test';
+import { resolveBrowserbaseCreds } from './_browserbase-creds.mjs';
 
-const BB = process.env.BROWSERBASE_API_KEY;
-const PROJ = process.env.BROWSERBASE_PROJECT_ID;
-const PW = process.env.E2E_TEST_PASSWORD;
+const { BB, PROJ, PW } = resolveBrowserbaseCreds();
 if (!BB || !PROJ || !PW) {
   console.log('::notice:: reconcile-surfaces skipped — BROWSERBASE_API_KEY / BROWSERBASE_PROJECT_ID / E2E_TEST_PASSWORD unset');
   process.exit(0);
