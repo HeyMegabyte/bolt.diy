@@ -241,3 +241,49 @@ describe('VoiceNumbersComponent (keypad-digit preview)', () => {
     expect(c.queryUpper()).toBe('MOVE');
   });
 });
+
+/**
+ * The vanity search hint must reflect the OPERATOR'S business, not a generic /
+ * wrong-vertical example. `vanityExample` derives the first memorable word of the
+ * selected site's business name (was a hardcoded "MOVE"/"82LABOR"/"BRICK" — those
+ * are a moving company's words, shown even on a cocktail lounge). AL-137.
+ */
+describe('VoiceNumbersComponent — brand-aware vanity example', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  function makeWithSite(site: unknown): VoiceNumbersComponent {
+    TestBed.configureTestingModule({
+      imports: [VoiceNumbersComponent],
+      providers: [
+        { provide: ApiService, useValue: { get: () => of({ data: [] }), post: () => of({ data: {} }), delete: () => of(undefined) } },
+        { provide: ToastService, useValue: { success: () => 0, error: () => 0, info: () => 0 } },
+        { provide: AdminStateService, useValue: { selectedSite: signal(site) } },
+        { provide: ConfirmService, useValue: { confirm: () => Promise.resolve(true) } },
+      ],
+    });
+    TestBed.overrideComponent(VoiceNumbersComponent, { set: { template: '<div></div>', imports: [] } });
+    return TestBed.createComponent(VoiceNumbersComponent).componentInstance;
+  }
+
+  it('derives the vanity example from the first memorable word of the business name', () => {
+    const c = makeWithSite({ id: 's1', business_name: 'Lumen & Oak Cocktail Lounge' });
+    expect(c.vanityExample()).toBe('LUMEN');
+    expect(c.vanityPlaceholder()).toBe('Try "LUMEN", or digits');
+  });
+
+  it('skips leading articles (the/and) when picking the example word', () => {
+    const c = makeWithSite({ id: 's2', business_name: 'The Roasted Bean' });
+    expect(c.vanityExample()).toBe('ROASTED');
+  });
+
+  it('caps the example at 7 letters (a local number is 7 keypad digits)', () => {
+    const c = makeWithSite({ id: 's3', business_name: 'Constellation Bistro' });
+    expect(c.vanityExample()).toBe('CONSTEL');
+  });
+
+  it('falls back to HELLO with no site or an unusable name', () => {
+    expect(makeWithSite(null).vanityExample()).toBe('HELLO');
+    TestBed.resetTestingModule(); // second config needs a fresh module (else "already instantiated")
+    expect(makeWithSite({ id: 's4', business_name: '' }).vanityExample()).toBe('HELLO');
+  });
+});

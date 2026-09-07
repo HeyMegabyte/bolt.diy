@@ -152,7 +152,7 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
         <header class="mb-3">
           <div class="kicker">Find a number</div>
           <h2 class="section-h text-base font-bold text-white m-0 mt-1">Vanity + area-code search</h2>
-          <p class="muted-help m-0 mt-1">Type letters or digits. "LABOR" matches "52267", "MOVE" matches "6683".</p>
+          <p class="muted-help m-0 mt-1">Type letters or digits — letters map to the phone keypad (e.g. "CAFE" = 2233).</p>
         </header>
 
         <div class="search-row">
@@ -162,7 +162,7 @@ const LETTER_TO_DIGIT: Readonly<Record<string, string>> = Object.freeze({
                    type="text"
                    [(ngModel)]="query"
                    (ngModelChange)="onQueryChange($event)"
-                   placeholder='Try "MOVE", "82LABOR", "BRICK"'
+                   [placeholder]="vanityPlaceholder()"
                    aria-label="Vanity word or digits"
                    data-testid="voice-search-q" />
           </label>
@@ -419,6 +419,24 @@ export class VoiceNumbersComponent implements OnInit, OnDestroy {
   monthlySpend = computed(() =>
     this.numbers().reduce((sum, n) => sum + (n.monthly_cost_usd || 0), 0),
   );
+
+  /**
+   * A brand-relevant vanity EXAMPLE for the search placeholder — the first
+   * memorable word of the selected site's business name (uppercased, ≤7 letters
+   * so it fits a local number's 7-digit keypad span), so the operator sees THEIR
+   * business as the hint instead of a generic/wrong-vertical word. Falls back to
+   * "HELLO" when no site is selected or the name yields no usable word.
+   */
+  readonly vanityExample = computed(() => {
+    const name = this.state.selectedSite()?.business_name ?? '';
+    const word = name
+      .split(/[^A-Za-z]+/)
+      .find((w) => w.length >= 3 && !['the', 'and'].includes(w.toLowerCase()));
+    return (word ? word.slice(0, 7) : 'hello').toUpperCase();
+  });
+
+  /** Full placeholder string for the vanity search input, brand-derived. */
+  readonly vanityPlaceholder = computed(() => `Try "${this.vanityExample()}", or digits`);
 
   /** A search was attempted by a vanity WORD or an AREA CODE — gates the
    *  empty-results hint so an area-code-only search never shows a silent blank. */
