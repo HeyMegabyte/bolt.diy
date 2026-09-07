@@ -172,6 +172,15 @@ describe('buildPrompt — template-first, ≤14-min', () => {
     expect(out).toMatch(/AUTO-LOAD|auto-load/);
     expect(out).toMatch(/display (face|heading)/i);
   });
+
+  it('mandates a business-specific, correct-vertical hero H1 [AL-132 — wrong-vertical H1 shipped 2026-09]', () => {
+    const out = buildPrompt(p);
+    // Real defect: a cocktail lounge shipped "Fresh flavors, made from scratch" + a
+    // jewelry store "Gear built for how you live". The H1 must name the actual business+vertical.
+    expect(out).toMatch(/Hero H1/i);
+    expect(out).toMatch(/WRONG-VERTICAL|wrong-vertical/);
+    expect(out).toContain("Vito's Salon"); // the seeded business name must anchor the H1 directive
+  });
 });
 
 // ─── Heartbeat-loop coverage (sequence-driven replay mock) ───────────────────
