@@ -82,3 +82,34 @@ describe('AppComponent (shell a11y + chrome contract)', () => {
     expect(c.isHeaderlessRoute('/blog')).toBe(false); // marketing route keeps the shared header
   });
 });
+
+/**
+ * restoreSession() is a BACKGROUND session-validation on app init that owns its own outcome
+ * (no-op on transient errors — keeps the session; the interceptor owns the 401 clear+redirect).
+ * It MUST call getMe with { silent: true } so a transient status-0 blip (or a CF-challenged
+ * headless XHR) never fires ApiService's alarming "Can't reach the server" toast on a user who
+ * stays logged in. Regression guard for that false-alarm class.
+ */
+describe('AppComponent — restoreSession validates SILENTLY (no false-alarm toast)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('calls getMe({ silent: true }) on init when logged in', () => {
+    const getMe = jasmine.createSpy('getMe').and.returnValue(of({ data: { id: 'u1', email: 'e@x.co', org_id: 'o1' } }));
+    TestBed.configureTestingModule({
+      imports: [AppComponent],
+      providers: [
+        provideRouter([]),
+        { provide: AuthService, useValue: { isLoggedIn: () => true, getSelectedBusiness: () => null, getMode: () => 'create', setSession: () => undefined } },
+        { provide: ApiService, useValue: { getMe, post: () => of({}) } },
+        { provide: MetaService, useValue: { init: () => undefined } },
+        { provide: AppShellService, useValue: { applyLanguage: () => undefined } },
+        { provide: TelemetryService, useValue: { init: () => undefined, pageView: () => undefined, track: () => undefined, identify: () => undefined } },
+        { provide: TranslateService, useValue: { currentLang: 'en', onLangChange: new Subject() } },
+      ],
+    });
+    const fixture = TestBed.createComponent(AppComponent);
+    fixture.detectChanges(); // ngOnInit → restoreSession (isLoggedIn=true)
+    expect(getMe).toHaveBeenCalledWith({ silent: true });
+    fixture.destroy();
+  });
+});

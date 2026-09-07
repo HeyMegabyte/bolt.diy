@@ -387,7 +387,14 @@ export class AppComponent implements OnInit, OnDestroy {
    */
   private restoreSession(): void {
     if (!this.auth.isLoggedIn()) return;
-    this.api.getMe().subscribe({
+    // `{ silent: true }` — this is a BACKGROUND session-validation that OWNS its outcome:
+    // it intentionally no-ops on transient errors (keeps the session) and the interceptor
+    // owns the 401 (clear + conditional redirect, which still runs under silent). Without
+    // silent, a transient status-0 blip on app-init fired ApiService's alarming "Can't reach
+    // the server. Check your connection." toast even though the user stays logged in and the
+    // next request Just Works — a false alarm on every /admin load whose /auth/me got a blip
+    // (or a CF-challenged headless XHR). See [[cf-bot-challenge-opaque-xhr-misleading-toast]].
+    this.api.getMe({ silent: true }).subscribe({
       next: (res) => {
         // Attach identity to PostHog + GA4 so subsequent events are
         // user-scoped. User identity is attached via PostHog identify().

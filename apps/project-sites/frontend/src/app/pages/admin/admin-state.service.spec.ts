@@ -399,3 +399,64 @@ describe('AdminStateService — selected-site persistence (ps_selected_site)', (
     expect(svc.selectedSite()?.id).toBe('site-a');
   });
 });
+
+/**
+ * Dashboard-load toast hygiene — a single failed initial load must fire exactly ONE
+ * truthful, actionable toast, NOT a pile-up. The three reads (+ /me) pass `{ silent: true }`
+ * so ApiService's per-request toast ("Can't reach the server") can't double/triple-fire on
+ * top of this handler's own "Failed to load dashboard data"; that one toast is armed with a
+ * Retry that re-runs loadData(). See [[cf-bot-challenge-opaque-xhr-misleading-toast]] (the
+ * double-toast class) — a real transient blip hits real users, not just headless probes.
+ */
+describe('AdminStateService — dashboard load: silent reads + ONE retry-armed toast', () => {
+  interface RetryOpts { action?: { label: string; run: (id: number) => void } }
+  function build(fail: boolean): {
+    svc: AdminStateService; listSites: jasmine.Spy; domains: jasmine.Spy;
+    sub: jasmine.Spy; me: jasmine.Spy; toastErr: jasmine.Spy; dismiss: jasmine.Spy;
+  } {
+    const listSites = jasmine.createSpy('listSites').and.callFake(() =>
+      fail ? throwError(() => ({ status: 0 })) : of({ data: [] }));
+    const domains = jasmine.createSpy('getDomainSummary').and.returnValue(of({ data: { total: 0, active: 0, pending: 0, failed: 0 } }));
+    const sub = jasmine.createSpy('getSubscription').and.returnValue(of({ data: null }));
+    const me = jasmine.createSpy('getMe').and.returnValue(of({ data: { org_id: 'o', is_super_admin: false } }));
+    const toastErr = jasmine.createSpy('error');
+    const dismiss = jasmine.createSpy('dismiss');
+    TestBed.configureTestingModule({
+      providers: [
+        AdminStateService,
+        { provide: ApiService, useValue: { listSites, getDomainSummary: domains, getSubscription: sub, getMe: me, getAnalytics: () => of({ data: null }) } },
+        { provide: AuthService, useValue: { isLoggedIn: () => true } },
+        { provide: ToastService, useValue: { error: toastErr, success: () => 0, dismiss, toasts: () => [] } },
+        { provide: TelemetryService, useValue: { track: () => undefined } },
+        { provide: Router, useValue: { navigate: () => undefined, url: '/admin' } },
+        { provide: DomSanitizer, useValue: { bypassSecurityTrustResourceUrl: (u: string) => u } },
+        { provide: Dialog, useValue: { open: () => ({ closed: of(undefined) }) } },
+      ],
+    });
+    return { svc: TestBed.inject(AdminStateService), listSites, domains, sub, me, toastErr, dismiss };
+  }
+  afterEach(() => {
+    try { (TestBed.inject(AdminStateService) as unknown as { stopLiveRefresh(): void }).stopLiveRefresh(); } catch { /* */ }
+    TestBed.resetTestingModule();
+  });
+
+  it('passes { silent: true } to all four dashboard reads (kills the ApiService double-toast at source)', () => {
+    const { svc, listSites, domains, sub, me } = build(false);
+    svc.loadData();
+    for (const spy of [listSites, domains, sub, me]) {
+      expect(spy).toHaveBeenCalledWith({ silent: true });
+    }
+  });
+
+  it('on load failure fires EXACTLY ONE error toast, armed with a Retry that re-runs loadData', () => {
+    const { svc, toastErr, dismiss, listSites } = build(true);
+    svc.loadData();
+    expect(toastErr).toHaveBeenCalledTimes(1);
+    const opts = toastErr.calls.mostRecent().args[1] as RetryOpts | undefined;
+    expect(opts?.action?.label).toBe('Retry');
+    const before = listSites.calls.count();
+    opts?.action?.run(7);
+    expect(dismiss).toHaveBeenCalledWith(7);
+    expect(listSites.calls.count()).withContext('Retry re-ran the dashboard load').toBeGreaterThan(before);
+  });
+});

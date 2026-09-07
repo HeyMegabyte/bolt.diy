@@ -101,14 +101,19 @@ export class AdminStateService {
   loadData(): void {
     this.loading.set(true);
     this.telemetry.track('admin.refresh', { trigger: 'load_data' });
+    // `{ silent: true }` on the three reads: this handler renders its OWN truthful error
+    // toast below (with a Retry action), so ApiService's generic per-request toast must NOT
+    // also fire — else one failed load double/triple-toasts ("Can't reach the server" ×N +
+    // "Failed to load dashboard data"). Established silent-when-component-owns-error pattern
+    // (super-admin / snapshots / domains). See [[cf-bot-challenge-opaque-xhr-misleading-toast]].
     forkJoin({
-      sites: this.api.listSites(),
-      domains: this.api.getDomainSummary(),
-      sub: this.api.getSubscription(),
+      sites: this.api.listSites({ silent: true }),
+      domains: this.api.getDomainSummary({ silent: true }),
+      sub: this.api.getSubscription({ silent: true }),
       // org id powers org-scoped sections (API Tokens). Caught so a /me hiccup
       // never blocks the whole dashboard load.
       me: this.api
-        .getMe()
+        .getMe({ silent: true })
         .pipe(
           catchError(() =>
             of({ data: { org_id: '' } as { org_id?: string; is_super_admin?: boolean } }),
@@ -129,7 +134,17 @@ export class AdminStateService {
       },
       error: () => {
         this.loading.set(false);
-        this.toast.error('Failed to load dashboard data');
+        // ONE truthful, actionable toast — armed with a Retry that re-runs the load
+        // (the failure is usually a transient blip; a one-click retry beats a page reload).
+        this.toast.error('Failed to load dashboard data', {
+          action: {
+            label: 'Retry',
+            run: (id) => {
+              this.toast.dismiss(id);
+              this.loadData();
+            },
+          },
+        });
       },
     });
   }

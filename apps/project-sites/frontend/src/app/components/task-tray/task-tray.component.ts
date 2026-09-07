@@ -389,8 +389,12 @@ export class TaskTrayComponent implements OnInit, OnDestroy {
   private refresh(): void {
     // ApiService.getInboxTasks() attaches the bearer token; a raw HttpClient
     // call would 401 every poll on every admin route (console-error spam).
+    // `{ silent: true }`: this is a background 8s poll that OWNS its state (catchError
+    // → empty tray). Without silent, a transient blip / CF-challenged headless XHR fired
+    // ApiService's "Can't reach the server" toast every poll on every admin route — a
+    // false alarm. See [[cf-bot-challenge-opaque-xhr-misleading-toast]].
     this.api
-      .getInboxTasks()
+      .getInboxTasks({ silent: true })
       .pipe(catchError(() => of({ tasks: [] as InboxTask[] })))
       .subscribe((res) => {
         const next = Array.isArray(res?.tasks) ? res.tasks : [];

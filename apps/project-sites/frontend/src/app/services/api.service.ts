@@ -350,8 +350,8 @@ export class ApiService {
     return this.post('/auth/test-login', { email, password }, { silent: true });
   }
 
-  getMe(): Observable<{ data: UserInfo }> {
-    return this.get('/auth/me');
+  getMe(opts?: { silent?: boolean }): Observable<{ data: UserInfo }> {
+    return this.get('/auth/me', undefined, opts);
   }
 
   createSiteFromSearch(body: CreateSitePayload): Observable<{ data: Site }> {
@@ -394,8 +394,8 @@ export class ApiService {
     return this.get(`/billing/cost-forecast?days=${encodeURIComponent(String(days))}`);
   }
 
-  listSites(): Observable<{ data: Site[] }> {
-    return this.get('/sites');
+  listSites(opts?: { silent?: boolean }): Observable<{ data: Site[] }> {
+    return this.get('/sites', undefined, opts);
   }
 
   getSite(id: string): Observable<{ data: Site }> {
@@ -480,8 +480,8 @@ export class ApiService {
   }
 
   /** Open human-in-the-loop tasks the AI posted (the task tray / inbox) */
-  getInboxTasks(): Observable<{ tasks: InboxTask[] }> {
-    return this.get(`/inbox/tasks`);
+  getInboxTasks(opts?: { silent?: boolean }): Observable<{ tasks: InboxTask[] }> {
+    return this.get(`/inbox/tasks`, undefined, opts);
   }
 
   /** Resolve an inbox task by choosing an option (or free-text choice) */
@@ -587,12 +587,12 @@ export class ApiService {
     return this.post('/billing/portal', { return_url: returnUrl });
   }
 
-  getSubscription(): Observable<{ data: SubscriptionInfo }> {
-    return this.get('/billing/subscription');
+  getSubscription(opts?: { silent?: boolean }): Observable<{ data: SubscriptionInfo }> {
+    return this.get('/billing/subscription', undefined, opts);
   }
 
-  getDomainSummary(): Observable<{ data: DomainSummary }> {
-    return this.get('/admin/domains/summary');
+  getDomainSummary(opts?: { silent?: boolean }): Observable<{ data: DomainSummary }> {
+    return this.get('/admin/domains/summary', undefined, opts);
   }
 
   searchAddress(query: string, lat?: number, lng?: number, opts?: { silent?: boolean }): Observable<{ data: AddressResult[]; _error?: SearchProviderError }> {
