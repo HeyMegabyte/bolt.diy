@@ -9,6 +9,36 @@ import { ToastService } from '../../services/toast.service';
 import { TelemetryService } from '../../services/telemetry.service';
 
 /**
+ * localStorage key for the operator's last-selected site. The selection used to be
+ * an in-memory signal only, so a hard reload / new tab / bookmarked `/admin/*` URL
+ * reset a multi-site operator back to the default site (`sites[0]`) — losing context.
+ * Persisting it (mirrors `ps_session` / `ps_create_draft`) keeps the chosen site across
+ * reloads; a stale id (site deleted) degrades gracefully via the `selectedSite` computed
+ * (`?? sites[0]`). SSR / private-mode / quota-safe (guarded).
+ */
+const SELECTED_SITE_KEY = 'ps_selected_site';
+
+/** Read the persisted selected-site id (null if unset / unavailable). */
+function readPersistedSelectedSite(): string | null {
+  try {
+    return typeof localStorage !== 'undefined' ? localStorage.getItem(SELECTED_SITE_KEY) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Persist (or clear, when null) the selected-site id. Never throws. */
+function persistSelectedSite(id: string | null): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    if (id) localStorage.setItem(SELECTED_SITE_KEY, id);
+    else localStorage.removeItem(SELECTED_SITE_KEY);
+  } catch {
+    /* private mode / quota exceeded — selection just falls back to in-memory */
+  }
+}
+
+/**
  * Shared state service for the admin dashboard shell and child components.
  * Provided at the AdminComponent level so all children share the same instance.
  *
@@ -39,7 +69,7 @@ export class AdminStateService {
   orgId = signal<string>('');
   /** Platform super-admin flag (from /api/auth/me) — gates super-admin-only fetches. */
   isSuperAdmin = signal<boolean>(false);
-  selectedSiteId = signal<string | null>(null);
+  selectedSiteId = signal<string | null>(readPersistedSelectedSite());
   domainSummary = signal<DomainSummary>({ total: 0, active: 0, pending: 0, failed: 0 });
   subscription = signal<SubscriptionInfo | null>(null);
   analytics = signal<AnalyticsData | null>(null);
@@ -191,6 +221,7 @@ export class AdminStateService {
 
   selectSite(site: Site): void {
     this.selectedSiteId.set(site.id);
+    persistSelectedSite(site.id);
     this.telemetry.track('admin.site.selected', {
       site_id: site.id,
       status: site.status,
@@ -211,6 +242,7 @@ export class AdminStateService {
         });
         if (this.selectedSiteId() === site.id) {
           this.selectedSiteId.set(null);
+          persistSelectedSite(null);
         }
       },
       error: () => this.toast.error('Failed to delete site'),
@@ -374,6 +406,7 @@ export class AdminStateService {
           this.sites.update(sites => sites.filter(s => s.id !== site.id));
           if (this.selectedSiteId() === site.id) {
             this.selectedSiteId.set(null);
+            persistSelectedSite(null);
           }
         }
       });

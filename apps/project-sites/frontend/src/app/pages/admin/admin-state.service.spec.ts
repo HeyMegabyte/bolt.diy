@@ -362,3 +362,40 @@ describe('AdminStateService — openCheckout only redirects to an https stripe U
     expect(v('http://checkout.stripe.com/x')).toBeFalse();
   });
 });
+
+/**
+ * Selected-site persistence (AL-103) — the selection used to be in-memory only, so a
+ * hard reload / new tab reset a multi-site operator to the default site. These lock in
+ * the localStorage round-trip: persist on select, restore on construction, and a stale
+ * id (deleted site) still degrades gracefully via the `selectedSite` computed.
+ */
+describe('AdminStateService — selected-site persistence (ps_selected_site)', () => {
+  const KEY = 'ps_selected_site';
+  beforeEach(() => { try { localStorage.removeItem(KEY); } catch { /* private mode */ } });
+  afterEach(() => {
+    try { localStorage.removeItem(KEY); } catch { /* private mode */ }
+    try { (TestBed.inject(AdminStateService) as unknown as { stopLiveRefresh(): void }).stopLiveRefresh(); } catch { /* */ }
+    TestBed.resetTestingModule();
+  });
+
+  it('selectSite persists the chosen id to localStorage', () => {
+    const { svc } = setup();
+    svc.selectSite(site('site-b') as never);
+    expect(localStorage.getItem(KEY)).toBe('site-b');
+  });
+
+  it('restores the persisted id on construction (survives a reload)', () => {
+    try { localStorage.setItem(KEY, 'site-b'); } catch { /* */ }
+    const { svc } = setup();
+    expect(svc.selectedSiteId()).toBe('site-b');
+    svc.sites.set([site('site-a'), site('site-b')] as never[]);
+    expect(svc.selectedSite()?.id).toBe('site-b');
+  });
+
+  it('a stale persisted id (site no longer in the list) falls back to the first site', () => {
+    try { localStorage.setItem(KEY, 'deleted-site'); } catch { /* */ }
+    const { svc } = setup();
+    svc.sites.set([site('site-a'), site('site-b')] as never[]);
+    expect(svc.selectedSite()?.id).toBe('site-a');
+  });
+});
