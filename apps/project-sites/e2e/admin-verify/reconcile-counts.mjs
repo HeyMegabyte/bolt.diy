@@ -167,6 +167,33 @@ if (topSnap?.id) {
   rows.push({ key: 'snapshots', store: storeN, display: displayN, ok: !d.err && Number.isFinite(displayN) && displayN === storeN });
 }
 
+// Webhooks — same soft-delete-filter guard as snapshots. `listWebhookEndpoints`
+// filters `deleted_at IS NULL`; a site accretes soft-deleted rows (AL-124: top live
+// e2e site = 63 total vs 0 active — the whole 504-row org pile is soft-deleted /
+// on-deleted-sites). Pick the LIVE site with the most TOTAL webhook rows (deleted or
+// not) so a dropped filter is maximally visible, and reconcile display vs the ACTIVE
+// count: if the endpoint ever stops filtering `deleted_at`, display jumps from active
+// to the full history and this FAILS loudly. Flag-gated (`outbound_webhooks`) — a 404
+// is honest-dark (flag off), NOT a divergence, so skip it.
+const topWeb = d1(
+  `SELECT w.site_id AS id, SUM(CASE WHEN w.deleted_at IS NULL THEN 1 ELSE 0 END) AS active
+   FROM webhook_endpoints w JOIN sites s ON s.id = w.site_id
+   WHERE w.org_id='${ORG}' AND s.deleted_at IS NULL
+   GROUP BY w.site_id ORDER BY COUNT(*) DESC LIMIT 1;`,
+);
+if (topWeb?.id) {
+  const d = await display(`/api/sites/${topWeb.id}/webhooks`, (j) => {
+    const dd = j.data ?? j;
+    return Array.isArray(dd.endpoints) ? dd.endpoints.length : Array.isArray(dd) ? dd.length : NaN;
+  });
+  if (d.err !== 'HTTP 404') {
+    // 404 = outbound_webhooks flag off → honest-dark, nothing to reconcile.
+    const storeN = Number(topWeb.active);
+    const displayN = d.err ? d.err : Number(d.n);
+    rows.push({ key: 'webhooks_active', store: storeN, display: displayN, ok: !d.err && Number.isFinite(displayN) && displayN === storeN });
+  }
+}
+
 // Subscription (money-adjacent) — a VALUE reconcile, not a count: the displayed
 // plan+status MUST equal the store, else billing lies about what the customer is on
 // (a serious wrong-source). Store `free/active` must match `/api/billing/subscription`.
