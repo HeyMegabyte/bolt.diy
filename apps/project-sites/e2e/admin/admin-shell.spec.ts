@@ -84,20 +84,25 @@ test.describe('ADMIN-02 — SPA nav never full-reloads', () => {
     });
     expect(typeof sentinel).toBe('number');
 
-    // /admin/domains sits in an always-expanded nav group and its summary
-    // fetch is stubbed by the auth helper — a calm, deterministic target.
-    const domainsLink = page.locator('aside a.nav-item[href*="/admin/domains"]').first();
-    // Domains lives inside the collapsed "More tools" <details> — links are in
-    // the DOM but hidden until the disclosure opens (lesson from the
-    // feature-journey walk saga).
-    if (!(await domainsLink.isVisible().catch(() => false))) {
-      await page.locator('details.nav-more > summary').click({ timeout: 5_000 });
-    }
-    await expect(domainsLink, 'Domains nav link must exist in the sidebar').toBeVisible({
-      timeout: 10_000,
-    });
-    await domainsLink.click();
-    await page.waitForURL(/\/admin\/domains/, { timeout: 10_000 });
+    // Click whatever standalone /admin/<section> nav-item the sidebar ACTUALLY renders —
+    // a calm, deterministic SPA-nav target that adapts to the hand-curated nav. (Was
+    // hardcoded to /admin/domains reached via a collapsed "More tools" <details>; Domains
+    // has since been folded into Settings — app.routes.ts redirects /admin/domains →
+    // /admin/settings#domains and that disclosure was removed — so the old assertion was a
+    // stale-spec chronic timeout on prod. Reading the rendered nav keeps this stale-proof.
+    // Fixed AL-151 2026-09-07.)
+    const targetHref = await page
+      .locator('aside a.nav-item[href^="/admin/"]')
+      .evaluateAll((as) => {
+        const hrefs = as
+          .map((a) => a.getAttribute('href') || '')
+          .filter((h) => /^\/admin\/[a-z]/.test(h) && h !== '/admin/dashboard');
+        return hrefs[0] || '';
+      });
+    expect(targetHref, 'a standalone /admin/<section> nav-item must exist in the sidebar').toBeTruthy();
+    const targetPath = new URL(targetHref, BASE).pathname;
+    await page.locator(`aside a.nav-item[href="${targetHref}"]`).first().click();
+    await page.waitForURL((u) => u.pathname === targetPath, { timeout: 10_000 });
 
     // Sentinel MUST still exist — a full reload would have wiped it.
     const sentinelAfter = await page.evaluate(
