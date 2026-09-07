@@ -1067,7 +1067,10 @@ describe('finalizeSeoInvariants (C.1 structured-data + meta backstop)', () => {
 </body></html>`;
 
   const run = () =>
-    finalizeSeoInvariants([{ path: 'index.html', size: prodLikeShell.length, text: prodLikeShell }], ctx);
+    finalizeSeoInvariants(
+      [{ path: 'index.html', size: prodLikeShell.length, text: prodLikeShell }],
+      ctx,
+    );
 
   it('injects the 4 standard JSON-LD blocks when the shell has ZERO real ones (widget decoy excluded)', () => {
     const [files, report] = run();

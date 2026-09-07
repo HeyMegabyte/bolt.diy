@@ -1091,11 +1091,14 @@ const truncateAtWord = (s: string, max: number): string => {
  * to crawlers. Script/style bodies are left untouched (a JS `'it\'s'` string IS valid there). */
 const unescapeApostrophesOutsideScripts = (html: string): { text: string; count: number } => {
   let count = 0;
-  const text = html.replace(/(<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>)|\\(')/gi, (m, block) => {
-    if (block) return block;
-    count++;
-    return "'";
-  });
+  const text = html.replace(
+    /(<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>)|\\(')/gi,
+    (m, block) => {
+      if (block) return block;
+      count++;
+      return "'";
+    },
+  );
   return { text, count };
 };
 
@@ -1196,7 +1199,10 @@ export const finalizeSeoInvariants = (
     const rawName = (ogTitle || titleTag || brandName).split(/\s+[—–|]\s+/)[0]?.trim() || brandName;
     const canonical =
       text.match(/<link\s+[^>]*rel=["']canonical["'][^>]*href=["']([^"']*)["']/i)?.[1]?.trim() ||
-      text.match(/<meta\s+[^>]*\bproperty=["']og:url["'][^>]*>/i)?.[0]?.match(/content=["']([^"']*)["']/i)?.[1]?.trim() ||
+      text
+        .match(/<meta\s+[^>]*\bproperty=["']og:url["'][^>]*>/i)?.[0]
+        ?.match(/content=["']([^"']*)["']/i)?.[1]
+        ?.trim() ||
       '';
     const pageUrl = canonical || rootUrl;
     const image = readAttrContent(text, /<meta\s+[^>]*\bproperty=["']og:image["'][^>]*>/i);
@@ -1222,8 +1228,16 @@ export const finalizeSeoInvariants = (
       }
       if (finalDesc !== desc && finalDesc.length >= 120 && finalDesc.length <= 156) {
         text = setAttrContent(text, /<meta\s+[^>]*\bname=["']description["'][^>]*>/i, finalDesc);
-        text = setAttrContent(text, /<meta\s+[^>]*\bproperty=["']og:description["'][^>]*>/i, finalDesc);
-        text = setAttrContent(text, /<meta\s+[^>]*\bname=["']twitter:description["'][^>]*>/i, finalDesc);
+        text = setAttrContent(
+          text,
+          /<meta\s+[^>]*\bproperty=["']og:description["'][^>]*>/i,
+          finalDesc,
+        );
+        text = setAttrContent(
+          text,
+          /<meta\s+[^>]*\bname=["']twitter:description["'][^>]*>/i,
+          finalDesc,
+        );
         report.descExpanded++;
       }
     }
@@ -1244,7 +1258,15 @@ export const finalizeSeoInvariants = (
     if (count < 4 && /<\/head>/i.test(text)) {
       const wantDesc = finalDesc || desc || rawName;
       const candidates: Array<{ type: string; node: Record<string, unknown> }> = [
-        { type: 'WebSite', node: { '@context': 'https://schema.org', '@type': 'WebSite', name: rawName, url: rootUrl } },
+        {
+          type: 'WebSite',
+          node: {
+            '@context': 'https://schema.org',
+            '@type': 'WebSite',
+            name: rawName,
+            url: rootUrl,
+          },
+        },
         {
           type: 'Organization',
           node: {
