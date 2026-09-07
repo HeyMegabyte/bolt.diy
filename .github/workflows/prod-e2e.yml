@@ -175,6 +175,72 @@ jobs:
           path: apps/project-sites/frontend/playwright-report/
           retention-days: 7
 
+  # Deterministic admin RENDER + A11Y integrity — runs the admin-verify surf-audit
+  # (e2e/admin-verify/admin-surf-audit.mjs; playwright + @axe-core/playwright, resolved
+  # via createRequire from apps/project-sites/frontend) against LIVE prod at desktop (1280)
+  # AND mobile (390): every /admin section must load with 0 console errors / error-boundary
+  # crash / blank / axe-WCAG violation. This is the ONE admin-verify probe safe for
+  # unattended CI — READ-ONLY + deterministic (the causal/reconcile probes mutate or are
+  # count-sensitive → they'd flake the test-org state into a chronically-red gate). Makes
+  # admin render/a11y SELF-DEFENDING daily so the manual ADMIN INTEGRITY loop isn't the only
+  # thing running it (AL-144). Fail-open on E2E_API_KEY; schedule + dispatch only (audits
+  # live prod, not the PR diff), so `if != push`.
+  admin-surf-audit:
+    name: Admin surf-audit @ prod (render + a11y · 1280 + 390)
+    runs-on: ubuntu-latest
+    if: github.event_name != 'push'
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check E2E_API_KEY is configured
+        id: gate
+        env:
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
+        run: |
+          if [ -n "$E2E_API_KEY" ]; then
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::E2E_API_KEY secret not set — skipping admin surf-audit (fail-open)."
+          fi
+
+      # surf-audit createRequire()s playwright + @axe-core/playwright from frontend/, so
+      # install FRONTEND deps + browser (identical setup to the prod-e2e-frontend job).
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.has_key == 'true'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/project-sites/frontend/package-lock.json
+
+      - name: Install deps
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites/frontend
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright Chromium
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Surf-audit @ 1280 (desktop)
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites
+        env:
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
+          ORIGIN: https://projectsites.dev
+        run: node e2e/admin-verify/admin-surf-audit.mjs
+
+      - name: Surf-audit @ 390 (mobile)
+        if: steps.gate.outputs.has_key == 'true'
+        working-directory: apps/project-sites
+        env:
+          E2E_API_KEY: ${{ secrets.E2E_API_KEY }}
+          ORIGIN: https://projectsites.dev
+          VIEWPORT: '390'
+        run: node e2e/admin-verify/admin-surf-audit.mjs
+
   # Sign-in real-credentials suite (signin-real-chrome.e2e.ts) — authenticates
   # as brian@megabyte.space via POST /api/auth/test-login with E2E_TEST_PASSWORD,
   # then verifies /admin loads with zero console errors. Gated on E2E_TEST_PASSWORD
