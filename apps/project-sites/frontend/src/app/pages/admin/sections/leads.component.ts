@@ -20,8 +20,11 @@ interface LeadSummary {
   /** Deep-discovered contact fields (populated by the enrich endpoint). */
   phone: string | null;
   website: string | null;
-  /** Social profile URLs keyed by network (facebook/instagram/x/…); only present keys are set. */
-  socials: Record<string, string>;
+  /** Social profile URLs keyed by network (facebook/instagram/x/…); only present keys are set.
+   * Optional: an un-enriched lead (or a worker response that omits it) has NO `socials` object —
+   * the template MUST read it null-safe (`lead.socials?.[network]`) or the whole section crashes
+   * into its error boundary (real bug fixed AL-155; `bestOutreachChannel` already `?? {}`-guards). */
+  socials?: Record<string, string>;
   /** ISO timestamp of the last successful enrich, or null if never enriched. */
   enrichedAt: string | null;
 }
@@ -424,7 +427,7 @@ export function bestOutreachChannel(lead: {
                   <td class="px-4 py-3">
                     <span class="flex flex-wrap items-center gap-1.5">
                       @for (network of socialOrder; track network) {
-                        @if (lead.socials[network]; as url) {
+                        @if (lead.socials?.[network]; as url) {
                           <a
                             [href]="url"
                             target="_blank"
