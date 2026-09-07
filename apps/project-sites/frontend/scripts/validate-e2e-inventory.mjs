@@ -17,7 +17,11 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const e2eDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'e2e');
-const SPEC_RE = /[a-z0-9-]+\.(?:e2e|spec)\.ts/g;
+// Allow `.` in the name segment so DOUBLE-extension specs (`foo.flow.e2e.ts`) extract
+// as their FULL basename — the old `[a-z0-9-]+` stopped at the first dot, pulling only
+// `flow.e2e.ts` out of `flows-activity.flow.e2e.ts`, so the whole `*.flow.e2e.ts` suite
+// (37 specs) was structurally un-inventoriable → perma-orphan (AL-134).
+const SPEC_RE = /[a-z0-9.-]+\.(?:e2e|spec)\.ts/g;
 
 const onDisk = readdirSync(e2eDir)
   .filter((f) => /\.(e2e|spec)\.ts$/.test(f))

@@ -210,3 +210,80 @@ Status legend: ✅ covered + green · ⚠️ covered, known-blocked dependency �
 - **signin clean** — `e2e/signin-clean.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
 - **signin console check** — `e2e/signin-console-check.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
 - **signin final** — `e2e/signin-final.e2e.ts` — authed admin/marketing real-browser sweep (convergence mandate).
+
+## E2E suites (inventoried AL-134)
+
+Machine-mirrored in `e2e/COVERAGE.yml`. These per-feature flow + chaos/resilience suites
+run via `playwright.prod.config.ts`.
+
+### Full-flow suite — `flows-*.flow.e2e.ts` (37)
+- flows-activity.flow.e2e.ts
+- flows-ai-chat.flow.e2e.ts
+- flows-ai-endpoints.flow.e2e.ts
+- flows-analytics.flow.e2e.ts
+- flows-annotations.flow.e2e.ts
+- flows-apps.flow.e2e.ts
+- flows-auth-admin.flow.e2e.ts
+- flows-auth-security.flow.e2e.ts
+- flows-billing.flow.e2e.ts
+- flows-branches.flow.e2e.ts
+- flows-budget.flow.e2e.ts
+- flows-create.flow.e2e.ts
+- flows-credits.flow.e2e.ts
+- flows-dashboard.flow.e2e.ts
+- flows-docs.flow.e2e.ts
+- flows-domains.flow.e2e.ts
+- flows-editor.flow.e2e.ts
+- flows-forms.flow.e2e.ts
+- flows-logs.flow.e2e.ts
+- flows-marketing.flow.e2e.ts
+- flows-onboarding.flow.e2e.ts
+- flows-readiness.flow.e2e.ts
+- flows-referral.flow.e2e.ts
+- flows-settings.flow.e2e.ts
+- flows-shell-widgets.flow.e2e.ts
+- flows-site-features.flow.e2e.ts
+- flows-snapshots.flow.e2e.ts
+- flows-social.flow.e2e.ts
+- flows-sparkline.flow.e2e.ts
+- flows-states.flow.e2e.ts
+- flows-super-admin.flow.e2e.ts
+- flows-tags.flow.e2e.ts
+- flows-team-tokens.flow.e2e.ts
+- flows-usage.flow.e2e.ts
+- flows-voice.flow.e2e.ts
+- flows-webhooks-crud.flow.e2e.ts
+- flows-webhooks.flow.e2e.ts
+
+### Chaos / resilience suite — `chaos-*.e2e.ts` (19)
+- chaos-1-visitor.e2e.ts
+- chaos-10-admin-header-overlays.e2e.ts
+- chaos-11-domains.e2e.ts
+- chaos-12-forms-count.e2e.ts
+- chaos-13-audit-count.e2e.ts
+- chaos-14-ai-logs-count.e2e.ts
+- chaos-15-apps-catalog.e2e.ts
+- chaos-15-editor-journey.e2e.ts
+- chaos-16-apps-instances.e2e.ts
+- chaos-17-voice-config.e2e.ts
+- chaos-18-template-build-journey.e2e.ts
+- chaos-2-builder.e2e.ts
+- chaos-3-auth.e2e.ts
+- chaos-4-admin.e2e.ts
+- chaos-5-resilience.e2e.ts
+- chaos-6-conversion-i18n.e2e.ts
+- chaos-7-analytics-tabs.e2e.ts
+- chaos-8-keyboard-focus.e2e.ts
+- chaos-9-mobile-responsive.e2e.ts
+
+### Admin + misc e2e (10)
+- admin-clickaround-errors.e2e.ts
+- admin-navigation-responsive.e2e.ts
+- admin-section-h1.e2e.ts
+- admin-settings-folded-tabs.e2e.ts
+- admin-settings-general-merge.e2e.ts
+- admin-settings-mcp-aivars.e2e.ts
+- admin-token-lifecycle.e2e.ts
+- admin-traces-grid.e2e.ts
+- homepage-disclosure-a11y.e2e.ts
+- roadmap.e2e.ts
