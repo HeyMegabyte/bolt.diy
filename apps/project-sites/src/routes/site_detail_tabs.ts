@@ -108,6 +108,111 @@ tabs.post('/api/sites/:siteId/snapshots/:snapshotId/rollback', async (c) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PATCH /api/sites/:siteId/snapshots/:snapshotId
+// Rename a snapshot and/or set its description. `snapshots.component.ts`'s create
+// dialog dropped the user-facing description field (auto-generated) and DOCUMENTS
+// this endpoint as the operator escape-hatch ("Operators who need a custom note can
+// still PATCH the row via the API `PATCH /sites/:id/snapshots/:snapId`") — but the
+// route did not exist and returned 404, a documented-but-dead capability. This makes
+// it real. Org-scoped (IDOR guard on the site); UNIQUE(site_id, snapshot_name)
+// collision → clean 409 (never a swallowed 500); at least one field required.
+// ─────────────────────────────────────────────────────────────────────────────
+const PatchSnapshotSchema = z
+  .object({
+    name: z.string().trim().min(1).max(80).optional(),
+    description: z.string().trim().max(240).optional(),
+  })
+  .refine((b) => b.name !== undefined || b.description !== undefined, {
+    message: 'name or description required',
+  });
+
+tabs.patch('/api/sites/:siteId/snapshots/:snapshotId', async (c) => {
+  const siteId = c.req.param('siteId');
+  const snapshotId = c.req.param('snapshotId');
+  const orgId = c.get('orgId');
+  const userId = c.get('userId');
+  if (!orgId || !userId) {
+    return c.json({ error: { code: 'UNAUTHORIZED', message: 'Sign in required' } }, 401);
+  }
+
+  const parsed = PatchSnapshotSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) {
+    return c.json({ error: { code: 'BAD_REQUEST', message: 'name or description required' } }, 400);
+  }
+  const { name, description } = parsed.data;
+
+  // IDOR guard: the site must belong to the caller's org before we touch its rows.
+  const site = await dbQueryOne<{ id: string }>(
+    c.env.DB,
+    `SELECT id FROM sites WHERE id = ?1 AND org_id = ?2 AND deleted_at IS NULL`,
+    [siteId, orgId],
+  );
+  if (!site) {
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Snapshot not found' } }, 404);
+  }
+
+  const snap = await dbQueryOne<{ id: string; snapshot_name: string }>(
+    c.env.DB,
+    `SELECT id, snapshot_name FROM site_snapshots
+      WHERE id = ?1 AND site_id = ?2 AND deleted_at IS NULL`,
+    [snapshotId, siteId],
+  );
+  if (!snap) {
+    return c.json({ error: { code: 'NOT_FOUND', message: 'Snapshot not found' } }, 404);
+  }
+
+  // Pre-check UNIQUE(site_id, snapshot_name) so a rename collision is a clean 409,
+  // not a swallowed SQL error surfaced as a generic 500.
+  if (name && name !== snap.snapshot_name) {
+    const clash = await dbQueryOne<{ id: string }>(
+      c.env.DB,
+      `SELECT id FROM site_snapshots
+        WHERE site_id = ?1 AND snapshot_name = ?2 AND id != ?3 AND deleted_at IS NULL`,
+      [siteId, name, snapshotId],
+    );
+    if (clash) {
+      return c.json(
+        { error: { code: 'CONFLICT', message: `A snapshot named "${name}" already exists` } },
+        409,
+      );
+    }
+  }
+
+  const { error: updErr } = await dbExecute(
+    c.env.DB,
+    `UPDATE site_snapshots
+        SET snapshot_name = COALESCE(?1, snapshot_name),
+            description   = COALESCE(?2, description),
+            updated_at    = datetime('now')
+      WHERE id = ?3 AND site_id = ?4`,
+    [name ?? null, description ?? null, snapshotId, siteId],
+  );
+  if (updErr) throw internalError(`Failed to update snapshot: ${updErr}`);
+
+  await writeAuditLog(c.env.DB, {
+    org_id: orgId,
+    actor_id: userId,
+    action: 'site.snapshot.updated',
+    target_type: 'site',
+    target_id: siteId,
+    message: `Snapshot '${snap.snapshot_name}' updated${name && name !== snap.snapshot_name ? ` → '${name}'` : ''}`,
+    metadata_json: {
+      snapshot_id: snapshotId,
+      renamed: !!(name && name !== snap.snapshot_name),
+      described: description !== undefined,
+    },
+  });
+
+  // Re-read so the response reflects exactly what persisted (never a lying echo).
+  const updated = await dbQueryOne<{ id: string; snapshot_name: string; description: string | null }>(
+    c.env.DB,
+    `SELECT id, snapshot_name, description FROM site_snapshots WHERE id = ?1 AND site_id = ?2`,
+    [snapshotId, siteId],
+  );
+  return c.json({ data: updated });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // POST /api/sites/:siteId/sql/exec
 // Read-only D1 console. Rejects DDL/DML; allowlist: SELECT, EXPLAIN, WITH, PRAGMA.
 // ─────────────────────────────────────────────────────────────────────────────
