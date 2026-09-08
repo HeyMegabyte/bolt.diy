@@ -63,7 +63,7 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          snapshots: [
+          data: [
             { id: 'snap-1', ai_name: 'Initial launch version', created_at: '2025-05-01T00:00:00Z', version: 1 },
             { id: 'snap-2', ai_name: 'Header redesign', created_at: '2025-06-01T00:00:00Z', version: 2 },
           ],
@@ -83,20 +83,30 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
           providers: [
             { key: 'github', name: 'GitHub', connected: false, description: 'Connect to GitHub' },
             { key: 'analytics', name: 'Analytics', connected: true, description: 'Google Analytics 4' },
+            { key: 'stripe', name: 'Stripe', connected: false, description: 'Payments' },
           ],
         }),
       });
     };
-    await page.route('**/api/sites/e2e-site-001/integrations**', integrationsStub);
-    // Mid-token ** can't cross '/' — twin covers /integrations/:id subpaths
-    await page.route('**/api/sites/e2e-site-001/integrations/**', integrationsStub);
+    // Component fetches GET /sites/:id/integration-providers (NOT /integrations) —
+    // the old /integrations glob never matched → component fell back to DEFAULT_PROVIDERS
+    // (mailchimp/stripe/hubspot/resend, no github) → the count=3 + github asserts failed. AL-157.
+    await page.route('**/api/sites/e2e-site-001/integration-providers**', integrationsStub);
+    // Mid-token ** can't cross '/' — twin covers /integration-providers/:id subpaths
+    await page.route('**/api/sites/e2e-site-001/integration-providers/**', integrationsStub);
 
     await page.route('**/api/sites/e2e-site-001**', (route) => {
-      if (route.request().method() !== 'GET') return route.fallback();
+      // BARE site endpoint ONLY. The trailing ** also matches subpaths
+      // (/snapshots, /integration-providers, /logs/tail, …) and this route is registered
+      // AFTER their specific stubs, so without this guard it SHADOWS them (Playwright
+      // matches last-registered-first) → the component reads res.data/res.providers off
+      // `{site:…}` → fake-empty. Delegate any subpath to its own stub. AL-157.
+      const pathname = new URL(route.request().url()).pathname;
+      if (route.request().method() !== 'GET' || !pathname.endsWith('/e2e-site-001')) return route.fallback();
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ site: SITE_OBJ }),
+        body: JSON.stringify({ data: SITE_OBJ }),
       });
     });
 
@@ -210,16 +220,25 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
         body: JSON.stringify({ providers: [{ key: 'github', name: 'GitHub', connected: false, description: 'Connect' }] }),
       });
     };
-    await page.route('**/api/sites/e2e-site-001/integrations**', integrationsStub);
-    // Mid-token ** can't cross '/' — twin covers /integrations/:id subpaths
-    await page.route('**/api/sites/e2e-site-001/integrations/**', integrationsStub);
+    // Component fetches GET /sites/:id/integration-providers (NOT /integrations) —
+    // the old /integrations glob never matched → component fell back to DEFAULT_PROVIDERS
+    // (mailchimp/stripe/hubspot/resend, no github) → the count=3 + github asserts failed. AL-157.
+    await page.route('**/api/sites/e2e-site-001/integration-providers**', integrationsStub);
+    // Mid-token ** can't cross '/' — twin covers /integration-providers/:id subpaths
+    await page.route('**/api/sites/e2e-site-001/integration-providers/**', integrationsStub);
 
     await page.route('**/api/sites/e2e-site-001**', (route) => {
-      if (route.request().method() !== 'GET') return route.fallback();
+      // BARE site endpoint ONLY. The trailing ** also matches subpaths
+      // (/snapshots, /integration-providers, /logs/tail, …) and this route is registered
+      // AFTER their specific stubs, so without this guard it SHADOWS them (Playwright
+      // matches last-registered-first) → the component reads res.data/res.providers off
+      // `{site:…}` → fake-empty. Delegate any subpath to its own stub. AL-157.
+      const pathname = new URL(route.request().url()).pathname;
+      if (route.request().method() !== 'GET' || !pathname.endsWith('/e2e-site-001')) return route.fallback();
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ site: SITE_OBJ }),
+        body: JSON.stringify({ data: SITE_OBJ }),
       });
     });
 
@@ -325,16 +344,25 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
         }),
       });
     };
-    await page.route('**/api/sites/e2e-site-001/integrations**', integrationsStub);
-    // Mid-token ** can't cross '/' — twin covers /integrations/:id subpaths
-    await page.route('**/api/sites/e2e-site-001/integrations/**', integrationsStub);
+    // Component fetches GET /sites/:id/integration-providers (NOT /integrations) —
+    // the old /integrations glob never matched → component fell back to DEFAULT_PROVIDERS
+    // (mailchimp/stripe/hubspot/resend, no github) → the count=3 + github asserts failed. AL-157.
+    await page.route('**/api/sites/e2e-site-001/integration-providers**', integrationsStub);
+    // Mid-token ** can't cross '/' — twin covers /integration-providers/:id subpaths
+    await page.route('**/api/sites/e2e-site-001/integration-providers/**', integrationsStub);
 
     await page.route('**/api/sites/e2e-site-001**', (route) => {
-      if (route.request().method() !== 'GET') return route.fallback();
+      // BARE site endpoint ONLY. The trailing ** also matches subpaths
+      // (/snapshots, /integration-providers, /logs/tail, …) and this route is registered
+      // AFTER their specific stubs, so without this guard it SHADOWS them (Playwright
+      // matches last-registered-first) → the component reads res.data/res.providers off
+      // `{site:…}` → fake-empty. Delegate any subpath to its own stub. AL-157.
+      const pathname = new URL(route.request().url()).pathname;
+      if (route.request().method() !== 'GET' || !pathname.endsWith('/e2e-site-001')) return route.fallback();
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ site: SITE_OBJ }),
+        body: JSON.stringify({ data: SITE_OBJ }),
       });
     });
 
@@ -406,15 +434,24 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
       if (route.request().method() !== 'GET') return route.fallback();
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ providers: [] }) });
     };
-    await page.route('**/api/sites/e2e-site-001/integrations**', integrationsStub);
-    // Mid-token ** can't cross '/' — twin covers /integrations/:id subpaths
-    await page.route('**/api/sites/e2e-site-001/integrations/**', integrationsStub);
+    // Component fetches GET /sites/:id/integration-providers (NOT /integrations) —
+    // the old /integrations glob never matched → component fell back to DEFAULT_PROVIDERS
+    // (mailchimp/stripe/hubspot/resend, no github) → the count=3 + github asserts failed. AL-157.
+    await page.route('**/api/sites/e2e-site-001/integration-providers**', integrationsStub);
+    // Mid-token ** can't cross '/' — twin covers /integration-providers/:id subpaths
+    await page.route('**/api/sites/e2e-site-001/integration-providers/**', integrationsStub);
     await page.route('**/api/sites/e2e-site-001**', (route) => {
-      if (route.request().method() !== 'GET') return route.fallback();
+      // BARE site endpoint ONLY. The trailing ** also matches subpaths
+      // (/snapshots, /integration-providers, /logs/tail, …) and this route is registered
+      // AFTER their specific stubs, so without this guard it SHADOWS them (Playwright
+      // matches last-registered-first) → the component reads res.data/res.providers off
+      // `{site:…}` → fake-empty. Delegate any subpath to its own stub. AL-157.
+      const pathname = new URL(route.request().url()).pathname;
+      if (route.request().method() !== 'GET' || !pathname.endsWith('/e2e-site-001')) return route.fallback();
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ site: SITE_OBJ }),
+        body: JSON.stringify({ data: SITE_OBJ }),
       });
     });
     await page.route('**/api/**', async (route) => {
