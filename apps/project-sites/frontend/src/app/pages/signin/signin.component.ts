@@ -78,32 +78,7 @@ export class SigninComponent implements OnInit {
     if (res.ok && res.data.user?.email) {
       this.auth.setSession(res.data.session?.token ?? 'ba-cookie-session', res.data.user.email);
       this.router.navigateByUrl(this.returnUrl);
-      return;
     }
-    this.surfaceAuthError();
-  }
-
-  /**
-   * Surface an OAuth-provider failure the worker flagged via `?auth_error=`. A provider whose
-   * start endpoint can't proceed (currently GitHub sign-in — blocked by the `oauth_states`
-   * provider CHECK) redirects back here with the code instead of 500ing, so the prospect sees a
-   * clear "use another method" message on the same surface (Google + magic-link are right here)
-   * rather than a raw error page. The param is cleaned so a refresh doesn't re-toast. AL-185.
-   */
-  private surfaceAuthError(): void {
-    const code = this.route.snapshot.queryParamMap.get('auth_error');
-    if (!code) return;
-    const msg =
-      code === 'github_unavailable'
-        ? 'GitHub sign-in is temporarily unavailable — use Google or a magic link.'
-        : 'That sign-in method is temporarily unavailable — use Google or a magic link.';
-    this.inlineError.set(msg);
-    this.toast.info(msg);
-    this.router.navigate([], {
-      queryParams: { auth_error: null },
-      queryParamsHandling: 'merge',
-      replaceUrl: true,
-    });
   }
 
   /**

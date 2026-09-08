@@ -199,12 +199,36 @@ export class SignInComponent implements OnInit {
    * API call, so the local token's only job is satisfying the client guard.
    */
   async ngOnInit(): Promise<void> {
+    this.surfaceAuthError();
     if (this.auth.isLoggedIn()) return;
     const res = await this.authApi.getSession();
     if (res.ok && res.data.user?.email) {
       this.auth.setSession(res.data.session?.token ?? 'ba-cookie-session', res.data.user.email);
       this.router.navigateByUrl(this.safeReturnUrl());
     }
+  }
+
+  /**
+   * Surface an OAuth-provider failure the worker flagged via `?auth_error=`. GitHub sign-in
+   * start currently can't proceed — the `oauth_states.provider` CHECK admits only 'google', so
+   * the 'github' state INSERT throws; the worker now 302s back here with the code instead of
+   * 500ing on a prospect-facing CTA. Steer the user to a method that works (magic-link + Google
+   * are on this page) via the existing `error` signal the template renders, and strip the param
+   * so a refresh doesn't re-show it. AL-185.
+   */
+  private surfaceAuthError(): void {
+    const code = this.route.snapshot.queryParamMap.get('auth_error');
+    if (!code) return;
+    this.error.set(
+      code === 'github_unavailable'
+        ? 'GitHub sign-in is temporarily unavailable — use “Email me a magic link” below or continue with Google.'
+        : 'That sign-in method is temporarily unavailable — use “Email me a magic link” below or continue with Google.',
+    );
+    this.router.navigate([], {
+      queryParams: { auth_error: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   /**
