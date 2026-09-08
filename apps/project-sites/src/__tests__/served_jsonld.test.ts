@@ -85,11 +85,35 @@ describe('site_serving — applyServedRouteJsonLd', () => {
     expect(blocks.find((b) => b['@type'] === 'WebSite')!.name).toBe('Acme Gym');
   });
 
-  it('is a NO-OP when a real @type block already exists (rebuilt site)', () => {
-    const withReal = shell(
-      '<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Acme"}</script>',
+  // A rebuilt site's build-time JSON-LD: route-agnostic WebSite + Organization, plus a
+  // HOMEPAGE-baked WebPage + BreadcrumbList (the single-shell SPA clobber).
+  const buildTimeShell = (path = '') =>
+    shell(
+      '<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Acme Gym","url":"https://acme.projectsites.dev/"}</script>' +
+        '<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Acme Gym","url":"https://acme.projectsites.dev/"}</script>' +
+        '<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Acme Gym — Home","url":"https://acme.projectsites.dev/"}</script>' +
+        '<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://acme.projectsites.dev/"}]}</script>' +
+        path,
     );
-    expect(applyServedRouteJsonLd(withReal, '/about')).toBe(withReal);
+
+  it('SUB-ROUTE de-clobbers a homepage-baked WebPage/BreadcrumbList → per-route (keeps WebSite+Org)', () => {
+    const out = applyServedRouteJsonLd(buildTimeShell(), '/about');
+    const blocks = parseBlocks(out);
+    // exactly ONE WebPage, now pointing at the SERVED route (not the homepage)
+    const webpages = blocks.filter((b) => b['@type'] === 'WebPage');
+    expect(webpages).toHaveLength(1);
+    expect(webpages[0].url).toBe('https://acme.projectsites.dev/about');
+    // breadcrumb now Home › About (not just Home)
+    const bl = blocks.find((b) => b['@type'] === 'BreadcrumbList')!;
+    expect((bl.itemListElement as Array<Record<string, unknown>>).map((c) => c.name)).toEqual(['Home', 'About']);
+    // route-agnostic blocks preserved (not duplicated)
+    expect(blocks.filter((b) => b['@type'] === 'WebSite')).toHaveLength(1);
+    expect(blocks.filter((b) => b['@type'] === 'Organization')).toHaveLength(1);
+  });
+
+  it('HOMEPAGE with build-time JSON-LD is a NO-OP (its WebPage/Bc are already correct)', () => {
+    const h = buildTimeShell();
+    expect(applyServedRouteJsonLd(h, '/')).toBe(h);
   });
 
   it('no-op without a canonical/og:url origin to anchor absolute URLs', () => {

@@ -1157,8 +1157,12 @@ function titleCaseSegment(seg: string): string {
  * buildBaselineJsonLd('Acme', 'https://acme.dev', '/about')
  * // → WebSite + Organization + WebPage(/about) + BreadcrumbList(Home › About)
  */
-export function buildBaselineJsonLd(brand: string, origin: string, route: string): string {
-  const name = brand || 'Website';
+/** The route-SPECIFIC JSON-LD block objects (WebPage + BreadcrumbList) for a route. */
+function routeWebPageCrumbs(
+  name: string,
+  origin: string,
+  route: string,
+): Array<Record<string, unknown>> {
   const home = `${origin}/`;
   const segs = route.split('/').filter(Boolean);
   const url = segs.length ? `${origin}${route}` : home;
@@ -1176,9 +1180,7 @@ export function buildBaselineJsonLd(brand: string, origin: string, route: string
       item: `${origin}${acc}`,
     });
   });
-  const blocks: Array<Record<string, unknown>> = [
-    { '@context': 'https://schema.org', '@type': 'WebSite', name, url: home },
-    { '@context': 'https://schema.org', '@type': 'Organization', name, url: home },
+  return [
     {
       '@context': 'https://schema.org',
       '@type': 'WebPage',
@@ -1188,32 +1190,44 @@ export function buildBaselineJsonLd(brand: string, origin: string, route: string
     },
     { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: crumbs },
   ];
+}
+
+/** Wrap JSON-LD block objects into separate `<script type=ld+json>` tags. */
+function wrapJsonLd(blocks: Array<Record<string, unknown>>): string {
   return blocks
     .map((b) => `<script type="application/ld+json">${JSON.stringify(b)}</script>`)
     .join('');
+}
+
+export function buildBaselineJsonLd(brand: string, origin: string, route: string): string {
+  const name = brand || 'Website';
+  const home = `${origin}/`;
+  return wrapJsonLd([
+    { '@context': 'https://schema.org', '@type': 'WebSite', name, url: home },
+    { '@context': 'https://schema.org', '@type': 'Organization', name, url: home },
+    ...routeWebPageCrumbs(name, origin, route),
+  ]);
 }
 
 /**
  * Inject baseline per-route JSON-LD into a served SPA shell — but ONLY when the
  * build didn't already emit real structured data.
  *
- * A generated SPA serves ONE `index.html` for every route; deployed (pre-`finalizeSeoInvariants`)
- * sites ship ZERO real JSON-LD (only the "open-now" widget's empty reader tag), so
- * crawlers/AI-search see no structured data on ANY route (§C.5 gap). This gives every
- * served route WebSite+Organization+WebPage+BreadcrumbList reflecting the ACTUAL path —
- * immediately, with no rebuild. Guarded: if any real `@type` block already exists (a
- * rebuilt site's `finalizeSeoInvariants` output), this is a no-op (never double-injects).
+ * A generated SPA serves ONE `index.html` for every route. Two cases:
+ *   (a) pre-`finalizeSeoInvariants` sites ship ZERO real JSON-LD (only the "open-now"
+ *       widget's empty reader tag) → inject the full per-route baseline (4 blocks).
+ *   (b) rebuilt sites carry build-time JSON-LD, but its WebPage + BreadcrumbList are
+ *       HOMEPAGE-baked (the single shell) → on a SUB-ROUTE they de-index-clobber
+ *       (WebPage.url + breadcrumb point at `/`). Keep the route-agnostic WebSite +
+ *       Organization, but REPLACE WebPage + BreadcrumbList with per-route ones — the
+ *       same clobber {@link applyServedRouteCanonical}/{@link applyServedRouteTitle} fix.
  * Runs BEFORE {@link applyServedRouteTitle} so the brand is read from the pristine title.
  *
  * @param html - The served shell HTML.
  * @param requestPath - The served route pathname.
- * @returns HTML with 4 JSON-LD blocks injected before `</head>`, or unchanged.
+ * @returns HTML with per-route JSON-LD, or unchanged when it can't anchor URLs.
  */
 export function applyServedRouteJsonLd(html: string, requestPath: string): string {
-  const hasReal = (
-    html.match(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi) || []
-  ).some((tag) => /"@type"/.test(tag));
-  if (hasReal) return html; // build already emitted real JSON-LD — respect it
   const baseTag =
     html.match(/<link\b[^>]*\brel=["']canonical["'][^>]*>/i)?.[0] ??
     html.match(/<meta\b[^>]*\bproperty=["']og:url["'][^>]*>/i)?.[0];
@@ -1235,10 +1249,31 @@ export function applyServedRouteJsonLd(html: string, requestPath: string): strin
   const sepMatch = decoded.match(/\s+[—–|·]\s+/) ?? decoded.match(/\s+-\s+/);
   const brand = (sepMatch ? decoded.slice(0, sepMatch.index) : decoded).trim();
   if (!brand) return html;
-  const jsonld = buildBaselineJsonLd(brand, origin, normalizeRoute(requestPath));
-  if (/<\/head>/i.test(html)) return html.replace(/<\/head>/i, `${jsonld}</head>`);
-  if (/<\/body>/i.test(html)) return html.replace(/<\/body>/i, `${jsonld}</body>`);
-  return html + jsonld;
+  const name = brand || 'Website';
+  const route = normalizeRoute(requestPath);
+
+  const inject = (h: string, jsonld: string): string => {
+    if (/<\/head>/i.test(h)) return h.replace(/<\/head>/i, `${jsonld}</head>`);
+    if (/<\/body>/i.test(h)) return h.replace(/<\/body>/i, `${jsonld}</body>`);
+    return h + jsonld;
+  };
+
+  const hasReal = (
+    html.match(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi) || []
+  ).some((tag) => /"@type"/.test(tag));
+
+  // (a) No build-time JSON-LD → inject the full per-route baseline.
+  if (!hasReal) return inject(html, buildBaselineJsonLd(brand, origin, route));
+
+  // (b) Build-time JSON-LD present. The homepage's is correct; a sub-route's WebPage +
+  // BreadcrumbList are homepage-clobbered → strip THOSE two block types and re-inject
+  // per-route (WebSite + Organization are route-agnostic and stay untouched).
+  if (route === '/') return html;
+  const stripped = html.replace(
+    /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>[^<]*?"@type":\s*"(?:WebPage|BreadcrumbList)"[^<]*?<\/script>/gi,
+    '',
+  );
+  return inject(stripped, wrapJsonLd(routeWebPageCrumbs(name, origin, route)));
 }
 
 /**
