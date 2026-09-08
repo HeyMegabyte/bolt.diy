@@ -50,6 +50,8 @@ interface NotificationPref {
   label: string;
   desc: string;
   enabled: boolean;
+  /** Security-critical prefs "stay on by design" — rendered as a locked "Always on", never a toggle. */
+  locked?: boolean;
 }
 interface NotificationGroup {
   id: string;
@@ -392,7 +394,7 @@ interface NotificationGroup {
         </div>
         <h2 class="section-h m-0 text-base font-semibold text-white mt-1 mb-1">Notification preferences</h2>
         <p class="text-[0.7rem] text-text-secondary m-0 mb-3 max-w-prose">
-          Choose what lands in your inbox. Security alerts stay on by design — toggling them off only mutes the digest, never critical warnings. Choices save instantly and sync to your account.
+          Choose what lands in your inbox. Security alerts stay on by design — new sign-ins and API-key changes always reach you. Choices save instantly and sync to your account.
         </p>
 
         <div class="space-y-5">
@@ -402,19 +404,27 @@ interface NotificationGroup {
               <ul role="list" class="notif-list">
                 @for (p of g.prefs; track p.id) {
                   <li class="notif-row">
-                    <label class="flex-1 cursor-pointer">
+                    <label class="flex-1" [class.cursor-pointer]="!p.locked">
                       <div class="font-medium text-white text-[0.82rem]">{{ p.label }}</div>
                       <div class="text-[0.7rem] text-text-secondary mt-0.5 leading-relaxed">{{ p.desc }}</div>
                     </label>
-                    <button class="switch"
-                            type="button"
-                            role="switch"
-                            [attr.aria-checked]="p.enabled"
-                            [attr.aria-label]="(p.enabled ? 'Disable' : 'Enable') + ' ' + p.label"
-                            (click)="toggleNotification(g.id, p.id)"
-                            [class.is-on]="p.enabled">
-                      <span class="switch-thumb"></span>
-                    </button>
+                    @if (p.locked) {
+                      <span class="notif-always-on"
+                            [attr.data-testid]="'notif-locked-' + p.id"
+                            title="Security alerts stay on by design — they can't be muted.">
+                        Always on
+                      </span>
+                    } @else {
+                      <button class="switch"
+                              type="button"
+                              role="switch"
+                              [attr.aria-checked]="p.enabled"
+                              [attr.aria-label]="(p.enabled ? 'Disable' : 'Enable') + ' ' + p.label"
+                              (click)="toggleNotification(g.id, p.id)"
+                              [class.is-on]="p.enabled">
+                        <span class="switch-thumb"></span>
+                      </button>
+                    }
                   </li>
                 }
               </ul>
@@ -858,6 +868,15 @@ interface NotificationGroup {
       padding: 0; min-height: 24px;
     }
     .switch:focus-visible { outline: 2px solid var(--ps-accent, #00E5FF); outline-offset: 2px; }
+    .notif-always-on {
+      flex-shrink: 0;
+      font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+      padding: 0.2rem 0.5rem; border-radius: 999px;
+      color: var(--ps-accent, #00E5FF);
+      background: color-mix(in oklch, var(--ps-accent, #00E5FF) 12%, transparent);
+      border: 1px solid color-mix(in oklch, var(--ps-accent, #00E5FF) 30%, transparent);
+      white-space: nowrap;
+    }
     .switch-thumb {
       position: absolute; top: 1px; left: 1px;
       width: 16px; height: 16px; border-radius: 50%;
@@ -1525,8 +1544,8 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
         id: 'security',
         label: 'Security',
         prefs: [
-          { id: 'security.signin', label: 'New sign-in alerts', desc: 'Email when a new device or location signs in to your account.', enabled: true },
-          { id: 'security.keys', label: 'API key activity', desc: 'Alert when a new key is generated, rotated, or revoked.', enabled: true },
+          { id: 'security.signin', label: 'New sign-in alerts', desc: 'Email when a new device or location signs in to your account.', enabled: true, locked: true },
+          { id: 'security.keys', label: 'API key activity', desc: 'Alert when a new key is generated, rotated, or revoked.', enabled: true, locked: true },
         ],
       },
       {
@@ -1544,7 +1563,9 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
       const saved = JSON.parse(raw) as Record<string, boolean>;
       return defaults.map((g) => ({
         ...g,
-        prefs: g.prefs.map((p) => ({ ...p, enabled: saved[p.id] ?? p.enabled })),
+        // Locked (security) prefs stay on by design — never restore a stale "off" from a
+        // pre-lock localStorage entry; they're not user-mutable.
+        prefs: g.prefs.map((p) => ({ ...p, enabled: p.locked ? true : (saved[p.id] ?? p.enabled) })),
       }));
     } catch {
       return defaults;
@@ -1552,6 +1573,10 @@ export class AdminUserSettingsComponent implements OnInit, OnDestroy {
   }
 
   toggleNotification(groupId: string, prefId: string): void {
+    // Locked (security) prefs stay on by design — ignore any attempt to mute them
+    // (defense-in-depth: the template renders no toggle for them, but never trust the UI).
+    const grp = this.notificationGroups().find((g) => g.id === groupId);
+    if (grp?.prefs.find((p) => p.id === prefId)?.locked) return;
     this.notificationGroups.update((groups) =>
       groups.map((g) =>
         g.id !== groupId

@@ -111,6 +111,22 @@ describe('AdminUserSettingsComponent (destructive delete guard + notifications)'
     }
   });
 
+  it('toggleNotification is a NO-OP on locked security prefs (stay on by design — cannot be muted)', () => {
+    const { c } = make();
+    const sec = c.notificationGroups().find((g) => g.id === 'security');
+    expect(sec).withContext('security group exists').toBeTruthy();
+    for (const p of sec!.prefs) {
+      expect(p.locked).withContext(`${p.id} is locked`).toBe(true);
+      expect(p.enabled).withContext(`${p.id} starts on`).toBe(true);
+      c.toggleNotification('security', p.id);
+      const after = c
+        .notificationGroups()
+        .find((g) => g.id === 'security')!
+        .prefs.find((x) => x.id === p.id)!.enabled;
+      expect(after).withContext(`${p.id} stays on after a mute attempt`).toBe(true);
+    }
+  });
+
   it('toggleNotification surfaces a visible "Saved" confirmation (no silent save)', () => {
     const { c } = make();
     const g = c.notificationGroups()[0];
