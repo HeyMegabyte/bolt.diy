@@ -391,8 +391,18 @@ ${ctxLines}`;
   try {
     const res = (await env.AI.run(AI_MODEL, {
       messages: [
-        { role: 'system', content: DASHBOARD_PERSONA_SYSTEM_PROMPT },
-        { role: 'system', content: SUGGESTER_PERSONA_OVERLAY },
+        // A FOCUSED JSON-generator system prompt — NOT the conversational dashboard
+        // persona. The chat persona ("ONE line preferred, TWO lines maximum, never an
+        // essay, HBO-executive voice, semicolons/m-dashes/fragments") actively fights
+        // this call's contract (a 25-element JSON array of domain names), so the model
+        // emitted persona prose that failed the `{domains:[]}` parse → silent `return []`
+        // → an empty domain picker for EVERY site (the persona belongs on the human-facing
+        // pitch/reason enrichment call below, not on the domain-NAME generation). AL-167.
+        {
+          role: 'system',
+          content:
+            'You are a precise domain-name generator. Respond with ONLY strict minified JSON of the exact shape {"domains": string[]} — an array of the requested number of lowercase candidate domain names, each including its TLD. No prose, no persona, no commentary, no markdown, nothing before or after the JSON object.',
+        },
         { role: 'user', content: prompt },
       ],
       max_tokens: 800,
@@ -400,7 +410,22 @@ ${ctxLines}`;
     } as never)) as { response?: string };
 
     const parsed = safeJsonParse<{ domains?: unknown }>(res?.response || '');
-    if (!parsed || !Array.isArray(parsed.domains)) return [];
+    if (!parsed || !Array.isArray(parsed.domains)) {
+      // Observability: this parse-fail path used to `return []` SILENTLY, so a broken
+      // generator was indistinguishable from an honest "no ideas" — an empty picker had
+      // ZERO signal (graceful-degradation-hides-outages). Log the raw shape so a JSON
+      // regression is visible in wrangler tail / OTLP instead of hidden as empty. AL-167.
+      console.warn(
+        JSON.stringify({
+          level: 'warn',
+          service: 'domain_suggester',
+          message: 'candidate generation returned unparseable or non-array JSON',
+          site_id: ctx.site_id,
+          raw_snippet: String(res?.response || '').slice(0, 200),
+        }),
+      );
+      return [];
+    }
     return parsed.domains.filter((v): v is string => typeof v === 'string');
   } catch (err) {
     console.warn(

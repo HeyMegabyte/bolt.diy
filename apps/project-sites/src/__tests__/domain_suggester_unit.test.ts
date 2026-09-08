@@ -467,3 +467,38 @@ describe('suggestDomains — output shape', () => {
     expect(out.map((s) => s.domain)).toEqual(orderedDomains);
   });
 });
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Candidate-generation system prompt — AL-167 regression
+// The domain-NAME generator must enforce the {"domains":[]} JSON contract, NOT the
+// conversational dashboard chat persona ("ONE line, never an essay, HBO-executive
+// voice"). That persona broke JSON generation in prod → the model emitted prose →
+// safeJsonParse/Array.isArray failed → silent `return []` → an EMPTY domain picker
+// for every site (suggest returned 200 + suggestions:[] while RDAP was healthy).
+// The persona belongs ONLY on the human-facing pitch/reason enrichment call.
+// ──────────────────────────────────────────────────────────────────────────────
+
+describe('suggestDomains — candidate-gen system prompt (AL-167 regression)', () => {
+  it('does NOT feed the conversational chat persona to the JSON domain-name generator', async () => {
+    mockGather.mockResolvedValue(makeCtx());
+    stubHappyPath('regressbiz.com');
+
+    await suggestDomains(makeEnv(), { siteId: 'site-unit', count: 1 });
+
+    const firstCall = aiRun.mock.calls[0][1] as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    const systemText = firstCall.messages
+      .filter((m) => m.role === 'system')
+      .map((m) => m.content)
+      .join('\n')
+      .toLowerCase();
+    // The chat persona's hallmark phrases MUST NOT appear on the JSON-gen call.
+    expect(systemText).not.toContain('never an essay');
+    expect(systemText).not.toContain('hbo');
+    expect(systemText).not.toContain('executive');
+    // The JSON contract MUST be reinforced by the system prompt itself.
+    expect(systemText).toContain('json');
+    expect(systemText).toContain('{"domains"');
+  });
+});
