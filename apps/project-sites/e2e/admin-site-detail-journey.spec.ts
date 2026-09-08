@@ -95,8 +95,12 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
     // Mid-token ** can't cross '/' — twin covers /integration-providers/:id subpaths
     await page.route('**/api/sites/e2e-site-001/integration-providers/**', integrationsStub);
 
-    await page.route('**/api/sites/e2e-site-001**', (route) => {
-      // BARE site endpoint ONLY. The trailing ** also matches subpaths
+    await page.route('**/api/sites/e2e-site-001', (route) => {
+      // EXACT bare site endpoint (no trailing ** → cannot match /snapshots,
+      // /integration-providers, /logs/tail subpaths at all; the old trailing-** glob
+      // shadowed them even with a fallback guard, via a Playwright fallback-chain quirk
+      // that still returned {data:SITE_OBJ} to /snapshots). The guard below is now
+      // belt-and-suspenders.
       // (/snapshots, /integration-providers, /logs/tail, …) and this route is registered
       // AFTER their specific stubs, so without this guard it SHADOWS them (Playwright
       // matches last-registered-first) → the component reads res.data/res.providers off
@@ -227,8 +231,12 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
     // Mid-token ** can't cross '/' — twin covers /integration-providers/:id subpaths
     await page.route('**/api/sites/e2e-site-001/integration-providers/**', integrationsStub);
 
-    await page.route('**/api/sites/e2e-site-001**', (route) => {
-      // BARE site endpoint ONLY. The trailing ** also matches subpaths
+    await page.route('**/api/sites/e2e-site-001', (route) => {
+      // EXACT bare site endpoint (no trailing ** → cannot match /snapshots,
+      // /integration-providers, /logs/tail subpaths at all; the old trailing-** glob
+      // shadowed them even with a fallback guard, via a Playwright fallback-chain quirk
+      // that still returned {data:SITE_OBJ} to /snapshots). The guard below is now
+      // belt-and-suspenders.
       // (/snapshots, /integration-providers, /logs/tail, …) and this route is registered
       // AFTER their specific stubs, so without this guard it SHADOWS them (Playwright
       // matches last-registered-first) → the component reads res.data/res.providers off
@@ -351,8 +359,12 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
     // Mid-token ** can't cross '/' — twin covers /integration-providers/:id subpaths
     await page.route('**/api/sites/e2e-site-001/integration-providers/**', integrationsStub);
 
-    await page.route('**/api/sites/e2e-site-001**', (route) => {
-      // BARE site endpoint ONLY. The trailing ** also matches subpaths
+    await page.route('**/api/sites/e2e-site-001', (route) => {
+      // EXACT bare site endpoint (no trailing ** → cannot match /snapshots,
+      // /integration-providers, /logs/tail subpaths at all; the old trailing-** glob
+      // shadowed them even with a fallback guard, via a Playwright fallback-chain quirk
+      // that still returned {data:SITE_OBJ} to /snapshots). The guard below is now
+      // belt-and-suspenders.
       // (/snapshots, /integration-providers, /logs/tail, …) and this route is registered
       // AFTER their specific stubs, so without this guard it SHADOWS them (Playwright
       // matches last-registered-first) → the component reads res.data/res.providers off
@@ -440,8 +452,12 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
     await page.route('**/api/sites/e2e-site-001/integration-providers**', integrationsStub);
     // Mid-token ** can't cross '/' — twin covers /integration-providers/:id subpaths
     await page.route('**/api/sites/e2e-site-001/integration-providers/**', integrationsStub);
-    await page.route('**/api/sites/e2e-site-001**', (route) => {
-      // BARE site endpoint ONLY. The trailing ** also matches subpaths
+    await page.route('**/api/sites/e2e-site-001', (route) => {
+      // EXACT bare site endpoint (no trailing ** → cannot match /snapshots,
+      // /integration-providers, /logs/tail subpaths at all; the old trailing-** glob
+      // shadowed them even with a fallback guard, via a Playwright fallback-chain quirk
+      // that still returned {data:SITE_OBJ} to /snapshots). The guard below is now
+      // belt-and-suspenders.
       // (/snapshots, /integration-providers, /logs/tail, …) and this route is registered
       // AFTER their specific stubs, so without this guard it SHADOWS them (Playwright
       // matches last-registered-first) → the component reads res.data/res.providers off
