@@ -251,6 +251,36 @@ describe('AdminAnalyticsComponent (site-reactive load)', () => {
     expect(req?.getAttribute('aria-label')).toBe('5,000 total requests');
   });
 
+  // Beacon-overlay honesty (AL-161): every *.projectsites.dev subdomain reads KPIs from
+  // the D1 visitor_events beacon (CF-zone is blind to subdomains), where total_requests
+  // is set to the pageview count. The Total-requests card must NOT claim "All HTTP
+  // requests at the edge" for beacon data, and the Page-views card must not show the
+  // redundant "of N requests" (which == pageviews, always 100%). Regression: the card
+  // used to mislabel beacon pageviews as edge HTTP requests on the common case.
+  it('labels beacon-sourced KPIs honestly (never "at the edge")', () => {
+    build({ id: 'site-x' });
+    const c = fixture.componentInstance;
+    c.error.set(null);
+    c.trafficSource.set('beacon');
+    c.envelope.set({ series: [], pageviews: 177, uniques: 110, total_requests: 177 } as never);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+
+    const req = el.querySelector('[data-testid="kpi-requests"]') as HTMLElement;
+    expect(req.textContent).withContext('beacon: drops the false "at the edge" claim').not.toContain('at the edge');
+    expect(req.textContent).withContext('beacon: honest on-site-beacon source label').toContain('via on-site beacon');
+
+    const pv = el.querySelector('[data-testid="kpi-pageviews"]') as HTMLElement;
+    expect(pv.textContent).withContext('beacon: no redundant "of N requests" (== pageviews)').toContain('In the selected period');
+
+    // Edge source (custom domains with real CF-zone data) keeps the accurate label.
+    c.trafficSource.set('edge');
+    c.envelope.set({ series: [], pageviews: 1240, uniques: 312, total_requests: 5000 } as never);
+    fixture.detectChanges();
+    const reqEdge = el.querySelector('[data-testid="kpi-requests"]') as HTMLElement;
+    expect(reqEdge.textContent).withContext('edge: accurate edge-request label').toContain('All HTTP requests at the edge');
+  });
+
   it('the KPI aria-labels do not lie during the loading skeleton (no premature "0 …" claim)', () => {
     build({ id: 'site-x' });
     const c = fixture.componentInstance;

@@ -278,7 +278,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
                   {{ t.label }}
                 </span>
               }
-              @if ((envelope()?.total_requests ?? 0) > 0) {
+              @if (trafficSource() === 'edge' && (envelope()?.total_requests ?? 0) > 0) {
                 <span>of {{ formatCount(envelope()?.total_requests ?? 0) }} requests</span>
               } @else {
                 <span>In the selected period</span>
@@ -323,7 +323,7 @@ function sparklinePath(values: number[], width: number, height: number, peak?: n
             <div class="text-3xl font-bold text-white mt-1 leading-none" [title]="(envelope()?.total_requests ?? 0) | number">
               <app-rolling-counter [value]="envelope()?.total_requests ?? 0" [duration]="1100" />
             </div>
-            <div class="text-[0.68rem] text-text-secondary mt-1">All HTTP requests at the edge</div>
+            <div class="text-[0.68rem] text-text-secondary mt-1">{{ trafficSource() === 'beacon' ? 'Page requests via on-site beacon' : 'All HTTP requests at the edge' }}</div>
           }
         </div>
 
@@ -853,6 +853,13 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
 
   /** Aggregated CF GraphQL envelope from `GET /api/sites/:id/analytics`. */
   envelope = signal<MultiUrlAnalyticsEnvelope | null>(null);
+  /**
+   * Where the KPI numbers came from: `edge` = CF-zone HTTP-request dataset (custom
+   * domains), `beacon` = D1 `visitor_events` overlay (every `*.projectsites.dev`
+   * subdomain, where the CF-zone dataset is blind). Drives the Total-requests card's
+   * sub-label so it never claims "at the edge" for beacon pageview data.
+   */
+  trafficSource = signal<'edge' | 'beacon'>('edge');
   urls = signal<SiteUrlRow[]>([]);
   excluded = signal<Set<string>>(new Set());
   credStatus = signal<CloudflareCredentialStatus | null>(null);
@@ -1523,6 +1530,12 @@ export class AdminAnalyticsComponent implements OnInit, OnDestroy {
         }
         if (env) {
           this.envelope.set(env);
+          // Beacon vs edge is driven by whether ANY included host resolved a CF zone.
+          // A `*.projectsites.dev` subdomain never resolves a zone, so the worker
+          // backfills D1 visitor_events with total_requests == pageviews — the KPI
+          // labels must then say "beacon", NOT "All HTTP requests at the edge". The
+          // frontend fallback overlay (urls_included:[]) is likewise beacon-sourced.
+          this.trafficSource.set(env.urls_included?.some((u) => u.resolved_zone) ? 'edge' : 'beacon');
           this.error.set(null);
         }
         // Count ONLY genuine load errors (catchError set error() + returned null)
