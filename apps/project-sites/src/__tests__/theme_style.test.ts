@@ -4,9 +4,19 @@ describe('theme_style — themeStyleFromInputs', () => {
   describe('preset registry invariant (drift guard vs template PRESET_NAMES)', () => {
     it('is exactly the 13 template presets, lowercase + unique', () => {
       const expected = [
-        'classic', 'editorial', 'warm', 'luxe', 'brutalist', 'bold',
-        'futuristic', 'rugged', 'botanical', 'boutique', 'precision',
-        'heritage', 'scholarly',
+        'classic',
+        'editorial',
+        'warm',
+        'luxe',
+        'brutalist',
+        'bold',
+        'futuristic',
+        'rugged',
+        'botanical',
+        'boutique',
+        'precision',
+        'heritage',
+        'scholarly',
       ];
       expect([...THEME_STYLE_NAMES].sort()).toEqual([...expected].sort());
       expect(new Set(THEME_STYLE_NAMES).size).toBe(THEME_STYLE_NAMES.length);
@@ -62,13 +72,17 @@ describe('theme_style — themeStyleFromInputs', () => {
 
   describe('design-hint keyword override wins over category', () => {
     it('elegant luxury on a retail shop → luxe (not boutique)', () => {
-      expect(themeStyleFromInputs('Retail / Shop', 'we want an elegant, luxurious feel')).toBe('luxe');
+      expect(themeStyleFromInputs('Retail / Shop', 'we want an elegant, luxurious feel')).toBe(
+        'luxe',
+      );
     });
     it('bold energetic on a law firm → bold (not editorial)', () => {
       expect(themeStyleFromInputs('Legal / Law Firm', 'bold and energetic brand')).toBe('bold');
     });
     it('calm organic on a gym → botanical (not bold)', () => {
-      expect(themeStyleFromInputs('Fitness / Gym', 'calm, organic, natural wellness vibe')).toBe('botanical');
+      expect(themeStyleFromInputs('Fitness / Gym', 'calm, organic, natural wellness vibe')).toBe(
+        'botanical',
+      );
     });
   });
 

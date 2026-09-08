@@ -345,7 +345,10 @@ describe('validateHeroNotPackDefault', () => {
   });
 
   it('passes a business-specific hero (the customized happy path)', () => {
-    const f = file('index.html', shell('Harborline: small-batch harbor roasts, roasted daily in Boston'));
+    const f = file(
+      'index.html',
+      shell('Harborline: small-batch harbor roasts, roasted daily in Boston'),
+    );
     expect(validateHeroNotPackDefault([f])).toEqual([]);
   });
 });

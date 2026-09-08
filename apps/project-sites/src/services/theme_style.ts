@@ -54,16 +54,43 @@ export type ThemeStyleName = (typeof THEME_STYLE_NAMES)[number];
  * are checked before the broad ones. Scanned against the lowercased hint.
  */
 const HINT_RULES: ReadonlyArray<readonly [ThemeStyleName, RegExp]> = [
-  ['luxe', /\b(luxur\w*|elegan\w*|premium|upscale|high[-\s]?end|sophisticat\w*|refined|opulent|exclusive|glamou?r\w*|couture|bespoke|lavish)\b/],
-  ['heritage', /\b(heritage|timeless|traditional|establish\w*|authoritative|corporate|institutional|dignified|old[-\s]?money|trustworthy|trusted|reputable|prestigious|stately)\b/],
-  ['precision', /\b(precision|engineered|machined|metallic|technical|high[-\s]?performance|motorsport|aerospace|billet)\b/],
-  ['futuristic', /\b(futuristic|sleek|glassy|gradient|neon|cyber\w*|high[-\s]?tech|hi[-\s]?tech|space[-\s]?age|holograph\w*)\b/],
-  ['brutalist', /\b(brutalist|brutal|raw|edgy|stark|avant[-\s]?garde|experimental|anti[-\s]?design|striking|maximalist)\b/],
-  ['bold', /\b(bold|energetic|dynamic|athletic|kinetic|high[-\s]?energy|powerful|punchy|loud|fierce|aggressive)\b/],
-  ['botanical', /\b(botanical|organic|natural|calm\w*|serene|soothing|fresh|zen|holistic|earthy|eco[-\s]?friendly)\b/],
-  ['warm', /\b(warm|cozy|cosy|inviting|friendly|welcoming|homey|homely|rustic|approachable|comfortable|hearth|hospitable)\b/],
+  [
+    'luxe',
+    /\b(luxur\w*|elegan\w*|premium|upscale|high[-\s]?end|sophisticat\w*|refined|opulent|exclusive|glamou?r\w*|couture|bespoke|lavish)\b/,
+  ],
+  [
+    'heritage',
+    /\b(heritage|timeless|traditional|establish\w*|authoritative|corporate|institutional|dignified|old[-\s]?money|trustworthy|trusted|reputable|prestigious|stately)\b/,
+  ],
+  [
+    'precision',
+    /\b(precision|engineered|machined|metallic|technical|high[-\s]?performance|motorsport|aerospace|billet)\b/,
+  ],
+  [
+    'futuristic',
+    /\b(futuristic|sleek|glassy|gradient|neon|cyber\w*|high[-\s]?tech|hi[-\s]?tech|space[-\s]?age|holograph\w*)\b/,
+  ],
+  [
+    'brutalist',
+    /\b(brutalist|brutal|raw|edgy|stark|avant[-\s]?garde|experimental|anti[-\s]?design|striking|maximalist)\b/,
+  ],
+  [
+    'bold',
+    /\b(bold|energetic|dynamic|athletic|kinetic|high[-\s]?energy|powerful|punchy|loud|fierce|aggressive)\b/,
+  ],
+  [
+    'botanical',
+    /\b(botanical|organic|natural|calm\w*|serene|soothing|fresh|zen|holistic|earthy|eco[-\s]?friendly)\b/,
+  ],
+  [
+    'warm',
+    /\b(warm|cozy|cosy|inviting|friendly|welcoming|homey|homely|rustic|approachable|comfortable|hearth|hospitable)\b/,
+  ],
   ['boutique', /\b(chic|fashionable|stylish|trendy|tactile|curated|shoppable|artisan\w*)\b/],
-  ['scholarly', /\b(playful|whimsical|cheerful|bright|fun|kid[-\s]?friendly|encouraging|scholarly)\b/],
+  [
+    'scholarly',
+    /\b(playful|whimsical|cheerful|bright|fun|kid[-\s]?friendly|encouraging|scholarly)\b/,
+  ],
   ['editorial', /\b(editorial|magazine|literary|journal\w*|understated)\b/],
 ];
 
@@ -73,20 +100,53 @@ const HINT_RULES: ReadonlyArray<readonly [ThemeStyleName, RegExp]> = [
  * ("Financial / Accounting", "Real Estate", …) and freeform categories resolve.
  */
 const CATEGORY_RULES: ReadonlyArray<readonly [ThemeStyleName, RegExp]> = [
-  ['botanical', /\b(beauty|spa|wellness|medical|health\w*|dental|dentist|clinic|therap\w*|chiropract\w*|veterinar\w*|optometr\w*)\b/],
-  ['heritage', /\b(financ\w*|account\w*|insurance|wealth|advisor\w*|bank\w*|\btax\b|bookkeep\w*)\b/],
-  ['precision', /\b(automotive|\bauto\b|\bcar\b|dealership|vehicle|mechanic|motorsport|machinery)\b/],
-  ['scholarly', /\b(education|tutor\w*|school|academy|course|coaching|learning|\bkids\b|children)\b/],
-  ['luxe', /\b(real[-\s]?estate|realty|realtor|jewel\w*|fine[-\s]?dining|hospitality|hotel|resort)\b/],
+  [
+    'botanical',
+    /\b(beauty|spa|wellness|medical|health\w*|dental|dentist|clinic|therap\w*|chiropract\w*|veterinar\w*|optometr\w*)\b/,
+  ],
+  [
+    'heritage',
+    /\b(financ\w*|account\w*|insurance|wealth|advisor\w*|bank\w*|\btax\b|bookkeep\w*)\b/,
+  ],
+  [
+    'precision',
+    /\b(automotive|\bauto\b|\bcar\b|dealership|vehicle|mechanic|motorsport|machinery)\b/,
+  ],
+  [
+    'scholarly',
+    /\b(education|tutor\w*|school|academy|course|coaching|learning|\bkids\b|children)\b/,
+  ],
+  [
+    'luxe',
+    /\b(real[-\s]?estate|realty|realtor|jewel\w*|fine[-\s]?dining|hospitality|hotel|resort)\b/,
+  ],
   // warm BEFORE boutique so "Coffee Shop" / "Bakery" match food (warm) rather
   // than the generic `\bshop\b` in boutique.
-  ['warm', /\b(restaurant|caf[eé]|bakery|coffee|\bbar\b|brewery|\bpub\b|bistro|diner|eatery|salon|barber)\b/],
-  ['boutique', /\b(retail|\bshop\b|\bstore\b|boutique|apparel|clothing|fashion|merchandise|goods)\b/],
-  ['futuristic', /\b(technology|\btech\b|saas|software|startup|\bapp\b|platform|\bai\b|fintech|developer)\b/],
-  ['rugged', /\b(construction|home[-\s]?services|trades?|plumb\w*|\bhvac\b|roof\w*|electric\w*|contractor|landscap\w*|manufactur\w*|logistics)\b/],
+  [
+    'warm',
+    /\b(restaurant|caf[eé]|bakery|coffee|\bbar\b|brewery|\bpub\b|bistro|diner|eatery|salon|barber)\b/,
+  ],
+  [
+    'boutique',
+    /\b(retail|\bshop\b|\bstore\b|boutique|apparel|clothing|fashion|merchandise|goods)\b/,
+  ],
+  [
+    'futuristic',
+    /\b(technology|\btech\b|saas|software|startup|\bapp\b|platform|\bai\b|fintech|developer)\b/,
+  ],
+  [
+    'rugged',
+    /\b(construction|home[-\s]?services|trades?|plumb\w*|\bhvac\b|roof\w*|electric\w*|contractor|landscap\w*|manufactur\w*|logistics)\b/,
+  ],
   ['bold', /\b(fitness|\bgym\b|crossfit|sport\w*|martial[-\s]?arts|athletic)\b/],
-  ['brutalist', /\b(photograph\w*|creative|portfolio|\bart\b|design[-\s]?studio|agency|\bfilm\b|\bmusic\b)\b/],
-  ['editorial', /\b(legal|\blaw\b|attorney|lawyer|nonprofit|non[-\s]?profit|charit\w*|foundation)\b/],
+  [
+    'brutalist',
+    /\b(photograph\w*|creative|portfolio|\bart\b|design[-\s]?studio|agency|\bfilm\b|\bmusic\b)\b/,
+  ],
+  [
+    'editorial',
+    /\b(legal|\blaw\b|attorney|lawyer|nonprofit|non[-\s]?profit|charit\w*|foundation)\b/,
+  ],
 ];
 
 /** Return the preset of the first rule whose regex matches `text`. */
