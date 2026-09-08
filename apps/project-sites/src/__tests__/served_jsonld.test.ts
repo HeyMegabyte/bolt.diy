@@ -105,7 +105,10 @@ describe('site_serving — applyServedRouteJsonLd', () => {
     expect(webpages[0].url).toBe('https://acme.projectsites.dev/about');
     // breadcrumb now Home › About (not just Home)
     const bl = blocks.find((b) => b['@type'] === 'BreadcrumbList')!;
-    expect((bl.itemListElement as Array<Record<string, unknown>>).map((c) => c.name)).toEqual(['Home', 'About']);
+    expect((bl.itemListElement as Array<Record<string, unknown>>).map((c) => c.name)).toEqual([
+      'Home',
+      'About',
+    ]);
     // route-agnostic blocks preserved (not duplicated)
     expect(blocks.filter((b) => b['@type'] === 'WebSite')).toHaveLength(1);
     expect(blocks.filter((b) => b['@type'] === 'Organization')).toHaveLength(1);
