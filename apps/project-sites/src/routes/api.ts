@@ -740,7 +740,11 @@ api.get('/api/auth/github', async (c) => {
     // redirect back to /signin with a flagged error (the signin page toasts it) instead of a
     // 500. Enabling GitHub for real = widening that CHECK (an approval-gated table rebuild). AL-185.
     console.warn(
-      JSON.stringify({ level: 'warn', msg: 'github_oauth_start_failed', err: String(err).slice(0, 200) }),
+      JSON.stringify({
+        level: 'warn',
+        msg: 'github_oauth_start_failed',
+        err: String(err).slice(0, 200),
+      }),
     );
     return c.redirect('/signin?auth_error=github_unavailable');
   }
