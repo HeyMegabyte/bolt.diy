@@ -30,6 +30,7 @@ import { checkBudget, recordSpend } from '../services/build_budget.js';
 import { resolveActiveOrgPlan } from '../services/build_limits.js';
 import { isFlagOn } from '../modules/feature_flags/services.js';
 import { tryEmitEvent } from '../services/emit_event.js';
+import { themeStyleFromInputs } from '../services/theme_style.js';
 
 /**
  * Per-variant omit of the auto-injected base fields, distributed across the
@@ -623,8 +624,19 @@ export class SiteGenerationWorkflow extends WorkflowEntrypoint<Env, SiteGenerati
       $type: 'string',
       ...(description ? { $description: description } : {}),
     });
+    // THEME PERSONALITY (fire AL-198). The template ships 13 visual presets
+    // (font/radius/shadow/motion/flourish) but the workflow never wrote a
+    // `themeStyle` AND seeds businessClass='organization', so brand.ts's
+    // fallback (presetForClass('organization')) locked EVERY workflow site to
+    // `classic` — luxe/heritage/precision/boutique/scholarly/botanical were
+    // unreachable. Derive the personality from the declared vertical + the
+    // freeform design hint (both authoritative /create inputs). Top-level plain
+    // string is EXACTLY what brand.ts reads (r.themeStyle); an undefined result
+    // omits the key so the template keeps its own graceful classic fallback.
+    const themeStyle = themeStyleFromInputs(params.businessCategory, params.additionalContext);
     contextFiles['brand.json'] = JSON.stringify(
       {
+        ...(themeStyle ? { themeStyle } : {}),
         business: {
           name: tok(safeName, 'Display name.'),
           shortName: tok(safeName.slice(0, 12), 'Used in PWA install + nav.'),
