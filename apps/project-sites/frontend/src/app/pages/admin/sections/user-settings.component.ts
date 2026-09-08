@@ -392,7 +392,7 @@ interface NotificationGroup {
         </div>
         <h2 class="section-h m-0 text-base font-semibold text-white mt-1 mb-1">Notification preferences</h2>
         <p class="text-[0.7rem] text-text-secondary m-0 mb-3 max-w-prose">
-          Choose what lands in your inbox. Security alerts stay on by design — toggling them off only mutes the digest, never critical warnings. Choices save instantly on this device.
+          Choose what lands in your inbox. Security alerts stay on by design — toggling them off only mutes the digest, never critical warnings. Choices save instantly and sync to your account.
         </p>
 
         <div class="space-y-5">
