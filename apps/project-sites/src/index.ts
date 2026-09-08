@@ -632,9 +632,34 @@ app.post('/api/sites/:siteId/social/proposals', async (c) => {
   const { assertSiteOwned } = await import('./services/site_ownership.js');
   if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.notFound();
   const body = await c.req.json().catch(() => ({}));
-  return c.json({
-    data: generateProposals(body.business, body.sellingPoint, body.accounts || [], body.count || 5),
-  });
+  // Validate compute inputs at the boundary → 400, never a 500 crash inside the pure
+  // generator on an empty/malformed body. fail-fast-build-fail-soft-prod + zod-everywhere. AL-179.
+  if (
+    typeof body.business !== 'string' ||
+    !body.business.trim() ||
+    typeof body.sellingPoint !== 'string' ||
+    !body.sellingPoint.trim()
+  )
+    return c.json(
+      { error: { code: 'VALIDATION_ERROR', message: 'business and sellingPoint are required non-empty strings' } },
+      400,
+    );
+  try {
+    const count = Math.min(Math.max(1, Number(body.count) || 5), 20);
+    return c.json({
+      data: generateProposals(
+        body.business,
+        body.sellingPoint,
+        Array.isArray(body.accounts) ? body.accounts : [],
+        count,
+      ),
+    });
+  } catch {
+    return c.json(
+      { error: { code: 'VALIDATION_ERROR', message: 'Could not generate proposals from the provided input (check account platforms).' } },
+      400,
+    );
+  }
 });
 app.post('/api/sites/:siteId/social/engagement', async (c) => {
   const siteId = c.req.param('siteId');
@@ -647,7 +672,35 @@ app.post('/api/sites/:siteId/social/engagement', async (c) => {
   const { assertSiteOwned } = await import('./services/site_ownership.js');
   if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.notFound();
   const body = await c.req.json().catch(() => ({}));
-  return c.json({ data: scoreEngagement(body.account, body.metrics) });
+  const acct = body.account;
+  const mx = body.metrics;
+  // Boundary validation → 400, never a 500 crash inside scoreEngagement. AL-179.
+  if (
+    !acct ||
+    typeof acct !== 'object' ||
+    typeof acct.platform !== 'string' ||
+    typeof acct.followers !== 'number' ||
+    !mx ||
+    typeof mx !== 'object' ||
+    ['likes', 'comments', 'shares', 'posts'].some((k) => typeof mx[k] !== 'number')
+  )
+    return c.json(
+      {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'account {platform, followers} and metrics {likes, comments, shares, posts} numbers are required',
+        },
+      },
+      400,
+    );
+  try {
+    return c.json({ data: scoreEngagement(acct, mx) });
+  } catch {
+    return c.json(
+      { error: { code: 'VALIDATION_ERROR', message: 'Could not score engagement for the provided account platform.' } },
+      400,
+    );
+  }
 });
 
 app.post('/api/sites/:siteId/automation/validate', async (c) => {
@@ -663,7 +716,20 @@ app.post('/api/sites/:siteId/automation/validate', async (c) => {
   const { assertSiteOwned } = await import('./services/site_ownership.js');
   if (!(await assertSiteOwned(c.env, c.get('orgId'), c.req.param('siteId')))) return c.notFound();
   const body = await c.req.json().catch(() => ({}));
-  return c.json({ data: validateJourney(body) });
+  // A journey needs a steps[] array; validateJourney derefs j.steps.length → 500 without it. AL-179.
+  if (!body || typeof body !== 'object' || !Array.isArray(body.steps))
+    return c.json(
+      { error: { code: 'VALIDATION_ERROR', message: 'a journey with a steps[] array is required' } },
+      400,
+    );
+  try {
+    return c.json({ data: validateJourney(body) });
+  } catch {
+    return c.json(
+      { error: { code: 'VALIDATION_ERROR', message: 'Could not validate the provided journey (check step shapes).' } },
+      400,
+    );
+  }
 });
 
 // App Launcher — catalog + launch planner (flag: app_launcher)

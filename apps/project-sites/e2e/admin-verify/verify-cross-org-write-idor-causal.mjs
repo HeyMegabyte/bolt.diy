@@ -99,10 +99,15 @@ const rows = [];
 for (const suf of ENDPOINTS) {
   const f = await code(FOREIGN, suf);
   const o = await code(OWN, suf);
-  // own 404 → flag off for the test org → vacuous, skip. Else foreign MUST be 404.
+  // own 404 → flag off for the test org → vacuous, skip. Else TWO invariants:
+  //   • foreign MUST be 404 (cross-org IDOR), and
+  //   • own MUST NOT be a 5xx crash on the empty body — these pure-compute endpoints used
+  //     to 500 on missing fields; AL-179 validates input at the boundary so bad input → 400.
   const flagOff = o === 404;
-  const ok = flagOff || f === 404;
-  rows.push({ suf, f, o, ok, flagOff, leak: !flagOff && f !== 404 });
+  const leak = !flagOff && f !== 404;
+  const crash = !flagOff && o >= 500;
+  const ok = flagOff || (f === 404 && o < 500);
+  rows.push({ suf, f, o, ok, flagOff, leak, crash });
 }
 
 const fails = rows.filter((r) => !r.ok);
@@ -110,6 +115,7 @@ for (const r of rows) {
   let note = '';
   if (r.flagOff) note = ' (flag off for test org → skipped)';
   else if (r.leak) note = ` ← 🔴 IDOR: foreign=${r.f} (ran site-scoped compute for a non-owned site)`;
+  else if (r.crash) note = ` ← 🔴 own=${r.o} (5xx crash on empty body — input not validated; must 400)`;
   const mark = r.flagOff ? '⚠️ ' : r.ok ? '✓' : '✗';
   console.log(`  ${mark} POST /api/sites/:id${r.suf.padEnd(22)} foreign=${r.f} own=${r.o}${note}`);
 }
@@ -117,11 +123,13 @@ for (const r of rows) {
 const tested = rows.filter((r) => !r.flagOff).length;
 const skipped = rows.filter((r) => r.flagOff).length;
 if (fails.length) {
+  const leaks = fails.filter((r) => r.leak).length;
+  const crashes = fails.filter((r) => r.crash).length;
   console.log(
-    `\nVERDICT: ❌ FAIL — ${fails.length}/${tested} site-scoped compute write(s) run for a non-owned site (cross-org IDOR).`,
+    `\nVERDICT: ❌ FAIL — ${fails.length}/${tested} failed (${leaks} cross-org IDOR · ${crashes} 5xx-on-bad-input).`,
   );
   process.exit(1);
 }
 console.log(
-  `\nVERDICT: ✅ PASS — ${tested}/${ENDPOINTS.length} site-scoped compute writes enforce org-ownership (foreign→404); ${skipped} skipped (flag off).`,
+  `\nVERDICT: ✅ PASS — ${tested}/${ENDPOINTS.length} site-scoped compute writes enforce org-ownership (foreign→404) AND validate input (own never 5xx); ${skipped} skipped (flag off).`,
 );
