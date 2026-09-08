@@ -25,6 +25,11 @@ apps/project-sites/frontend/src/index.html
 glob:apps/project-sites/r2-sync/**/index.html
 glob:apps/project-sites/samples/**/index.html
 
+# Playwright test screenshots (gitignored build output, e.g. funnel/homepage.png) —
+# named for the PAGE they capture, never source homepages. The guard's -iname 'homepage*'
+# pass matches the PNG; this exempts the whole gitignored screenshots tree.
+glob:apps/project-sites/e2e/screenshots/**
+
 # LLM gateway landing — served at llm.projectsites.dev/, NOT a marketing home
 apps/project-sites/src/lib/llm_landing_page.ts
 
