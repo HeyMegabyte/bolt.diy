@@ -77,7 +77,8 @@ const completeBuild = (
   file('.well-known/security.txt', 'Contact: mailto:security@acme.test'),
   file(
     'assets/index-abc.js',
-    overrides.bundleJs ?? 'const x = "data-zoomable"; const y = "data-gallery"; l.id = "ps-theme-fonts";',
+    overrides.bundleJs ??
+      'const x = "data-zoomable"; const y = "data-gallery"; l.id = "ps-theme-fonts";',
   ),
 ];
 
@@ -518,7 +519,9 @@ describe('validateThemeFontLoader', () => {
   });
 
   it('passes when the ps-theme-fonts marker ships (injectThemeFonts present)', () => {
-    const v = validateThemeFontLoader([file('assets/i.js', 'l.id="ps-theme-fonts";l.rel="stylesheet"')]);
+    const v = validateThemeFontLoader([
+      file('assets/i.js', 'l.id="ps-theme-fonts";l.rel="stylesheet"'),
+    ]);
     expect(v).toEqual([]);
   });
 
