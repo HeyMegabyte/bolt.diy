@@ -46,7 +46,7 @@ type LogsTab = 'audit' | 'explorer' | 'traces';
     </div>
 
     @if (tab() === 'audit') {
-      <app-admin-audit />
+      <app-admin-audit [embedded]="true" />
     } @else if (tab() === 'explorer') {
       <app-logs-explorer />
     } @else {

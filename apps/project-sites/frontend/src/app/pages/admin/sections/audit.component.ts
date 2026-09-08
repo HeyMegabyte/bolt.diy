@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal, type OnInit, type OnDestroy } from '@angular/core';
+import { Component, Input, computed, effect, inject, signal, type OnInit, type OnDestroy } from '@angular/core';
 import {
   createAngularTable,
   getCoreRowModel,
@@ -138,7 +138,15 @@ function actionToFallbackMessage(action: string): string {
       <header class="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <div class="kicker">Forensics</div>
-          <h1 class="section-h text-lg font-bold text-white m-0">Audit Log</h1>
+          <!-- Dual-use: standalone /admin/audit this IS the page h1; embedded as the
+               Audit-Trail tab inside /admin/logs (which already renders its own Logs h1)
+               demote to h2 so the page keeps EXACTLY one h1 (WCAG 1.3.1 / single-h1). The
+               admin/logs 2-h1s prod-e2e failure was this. AL-173. -->
+          @if (embedded) {
+            <h2 class="section-h text-lg font-bold text-white m-0">Audit Log</h2>
+          } @else {
+            <h1 class="section-h text-lg font-bold text-white m-0">Audit Log</h1>
+          }
           <p class="text-[0.78rem] text-text-secondary m-0 mt-1">
             Every privileged action — what happened, who did it, when.
             @if (autoRefreshPaused()) { Auto-refresh paused } @else { Auto-refreshing every 15s }
@@ -566,6 +574,14 @@ export class AdminAuditComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
   private toast = inject(ToastService);
   state = inject(AdminStateService);
+
+  /**
+   * When true, this component is embedded as the "Audit Trail" tab inside the Logs
+   * dashboard (which owns the page's <h1>Logs</h1>), so its own heading renders as an
+   * <h2> to keep the page at exactly one h1. Standalone at /admin/audit it stays false
+   * → the heading is the page h1. (AL-173 — fixes the /admin/logs double-h1.)
+   */
+  @Input() embedded = false;
 
   /** The four KPI stat-card headers — shared by the loading skeleton and the
    *  loaded cards so the muted-h labels never swap from a generic "Loading"

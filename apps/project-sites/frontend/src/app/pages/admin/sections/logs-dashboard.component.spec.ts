@@ -8,7 +8,7 @@ import { AdminLogsDashboardComponent } from './logs-dashboard.component';
 // Audit / Log Explorer / AI Traces children (which fan out API calls + load
 // ag-grid on construction). They share the real selectors so the wrapper
 // template resolves to them.
-@Component({ selector: 'app-admin-audit', standalone: true, template: '<div data-testid="stub-audit"></div>' })
+@Component({ selector: 'app-admin-audit', standalone: true, inputs: ['embedded'], template: '<div data-testid="stub-audit"></div>' })
 class StubAuditComponent {}
 @Component({ selector: 'app-logs-explorer', standalone: true, template: '<div data-testid="stub-explorer"></div>' })
 class StubExplorerComponent {}
