@@ -644,6 +644,7 @@ const LOW_BALANCE_CENTS = 500;
       .dp-skel--head { width: 45%; height: 12px; }
       .dp-skel--reason { width: 80%; }
       .dp-skel--pitch { width: 60%; }
+      .dp-loading-hint { margin: 0 0 0.5rem; padding: 0 0.15rem; font-size: 0.72rem; line-height: 1.35; color: var(--ps-text-muted, #9aa0aa); }
       @keyframes dp-shimmer {
         from { background-position: 200% 0; }
         to { background-position: -200% 0; }
@@ -879,6 +880,13 @@ const LOW_BALANCE_CENTS = 500;
               </div>
 
               @if (suggestionsLoading()) {
+                <!-- The cold AI pipeline (candidate-gen → live RDAP availability → reason
+                     enrichment) runs ~15s on first open; the 5-min cache makes repeats
+                     instant. Without this, a real user + screen readers (the skeletons are
+                     aria-hidden) see a silent 15s blank — say what's happening. -->
+                <p class="dp-loading-hint" aria-live="polite">
+                  Generating fresh AI domain ideas — checking live availability. This can take a few seconds.
+                </p>
                 @for (n of skeletonRange; track n) {
                   <div class="dp-row dp-row--reg dp-row--skeleton" aria-hidden="true">
                     <div class="dp-skel dp-skel--head"></div>
