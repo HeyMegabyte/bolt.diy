@@ -154,4 +154,28 @@ describe('SignInComponent', () => {
     );
     expect(f.componentInstance.magicSent()).toBe(true);
   });
+
+  // AL-186: after a github_unavailable redirect the worker 302s the GitHub start right back
+  // here, so a live "Continue with GitHub" CTA would let the user re-click into the same
+  // failure loop. Default = live; unavailable state = a non-clickable, labeled dead control.
+  it('leaves the GitHub CTA live by default (github sign-in available)', () => {
+    const f = make();
+    const gh = f.nativeElement.querySelector('[data-testid="sign-in-github"]') as HTMLAnchorElement;
+    expect(f.componentInstance.githubUnavailable()).toBe(false);
+    expect(gh.getAttribute('href')).toContain('/api/auth/github');
+    expect(gh.getAttribute('aria-disabled')).toBeNull();
+    expect(gh.textContent).toContain('Continue with GitHub');
+  });
+
+  it('disables the GitHub CTA in the github_unavailable state (no re-click into failure)', () => {
+    const f = make();
+    f.componentInstance.githubUnavailable.set(true);
+    f.detectChanges();
+    const gh = f.nativeElement.querySelector('[data-testid="sign-in-github"]') as HTMLAnchorElement;
+    expect(gh.getAttribute('href')).toBeNull(); // not a live link → can't re-navigate to the 302
+    expect(gh.getAttribute('aria-disabled')).toBe('true');
+    expect(gh.getAttribute('tabindex')).toBe('-1');
+    expect(gh.classList).toContain('pointer-events-none');
+    expect(gh.textContent).toContain('temporarily unavailable');
+  });
 });
