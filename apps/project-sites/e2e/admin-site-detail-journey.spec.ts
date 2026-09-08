@@ -64,8 +64,8 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           data: [
-            { id: 'snap-1', ai_name: 'Initial launch version', created_at: '2025-05-01T00:00:00Z', version: 1 },
-            { id: 'snap-2', ai_name: 'Header redesign', created_at: '2025-06-01T00:00:00Z', version: 2 },
+            { id: 'snap-1', snapshot_name: 'v1', build_version: '2025-05-01T00-00-00-000Z', description: 'Initial launch version', created_at: '2025-05-01T00:00:00Z' },
+            { id: 'snap-2', snapshot_name: 'v2', build_version: '2025-06-01T00-00-00-000Z', description: 'Header redesign', created_at: '2025-06-01T00:00:00Z' },
           ],
         }),
       });
@@ -206,8 +206,8 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          snapshots: [
-            { id: 'snap-1', ai_name: 'Initial launch version', created_at: '2025-05-01T00:00:00Z', version: 1 },
+          data: [
+            { id: 'snap-1', snapshot_name: 'v1', build_version: '2025-05-01T00-00-00-000Z', description: 'Initial launch version', created_at: '2025-05-01T00:00:00Z' },
           ],
         }),
       });
@@ -282,12 +282,15 @@ test.describe('Admin — Site Detail (authenticated journey)', () => {
     await expect(snapshotsPanel).toBeVisible({ timeout: 5_000 });
 
     // The stubbed /snapshots response has one row — it must render with the
-    // exact stubbed AI name (fallback data would show something else).
+    // exact stubbed description (fallback data would show something else).
+    // Real API shape is {data:[{snapshot_name, build_version, description, created_at}]}
+    // — the component renders `description` as the label badge (AL-159; the old
+    // `ai_name`/`kind` fields were phantom — no such columns in site_snapshots).
     const snapshotRow = page.locator('[data-testid="snapshot-row"]').first();
     await expect(snapshotRow).toBeVisible({ timeout: 5_000 });
-    const aiName = page.locator('[data-testid="snapshot-ai-name"]').first();
-    await expect(aiName).toBeVisible();
-    await expect(aiName).toHaveText('Initial launch version');
+    const snapDesc = page.locator('[data-testid="snapshot-description"]').first();
+    await expect(snapDesc).toBeVisible();
+    await expect(snapDesc).toHaveText('Initial launch version');
 
     // Switch back to logs — panel state is preserved and the stream re-renders.
     const tabLogs = page.locator('[id="sd-tab-logs"], [data-testid="sd-tab-logs"]');

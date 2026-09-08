@@ -48,8 +48,8 @@ interface LogRow {
 interface SnapshotRow {
   id: string;
   snapshot_name: string;
-  ai_name?: string;
-  kind: 'deploy' | 'edit' | 'initial';
+  build_version: string;
+  description?: string;
   created_at: string;
 }
 
@@ -195,10 +195,10 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
               <li class="snapshot-row" data-testid="snapshot-row">
                 <div class="snapshot-meta">
                   <strong>{{ s.snapshot_name }}</strong>
-                  @if (s.ai_name) {
-                    <span class="ai-name" data-testid="snapshot-ai-name">{{ s.ai_name }}</span>
+                  @if (s.description) {
+                    <span class="ai-name" data-testid="snapshot-description">{{ s.description }}</span>
                   }
-                  <small>{{ s.kind }} · {{ formatTs(s.created_at) }}</small>
+                  <small>{{ formatTs(s.created_at) }} · <span class="snapshot-ver" data-testid="snapshot-build-version">{{ s.build_version }}</span></small>
                 </div>
                 <button
                   type="button"
@@ -400,6 +400,7 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
     .snapshot-row { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: rgba(255,255,255,0.04); border-radius: 8px; }
     .snapshot-meta { display: flex; flex-direction: column; gap: 0.15rem; }
     .ai-name { color: var(--ps-accent, #00e5ff); font-size: 0.85rem; }
+    .snapshot-ver { font-family: var(--ps-font-mono, ui-monospace, 'JetBrains Mono', monospace); opacity: 0.75; }
     .rollback-btn { padding: 0.4rem 0.9rem; background: transparent; border: 1px solid var(--ps-accent, #00e5ff); color: var(--ps-accent, #00e5ff); border-radius: 6px; cursor: pointer; }
     .rollback-btn:hover { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent); }
     /* .sql-editor removed — now Spartan hlmInput [multiline] (font-mono resize-y). */
