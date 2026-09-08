@@ -59,9 +59,9 @@ coverage matrix).
 - [ ] **C.7 Beat-the-source** — denser / faster / more-accessible than the original (competitor floor ≥15% per `competitor-research`)
 
 ## § D — Platform marketing / SEO (projectsites.dev's OWN public face) · OWNER: GENERATED-SITE QUALITY (extends)
-- [ ] **D.1 Homepage `/`** — SEO/CWV/a11y/JSON-LD, 0 console errors
-- [ ] **D.2 Public routes** — blog · changelog · status · privacy · terms render + SEO
-- [ ] **D.3 404** — real 404 status + branded page (no soft-404)
+- [ ] **D.1 Homepage `/`** — SEO/CWV/a11y/JSON-LD, 0 console errors. *(PARTIAL — verified on prod AL-197: exactly-1 H1 "Tell us your business. We'll build your website.", **0 console errors**, 47KB client-rendered, nav present; server-injected title + distinct meta-description + canonical `https://projectsites.dev/` + 12 OG tags + 5 JSON-LD blocks. REMAINING: CWV/Lighthouse (LCP/CLS/INP) not yet measured — a §C.2-adjacent perf-trace task.)*
+- [x] **D.2 Public routes** — blog · changelog · status · privacy · terms render + SEO. ✅ VERIFIED on prod (AL-197): `/blog /changelog /status /privacy /terms` (+`/contact`) all HTTP **200** with DISTINCT SEO titles + distinct meta-descriptions + per-route `<link rel=canonical>` + 12 OG tags + 5 JSON-LD blocks each (server-injected via the Worker HTMLRewriter). *(admin-integrity loop, completion-map convergence)*
+- [x] **D.3 404** — real 404 status + branded page (no soft-404). ✅ VERIFIED on prod (AL-197): a bogus path (`/this-does-not-exist-xyz-123`) returns HTTP **404** (not a soft-404 200) while every real route returns 200; the branded 404 renders via the SPA shell per the soft-404 doctrine (real 404 status + shell → the styled 404 route). *(completion-map convergence)*
 
 ## § E — Editor (bolt.diy) · OWNER: COMPLETENESS + FULL JOURNEY
 - [x] **E.1 Functions + Data workbench tabs** — real, connected (AL-004/018/038/060)
