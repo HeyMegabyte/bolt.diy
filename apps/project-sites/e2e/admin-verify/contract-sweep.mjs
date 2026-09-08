@@ -130,21 +130,37 @@ try {
     const fails = [];
     try {
       await page.goto(BASE + url, { waitUntil: 'domcontentloaded', timeout: 45000 });
-      await page.waitForTimeout(5500);
-      const info = await page.evaluate((shell) => {
-        const body = document.body.innerText || '';
-        const main = document.querySelector('main')?.innerText || body;
-        return {
-          path: location.pathname,
-          mainLen: main.trim().length,
-          text: main.slice(0, 4000),
-          h1: (document.querySelector('h1')?.innerText || '').slice(0, 80),
-          rows: document.querySelectorAll('table tbody tr, [role="row"]').length,
-          // Advisory: is the contract's shell testid present? Reported, never fails
-          // the gate yet (testids start soft, promote to hard once wired everywhere).
-          shellPresent: shell ? !!document.querySelector(`[data-testid="${shell}"]`) : null,
-        };
-      }, s.shell);
+      // Wait for the SPA shell to mount, then a base settle for the section to paint.
+      await page.locator('app-admin, main').first().waitFor({ timeout: 30000 }).catch(() => {});
+      await page.waitForTimeout(3000);
+      const capture = () =>
+        page.evaluate((shell) => {
+          const body = document.body.innerText || '';
+          const main = document.querySelector('main')?.innerText || body;
+          return {
+            path: location.pathname,
+            mainLen: main.trim().length,
+            text: main.slice(0, 4000),
+            h1: (document.querySelector('h1')?.innerText || '').slice(0, 80),
+            rows: document.querySelectorAll('table tbody tr, [role="row"]').length,
+            // Advisory: is the contract's shell testid present? Reported, never fails
+            // the gate yet (testids start soft, promote to hard once wired everywhere).
+            shellPresent: shell ? !!document.querySelector(`[data-testid="${shell}"]`) : null,
+          };
+        }, s.shell);
+      let info = await capture();
+      // Async-heavy sections (e.g. /admin/docs fetches + renders 51 OpenAPI endpoints) can
+      // still be mid-render after the base settle. Poll (max ~8s more) until the section
+      // clears its OWN bar — mainLen >= minLen AND, if a real-data signal is required, it's
+      // present — so a slow async render never reads as a false thin/no-signal failure. A
+      // genuinely-broken section never clears → still fails, just ~8s later. (Fix: /admin/docs
+      // false-red at mainLen=510 while a real browser showed 6569 + full signal — AL-178.)
+      const signalRe = s.signal ? new RegExp(s.signal, 'i') : null;
+      const cleared = (i) => i.mainLen >= s.minLen && (!signalRe || signalRe.test(i.text));
+      for (let n = 0; n < 5 && !cleared(info); n++) {
+        await page.waitForTimeout(1600);
+        info = await capture();
+      }
       const flagDark = !!s.flag && (GATE_COPY.test(info.text) || info.mainLen < s.minLen);
 
       // 3. NOT-CRASHED
