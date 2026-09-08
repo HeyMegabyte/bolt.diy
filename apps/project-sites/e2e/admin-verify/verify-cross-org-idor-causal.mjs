@@ -72,7 +72,20 @@ if (!FOREIGN || !OWN) {
 }
 
 // Every /api/sites/:id/* READ endpoint that must be gated by requireOwnedSite().
-const SUFFIXES = ['', '/workflow', '/logs', '/analytics', '/forms', '/snapshots', '/readiness', '/hostnames'];
+// A foreign org id MUST 404 on every one of these; own MUST NOT 404 (positive control).
+// Candidate suffixes whose OWN response 404s (flag-gated-off / param-requiring for the
+// test org) are pruned at author time — they're vacuous IDOR targets, not code bugs.
+const SUFFIXES = [
+  '', '/workflow', '/logs', '/analytics', '/forms', '/snapshots', '/readiness', '/hostnames',
+  // Expanded 2026-09-08 (AL-176) — the org-scoped GET reads the original 8 missed. Several
+  // carry sensitive data, so an ungated one is a cross-org leak the probe couldn't see. This
+  // expansion CAUGHT 3 live IDOR leaks (/annotations, /dashboard, /sparkline: foreign→200)
+  // now fixed with assertSiteOwned() in src/index.ts.
+  '/webhooks', '/integrations', '/integration-providers', '/branches', '/deliverability',
+  '/annotations', '/dashboard', '/sparkline',
+  // Pruned (not valid IDOR targets for the free test org — own also blocked, so vacuous):
+  //   /history + /review-links → own 404 (flag-gated-off), /experiments → 402 (entitlement-gated).
+];
 const H = { authorization: `Bearer ${KEY}`, 'user-agent': UA, Origin: 'https://projectsites.dev' };
 
 async function code(id, suf) {

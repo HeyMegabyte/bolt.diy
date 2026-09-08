@@ -599,6 +599,9 @@ app.get('/api/sites/:siteId/dashboard', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
   if (!(await isFlagOn(c.env, 'marketing_dashboard', { orgId: orgId, siteId: siteId })))
     return c.notFound();
+  // IDOR guard: a foreign org id 404s (never leak another org's site). AL-176.
+  const { assertSiteOwned } = await import('./services/site_ownership.js');
+  if (!(await assertSiteOwned(c.env, orgId, siteId))) return c.notFound();
   const d = defaultDashboard(siteId);
   const filter = c.req.query('sources');
   return c.json({ data: filter ? filterBySource(d, filter.split(',') as any) : d });
@@ -608,6 +611,9 @@ app.post('/api/sites/:siteId/dashboard/metric', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
   if (!(await isFlagOn(c.env, 'marketing_dashboard', { orgId: c.get('orgId'), siteId: siteId })))
     return c.notFound();
+  // IDOR guard: a foreign org id 404s (never write to another org's site). AL-176.
+  const { assertSiteOwned } = await import('./services/site_ownership.js');
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({
     data: buildMetric(body.label, body.current, body.previous, body.source || 'website'),
@@ -677,6 +683,9 @@ app.get('/api/system/status', async (c) => {
 app.get('/api/sites/:siteId/annotations', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
   if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! }))) return c.notFound();
+  // IDOR guard: a foreign org id 404s (never leak another org's annotations). AL-176.
+  const { assertSiteOwned } = await import('./services/site_ownership.js');
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), c.req.param('siteId')))) return c.notFound();
   const { handleListAnnotations } =
     await import('../libs/features/analytics_annotations/handlers.js');
   return handleListAnnotations(c);
@@ -684,6 +693,9 @@ app.get('/api/sites/:siteId/annotations', async (c) => {
 app.post('/api/sites/:siteId/annotations', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
   if (!(await isFlagOn(c.env, 'activity_feed', { orgId: c.get('orgId')! }))) return c.notFound();
+  // IDOR guard: a foreign org id 404s (never write to another org's site). AL-176.
+  const { assertSiteOwned } = await import('./services/site_ownership.js');
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), c.req.param('siteId')))) return c.notFound();
   const { handleCreateAnnotation } =
     await import('../libs/features/analytics_annotations/handlers.js');
   return handleCreateAnnotation(c);
@@ -708,6 +720,9 @@ app.post('/api/cmdk', async (c) => {
 app.get('/api/sites/:siteId/sparkline', async (c) => {
   const { isFlagOn } = await import('./modules/feature_flags/services.js');
   if (!(await isFlagOn(c.env, 'site_doctor', { orgId: c.get('orgId')! }))) return c.notFound();
+  // IDOR guard: a foreign org id 404s (never leak another org's traffic sparkline). AL-176.
+  const { assertSiteOwned } = await import('./services/site_ownership.js');
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), c.req.param('siteId')))) return c.notFound();
   const { handleSparkline } = await import('../libs/features/site_health_sparklines/handlers.js');
   return handleSparkline(c);
 });
