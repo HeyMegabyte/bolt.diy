@@ -13,7 +13,7 @@
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36';
 const H = { 'User-Agent': UA, Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'en-US,en;q=0.9', 'Sec-Fetch-Site': 'none', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Dest': 'document', 'Upgrade-Insecure-Requests': '1' };
 const SITES = (process.env.SITES || 'vanta-strength-austin,ironhaus-houston').split(',');
-const REQUIRED = ['robots.txt', 'sitemap.xml', 'site.webmanifest', 'favicon.ico', 'humans.txt', '.well-known/security.txt', 'apple-touch-icon.png'];
+const REQUIRED = ['robots.txt', 'llms.txt', 'sitemap.xml', 'site.webmanifest', 'favicon.ico', 'humans.txt', '.well-known/security.txt', 'apple-touch-icon.png'];
 const BANNED = /\b(limitless|revolutioniz|cutting-edge|world-class|leverage|best-in-class|game-chang|paradigm|synergy|unparalleled|seamless(ly)?|unlock your)\b/i;
 
 async function get(url) {

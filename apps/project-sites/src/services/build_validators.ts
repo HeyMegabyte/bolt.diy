@@ -842,6 +842,11 @@ export const validateRequiredFiles = (files: BuildFile[]): Violation[] => {
   const required = [
     'site.webmanifest',
     'robots.txt',
+    // llms.txt — the AI-search/GEO crawler directive (skill-16 §5 mandates it alongside
+    // robots/security.txt). The template ships it + deployed sites serve it (200), but it
+    // was NOT enforced here — a template regression dropping it would silently de-list the
+    // site from AI crawlers. Now a build-breaking invariant like the other well-known files. (C.4)
+    'llms.txt',
     'humans.txt',
     'sitemap.xml',
     'browserconfig.xml',

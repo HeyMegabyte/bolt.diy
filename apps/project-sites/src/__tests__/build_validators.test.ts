@@ -65,6 +65,7 @@ const completeBuild = (
   file('favicon-32x32.png', undefined, 800),
   file('site.webmanifest', '{}'),
   file('robots.txt', 'User-agent: *'),
+  file('llms.txt', '# Acme\n> AI-search directive'),
   file('humans.txt', 'Team: Acme'),
   file(
     'sitemap.xml',
@@ -514,6 +515,18 @@ describe('validateRequiredFiles', () => {
     const v = validateRequiredFiles([file('index.html', '')]);
     expect(v.length).toBeGreaterThan(5);
     expect(v[0].code).toBe('manifest.required_file_missing');
+  });
+
+  // C.4 regression: llms.txt (the AI-search/GEO crawler directive, skill-16 §5) is a
+  // build-breaking required file — a template regression dropping it must fail the build,
+  // not silently de-list the site from AI crawlers.
+  it('requires llms.txt (present in the full set → not flagged; absent → flagged)', () => {
+    const full = validateRequiredFiles(completeBuild());
+    expect(full.some((v) => v.message.includes('llms.txt'))).toBe(false);
+
+    const withoutLlms = completeBuild().filter((f) => f.path !== 'llms.txt');
+    const v = validateRequiredFiles(withoutLlms);
+    expect(v.some((x) => x.message === 'Required file missing: llms.txt')).toBe(true);
   });
 });
 
