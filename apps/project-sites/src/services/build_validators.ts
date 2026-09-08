@@ -837,6 +837,39 @@ export const validateLightboxPresence = (files: BuildFile[]): Violation[] => {
   return out;
 };
 
+/**
+ * Theme-font loader presence — the JS bundle MUST contain the `ps-theme-fonts`
+ * marker, i.e. the template's `injectThemeFonts()` (called from `applyBrand`,
+ * template commit 58b4fa4) ships.
+ *
+ * Root-cause guard (2026-09-08): `applyBrand` sets `--font-heading: 'Playfair
+ * Display', …` but `index.html` hardcodes ONLY the default trio (Inter / Space
+ * Grotesk / JetBrains). Without the runtime font-loader, every themed site NAMES
+ * its theme font yet loads no file → headings silently fall back to system-ui —
+ * the #1 theme signal, dead. A real-browser probe of 4 live sites (lumen-oak,
+ * aurelia, ironhaus, emberline) confirmed the regression: h1 computed
+ * `"Playfair Display", system-ui` but only the default trio was loaded.
+ * `injectThemeFonts` adds a `<link id="ps-theme-fonts">` for the ACTIVE brand
+ * fonts (real-browser verified: Playfair + Lato `document.fonts.check === true`).
+ * This mirrors {@link validateLightboxPresence}: a static bundle-grep that fails
+ * the build if the template drops the injector, so the theme's typography can
+ * never go dark again. `ps-theme-fonts` is a string literal → survives minification.
+ */
+export const validateThemeFontLoader = (files: BuildFile[]): Violation[] => {
+  const jsFiles = files.filter((f) => f.path.toLowerCase().endsWith('.js') && f.text);
+  if (!jsFiles.length) return [];
+  const haystack = jsFiles.map((f) => f.text || '').join('\n');
+  if (haystack.includes('ps-theme-fonts')) return [];
+  return [
+    {
+      code: 'theme.font_loader_missing',
+      severity: 'error',
+      message:
+        'No ps-theme-fonts string in JS bundle — the theme-font loader (injectThemeFonts) is not shipping, so themed headings will fall back to system-ui.',
+    },
+  ];
+};
+
 /** Required well-known files — the PWA/SEO/crawler baseline every site must ship. */
 export const validateRequiredFiles = (files: BuildFile[]): Violation[] => {
   const required = [
@@ -966,6 +999,7 @@ export const validateBuild = (
     ...validateBrandNameMatch(files, opts.expectedBusinessName),
     ...validateJsBundleSize(files),
     ...validateLightboxPresence(files),
+    ...validateThemeFontLoader(files),
     ...validateNoClientSecrets(files),
     ...validateContactPath(files),
     ...validateImageWeightBudget(files),

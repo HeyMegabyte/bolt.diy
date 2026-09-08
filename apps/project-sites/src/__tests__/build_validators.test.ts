@@ -15,6 +15,7 @@ import {
   validateBannedWords,
   validateJsBundleSize,
   validateLightboxPresence,
+  validateThemeFontLoader,
   validateRequiredFiles,
   validateRouteCount,
   validateContactPath,
@@ -76,7 +77,7 @@ const completeBuild = (
   file('.well-known/security.txt', 'Contact: mailto:security@acme.test'),
   file(
     'assets/index-abc.js',
-    overrides.bundleJs ?? 'const x = "data-zoomable"; const y = "data-gallery";',
+    overrides.bundleJs ?? 'const x = "data-zoomable"; const y = "data-gallery"; l.id = "ps-theme-fonts";',
   ),
 ];
 
@@ -507,6 +508,22 @@ describe('validateLightboxPresence', () => {
   it('passes when both markers present', () => {
     const v = validateLightboxPresence([file('assets/i.js', '"data-zoomable" + "data-gallery"')]);
     expect(v).toEqual([]);
+  });
+});
+
+describe('validateThemeFontLoader', () => {
+  it('flags a bundle missing the theme-font loader (headings would fall back to system-ui)', () => {
+    const v = validateThemeFontLoader([file('assets/i.js', 'const x = "applyBrand";')]);
+    expect(v.map((x) => x.code)).toEqual(['theme.font_loader_missing']);
+  });
+
+  it('passes when the ps-theme-fonts marker ships (injectThemeFonts present)', () => {
+    const v = validateThemeFontLoader([file('assets/i.js', 'l.id="ps-theme-fonts";l.rel="stylesheet"')]);
+    expect(v).toEqual([]);
+  });
+
+  it('is a no-op when there are no JS files to inspect', () => {
+    expect(validateThemeFontLoader([file('index.html', '<h1>x</h1>')])).toEqual([]);
   });
 });
 
