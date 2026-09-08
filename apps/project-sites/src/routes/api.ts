@@ -729,7 +729,21 @@ api.get('/api/auth/google/callback', async (c) => {
  */
 api.get('/api/auth/github', async (c) => {
   const redirectUrl = c.req.query('redirect_url');
-  const result = await authService.createGitHubOAuthState(c.env.DB, c.env, redirectUrl);
+  let result: { authUrl: string; state: string };
+  try {
+    result = await authService.createGitHubOAuthState(c.env.DB, c.env, redirectUrl);
+  } catch (err) {
+    // A PUBLIC OAuth-start endpoint must NEVER 500 — a prospect at the auth boundary hitting a
+    // raw error page is a broken funnel. GitHub sign-in start currently throws because the
+    // `oauth_states.provider` CHECK only admits 'google' (schema drift — migration 0001; the
+    // 'github' state INSERT violates it → dbInsert error → raw Error → 500). Degrade to a clean
+    // redirect back to /signin with a flagged error (the signin page toasts it) instead of a
+    // 500. Enabling GitHub for real = widening that CHECK (an approval-gated table rebuild). AL-185.
+    console.warn(
+      JSON.stringify({ level: 'warn', msg: 'github_oauth_start_failed', err: String(err).slice(0, 200) }),
+    );
+    return c.redirect('/signin?auth_error=github_unavailable');
+  }
 
   auditService
     .writeAuditLog(c.env.DB, {

@@ -80,6 +80,15 @@ try {
   const cb = await req('/api/auth/google/callback', { redirect: 'manual' });
   check('Google callback (no params) → graceful (no 500)', cb.status >= 300 && cb.status < 500, `status=${cb.status}`);
 
+  // 6b. GitHub OAuth initiation — a PUBLIC auth-start must degrade, never 500. GitHub sign-in
+  //     start is currently blocked by the oauth_states provider CHECK (admits only 'github'; the
+  //     state INSERT violated it → raw Error → 500). The handler now catches that and 302s to
+  //     /signin?auth_error=github_unavailable instead. Assert graceful (3xx/4xx, never 5xx) — holds
+  //     now AND once the CHECK is widened to fully enable GitHub (then it 302s to github.com). AL-185.
+  const gh = await req('/api/auth/github', { redirect: 'manual' });
+  const ghLoc = gh.headers.get('location') || '';
+  check('GitHub OAuth init → graceful (no 500)', gh.status >= 300 && gh.status < 500, `status=${gh.status} loc=${ghLoc.slice(0, 60)}`);
+
   // 7. /api/auth/me with no session → clean 401 (not 500, not a false 200).
   const me = await req('/api/auth/me');
   check('me unauthenticated → 401 (clean)', me.status === 401, `status=${me.status}`);
