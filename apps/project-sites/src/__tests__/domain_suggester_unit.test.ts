@@ -517,11 +517,9 @@ describe('suggestDomains — Workers AI parsed-object response (AL-167 root caus
     mockGather.mockResolvedValue(makeCtx());
     // Both AI calls return `.response` as an object (the json_object-mode shape that
     // broke prod), NOT a stringified JSON — the pre-fix string-only parser threw.
-    aiRun
-      .mockResolvedValueOnce({ response: { domains: ['objshape.com'] } })
-      .mockResolvedValueOnce({
-        response: { rows: [{ domain: 'objshape.com', reason: 'Clean brand.', pitch: 'Claim it.' }] },
-      });
+    aiRun.mockResolvedValueOnce({ response: { domains: ['objshape.com'] } }).mockResolvedValueOnce({
+      response: { rows: [{ domain: 'objshape.com', reason: 'Clean brand.', pitch: 'Claim it.' }] },
+    });
     mockCheckBatch.mockResolvedValue([rdap('objshape.com', true)]);
 
     const out = await suggestDomains(makeEnv(), { siteId: 'site-unit', count: 1 });
