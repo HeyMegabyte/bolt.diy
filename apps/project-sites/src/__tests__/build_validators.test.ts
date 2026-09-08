@@ -13,6 +13,7 @@ import {
   validateSitemapLastmod,
   validateSitemapRoutesExist,
   validateBannedWords,
+  validateHeroNotPackDefault,
   validateJsBundleSize,
   validateLightboxPresence,
   validateThemeFontLoader,
@@ -324,6 +325,28 @@ describe('validateH1InShell', () => {
       '<!DOCTYPE html><html><head><title>x</title></head><body><h1>real</h1><script>const s = "<h1>fake</h1>"</script></body></html>',
     );
     expect(validateH1InShell([f])).toEqual([]);
+  });
+});
+
+describe('validateHeroNotPackDefault', () => {
+  const shell = (h1: string): string =>
+    `<!DOCTYPE html><html><head><title>x</title></head><body><h1>${h1}</h1></body></html>`;
+
+  it('flags an <h1> that is the un-customized industry content-pack default (warn)', () => {
+    const f = file('index.html', shell('Fresh flavors, made from scratch'));
+    const v = validateHeroNotPackDefault([f]);
+    expect(v[0].code).toBe('copy.generic_pack_hero');
+    expect(v[0].severity).toBe('warn');
+  });
+
+  it('matches case/whitespace-insensitively (still the generic default)', () => {
+    const f = file('index.html', shell('  GET STRONGER,   one session  at a time '));
+    expect(validateHeroNotPackDefault([f])[0].code).toBe('copy.generic_pack_hero');
+  });
+
+  it('passes a business-specific hero (the customized happy path)', () => {
+    const f = file('index.html', shell('Harborline: small-batch harbor roasts, roasted daily in Boston'));
+    expect(validateHeroNotPackDefault([f])).toEqual([]);
   });
 });
 

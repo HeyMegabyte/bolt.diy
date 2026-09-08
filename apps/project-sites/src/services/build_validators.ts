@@ -673,6 +673,60 @@ export const validateSitemapRoutesExist = (files: BuildFile[]): Violation[] => {
   return out;
 };
 
+/**
+ * Per-industry content-pack DEFAULT hero headlines — source of truth is the template's
+ * `scripts/gen-content-packs.mjs` (`hero[0]` of each vertical). A generated site whose <h1>
+ * is one of these VERBATIM shipped the un-customized industry default, so the #1 conversion
+ * element is generic + COLLIDES across same-industry sites (reproduced live: a coffee roaster
+ * AND a cocktail lounge both "Fresh flavors, made from scratch"; two gyms both "Get stronger…").
+ * Heroes change rarely; if the template edits one, update here (drift is a `warn`, not a break).
+ * Ref: memory `generated-site-hero-h1-is-industry-pack-default`. AL-193.
+ */
+const PACK_DEFAULT_HEROES = [
+  'Trusted primary care for every age',
+  'Gentle dental care for your whole family',
+  'Move, breathe, and feel restored',
+  'Get stronger, one session at a time',
+  'Trusted counsel when it matters most',
+  'Fresh flavors, made from scratch',
+  'Reliable service, done right the first time',
+  'Together, we can do more',
+  'Gear built for how you live',
+  'Ship faster with less busywork',
+  'Find the home that fits your life',
+  'Ideas that move the needle',
+  'Work I am proud to share',
+];
+
+/**
+ * Generic-hero detector — the rendered <h1> must be the REAL business's value proposition, not
+ * the per-industry content-pack DEFAULT shipped un-customized. `warn` (advisory) so it TRACKS
+ * the class to the D1 audit without breaking builds; the real fix lives in site-gen (apply the AI
+ * `hero_headline` from `openai_research.ts`, or derive a business-specific hero on the fallback
+ * path), after which this goes silent. Complements {@link validateH1InShell} (count) with H1
+ * QUALITY. Ref: memory `generated-site-hero-h1-is-industry-pack-default`. AL-193.
+ */
+export const validateHeroNotPackDefault = (files: BuildFile[]): Violation[] => {
+  const out: Violation[] = [];
+  const norm = (s: string): string => s.replace(/\s+/g, ' ').trim().toLowerCase();
+  const defaults = new Set(PACK_DEFAULT_HEROES.map(norm));
+  for (const file of files) {
+    if (!isHtml(file.path) || !file.text) continue;
+    const m = stripScripts(file.text).match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+    if (!m) continue;
+    const raw = m[1].replace(/<[^>]+>/g, '').trim();
+    if (defaults.has(norm(raw))) {
+      out.push({
+        code: 'copy.generic_pack_hero',
+        severity: 'warn',
+        message: `Hero <h1> "${raw}" is the un-customized industry content-pack default — the #1 conversion element is generic/colliding copy, not this business's real value. Apply the AI hero_headline / derive a business-specific hero.`,
+        file: file.path,
+      });
+    }
+  }
+  return out;
+};
+
 /** Banned slop words anywhere in HTML body text — enforces concrete copy over AI filler. */
 export const validateBannedWords = (files: BuildFile[]): Violation[] => {
   const out: Violation[] = [];
@@ -995,6 +1049,7 @@ export const validateBuild = (
     ...validateSitemapLastmod(files),
     ...validateSitemapRoutesExist(files),
     ...validateBannedWords(files),
+    ...validateHeroNotPackDefault(files),
     ...validateNoBrandPlaceholders(files),
     ...validateBrandNameMatch(files, opts.expectedBusinessName),
     ...validateJsBundleSize(files),
