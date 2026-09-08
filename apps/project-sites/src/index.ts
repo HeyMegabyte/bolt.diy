@@ -628,6 +628,9 @@ app.post('/api/sites/:siteId/social/proposals', async (c) => {
     !(await isFlagOn(c.env, 'social_publishing_native', { orgId: c.get('orgId'), siteId: siteId }))
   )
     return c.notFound();
+  // IDOR guard: a foreign org id 404s (never run site-scoped compute for a site you don't own). AL-177.
+  const { assertSiteOwned } = await import('./services/site_ownership.js');
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({
     data: generateProposals(body.business, body.sellingPoint, body.accounts || [], body.count || 5),
@@ -640,6 +643,9 @@ app.post('/api/sites/:siteId/social/engagement', async (c) => {
     !(await isFlagOn(c.env, 'social_publishing_native', { orgId: c.get('orgId'), siteId: siteId }))
   )
     return c.notFound();
+  // IDOR guard: a foreign org id 404s (never run site-scoped compute for a site you don't own). AL-177.
+  const { assertSiteOwned } = await import('./services/site_ownership.js');
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), siteId))) return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: scoreEngagement(body.account, body.metrics) });
 });
@@ -653,6 +659,9 @@ app.post('/api/sites/:siteId/automation/validate', async (c) => {
     }))
   )
     return c.notFound();
+  // IDOR guard: a foreign org id 404s (never run site-scoped compute for a site you don't own). AL-177.
+  const { assertSiteOwned } = await import('./services/site_ownership.js');
+  if (!(await assertSiteOwned(c.env, c.get('orgId'), c.req.param('siteId')))) return c.notFound();
   const body = await c.req.json().catch(() => ({}));
   return c.json({ data: validateJourney(body) });
 });
