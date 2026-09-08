@@ -45,6 +45,15 @@ import { getTrafficSummary } from '../visitor_events_core/service.js';
 
 type AppContext = { Bindings: Env; Variables: Variables };
 
+/**
+ * True when a CF-zone-analytics failure is EXPECTED + PERMANENT (the API token lacks
+ * `zone.analytics.read`, or the host is a `*.projectsites.dev` subdomain with no CF-zone
+ * dataset). Such failures are the DESIGNED GA4→CF-zone→D1 fallback path — logged at `info`,
+ * not `warn`, so the per-load fallback doesn't drown real warnings (AL-170).
+ */
+export const isExpectedZoneAnalyticsFallback = (errorMessage: string): boolean =>
+  /permission|authenticat|unauthor|forbidden|\b403\b|zone\.analytics/i.test(errorMessage);
+
 export const analytics = new Hono<AppContext>();
 
 /* ────────────────────────── ai_admin local scaffolding (verbatim) ────────────────────────── */
@@ -312,13 +321,22 @@ analytics.get('/api/analytics/:siteId', async (c) => {
         },
       });
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // A permission/authz failure here is EXPECTED + PERMANENT — the CF API token lacks
+      // `zone.analytics.read`, and `*.projectsites.dev` subdomains have no CF-zone dataset
+      // anyway — so the D1 first-party fallback below is the DESIGNED path, not an incident.
+      // Logging it at `warn` on EVERY load was alert-fatigue noise that buries real warnings
+      // (graceful-degradation-hides-outages). Classify: expected authz/config → `info` (a
+      // normal fallback transition); an unexpected error (network/timeout/schema) stays `warn`.
+      const expected = isExpectedZoneAnalyticsFallback(msg);
       console.warn(
         JSON.stringify({
-          level: 'warn',
+          level: expected ? 'info' : 'warn',
           service: 'api',
           route: 'GET /api/analytics/:siteId',
           fallback: 'cloudflare_zone_analytics',
-          error: err instanceof Error ? err.message : String(err),
+          expected,
+          error: msg,
           request_id: requestId,
         }),
       );
