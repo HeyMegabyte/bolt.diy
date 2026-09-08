@@ -645,8 +645,16 @@ function truncate(s: string, n: number): string {
  * non-JSON tokens. Falls back to substring extraction between the first `{`
  * and the last `}`.
  */
-function safeJsonParse<T>(raw: string): T | null {
+function safeJsonParse<T>(raw: unknown): T | null {
   if (!raw) return null;
+  // Workers AI with `response_format: { type: 'json_object' }` returns `.response`
+  // as an ALREADY-PARSED object, not a JSON string. The old string-only body ran
+  // `raw.indexOf('{')` on that object → `TypeError: raw.indexOf is not a function`,
+  // which propagated to every AI-call catch → `return []` → an EMPTY domain picker
+  // for every site (the REAL root cause behind AL-167; the persona was a red herring).
+  // Accept a parsed object directly; only string-parse actual strings.
+  if (typeof raw === 'object') return raw as T;
+  if (typeof raw !== 'string') return null;
   try {
     return JSON.parse(raw) as T;
   } catch {

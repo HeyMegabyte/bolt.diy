@@ -502,3 +502,29 @@ describe('suggestDomains — candidate-gen system prompt (AL-167 regression)', (
     expect(systemText).toContain('{"domains"');
   });
 });
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Workers AI object-response — AL-167 ROOT-CAUSE regression
+// `env.AI.run(..., { response_format: { type: 'json_object' } })` returns `.response`
+// as an ALREADY-PARSED object, not a JSON string. safeJsonParse ran `raw.indexOf('{')`
+// on that object → `TypeError: raw.indexOf is not a function` → propagated to every
+// AI-call catch → `return []` → an EMPTY domain picker for every site on prod. The
+// parser must accept a parsed object directly.
+// ──────────────────────────────────────────────────────────────────────────────
+
+describe('suggestDomains — Workers AI parsed-object response (AL-167 root cause)', () => {
+  it('handles res.response delivered as an OBJECT (not a JSON string)', async () => {
+    mockGather.mockResolvedValue(makeCtx());
+    // Both AI calls return `.response` as an object (the json_object-mode shape that
+    // broke prod), NOT a stringified JSON — the pre-fix string-only parser threw.
+    aiRun
+      .mockResolvedValueOnce({ response: { domains: ['objshape.com'] } })
+      .mockResolvedValueOnce({
+        response: { rows: [{ domain: 'objshape.com', reason: 'Clean brand.', pitch: 'Claim it.' }] },
+      });
+    mockCheckBatch.mockResolvedValue([rdap('objshape.com', true)]);
+
+    const out = await suggestDomains(makeEnv(), { siteId: 'site-unit', count: 1 });
+    expect(out.map((s) => s.domain)).toEqual(['objshape.com']);
+  });
+});
