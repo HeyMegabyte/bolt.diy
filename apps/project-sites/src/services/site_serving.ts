@@ -1541,6 +1541,14 @@ async function buildSiteResponse(
   if (htmlStatus !== 200) {
     headers.set('X-Robots-Tag', 'noindex, nofollow');
     headers.set('Cache-Control', 'no-cache, no-store');
+  } else if (/\/assets\/[^/]+-[A-Za-z0-9_-]{8,}\.(?:js|css)$/.test(requestPath)) {
+    // Content-hashed Vite bundles (`/assets/<name>-<hash>.js|css`) are IMMUTABLE —
+    // the hash IS the cache key, so a new build ships a brand-new URL and can never
+    // serve a stale asset. Long-cache them so repeat visits skip the network entirely
+    // (§C.2 CWV: Lighthouse "uses efficient cache policy" + faster warm-load render).
+    // HTML stays at the default max-age=300 below so a fresh build is still picked up
+    // promptly; only the fingerprinted JS/CSS get the year-long immutable cache.
+    headers.set('Cache-Control', 'public, max-age=31536000, immutable');
   }
 
   // For HTML responses, inject tracking snippets and top bar
