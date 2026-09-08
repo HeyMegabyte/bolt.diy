@@ -1,0 +1,109 @@
+// verify-hero-backdrop.mjs — COMPLETION § C.7 (beat-the-source): does the DEPLOYED
+// generated site actually render its per-industry animated WebGL hero backdrop?
+//
+// WHY THIS PROBE EXISTS: the template's WebGLHeroBackdrop (per-industry aurora/waves/mesh,
+// brand-hue-tinted, LCP-safe, reduced-motion + no-WebGL static fallback) was gated behind
+// an OPTIONAL `webglBackdrop` prop the generation pipeline never passed — so the gorgeous
+// animated hero shipped on ZERO delivered sites (built-but-completely-unwired). The fix
+// (template 2430636) auto-derives the variant from `brand.themeStyle`, defaulting ON. This
+// probe is the DEPLOYED-ARTIFACT regression guard for that wiring — the template unit test
+// (HeroVariants.test.tsx) guards the source; this guards the live R2 shell after a build.
+//
+// PROOF: the ONLY <canvas> source in the template hero is WebGLHeroBackdrop. It mounts a
+// canvas in BOTH modes — the visible scene under WebGL, an invisible probe canvas under the
+// reduced-motion / no-WebGL static fallback — so "a <canvas> lives inside the hero <section>
+// after hydration" == "the backdrop is wired + mounted". A headless Chromium has WebGL
+// (swiftshader), so it exercises the live path. Fixes are ROOT-CAUSE in the TEMPLATE
+// (github.com/HeyMegabyte/template.projectsites.dev), NEVER a one-off patch to one site.
+//
+// NOTE ON TARGETING: audits sites built AFTER template 2430636. A FAIL on a site built with
+// the older template means "rebuild it to pick up the wired template", not a template bug —
+// hence the default targets the freshly-rebuilt harborline; the corpus turns green as sites
+// rebuild. Override with SITES=… once more sites are rebuilt.
+//
+// Usage:
+//   node e2e/site-quality/verify-hero-backdrop.mjs
+//   SITES=harborline-coffee-roasters-boston node e2e/site-quality/verify-hero-backdrop.mjs
+import { chromium } from 'playwright';
+
+const UA =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36';
+const SITES = (process.env.SITES || 'harborline-coffee-roasters-boston')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+const VIEWPORT = { width: Number(process.env.VIEWPORT) || 1280, height: 900 };
+const HYDRATE_MS = 7000; // the backdrop mounts in a post-hydration useEffect — give it time
+
+let fails = 0;
+const rows = [];
+
+const browser = await chromium.launch({ headless: true });
+try {
+  for (const slug of SITES) {
+    const base = `https://${slug}.projectsites.dev`;
+    const ctx = await browser.newContext({ userAgent: UA, viewport: VIEWPORT });
+    const page = await ctx.newPage();
+    try {
+      const resp = await page.goto(base, { waitUntil: 'load', timeout: 30000 });
+      const title = await page.title().catch(() => '');
+      if (!resp || resp.status() !== 200 || /just a moment|checking your browser/i.test(title)) {
+        rows.push({ slug, note: `NOT MEASURABLE (status=${resp ? resp.status() : 'none'} / challenge shell)` });
+        await ctx.close();
+        continue;
+      }
+      // Wait for the backdrop canvas to mount (post-hydration). Absence after the window = unwired.
+      let hasCanvas = false;
+      try {
+        await page.waitForSelector('section canvas, canvas', { timeout: HYDRATE_MS, state: 'attached' });
+        hasCanvas = true;
+      } catch {
+        hasCanvas = false;
+      }
+      // The <canvas> is the robust discriminator (the ONLY canvas source in the template hero
+      // is WebGLHeroBackdrop). Confirm at least one canvas lives inside a <section> (the hero) —
+      // sibling decorative divs share the aria-hidden/inset-0 classes, so only the canvas proves it.
+      const detail = await page.evaluate(() => {
+        const canvases = Array.from(document.querySelectorAll('canvas'));
+        const sections = Array.from(document.querySelectorAll('section'));
+        const inHero = canvases.some((c) => sections.some((s) => s.contains(c)));
+        return { canvasCount: canvases.length, inHero };
+      });
+      const pass = hasCanvas && detail.canvasCount > 0 && detail.inHero;
+      if (!pass) fails++;
+      rows.push({ slug, ...detail, pass });
+    } catch (e) {
+      fails++;
+      rows.push({ slug, note: `probe error: ${String(e).slice(0, 80)}` });
+    } finally {
+      await ctx.close();
+    }
+  }
+} finally {
+  await browser.close();
+}
+
+console.log(`\n━━ § C.7 generated-site hero WebGL backdrop (deployed, real browser @ ${VIEWPORT.width}px) ━━`);
+for (const r of rows) {
+  if (r.note) {
+    console.log(`  ⚠️  ${r.slug} — ${r.note}`);
+    continue;
+  }
+  const mark = r.pass ? '✅' : '❌';
+  console.log(`  ${mark} ${r.slug} — canvas=${r.canvasCount} inHero=${r.inHero ? '✓' : '✗'}`);
+}
+
+const measurable = rows.filter((r) => !r.note);
+if (measurable.length === 0) {
+  console.log('\n::notice:: skipped — no site was measurable (all non-200 / challenge shells).');
+  process.exit(0);
+}
+if (fails > 0) {
+  console.error(
+    `\n✗ § C.7 FAIL — ${fails} site(s) render NO hero WebGL backdrop (unwired template, or built before template 2430636 → rebuild).`,
+  );
+  process.exit(1);
+}
+console.log(
+  `\nVERDICT: ✅ § C.7 PASS — ${measurable.length} deployed site(s) mount the per-industry WebGL hero backdrop.`,
+);
