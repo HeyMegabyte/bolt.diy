@@ -1134,6 +1134,95 @@ export function applyServedRouteCanonical(html: string, requestPath: string): st
   return out;
 }
 
+/** Title-case a URL slug segment for a human breadcrumb / page name. */
+function titleCaseSegment(seg: string): string {
+  return seg
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Build the 4 baseline JSON-LD blocks (WebSite + Organization + WebPage +
+ * BreadcrumbList) for a served route, as SEPARATE `<script>` tags (so the
+ * ≥4-block invariant + Rich-Results parsing both see them). Pure; every string
+ * value is `JSON.stringify`-escaped, so a brand with quotes/`&` is injection-safe.
+ *
+ * @param brand  - Business display name (already entity-decoded).
+ * @param origin - `https://host` (no trailing slash).
+ * @param route  - Normalized route (`/`, `/about`, `/services/x`).
+ * @returns Concatenated `<script type="application/ld+json">…</script>` tags.
+ * @example
+ * buildBaselineJsonLd('Acme', 'https://acme.dev', '/about')
+ * // → WebSite + Organization + WebPage(/about) + BreadcrumbList(Home › About)
+ */
+export function buildBaselineJsonLd(brand: string, origin: string, route: string): string {
+  const name = brand || 'Website';
+  const home = `${origin}/`;
+  const segs = route.split('/').filter(Boolean);
+  const url = segs.length ? `${origin}${route}` : home;
+  const pageName = segs.length ? `${titleCaseSegment(segs[segs.length - 1])} — ${name}` : name;
+  const crumbs: Array<Record<string, unknown>> = [
+    { '@type': 'ListItem', position: 1, name: 'Home', item: home },
+  ];
+  let acc = '';
+  segs.forEach((s, i) => {
+    acc += `/${s}`;
+    crumbs.push({ '@type': 'ListItem', position: i + 2, name: titleCaseSegment(s), item: `${origin}${acc}` });
+  });
+  const blocks: Array<Record<string, unknown>> = [
+    { '@context': 'https://schema.org', '@type': 'WebSite', name, url: home },
+    { '@context': 'https://schema.org', '@type': 'Organization', name, url: home },
+    { '@context': 'https://schema.org', '@type': 'WebPage', name: pageName, url, isPartOf: { '@type': 'WebSite', url: home } },
+    { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: crumbs },
+  ];
+  return blocks.map((b) => `<script type="application/ld+json">${JSON.stringify(b)}</script>`).join('');
+}
+
+/**
+ * Inject baseline per-route JSON-LD into a served SPA shell — but ONLY when the
+ * build didn't already emit real structured data.
+ *
+ * A generated SPA serves ONE `index.html` for every route; deployed (pre-`finalizeSeoInvariants`)
+ * sites ship ZERO real JSON-LD (only the "open-now" widget's empty reader tag), so
+ * crawlers/AI-search see no structured data on ANY route (§C.5 gap). This gives every
+ * served route WebSite+Organization+WebPage+BreadcrumbList reflecting the ACTUAL path —
+ * immediately, with no rebuild. Guarded: if any real `@type` block already exists (a
+ * rebuilt site's `finalizeSeoInvariants` output), this is a no-op (never double-injects).
+ * Runs BEFORE {@link applyServedRouteTitle} so the brand is read from the pristine title.
+ *
+ * @param html - The served shell HTML.
+ * @param requestPath - The served route pathname.
+ * @returns HTML with 4 JSON-LD blocks injected before `</head>`, or unchanged.
+ */
+export function applyServedRouteJsonLd(html: string, requestPath: string): string {
+  const hasReal = (html.match(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi) || [])
+    .some((tag) => /"@type"/.test(tag));
+  if (hasReal) return html; // build already emitted real JSON-LD — respect it
+  const baseTag =
+    html.match(/<link\b[^>]*\brel=["']canonical["'][^>]*>/i)?.[0] ??
+    html.match(/<meta\b[^>]*\bproperty=["']og:url["'][^>]*>/i)?.[0];
+  const href = baseTag?.match(/(?:href|content)=["'](https?:\/\/[^"']+)["']/i)?.[1];
+  if (!href) return html;
+  let origin: string;
+  try {
+    origin = new URL(href).origin;
+  } catch {
+    return html;
+  }
+  const titleRaw = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() ?? '';
+  const decoded = titleRaw
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#0*39;/g, "'");
+  const sepMatch = decoded.match(/\s+[—–|·]\s+/) ?? decoded.match(/\s+-\s+/);
+  const brand = (sepMatch ? decoded.slice(0, sepMatch.index) : decoded).trim();
+  if (!brand) return html;
+  const jsonld = buildBaselineJsonLd(brand, origin, normalizeRoute(requestPath));
+  if (/<\/head>/i.test(html)) return html.replace(/<\/head>/i, `${jsonld}</head>`);
+  if (/<\/body>/i.test(html)) return html.replace(/<\/body>/i, `${jsonld}</body>`);
+  return html + jsonld;
+}
+
 /**
  * Rewrite a served SPA page's `<title>` to a per-route title for the NON-JS crawl.
  *
@@ -1574,6 +1663,11 @@ async function buildSiteResponse(
     // Correct a homepage-claiming canonical/og:url to the served route (surgical:
     // only when the declared canonical is the site root AND this is a non-root path).
     html = applyServedRouteCanonical(html, requestPath);
+    // SEO/GEO (§C.5): a pre-finalizeSeoInvariants build ships ZERO real JSON-LD on
+    // every route (only the widget's empty reader tag) — inject baseline per-route
+    // structured data (no-op once the build emits its own). BEFORE the title rewrite
+    // so the brand is read from the pristine homepage title.
+    html = applyServedRouteJsonLd(html, requestPath);
     html = applyServedRouteTitle(html, requestPath);
 
     // Inject analytics + error tracking before </head> (for all sites, paid and free)
