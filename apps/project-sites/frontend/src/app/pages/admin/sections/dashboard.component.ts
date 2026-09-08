@@ -266,6 +266,9 @@ const RECENT_KEY = 'ps_dash_recents';
                 No Core Web Vitals on your most recent snapshot. They populate automatically once a
                 snapshot runs with Lighthouse enabled.
               </p>
+              <a class="cwv-cta" routerLink="/admin/snapshots" data-testid="cwv-empty-cta">
+                Capture a snapshot →
+              </a>
             }
           </section>
         }
@@ -1042,6 +1045,24 @@ const RECENT_KEY = 'ps_dash_recents';
         line-height: 1.5;
         max-width: 560px;
         margin: 8px 0 0;
+      }
+      /* First-action on the CWV empty state — every sibling empty state (Voice, */
+      /* Deliverability) offers a next step; this one was a passive dead-end.     */
+      .cwv-cta {
+        display: inline-block;
+        margin-top: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--ps-accent, #00e5ff);
+        text-decoration: none;
+      }
+      .cwv-cta:hover {
+        text-decoration: underline;
+      }
+      .cwv-cta:focus-visible {
+        outline: 2px solid var(--ps-accent, #00e5ff);
+        outline-offset: 3px;
+        border-radius: 4px;
       }
       .cwv-chip {
         display: inline-flex;

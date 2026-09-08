@@ -256,4 +256,27 @@ test.describe('admin — section-states round-1 coverage', () => {
 
     expect(failures, `smoke failures:\n${failures.join('\n')}`).toEqual([]);
   });
+
+  // ── CWV empty state offers a first-action (empty-state-first-action) ───────
+  // Every sibling empty state (Voice, Deliverability) offers a next step; the
+  // dashboard Core Web Vitals empty state was a passive dead-end. It now links
+  // to /admin/snapshots ("Capture a snapshot →"). Conditional: the empty-state
+  // branch only renders when the latest snapshot has no Lighthouse run.
+  test('dashboard CWV empty state links to snapshots (never a passive dead-end)', async ({ page }) => {
+    test.setTimeout(60000);
+    await seed(page);
+    await page.goto('/admin', { waitUntil: 'load' });
+    await expect(page.locator('.admin-sidebar').first()).toBeVisible({ timeout: 30000 });
+
+    const cwvEmpty = page.locator('[data-testid="cwv-empty"]');
+    if ((await cwvEmpty.count()) === 0) {
+      test.skip(true, 'CWV populated (or no snapshot yet) — empty-state branch not rendered.');
+      return;
+    }
+    const cta = page.locator('[data-testid="cwv-empty-cta"]');
+    await expect(cta, 'CWV empty state must offer a first-action, not a dead-end').toBeVisible({
+      timeout: 10000,
+    });
+    await expect(cta).toHaveAttribute('href', /\/admin\/snapshots/);
+  });
 });
