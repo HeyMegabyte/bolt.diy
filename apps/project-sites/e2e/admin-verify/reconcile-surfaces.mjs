@@ -14,6 +14,16 @@
  * brian's account (measured separately via `wrangler d1 execute`). A divergence
  * where ground-truth > 0 but the endpoint returns 0/empty is a LYING-EMPTY bug.
  *
+ * SILENT-CAP detector (AL-219, closing the AL-216 blind spot): the row-count vs
+ * hardcoded-`gt` check is BLIND to a silent-cap — for the audit surface `gt:50` ==
+ * shows 50 == "OK" while the store truly holds 14,279 rows (the `gt` is itself the
+ * cap). For surfaces marked `paged: true`, we now ALSO read the endpoint's OWN claimed
+ * total (`meta.total`/`total`) + page limit and flag: 🔴 IMPOSSIBLE-TOTAL (claims fewer
+ * than it shows) or 🟠 SILENT-CAP-RISK (returns a full page but exposes NO total, so the
+ * UI can imply "this is all"). An honest endpoint that exposes its total passes + the
+ * true total is reported in the row (precision: the refinement only tightens an
+ * already-passing paged surface, never false-flags a total-exposing endpoint).
+ *
  * Ground truth (org-brian-001 / site-megabytespace-001, measured 2026-08-06; re-swept 2026-09-05):
  *   sites 1 · visitor_events 109pv · analytics_daily 9 · media_assets 2 ·
  *   site_snapshots 4 · audit_logs 1129 · voice_numbers 1 · mcp_connections 2 ·
@@ -59,7 +69,7 @@ const SITE = 'site-megabytespace-001';
 // TARGET_ID-scoped (D1 audit_logs target_id=site = 22, endpoint correctly returns all 22
 // — the old gt=200 was stale). Both were false PARTIALs, not product bugs.
 const SURFACES = [
-  { name: 'sites', endpoint: '/api/sites', gt: 1, extract: (d) => arr(d, 'data', 'sites').length },
+  { name: 'sites', endpoint: '/api/sites', gt: 1, paged: true, total: (d) => d?.meta?.total ?? d?.total, pageLimit: (d) => d?.meta?.limit ?? d?.limit, extract: (d) => arr(d, 'data', 'sites').length },
   { name: 'analytics (CORRECT /sites/:id/analytics)', endpoint: `/api/sites/${SITE}/analytics`, gt: 1, mode: 'populated', extract: (d) => num(d?.traffic ?? d, 'pageviews') },
   // NOTE (2026-09-05): there is NO dedicated "network-analytics" endpoint. The admin
   // analytics OVERVIEW (`/admin/analytics`) derives its headline `total_requests`
@@ -75,7 +85,7 @@ const SURFACES = [
   { name: 'media', endpoint: '/api/media/assets', gt: 2, extract: (d) => arr(d, 'data', 'assets', 'items').length },
   { name: 'snapshots', endpoint: `/api/sites/${SITE}/snapshots`, gt: 4, extract: (d) => arr(d, 'data', 'snapshots').length },
   { name: 'audit (per-site logs)', endpoint: `/api/sites/${SITE}/logs?limit=200`, gt: 1, mode: 'populated', extract: (d) => arr(d, 'data', 'logs').length },
-  { name: 'audit (org audit-logs)', endpoint: '/api/audit-logs?limit=50', gt: 50, extract: (d) => arr(d, 'data', 'logs').length },
+  { name: 'audit (org audit-logs)', endpoint: '/api/audit-logs?limit=50', gt: 50, paged: true, total: (d) => d?.meta?.total ?? d?.total, pageLimit: (d) => d?.meta?.limit ?? d?.limit ?? 50, extract: (d) => arr(d, 'data', 'logs').length },
   { name: 'voice numbers', endpoint: `/api/voice/numbers?siteId=${SITE}`, gt: 1, extract: (d) => arr(d, 'numbers', 'data').length },
   { name: 'mcp connections', endpoint: '/api/mcp/connections', gt: 2, extract: (d) => arr(d, 'data', 'connections').length },
   // team: brian is always ≥1 member (the owner) — a `{data:{members:[]}}` display is
@@ -147,6 +157,16 @@ try {
     let display = 'n/a';
     try { display = res.body != null ? s.extract(res.body) : 'no-json'; } catch { display = 'extract-err'; }
     const displayN = typeof display === 'number' && !Number.isNaN(display) ? display : 0;
+    // Paged-surface TRUE total (silent-cap detector — AL-219, closing the AL-216 blind spot):
+    // the row-count check above is BLIND to a silent-cap because its `gt` is itself capped
+    // (audit gt=50 == shows 50 == "OK" while the store truly holds 14,279). A list that
+    // returns a FULL PAGE but exposes NO total lets the UI imply "this is all" when there's
+    // more. Pull the endpoint's OWN claimed total (`meta.total`/`total`) + page limit.
+    let totalN = null, limitN = null;
+    if (s.paged && res.body != null) {
+      try { const t = s.total?.(res.body); totalN = typeof t === 'number' && !Number.isNaN(t) ? t : null; } catch { totalN = null; }
+      try { const l = s.pageLimit?.(res.body); limitN = typeof l === 'number' && !Number.isNaN(l) ? l : null; } catch { limitN = null; }
+    }
     let verdict;
     // A 404 usually means the surface-map endpoint is stale/renamed (a PROBE bug),
     // not a product data divergence — label it so a stale map never masquerades as a
@@ -160,11 +180,18 @@ try {
     else if (s.gt > 0 && displayN === 0) verdict = '🔴 LYING-EMPTY (gt>0, shows 0)';
     else if (s.gt > 0 && displayN < s.gt * 0.5) verdict = `🟠 PARTIAL (gt=${s.gt}, shows ${displayN})`;
     else verdict = '✅ OK';
-    report.push({ surface: s.name, endpoint: s.endpoint, groundTruth: s.gt, display, status: res.status, verdict });
+    // Silent-cap refinement — ONLY tightens an already-passing paged surface (precision:
+    // fires on the exact silent-cap signature, never on an honest total-exposing endpoint).
+    if (s.paged && !verdict.startsWith('❌') && !verdict.startsWith('⚠️') && !verdict.startsWith('🔴')) {
+      if (totalN != null && totalN < displayN) verdict = `🔴 IMPOSSIBLE-TOTAL (claims ${totalN} < shows ${displayN})`;
+      else if (totalN == null && limitN != null && displayN >= limitN) verdict = `🟠 SILENT-CAP-RISK (full page ${displayN}, no total exposed → UI may imply this is all)`;
+      else if (totalN != null) verdict = `${verdict} · total ${totalN} exposed`;
+    }
+    report.push({ surface: s.name, endpoint: s.endpoint, groundTruth: s.gt, display, total: totalN, status: res.status, verdict });
   }
   console.log('\n=== ADMIN DATA RECONCILIATION (display vs D1 ground truth, as brian) ===\n');
   for (const row of report) {
-    console.log(`${row.verdict.padEnd(34)} ${String(row.surface).padEnd(42)} gt=${String(row.groundTruth).padEnd(5)} shows=${row.display}`);
+    console.log(`${row.verdict.padEnd(34)} ${String(row.surface).padEnd(42)} gt=${String(row.groundTruth).padEnd(5)} shows=${row.display}${row.total != null ? ` total=${row.total}` : ''}`);
   }
   const bugs = report.filter((r) => r.verdict.startsWith('🔴') || r.verdict.startsWith('🟠') || r.verdict.startsWith('❌') || r.verdict.startsWith('⚠️'));
   console.log(`\n${bugs.length} divergence(s) found:`);
