@@ -198,7 +198,7 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
                   @if (s.description) {
                     <span class="ai-name" data-testid="snapshot-description">{{ s.description }}</span>
                   }
-                  <small>{{ formatTs(s.created_at) }} · <span class="snapshot-ver" data-testid="snapshot-build-version">{{ s.build_version }}</span></small>
+                  <small>{{ formatTs(s.created_at) }} · <span class="snapshot-ver" data-testid="snapshot-build-version" title="R2 build version this snapshot froze"><span class="snapshot-ver-label">build</span> {{ s.build_version }}</span></small>
                 </div>
                 <button
                   type="button"
@@ -401,6 +401,7 @@ const VALID_TABS: readonly Tab[] = ['logs', 'snapshots', 'sql', 'integrations'];
     .snapshot-meta { display: flex; flex-direction: column; gap: 0.15rem; }
     .ai-name { color: var(--ps-accent, #00e5ff); font-size: 0.85rem; }
     .snapshot-ver { font-family: var(--ps-font-mono, ui-monospace, 'JetBrains Mono', monospace); opacity: 0.75; }
+    .snapshot-ver-label { font-family: system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.72em; opacity: 0.7; }
     .rollback-btn { padding: 0.4rem 0.9rem; background: transparent; border: 1px solid var(--ps-accent, #00e5ff); color: var(--ps-accent, #00e5ff); border-radius: 6px; cursor: pointer; }
     .rollback-btn:hover { background: color-mix(in oklch, var(--ps-accent, #00e5ff) 12%, transparent); }
     /* .sql-editor removed — now Spartan hlmInput [multiline] (font-mono resize-y). */
