@@ -1169,15 +1169,28 @@ export function buildBaselineJsonLd(brand: string, origin: string, route: string
   let acc = '';
   segs.forEach((s, i) => {
     acc += `/${s}`;
-    crumbs.push({ '@type': 'ListItem', position: i + 2, name: titleCaseSegment(s), item: `${origin}${acc}` });
+    crumbs.push({
+      '@type': 'ListItem',
+      position: i + 2,
+      name: titleCaseSegment(s),
+      item: `${origin}${acc}`,
+    });
   });
   const blocks: Array<Record<string, unknown>> = [
     { '@context': 'https://schema.org', '@type': 'WebSite', name, url: home },
     { '@context': 'https://schema.org', '@type': 'Organization', name, url: home },
-    { '@context': 'https://schema.org', '@type': 'WebPage', name: pageName, url, isPartOf: { '@type': 'WebSite', url: home } },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      name: pageName,
+      url,
+      isPartOf: { '@type': 'WebSite', url: home },
+    },
     { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: crumbs },
   ];
-  return blocks.map((b) => `<script type="application/ld+json">${JSON.stringify(b)}</script>`).join('');
+  return blocks
+    .map((b) => `<script type="application/ld+json">${JSON.stringify(b)}</script>`)
+    .join('');
 }
 
 /**
@@ -1197,8 +1210,9 @@ export function buildBaselineJsonLd(brand: string, origin: string, route: string
  * @returns HTML with 4 JSON-LD blocks injected before `</head>`, or unchanged.
  */
 export function applyServedRouteJsonLd(html: string, requestPath: string): string {
-  const hasReal = (html.match(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi) || [])
-    .some((tag) => /"@type"/.test(tag));
+  const hasReal = (
+    html.match(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi) || []
+  ).some((tag) => /"@type"/.test(tag));
   if (hasReal) return html; // build already emitted real JSON-LD — respect it
   const baseTag =
     html.match(/<link\b[^>]*\brel=["']canonical["'][^>]*>/i)?.[0] ??
@@ -1213,7 +1227,11 @@ export function applyServedRouteJsonLd(html: string, requestPath: string): strin
   }
   const titleRaw = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() ?? '';
   const decoded = titleRaw
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#0*39;/g, "'");
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0*39;/g, "'");
   const sepMatch = decoded.match(/\s+[—–|·]\s+/) ?? decoded.match(/\s+-\s+/);
   const brand = (sepMatch ? decoded.slice(0, sepMatch.index) : decoded).trim();
   if (!brand) return html;
