@@ -641,7 +641,12 @@ app.post('/api/sites/:siteId/social/proposals', async (c) => {
     !body.sellingPoint.trim()
   )
     return c.json(
-      { error: { code: 'VALIDATION_ERROR', message: 'business and sellingPoint are required non-empty strings' } },
+      {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'business and sellingPoint are required non-empty strings',
+        },
+      },
       400,
     );
   try {
@@ -656,7 +661,13 @@ app.post('/api/sites/:siteId/social/proposals', async (c) => {
     });
   } catch {
     return c.json(
-      { error: { code: 'VALIDATION_ERROR', message: 'Could not generate proposals from the provided input (check account platforms).' } },
+      {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message:
+            'Could not generate proposals from the provided input (check account platforms).',
+        },
+      },
       400,
     );
   }
@@ -688,7 +699,8 @@ app.post('/api/sites/:siteId/social/engagement', async (c) => {
       {
         error: {
           code: 'VALIDATION_ERROR',
-          message: 'account {platform, followers} and metrics {likes, comments, shares, posts} numbers are required',
+          message:
+            'account {platform, followers} and metrics {likes, comments, shares, posts} numbers are required',
         },
       },
       400,
@@ -697,7 +709,12 @@ app.post('/api/sites/:siteId/social/engagement', async (c) => {
     return c.json({ data: scoreEngagement(acct, mx) });
   } catch {
     return c.json(
-      { error: { code: 'VALIDATION_ERROR', message: 'Could not score engagement for the provided account platform.' } },
+      {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Could not score engagement for the provided account platform.',
+        },
+      },
       400,
     );
   }
@@ -719,14 +736,21 @@ app.post('/api/sites/:siteId/automation/validate', async (c) => {
   // A journey needs a steps[] array; validateJourney derefs j.steps.length → 500 without it. AL-179.
   if (!body || typeof body !== 'object' || !Array.isArray(body.steps))
     return c.json(
-      { error: { code: 'VALIDATION_ERROR', message: 'a journey with a steps[] array is required' } },
+      {
+        error: { code: 'VALIDATION_ERROR', message: 'a journey with a steps[] array is required' },
+      },
       400,
     );
   try {
     return c.json({ data: validateJourney(body) });
   } catch {
     return c.json(
-      { error: { code: 'VALIDATION_ERROR', message: 'Could not validate the provided journey (check step shapes).' } },
+      {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Could not validate the provided journey (check step shapes).',
+        },
+      },
       400,
     );
   }
