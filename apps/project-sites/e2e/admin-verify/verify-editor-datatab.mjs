@@ -134,6 +134,26 @@ try {
   const browsedRows =
     /Tables/.test(browse) && /Event Type|event_type|Created At|pageview/i.test(browse);
 
+  // NEW DATA-BROWSER CONTROLS (AL-222 complete redo): the browse view now has an in-table
+  // search, a CSV export, an auto-refresh toggle, and a click-to-expand row DETAIL drill-down.
+  // Assert the controls are present + CAUSALLY exercise the drill-down (click the first row →
+  // the detail panel expands). Guards the redo against a regression to the old flat row-dump.
+  let dataSearchPresent = false,
+    dataExportPresent = false,
+    dataAutoRefreshPresent = false,
+    rowDetailWorks = false;
+  dataSearchPresent = (await bf.locator('[data-testid="data-search"]').count().catch(() => 0)) > 0;
+  dataExportPresent = (await bf.locator('[data-testid="data-export-csv"]').count().catch(() => 0)) > 0;
+  dataAutoRefreshPresent =
+    (await bf.locator('[data-testid="data-autorefresh"]').count().catch(() => 0)) > 0;
+  const firstRow = bf.locator('[data-testid="data-row"]').first();
+  if (await firstRow.count().catch(() => 0)) {
+    await firstRow.click().catch(() => {});
+    await page.waitForTimeout(700);
+    rowDetailWorks =
+      (await bf.locator('[data-testid="data-row-detail"]').count().catch(() => 0)) > 0;
+  }
+
   // FUNCTIONS tab (AL-004's other half): click → assert the panel mounts with REAL
   // functions/ derivation. A project with no functions/ folder shows the HONEST empty
   // state ("No functions/ folder yet"); one with functions/ shows derived routes. Either
@@ -184,17 +204,19 @@ try {
     }
   }
 
+  const dataRedoOk = dataSearchPresent && dataExportPresent && dataAutoRefreshPresent && rowDetailWorks;
   const ok =
     hasRealTables &&
     !hasMock &&
     browsedRows &&
+    dataRedoOk &&
     functionsReal &&
     functionsMockGone &&
     createCtrlPresent &&
     scaffoldWorked &&
     consoleErrs.length === 0;
   console.log(
-    `${ok ? '✅' : '🔴'} editor tabs — Data[realTables=${hasRealTables} mockGone=${!hasMock} browsedRows=${browsedRows}] Functions[real=${functionsReal} mockGone=${functionsMockGone} createCtrl=${createCtrlPresent} scaffold=${scaffoldWorked}] consoleErrs=${consoleErrs.length}`,
+    `${ok ? '✅' : '🔴'} editor tabs — Data[realTables=${hasRealTables} mockGone=${!hasMock} browsedRows=${browsedRows} search=${dataSearchPresent} csv=${dataExportPresent} autoRefresh=${dataAutoRefreshPresent} rowDetail=${rowDetailWorks}] Functions[real=${functionsReal} mockGone=${functionsMockGone} createCtrl=${createCtrlPresent} scaffold=${scaffoldWorked}] consoleErrs=${consoleErrs.length}`,
   );
   if (consoleErrs.length) for (const e of consoleErrs.slice(0, 3)) console.log(`   · ${e}`);
   console.log(
