@@ -3,7 +3,16 @@
  * convention — the `~/` alias resolves for app code but not spec direct imports).
  */
 import { describe, it, expect } from 'vitest';
-import { iconForTable, formatCellValue, summarizeTables, newCorrelationId, columnLabel } from './data-panel-logic';
+import {
+  iconForTable,
+  formatCellValue,
+  summarizeTables,
+  newCorrelationId,
+  columnLabel,
+  toCsv,
+  filterRows,
+  detailEntries,
+} from './data-panel-logic';
 
 describe('iconForTable', () => {
   it('maps known table keys to phosphor icons', () => {
@@ -67,5 +76,50 @@ describe('columnLabel', () => {
     expect(columnLabel('event_type')).toBe('Event Type');
     expect(columnLabel('created_at')).toBe('Created At');
     expect(columnLabel('email')).toBe('Email');
+  });
+});
+
+describe('toCsv', () => {
+  it('emits a labelled header + CRLF rows', () => {
+    const csv = toCsv(['form_name', 'email'], [{ form_name: 'Contact', email: 'a@x.com' }]);
+    expect(csv).toBe('Form Name,Email\r\nContact,a@x.com');
+  });
+  it('quotes fields containing comma / quote / newline and doubles embedded quotes', () => {
+    const csv = toCsv(['v'], [{ v: 'a,b' }, { v: 'she said "hi"' }, { v: 'line1\nline2' }]);
+    expect(csv).toBe('V\r\n"a,b"\r\n"she said ""hi"""\r\n"line1\nline2"');
+  });
+  it('renders null/undefined as empty (not em-dash) and objects as JSON', () => {
+    expect(toCsv(['a', 'b'], [{ a: null, b: { x: 1 } }])).toBe('A,B\r\n,"{""x"":1}"');
+  });
+  it('header-only when there are no rows', () => {
+    expect(toCsv(['a'], [])).toBe('A');
+  });
+});
+
+describe('filterRows', () => {
+  const rows = [{ email: 'A@x.com', path: '/' }, { email: 'b@y.com', path: '/about' }];
+  it('returns a fresh copy of all rows for a blank query', () => {
+    const out = filterRows(rows, ['email', 'path'], '  ');
+    expect(out).toHaveLength(2);
+    expect(out).not.toBe(rows);
+  });
+  it('matches case-insensitively across ALL columns', () => {
+    expect(filterRows(rows, ['email', 'path'], 'a@x')).toEqual([{ email: 'A@x.com', path: '/' }]);
+    expect(filterRows(rows, ['email', 'path'], 'about')).toEqual([{ email: 'b@y.com', path: '/about' }]);
+  });
+  it('returns [] when nothing matches', () => {
+    expect(filterRows(rows, ['email'], 'zzz')).toEqual([]);
+  });
+});
+
+describe('detailEntries', () => {
+  it('returns [label, value] pairs in column order with pretty JSON for objects', () => {
+    const out = detailEntries({ event_type: 'pageview', meta: { ref: 'x' } }, ['event_type', 'meta']);
+    expect(out[0]).toEqual(['Event Type', 'pageview']);
+    expect(out[1][0]).toBe('Meta');
+    expect(out[1][1]).toBe('{\n  "ref": "x"\n}'); // 2-space pretty
+  });
+  it('em-dashes null/empty scalars', () => {
+    expect(detailEntries({ a: null }, ['a'])).toEqual([['A', '—']]);
   });
 });

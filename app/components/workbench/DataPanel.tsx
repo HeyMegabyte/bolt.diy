@@ -1,24 +1,40 @@
 /**
- * @file Data tab — the open project's REAL site data, live.
+ * @file Data tab — the open project's REAL site data, live. COMPLETELY REDONE
+ * (Brian directive 2026-09-08): a proper data browser, not just a row dump.
  *
  * @remarks
  * The embedded editor has no cross-origin projectsites session, so it can't call
  * the authed data API directly. It asks the admin parent frame via the PS_ bridge
  * (`PS_DATA_REQUEST` → admin runs `GET /api/sites/:id/data-overview[/:table]` →
- * `PS_DATA_RESPONSE`), exactly like the publish flow. Shows the site's real
- * platform tables (visitor events, form submissions, snapshots, MCP connections,
- * content store) with live row counts, and browses recent rows on click.
- * Standalone bolt.diy (not embedded) has no site context → a clear prompt.
+ * `PS_DATA_RESPONSE`), exactly like the publish flow. Standalone bolt.diy (not
+ * embedded) has no site context → a clear prompt.
+ *
+ * Elevated over the first cut: table overview with a live summary + row-count sort;
+ * per-table browse with an HONEST "N total · showing latest M" disclosure (never
+ * implies the window is all — the silent-cap lesson), an in-table search filter, a
+ * CSV export of the current view, a click-to-expand row DETAIL drill-down (every
+ * column, pretty-JSON for objects), and an auto-refresh toggle. Pure logic
+ * (csv/filter/detail/summary) lives in `data-panel-logic.ts` (unit-tested).
  */
-import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isEmbedded, postToParent, onParentMessage } from '~/lib/embed/embedded-mode';
 import type { DataOverviewTable, ParentToChildMessage } from '~/lib/embed/embedded-mode';
-import { iconForTable, formatCellValue, summarizeTables, newCorrelationId, columnLabel } from './data-panel-logic';
+import {
+  iconForTable,
+  formatCellValue,
+  summarizeTables,
+  newCorrelationId,
+  columnLabel,
+  toCsv,
+  filterRows,
+  detailEntries,
+} from './data-panel-logic';
 import { classNames } from '~/utils/classNames';
 
 type Status = 'loading' | 'ready' | 'error' | 'standalone';
 
 const REQUEST_TIMEOUT_MS = 12_000;
+const AUTO_REFRESH_MS = 30_000;
 
 export const DataPanel = memo(() => {
   const [status, setStatus] = useState<Status>(isEmbedded ? 'loading' : 'standalone');
@@ -29,6 +45,9 @@ export const DataPanel = memo(() => {
   const [columns, setColumns] = useState<string[]>([]);
   const [browseLoading, setBrowseLoading] = useState(false);
   const [browseError, setBrowseError] = useState('');
+  const [search, setSearch] = useState('');
+  const [detailIdx, setDetailIdx] = useState<number | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(false);
 
   const overviewCid = useRef<string | null>(null);
   const browseCid = useRef<string | null>(null);
@@ -40,7 +59,6 @@ export const DataPanel = memo(() => {
       return;
     }
 
-    setStatus('loading');
     setOverviewError('');
 
     const cid = newCorrelationId();
@@ -64,6 +82,8 @@ export const DataPanel = memo(() => {
     setRows([]);
     setColumns([]);
     setBrowseError('');
+    setSearch('');
+    setDetailIdx(null);
     setBrowseLoading(true);
 
     const cid = newCorrelationId(key);
@@ -138,6 +158,7 @@ export const DataPanel = memo(() => {
 
   // Kick off the first overview request on mount.
   useEffect(() => {
+    setStatus(isEmbedded ? 'loading' : 'standalone');
     requestOverview();
 
     return () => {
@@ -151,8 +172,51 @@ export const DataPanel = memo(() => {
     };
   }, [requestOverview]);
 
+  // Auto-refresh: re-pull the overview (and the open table) on an interval when enabled.
+  // Pauses while the tab is hidden — no wasted round-trips.
+  useEffect(() => {
+    if (!autoRefresh || !isEmbedded) {
+      return undefined;
+    }
+
+    const tick = () => {
+      if (typeof document !== 'undefined' && document.hidden) {
+        return;
+      }
+
+      requestOverview();
+
+      if (active) {
+        postToParent({ type: 'PS_DATA_REQUEST', table: active, correlationId: (browseCid.current = newCorrelationId(active)) });
+      }
+    };
+    const iv = setInterval(tick, AUTO_REFRESH_MS);
+
+    return () => clearInterval(iv);
+  }, [autoRefresh, active, requestOverview]);
+
   const summary = summarizeTables(tables);
+  const totalRows = useMemo(() => tables.reduce((s, t) => s + (t.row_count ?? 0), 0), [tables]);
+  const sortedTables = useMemo(() => [...tables].sort((a, b) => (b.row_count ?? 0) - (a.row_count ?? 0)), [tables]);
   const activeTable = tables.find((t) => t.key === active) ?? null;
+  const visibleRows = useMemo(() => filterRows(rows, columns, search), [rows, columns, search]);
+
+  const exportCsv = useCallback(() => {
+    if (typeof document === 'undefined' || !activeTable) {
+      return;
+    }
+
+    const csv = toCsv(columns, visibleRows);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${activeTable.key}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, [activeTable, columns, visibleRows]);
 
   return (
     <div className="h-full flex flex-col bg-bolt-elements-background-depth-1 overflow-y-auto modern-scrollbar">
@@ -163,7 +227,7 @@ export const DataPanel = memo(() => {
           <h2 className="text-sm font-semibold text-bolt-elements-textPrimary">Data</h2>
           <p className="text-[10px] text-bolt-elements-textTertiary">
             {status === 'ready'
-              ? `${summary.total} tables · ${summary.populated} with data`
+              ? `${summary.total} tables · ${summary.populated} with data · ${totalRows.toLocaleString()} rows`
               : status === 'loading'
                 ? 'Loading live data…'
                 : status === 'standalone'
@@ -172,14 +236,31 @@ export const DataPanel = memo(() => {
           </p>
         </div>
         {status === 'ready' && (
-          <button
-            type="button"
-            onClick={requestOverview}
-            className="text-[10px] text-bolt-elements-item-contentAccent hover:underline cursor-pointer flex items-center gap-1"
-            title="Refresh"
-          >
-            <div className="i-ph:arrow-clockwise" /> Refresh
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setAutoRefresh((v) => !v)}
+              data-testid="data-autorefresh"
+              aria-pressed={autoRefresh}
+              title={autoRefresh ? 'Auto-refresh on (30s)' : 'Auto-refresh off'}
+              className={classNames(
+                'text-[10px] flex items-center gap-1 rounded-full px-2 py-0.5 border transition-colors cursor-pointer',
+                autoRefresh
+                  ? 'border-green-500/40 bg-green-500/10 text-green-400'
+                  : 'border-bolt-elements-borderColor text-bolt-elements-textTertiary hover:text-bolt-elements-textSecondary',
+              )}
+            >
+              <div className={classNames('i-ph:pulse', autoRefresh && 'animate-pulse')} /> Live
+            </button>
+            <button
+              type="button"
+              onClick={requestOverview}
+              className="text-[10px] text-bolt-elements-item-contentAccent hover:underline cursor-pointer flex items-center gap-1"
+              title="Refresh"
+            >
+              <div className="i-ph:arrow-clockwise" /> Refresh
+            </button>
+          </div>
         )}
       </div>
 
@@ -222,15 +303,16 @@ export const DataPanel = memo(() => {
         </div>
       )}
 
-      {/* Overview — table cards */}
+      {/* Overview — table cards, row-count sorted */}
       {status === 'ready' && !active && (
         <div className="p-3 space-y-2">
-          {tables.map((t) => (
+          {sortedTables.map((t) => (
             <button
               key={t.key}
               type="button"
               onClick={() => t.browsable && openTable(t.key)}
               disabled={!t.browsable}
+              data-testid={`data-table-${t.key}`}
               className={classNames(
                 'w-full text-left border border-bolt-elements-borderColor/50 rounded-lg bg-bolt-elements-background-depth-2 px-3 py-2.5 flex items-center gap-3 transition-colors',
                 t.browsable
@@ -274,10 +356,51 @@ export const DataPanel = memo(() => {
               <div className="i-ph:arrow-left" /> Tables
             </button>
             <span className="text-sm font-medium text-bolt-elements-textPrimary">{activeTable.label}</span>
-            <span className="text-[10px] text-bolt-elements-textTertiary">
-              {activeTable.row_count.toLocaleString()} total · showing latest {Math.min(activeTable.row_count, 25)}
+            {/* HONEST disclosure — never imply the window is the whole table (silent-cap lesson). */}
+            <span className="text-[10px] text-bolt-elements-textTertiary" data-testid="data-window-note">
+              {activeTable.row_count.toLocaleString()} total · showing latest {Math.min(activeTable.row_count, rows.length || 0).toLocaleString()}
+              {search && rows.length > 0 ? ` · ${visibleRows.length} match` : ''}
             </span>
+            {rows.length > 0 && (
+              <button
+                type="button"
+                onClick={exportCsv}
+                data-testid="data-export-csv"
+                className="ml-auto text-[10px] text-bolt-elements-item-contentAccent hover:underline cursor-pointer flex items-center gap-1"
+                title="Export the current view to CSV"
+              >
+                <div className="i-ph:download-simple" /> CSV
+              </button>
+            )}
           </div>
+
+          {/* In-table search */}
+          {rows.length > 0 && (
+            <div className="px-3 py-1.5 border-b border-bolt-elements-borderColor/30">
+              <div className="flex items-center gap-2 rounded-md bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor px-2 py-1">
+                <div className="i-ph:magnifying-glass text-bolt-elements-textTertiary text-xs" />
+                <input
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setDetailIdx(null);
+                  }}
+                  placeholder={`Filter ${activeTable.label.toLowerCase()}…`}
+                  data-testid="data-search"
+                  spellCheck={false}
+                  className="flex-1 min-w-0 bg-transparent text-xs text-bolt-elements-textPrimary placeholder:text-bolt-elements-textTertiary focus:outline-none"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch('')}
+                    className="i-ph:x text-bolt-elements-textTertiary hover:text-bolt-elements-textPrimary text-xs cursor-pointer"
+                    title="Clear"
+                  />
+                )}
+              </div>
+            </div>
+          )}
 
           {browseLoading && (
             <div className="p-3 space-y-1.5">
@@ -311,10 +434,17 @@ export const DataPanel = memo(() => {
             </div>
           )}
 
-          {!browseLoading && !browseError && rows.length > 0 && (
+          {!browseLoading && !browseError && rows.length > 0 && visibleRows.length === 0 && (
+            <div className="flex-1 flex flex-col items-center justify-center gap-2 p-6 text-center">
+              <div className="i-ph:magnifying-glass text-2xl text-bolt-elements-textTertiary" />
+              <p className="text-xs text-bolt-elements-textSecondary">No rows match “{search}”</p>
+            </div>
+          )}
+
+          {!browseLoading && !browseError && visibleRows.length > 0 && (
             <div className="flex-1 overflow-auto modern-scrollbar">
               <table className="w-full text-[11px] border-collapse">
-                <thead className="sticky top-0 bg-bolt-elements-background-depth-2">
+                <thead className="sticky top-0 bg-bolt-elements-background-depth-2 z-10">
                   <tr>
                     {columns.map((c) => (
                       <th
@@ -327,21 +457,48 @@ export const DataPanel = memo(() => {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r, i) => (
-                    <tr
-                      key={i}
-                      className="border-b border-bolt-elements-borderColor/20 hover:bg-bolt-elements-background-depth-2/50"
-                    >
-                      {columns.map((c) => (
-                        <td
-                          key={c}
-                          className="px-3 py-1.5 text-bolt-elements-textSecondary align-top max-w-[220px] truncate"
-                          title={formatCellValue(r[c])}
-                        >
-                          {formatCellValue(r[c])}
-                        </td>
-                      ))}
-                    </tr>
+                  {visibleRows.map((r, i) => (
+                    <React.Fragment key={i}>
+                      <tr
+                        onClick={() => setDetailIdx(detailIdx === i ? null : i)}
+                        data-testid="data-row"
+                        className={classNames(
+                          'border-b border-bolt-elements-borderColor/20 cursor-pointer',
+                          detailIdx === i
+                            ? 'bg-bolt-elements-item-backgroundActive'
+                            : 'hover:bg-bolt-elements-background-depth-2/50',
+                        )}
+                      >
+                        {columns.map((c) => (
+                          <td
+                            key={c}
+                            className="px-3 py-1.5 text-bolt-elements-textSecondary align-top max-w-[220px] truncate"
+                            title={formatCellValue(r[c])}
+                          >
+                            {formatCellValue(r[c])}
+                          </td>
+                        ))}
+                      </tr>
+                      {/* Row detail drill-down — every column, pretty-JSON for objects. */}
+                      {detailIdx === i && (
+                        <tr data-testid="data-row-detail">
+                          <td colSpan={columns.length} className="bg-bolt-elements-background-depth-1 px-3 py-2">
+                            <dl className="grid grid-cols-[minmax(90px,auto)_1fr] gap-x-3 gap-y-1">
+                              {detailEntries(r, columns).map(([label, val]) => (
+                                <React.Fragment key={label}>
+                                  <dt className="text-[10px] uppercase tracking-wider text-bolt-elements-textTertiary pt-0.5">
+                                    {label}
+                                  </dt>
+                                  <dd className="text-[11px] text-bolt-elements-textPrimary font-mono whitespace-pre-wrap break-words">
+                                    {val}
+                                  </dd>
+                                </React.Fragment>
+                              ))}
+                            </dl>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>

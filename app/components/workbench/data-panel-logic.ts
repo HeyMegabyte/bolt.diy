@@ -92,3 +92,95 @@ export function columnLabel(col: string): string {
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
 }
+
+/** CSV-escape one value: objects → JSON, null/undefined → empty, quote when needed. */
+function csvCell(value: unknown): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  const s = typeof value === 'object' ? safeJson(value) : String(value);
+
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function safeJson(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+/**
+ * Serialize browse rows to an RFC-4180-ish CSV string (header = column labels,
+ * CRLF line breaks, embedded quotes doubled). Empty rows → header line only.
+ *
+ * @param columns - column keys in display order
+ * @param rows - the browse rows
+ * @returns a CSV string ready for a Blob download
+ * @example toCsv(['form_name'], [{ form_name: 'Contact' }]) // 'Form Name\r\nContact'
+ */
+export function toCsv(
+  columns: readonly string[],
+  rows: readonly Record<string, unknown>[],
+): string {
+  const head = columns.map((c) => csvCell(columnLabel(c))).join(',');
+  const body = rows.map((r) => columns.map((c) => csvCell(r[c])).join(',')).join('\r\n');
+
+  return body ? `${head}\r\n${body}` : head;
+}
+
+/**
+ * Filter browse rows by a case-insensitive substring matched across ALL columns.
+ * A blank query returns every row (a fresh copy). Pure — never mutates input.
+ *
+ * @param rows - the browse rows
+ * @param columns - columns to search within
+ * @param query - the search text (trimmed + lowercased internally)
+ * @returns the matching subset
+ * @example filterRows([{ email: 'A@x.com' }], ['email'], 'a@x') // [{ email: 'A@x.com' }]
+ */
+export function filterRows(
+  rows: readonly Record<string, unknown>[],
+  columns: readonly string[],
+  query: string,
+): Record<string, unknown>[] {
+  const q = (query ?? '').trim().toLowerCase();
+
+  if (!q) {
+    return rows.slice();
+  }
+
+  return rows.filter((r) => columns.some((c) => formatCellValue(r[c]).toLowerCase().includes(q)));
+}
+
+/**
+ * Ordered `[label, displayValue]` pairs for a single row's detail drill-down —
+ * pretty (2-space) JSON for objects, `formatCellValue` for scalars.
+ *
+ * @param row - one browse row
+ * @param columns - columns in display order
+ * @returns label/value pairs for a definition-list detail view
+ * @example detailEntries({ path: '/' }, ['path']) // [['Path', '/']]
+ */
+export function detailEntries(
+  row: Record<string, unknown>,
+  columns: readonly string[],
+): Array<[string, string]> {
+  return columns.map((c) => {
+    const v = row[c];
+    const val =
+      v !== null && v !== undefined && typeof v === 'object'
+        ? (() => {
+            try {
+              return JSON.stringify(v, null, 2);
+            } catch {
+              return String(v);
+            }
+          })()
+        : formatCellValue(v);
+
+    return [columnLabel(c), val];
+  });
+}

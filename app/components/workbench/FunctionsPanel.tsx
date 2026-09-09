@@ -9,6 +9,13 @@
  * `onRequest{Get,Post,…}` exports, bindings from `wrangler.jsonc`/`.toml`. NOTHING
  * is mocked — an empty `functions/` folder renders an honest empty state.
  * (Replaced the old hardcoded MOCK_ROUTES/MOCK_BINDINGS — AL-004, 2026-09-05.)
+ *
+ * The "New function" flow is a template gallery: pick a starter (blank / contact /
+ * webhook / cron / json-api / proxy) → `scaffoldFunction` generates a REAL handler
+ * → `workbenchStore.createFile` writes it → the derived table surfaces it live. The
+ * route detail previews the real handler source + cross-refs which declared bindings
+ * it uses; the bindings list shows a per-binding route-usage count. Thin view: all
+ * derivation + template logic lives in `functions-panel-logic.ts`.
  */
 import React, { memo, useMemo, useState } from 'react';
 import { useStore } from '@nanostores/react';
@@ -20,7 +27,12 @@ import {
   deriveWrangler,
   hasFunctionsFolder,
   scaffoldFunction,
+  bindingUsageCounts,
+  fileContent,
+  previewLines,
+  FUNCTION_TEMPLATES,
   FUNCTIONS_DIR,
+  type FunctionTemplate,
 } from './functions-panel-logic';
 
 const METHOD_COLORS: Record<string, string> = {
@@ -47,32 +59,47 @@ export const FunctionsPanel = memo(() => {
   const files = useStore(workbenchStore.files);
   const [selectedRoute, setSelectedRoute] = useState<string | null>(null);
 
-  const { routes, bindings, script, compatDate, hasFunctions } = useMemo(() => {
+  const { routes, bindings, script, compatDate, hasFunctions, usage } = useMemo(() => {
     const wr = deriveWrangler(files);
     const resourceNames = new Set(wr.bindings.map((b) => b.name));
+    const derivedRoutes = deriveRoutes(files, resourceNames);
 
     return {
-      routes: deriveRoutes(files, resourceNames),
+      routes: derivedRoutes,
       bindings: wr.bindings,
       script: wr.script,
       compatDate: wr.compatDate,
       hasFunctions: hasFunctionsFolder(files),
+      usage: bindingUsageCounts(
+        derivedRoutes,
+        wr.bindings.map((b) => b.name),
+      ),
     };
   }, [files]);
 
   const active = routes.find((r) => r.path === selectedRoute) ?? null;
 
+  // Live preview of the selected handler's real source (string or {content} tolerated).
+  const activePreview = active ? previewLines(fileContent(files[`${WORK_DIR}/${active.handlerFile}`])) : '';
+
   /*
    * "Create a function" control (item-8 Brian directive): scaffold a real
    * functions/ file via workbenchStore.createFile — the derived route table
-   * picks it up live + it deploys with the site. Not a mock/stub.
+   * picks it up live + it deploys with the site. Not a mock/stub. The user
+   * picks a template from the gallery before creating.
    */
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
+  const [template, setTemplate] = useState<FunctionTemplate>('blank');
   const [createError, setCreateError] = useState('');
 
+  const openCreate = () => {
+    setCreating(true);
+    setCreateError('');
+  };
+
   const submitNewFunction = async () => {
-    const result = scaffoldFunction(newName, files);
+    const result = scaffoldFunction(newName, files, template);
 
     if ('error' in result) {
       setCreateError(result.error);
@@ -88,6 +115,7 @@ export const FunctionsPanel = memo(() => {
 
     setCreating(false);
     setNewName('');
+    setTemplate('blank');
     setCreateError('');
     setSelectedRoute(result.route); // reveal the new route in the panel
   };
@@ -95,8 +123,11 @@ export const FunctionsPanel = memo(() => {
   const cancelNewFunction = () => {
     setCreating(false);
     setNewName('');
+    setTemplate('blank');
     setCreateError('');
   };
+
+  const activeTemplate = FUNCTION_TEMPLATES.find((t) => t.kind === template) ?? FUNCTION_TEMPLATES[0];
 
   return (
     <div className="h-full flex flex-col bg-bolt-elements-background-depth-1">
@@ -119,7 +150,7 @@ export const FunctionsPanel = memo(() => {
           )}
           <button
             type="button"
-            onClick={() => (creating ? cancelNewFunction() : (setCreating(true), setCreateError('')))}
+            onClick={() => (creating ? cancelNewFunction() : openCreate())}
             data-testid="functions-new-btn"
             title="Scaffold a new Pages Function"
             className="text-[10px] font-medium px-2 py-1 rounded border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 text-bolt-elements-item-contentAccent hover:bg-bolt-elements-background-depth-3 transition-colors flex items-center gap-1 cursor-pointer"
@@ -129,9 +160,53 @@ export const FunctionsPanel = memo(() => {
         </div>
       </div>
 
-      {/* Create-a-function inline form (shown in both empty + populated states). */}
+      {/* Create-a-function inline form + template gallery (shown in both empty + populated states). */}
       {creating && (
-        <div className="border-b border-bolt-elements-borderColor/50 px-3 py-2 space-y-1.5">
+        <div className="border-b border-bolt-elements-borderColor/50 px-3 py-2.5 space-y-2" data-testid="functions-create-form">
+          <div className="text-[10px] uppercase tracking-wider text-bolt-elements-textTertiary">Template</div>
+          <div className="grid grid-cols-2 gap-1.5" data-testid="functions-template-gallery">
+            {FUNCTION_TEMPLATES.map((t) => {
+              const selected = template === t.kind;
+              return (
+                <button
+                  key={t.kind}
+                  type="button"
+                  onClick={() => setTemplate(t.kind)}
+                  data-testid={`functions-template-${t.kind}`}
+                  aria-pressed={selected}
+                  title={t.blurb}
+                  className={classNames(
+                    'flex items-center gap-1.5 px-2 py-1.5 rounded border text-left transition-colors cursor-pointer',
+                    selected
+                      ? 'border-bolt-elements-item-contentAccent bg-bolt-elements-background-depth-3'
+                      : 'border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 hover:bg-bolt-elements-background-depth-3',
+                  )}
+                >
+                  <div
+                    className={classNames(
+                      t.icon,
+                      'text-sm shrink-0',
+                      selected ? 'text-bolt-elements-item-contentAccent' : 'text-bolt-elements-textTertiary',
+                    )}
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-[11px] font-medium text-bolt-elements-textPrimary truncate">
+                      {t.label}
+                    </span>
+                    <span
+                      className={classNames(
+                        'block text-[9px] font-mono',
+                        METHOD_COLORS[t.method]?.split(' ')[0] ?? 'text-bolt-elements-textTertiary',
+                      )}
+                    >
+                      {t.method}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-bolt-elements-textTertiary font-mono shrink-0">functions/</span>
             <input
@@ -169,9 +244,10 @@ export const FunctionsPanel = memo(() => {
               {createError}
             </p>
           ) : (
-            <p className="text-[10px] text-bolt-elements-textTertiary">
-              Creates <code className="font-mono">functions/….ts</code> with an{' '}
-              <code className="font-mono">onRequestGet</code> handler — a live route on deploy.
+            <p className="text-[10px] text-bolt-elements-textTertiary" data-testid="functions-template-blurb">
+              {activeTemplate.blurb} Creates <code className="font-mono">functions/….ts</code> with an{' '}
+              <code className="font-mono">onRequest{activeTemplate.method[0] + activeTemplate.method.slice(1).toLowerCase()}</code>{' '}
+              handler — a live route on deploy.
             </p>
           )}
         </div>
@@ -191,10 +267,7 @@ export const FunctionsPanel = memo(() => {
           {!creating && (
             <button
               type="button"
-              onClick={() => {
-                setCreating(true);
-                setCreateError('');
-              }}
+              onClick={openCreate}
               data-testid="functions-new-empty-btn"
               className="mt-2 text-[11px] font-medium px-3 py-1.5 rounded border border-bolt-elements-borderColor bg-bolt-elements-background-depth-2 text-bolt-elements-item-contentAccent hover:bg-bolt-elements-background-depth-3 transition-colors flex items-center gap-1.5 cursor-pointer"
             >
@@ -203,7 +276,7 @@ export const FunctionsPanel = memo(() => {
           )}
         </div>
       ) : (
-        <>
+        <div className="flex-1 overflow-auto modern-scrollbar">
           {/* WFP metadata — derived from wrangler when present */}
           <div className="grid grid-cols-3 gap-px bg-bolt-elements-borderColor/30 text-[10px]">
             {[
@@ -230,6 +303,7 @@ export const FunctionsPanel = memo(() => {
                   key={r.handlerFile}
                   type="button"
                   onClick={() => setSelectedRoute(isActive ? null : r.path)}
+                  data-testid="functions-route-row"
                   className={classNames(
                     'w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-bolt-elements-item-backgroundActive transition-colors text-left',
                     isActive && 'bg-bolt-elements-item-backgroundActive',
@@ -265,12 +339,16 @@ export const FunctionsPanel = memo(() => {
             })}
           </div>
 
-          {/* Route detail — opens the real handler file in the editor */}
+          {/* Route detail — opens the real handler + previews its source + binding cross-ref */}
           {active && (
-            <div className="border-b border-bolt-elements-borderColor/50 px-4 py-2 space-y-1.5 text-xs">
+            <div
+              className="border-b border-bolt-elements-borderColor/50 px-4 py-2 space-y-1.5 text-xs"
+              data-testid="functions-route-detail"
+            >
               <button
                 type="button"
                 onClick={() => workbenchStore.setSelectedFile(`${WORK_DIR}/${active.handlerFile}`)}
+                data-testid="functions-open-handler"
                 className="text-bolt-elements-item-contentAccent hover:underline font-mono text-[11px] flex items-center gap-1"
               >
                 <div className="i-ph:file-code" /> {active.handlerFile}
@@ -280,7 +358,7 @@ export const FunctionsPanel = memo(() => {
                 <span className="font-mono">{active.methods.join(', ')}</span>
               </div>
               {active.usesResources.length > 0 && (
-                <div>
+                <div data-testid="functions-detail-uses">
                   <span className="text-bolt-elements-textTertiary">Uses: </span>
                   {active.usesResources.map((r) => (
                     <span key={r} className="font-mono text-bolt-elements-item-contentAccent">
@@ -289,6 +367,23 @@ export const FunctionsPanel = memo(() => {
                   ))}
                 </div>
               )}
+
+              {/* Code preview — the real handler's leading lines */}
+              <div className="pt-0.5">
+                <div className="text-[10px] uppercase tracking-wider text-bolt-elements-textTertiary mb-1">Preview</div>
+                {activePreview ? (
+                  <pre
+                    data-testid="functions-code-preview"
+                    className="max-h-48 overflow-auto modern-scrollbar rounded bg-bolt-elements-background-depth-2 border border-bolt-elements-borderColor px-2.5 py-2 text-[10px] leading-relaxed font-mono text-bolt-elements-textSecondary whitespace-pre"
+                  >
+                    {activePreview}
+                  </pre>
+                ) : (
+                  <p className="text-[10px] text-bolt-elements-textTertiary" data-testid="functions-code-preview-empty">
+                    Source not loaded — open the handler to view it.
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
@@ -303,26 +398,45 @@ export const FunctionsPanel = memo(() => {
                 the dashboard.
               </div>
             ) : (
-              bindings.map((b) => (
-                <div
-                  key={b.name}
-                  className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-bolt-elements-item-backgroundActive transition-colors"
-                >
+              bindings.map((b) => {
+                const used = usage[b.name] ?? 0;
+                return (
                   <div
-                    className={classNames(TYPE_ICONS[b.type] ?? 'i-ph:plug', 'text-bolt-elements-textTertiary text-sm')}
-                  />
-                  <span className="text-bolt-elements-textPrimary font-mono">{b.name}</span>
-                  <span className="text-bolt-elements-textTertiary text-[10px]">{b.type}</span>
-                  <span className="ml-auto text-bolt-elements-textTertiary font-mono text-[10px] truncate max-w-[40%]">
-                    {b.target}
-                  </span>
-                </div>
-              ))
+                    key={b.name}
+                    data-testid="functions-binding-row"
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-bolt-elements-item-backgroundActive transition-colors"
+                  >
+                    <div
+                      className={classNames(
+                        TYPE_ICONS[b.type] ?? 'i-ph:plug',
+                        'text-bolt-elements-textTertiary text-sm',
+                      )}
+                    />
+                    <span className="text-bolt-elements-textPrimary font-mono">{b.name}</span>
+                    <span className="text-bolt-elements-textTertiary text-[10px]">{b.type}</span>
+                    <span
+                      data-testid="functions-binding-usage"
+                      title={`${used} route${used === 1 ? '' : 's'} use env.${b.name}`}
+                      className={classNames(
+                        'ml-auto text-[9px] px-1 py-px rounded font-mono shrink-0',
+                        used > 0
+                          ? 'text-bolt-elements-item-contentAccent bg-bolt-elements-item-contentAccent/10'
+                          : 'text-bolt-elements-textTertiary bg-bolt-elements-background-depth-2',
+                      )}
+                    >
+                      {used} use{used === 1 ? '' : 's'}
+                    </span>
+                    <span className="text-bolt-elements-textTertiary font-mono text-[10px] truncate max-w-[30%]">
+                      {b.target}
+                    </span>
+                  </div>
+                );
+              })
             )}
           </div>
 
           {/* Readiness — derived from the real project state */}
-          <div className="flex-1 overflow-auto modern-scrollbar p-3 space-y-2 text-xs">
+          <div className="p-3 space-y-2 text-xs">
             <div className="text-[10px] uppercase tracking-wider text-bolt-elements-textTertiary mb-1">Readiness</div>
             <div className="space-y-1">
               {[
@@ -362,7 +476,7 @@ export const FunctionsPanel = memo(() => {
               </div>
             ))}
           </div>
-        </>
+        </div>
       )}
     </div>
   );

@@ -85,19 +85,237 @@ export function deriveRoutes(files: FileMap, resourceNames: Set<string>): RouteE
 /** Result of scaffolding a new Pages Function from a user-typed route name. */
 export type ScaffoldResult = { path: string; route: string; content: string } | { error: string };
 
+/** The starter-handler flavours the "New function" gallery can generate. */
+export type FunctionTemplate = 'blank' | 'contact' | 'webhook' | 'cron' | 'json-api' | 'proxy';
+
+export interface TemplateMeta {
+  kind: FunctionTemplate;
+  label: string;
+  /** HTTP verb the generated handler serves — for the gallery chip. */
+  method: string;
+  /** One-line description of what the template does. */
+  blurb: string;
+  /** Phosphor icon class for the gallery chip. */
+  icon: string;
+}
+
+/**
+ * Ordered gallery of the templates {@link scaffoldFunction} can generate — the
+ * single source of truth for the "New function" template picker chips. Every
+ * entry's `kind` is a valid {@link FunctionTemplate}.
+ *
+ * @example
+ * FUNCTION_TEMPLATES[0].kind; // 'blank'
+ * FUNCTION_TEMPLATES.find((t) => t.kind === 'contact')?.method; // 'POST'
+ */
+export const FUNCTION_TEMPLATES: readonly TemplateMeta[] = [
+  { kind: 'blank', label: 'Blank', method: 'GET', blurb: 'Minimal GET handler returning JSON.', icon: 'i-ph:file-dashed' },
+  { kind: 'contact', label: 'Contact form', method: 'POST', blurb: 'Parse a JSON body, validate, respond.', icon: 'i-ph:envelope' },
+  { kind: 'webhook', label: 'Webhook', method: 'POST', blurb: 'Signed-webhook receiver skeleton.', icon: 'i-ph:webhooks-logo' },
+  { kind: 'cron', label: 'Scheduled', method: 'GET', blurb: 'Cron-trigger handler + wrangler note.', icon: 'i-ph:clock-countdown' },
+  { kind: 'json-api', label: 'JSON API', method: 'GET', blurb: 'Typed JSON resource endpoint.', icon: 'i-ph:brackets-curly' },
+  { kind: 'proxy', label: 'Proxy', method: 'GET', blurb: 'Fetch an upstream and forward it.', icon: 'i-ph:arrows-left-right' },
+] as const;
+
+/**
+ * Render the file body for a given template + route. Pure. CRITICAL: prose
+ * comments here must NEVER contain the literal token `onRequest` — {@link deriveRoutes}
+ * scans the WHOLE file text for `onRequest{Method}`, so a mention in a comment would
+ * fabricate phantom methods (a bare `onRequest<` would flag it as an ALL-verb route).
+ * Each body therefore carries exactly the `onRequest{Verb}` export(s) it means to serve.
+ *
+ * @param template - Which starter flavour to generate.
+ * @param route - The served route path, embedded in the body.
+ * @returns The TypeScript source for the new handler file.
+ * @example
+ * templateBody('contact', '/api/contact').includes('onRequestPost'); // true
+ * templateBody('contact', '/api/contact').includes('onRequest' + 'Get'); // false
+ */
+export function templateBody(template: FunctionTemplate, route: string): string {
+  const r = JSON.stringify(route);
+
+  switch (template) {
+    case 'contact':
+      return `/**
+ * ${route} — Pages Function: accepts a contact-form submission (JSON body) and
+ * echoes a typed result. Wire a D1 insert or an email send where marked.
+ */
+interface ContactBody {
+  name?: string;
+  email?: string;
+  message?: string;
+}
+
+export async function onRequestPost(ctx: { request: Request }) {
+  let body: ContactBody;
+
+  try {
+    body = (await ctx.request.json()) as ContactBody;
+  } catch {
+    return Response.json({ ok: false, error: 'invalid_json' }, { status: 400 });
+  }
+
+  if (!body.email || !body.message) {
+    return Response.json({ ok: false, error: 'email and message are required' }, { status: 422 });
+  }
+
+  // Persist / notify here (e.g. ctx.env.DB.prepare(...), an email send, a queue push).
+  return Response.json({ ok: true, route: ${r}, received: body });
+}
+`;
+
+    case 'webhook':
+      return `/**
+ * ${route} — Pages Function: signed-webhook receiver. Verify the provider
+ * signature against a shared secret BEFORE trusting the payload, then dispatch.
+ */
+export async function onRequestPost(ctx: { request: Request; env: Record<string, string> }) {
+  const signature = ctx.request.headers.get('x-signature') ?? '';
+  const raw = await ctx.request.text();
+
+  const secret = ctx.env.WEBHOOK_SECRET;
+
+  if (!secret) {
+    return Response.json({ ok: false, error: 'webhook secret not configured' }, { status: 500 });
+  }
+
+  const expected = await hmacSha256Hex(secret, raw);
+
+  if (!timingSafeEqual(signature, expected)) {
+    return Response.json({ ok: false, error: 'bad signature' }, { status: 401 });
+  }
+
+  const event = JSON.parse(raw) as { type?: string };
+
+  // Dispatch on event.type here (idempotently — key on the provider event id).
+  return Response.json({ ok: true, route: ${r}, type: event.type ?? null });
+}
+
+async function hmacSha256Hex(secret: string, message: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(message));
+
+  return [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  let diff = 0;
+
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+
+  return diff === 0;
+}
+`;
+
+    case 'cron':
+      return `/**
+ * ${route} — Pages Function invoked on a schedule. Add a cron trigger in
+ * wrangler.jsonc so the platform calls this route (there is no native Pages
+ * cron; a Worker Cron Trigger hitting this URL is the convention):
+ *   "triggers": { "crons": ["0 * * * *"] }
+ * Guard it with a shared secret so only the scheduler can invoke it.
+ */
+export async function onRequestGet(ctx: { request: Request; env: Record<string, string> }) {
+  const token = new URL(ctx.request.url).searchParams.get('token');
+
+  if (ctx.env.CRON_SECRET && token !== ctx.env.CRON_SECRET) {
+    return Response.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  }
+
+  const ranAt = new Date().toISOString();
+
+  // Do the scheduled work here (refresh a cache, send a digest, prune rows…).
+  return Response.json({ ok: true, route: ${r}, ranAt });
+}
+`;
+
+    case 'json-api':
+      return `/**
+ * ${route} — Pages Function: typed JSON resource. Shape the payload with an
+ * interface so callers get a stable contract; swap the sample for real data.
+ */
+interface Payload {
+  route: string;
+  generatedAt: string;
+  items: Array<{ id: string; label: string }>;
+}
+
+export async function onRequestGet(): Promise<Response> {
+  const payload: Payload = {
+    route: ${r},
+    generatedAt: new Date().toISOString(),
+    items: [{ id: '1', label: 'sample' }],
+  };
+
+  return Response.json(payload, { headers: { 'cache-control': 'public, max-age=60' } });
+}
+`;
+
+    case 'proxy':
+      return `/**
+ * ${route} — Pages Function: fetch an upstream resource and forward the body.
+ * Set UPSTREAM_URL as a binding/var, or read it from a query param you trust.
+ */
+export async function onRequestGet(ctx: { request: Request; env: Record<string, string> }) {
+  const upstream = ctx.env.UPSTREAM_URL ?? new URL(ctx.request.url).searchParams.get('url');
+
+  if (!upstream) {
+    return Response.json({ ok: false, route: ${r}, error: 'no upstream configured' }, { status: 400 });
+  }
+
+  const res = await fetch(upstream, { headers: { accept: 'application/json' } });
+  const contentType = res.headers.get('content-type') ?? 'application/json';
+
+  return new Response(res.body, { status: res.status, headers: { 'content-type': contentType } });
+}
+`;
+
+    case 'blank':
+    default:
+      return `/**
+ * ${route} — Cloudflare Pages Function (scaffolded). Each exported handler
+ * becomes a live route on deploy; duplicate it for other HTTP verbs.
+ */
+export async function onRequestGet() {
+  return Response.json({ ok: true, route: ${r} });
+}
+`;
+  }
+}
+
 /**
  * Turn a user-typed route name (e.g. `"contact"`, `"api/booking"`) into a new Pages
- * Function file under `functions/` + a starter `onRequestGet` handler. Pure — the
- * caller writes it via `workbenchStore.createFile(path, content)`, after which
- * {@link deriveRoutes} surfaces it live. Bare names default under `api/` (the
- * convention every existing route follows: `contact` → `functions/api/contact.ts`
+ * Function file under `functions/` + a starter handler chosen from the template
+ * gallery. Pure — the caller writes it via `workbenchStore.createFile(path, content)`,
+ * after which {@link deriveRoutes} surfaces it live. Bare names default under `api/`
+ * (the convention every existing route follows: `contact` → `functions/api/contact.ts`
  * → `/api/contact`). Rejects empty, unsafe, or already-existing names.
  *
  * @param rawName - The user's typed route name.
  * @param existing - The current file map, to reject a collision.
+ * @param template - Which starter flavour to generate (default `'blank'`, so existing
+ *   callers/tests that pass only two args keep the original `onRequestGet` behaviour).
  * @returns `{ path, route, content }` to create, or `{ error }` to show inline.
+ * @example
+ * scaffoldFunction('contact', {}, 'contact'); // → { path, route: '/api/contact', content: '…onRequestPost…' }
  */
-export function scaffoldFunction(rawName: string, existing: FileMap = {}): ScaffoldResult {
+export function scaffoldFunction(
+  rawName: string,
+  existing: FileMap = {},
+  template: FunctionTemplate = 'blank',
+): ScaffoldResult {
   let name = (rawName || '').trim().toLowerCase();
   name = name.replace(/^\/+|\/+$/g, ''); // strip leading/trailing slashes FIRST
   name = name.replace(CODE_EXT, ''); // then a typed extension (now truly at the end)
@@ -120,21 +338,65 @@ export function scaffoldFunction(rawName: string, existing: FileMap = {}): Scaff
 
   const route = fileToRoute(`/${rel}.ts`);
 
-  /*
-   * NOTE: the comment must NOT contain an "onRequest…" token — deriveRoutes scans the
-   * whole file text for onRequest{Method}, so a mention in prose would fabricate phantom
-   * methods (and a bare "onRequest<" would flag it as an ALL-verb route).
-   */
-  const content = `/**
- * ${route} — Cloudflare Pages Function (scaffolded). Each exported handler
- * becomes a live route on deploy; duplicate it for other HTTP verbs.
- */
-export async function onRequestGet() {
-  return Response.json({ ok: true, route: ${JSON.stringify(route)} });
+  return { path, route, content: templateBody(template, route) };
 }
-`;
 
-  return { path, route, content };
+/**
+ * Read the text of a file-map entry, tolerating both the object dirent
+ * (`{ content }`) and a bare string value some callers store. Returns `''` when
+ * absent so the view can show an honest empty preview.
+ *
+ * @param entry - A `FileMap` value (dirent, raw string, or undefined).
+ * @returns The file's text, or `''`.
+ * @example
+ * fileContent({ type: 'file', content: 'x', isBinary: false }); // 'x'
+ * fileContent('raw'); // 'raw'
+ * fileContent(undefined); // ''
+ */
+export function fileContent(entry: FileMap[string] | string | undefined): string {
+  if (typeof entry === 'string') {
+    return entry;
+  }
+
+  if (entry && typeof entry === 'object' && 'content' in entry && typeof entry.content === 'string') {
+    return entry.content;
+  }
+
+  return '';
+}
+
+/**
+ * First `n` lines of a source string — for the route-detail code preview.
+ *
+ * @param source - The full file text.
+ * @param n - Max lines to keep (default 16).
+ * @returns The leading `n` lines joined by `\n`.
+ * @example
+ * previewLines('a\nb\nc', 2); // 'a\nb'
+ */
+export function previewLines(source: string, n = 16): string {
+  return source.split('\n').slice(0, n).join('\n');
+}
+
+/**
+ * Count how many of `routes` reference each declared binding name (`env.NAME`),
+ * for the bindings-list usage badge. Keyed by binding name.
+ *
+ * @param routes - The derived route table.
+ * @param bindingNames - Declared binding names from wrangler.
+ * @returns A record of `name → number of routes using it`.
+ * @example
+ * bindingUsageCounts([{ path: '/a', methods: [], handlerFile: 'functions/a.ts', usesResources: ['DB'] }], ['DB', 'KV']);
+ * // → { DB: 1, KV: 0 }
+ */
+export function bindingUsageCounts(routes: RouteEntry[], bindingNames: string[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+
+  for (const name of bindingNames) {
+    counts[name] = routes.filter((r) => r.usesResources.includes(name)).length;
+  }
+
+  return counts;
 }
 
 /** Strip // and block comments so a wrangler.jsonc parses as JSON (URLs preserved). */
